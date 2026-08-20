@@ -1,31 +1,235 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────
+   TuanisCan · sistema visual
+   Plano y cuadrado: sin bordes, sin sombras, sin degradados en
+   la interfaz. La jerarquía la dan el fondo, el espaciado y el
+   peso tipográfico. El movimiento sí existe, pero es sobrio:
+   entradas cortas, una sola dirección, nada rebotando.
+   ───────────────────────────────────────────────────────────── */
 
-@keyframes fade-in-left {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
+@theme {
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Todo sale del logo: turquesa #14A3B8 sobre azul muy oscuro.
+     Los neutros llevan una pizca de ese azul para que nada se vea
+     sucio al lado del acento. */
+
+  /* Superficies */
+  --color-canvas: #eef2f4;
+  --color-surface: #ffffff;
+  --color-sunken: #e7edf0;
+  /* El azul del logo, no el más oscuro: #0E2733 se leía como negro y
+     apagaba el turquesa. Este tono deja respirar el acento y las fotos. */
+  --color-rail: #1a4257;
+  --color-rail-hover: #245b74;
+  --color-rail-mute: #7ea3b4;
+  --color-rail-text: #c6dae3;
+
+  /* Tinta */
+  --color-ink: #14242e;
+  --color-ink-soft: #526670;
+  --color-ink-mute: #85979f;
+
+  /* Acento: el turquesa del logo. Un solo tono en toda la interfaz. */
+  --color-accent: #14a3b8;
+  --color-accent-dark: #0e8195;
+  --color-accent-deep: #1d4e6c;
+  --color-accent-wash: #ddf0f3;
+
+  /* Realce cálido, para lo que destaca sin ser alarma. */
+  --color-gold: #a86a12;
+  --color-gold-wash: #f8efdc;
+
+  /* Estados */
+  --color-ok: #157f62;
+  --color-ok-wash: #ddefe9;
+  --color-warn: #a86a12;
+  --color-warn-wash: #f8efdc;
+  --color-danger: #a72f2f;
+  --color-danger-wash: #f8e7e7;
+  --color-neutral-wash: #dfe6ea;
 }
 
-@keyframes fade-in-right {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
+@layer base {
+  /* Cuadrado dentro de la aplicación: ningún componente hereda esquinas
+     redondeadas. Va acotado a `.plano` a propósito — el login conserva
+     su diseño original con tarjeta y campos redondeados. */
+  .plano,
+  .plano *,
+  .plano *::before,
+  .plano *::after {
+    border-radius: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  th {
+    font-weight: 600;
+  }
 }
 
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+/* ── Movimiento ──────────────────────────────────────────────── */
+
+@keyframes tsc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+@keyframes tsc-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.animate-fade-in-left { animation: fade-in-left 0.6s ease-out; }
-.animate-fade-in-right { animation: fade-in-right 0.6s ease-out; }
-.animate-fade-in-up { animation: fade-in-up 0.6s ease-out; }
-.animate-scale-in { animation: scale-in 0.6s ease-out; }
-.animation-delay-200 { animation-delay: 200ms; }
-.animation-delay-400 { animation-delay: 400ms; }
-.animation-delay-600 { animation-delay: 600ms; }
-.animation-delay-800 { animation-delay: 800ms; }
+@keyframes tsc-slide-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes tsc-nav-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Splash: la marca se acerca y la plataforma queda detrás. */
+@keyframes tsc-brand-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tsc-brand-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* La cortina del splash se va con la misma duración que el zoom del
+   logo. Antes usaba un fade invertido de 350 ms y el fondo desaparecía
+   antes que la marca, dejándola flotando sobre la aplicación. */
+@keyframes tsc-splash-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes tsc-app-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tsc-bar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@layer utilities {
+  /* Cifras de ancho fijo para dinero, horas y contadores. */
+  .nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .anim-rise {
+    animation: tsc-rise 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .anim-fade {
+    animation: tsc-fade 0.35s ease-out both;
+  }
+  .anim-slide-left {
+    animation: tsc-slide-left 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  .anim-nav-in {
+    animation: tsc-nav-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .anim-brand-in {
+    animation: tsc-brand-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .anim-brand-out {
+    animation: tsc-brand-out 0.62s cubic-bezier(0.7, 0, 0.84, 0) both;
+  }
+  .anim-splash-out {
+    animation: tsc-splash-out 0.62s cubic-bezier(0.7, 0, 0.84, 0) both;
+  }
+  .anim-app-in {
+    animation: tsc-app-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .anim-bar {
+    animation: tsc-bar 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: left;
+  }
+
+  /* Escalonado de listas y rejillas. */
+  .d-1 { animation-delay: 40ms; }
+  .d-2 { animation-delay: 80ms; }
+  .d-3 { animation-delay: 120ms; }
+  .d-4 { animation-delay: 160ms; }
+  .d-5 { animation-delay: 200ms; }
+  .d-6 { animation-delay: 240ms; }
+  .d-7 { animation-delay: 280ms; }
+  .d-8 { animation-delay: 320ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

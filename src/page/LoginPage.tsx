@@ -1,17 +1,46 @@
 import { useState } from "react";
-import { User, Lock, Mail, Eye, EyeOff, Loader, AlertCircle } from "lucide-react";
+import {
+  User,
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
+  Loader,
+  AlertCircle,
+  PawPrint,
+  Footprints,
+} from "lucide-react";
+import { MARCA, type Rol } from "../lib/nav";
+
+/** Rol elegido en el login. El administrador entra por /acceso-interno. */
+type RolPublico = Exclude<Rol, "admin">;
 
 interface LoginPageProps {
-  onLogin: (username: string, password: string) => void;
-  /** Logo PNG transparente. Está en public/logo.png → se referencia como "/logo.png" */
+  /** Recibe el rol elegido: define qué navegación y pantallas se montan. */
+  onLogin: (rol: RolPublico) => void;
+  /** Lockup con contorno blanco. Ver MARCA en src/lib/nav.ts. */
   logoSrc?: string;
-  /** Opcional: se llama al enviar el formulario de registro */
-  onRegister?: (data: {
-    username: string;
-    email: string;
-    password: string;
-  }) => void;
 }
+
+const ROLES: {
+  id: RolPublico;
+  titulo: string;
+  descripcion: string;
+  Icon: typeof PawPrint;
+}[] = [
+  {
+    id: "dueno",
+    titulo: "Dueño",
+    descripcion: "Contrato paseos",
+    Icon: PawPrint,
+  },
+  {
+    id: "paseador",
+    titulo: "Paseador",
+    descripcion: "Realizo los paseos",
+    Icon: Footprints,
+  },
+];
 
 /*
   ─── PALETA ───────────────────────────────────────────────────────────
@@ -63,9 +92,10 @@ const ENTER_MS = 540; // desliz suave de entrada
 
 const LoginPage: React.FC<LoginPageProps> = ({
   onLogin,
-  logoSrc = "/logo.png",
-  onRegister,
+  logoSrc = MARCA.logoLogin,
 }) => {
+  // Rol elegido. Se comparte entre iniciar sesión y registrarse.
+  const [rol, setRol] = useState<RolPublico>("dueno");
   const [mode, setMode] = useState<Mode>("signin");
   // Controla SOLO hacia dónde barre la media luna. Cambia en el instante
   // del click, independiente de `mode` (que cambia recién en "snap").
@@ -120,27 +150,11 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setShowError(false);
     setIsLoading(true);
 
-    try {
-      // Simulate loading
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Simulate credential validation locally
-      if (username !== "admin" || password !== "1234") {
-        setError("Usuario o contraseña incorrectos");
-        setShowError(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // If credentials are correct, call onLogin
-      onLogin(username, password);
-      setIsLoading(false);
-    } catch (err: any) {
-      console.error("Error durante el login:", err);
-      setError("Error inesperado. Intenta más tarde.");
-      setShowError(true);
-      setIsLoading(false);
-    }
+    // Maqueta sin backend: cualquier credencial entra. Lo que importa es
+    // el rol elegido, que es lo que decide qué aplicación se monta.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsLoading(false);
+    onLogin(rol);
   };
 
   const handleRegister = (e: React.FormEvent) => {
@@ -154,11 +168,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
     setError(null);
     setShowError(false);
-    onRegister?.({
-      username: regUsername,
-      email: regEmail,
-      password: regPassword,
-    });
+    onLogin(rol);
   };
 
   const handleSocialLogin = (provider: string) => {
@@ -224,6 +234,53 @@ const LoginPage: React.FC<LoginPageProps> = ({
     "pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#14A3B8]";
   const primaryBtn =
     "flex min-w-[190px] items-center justify-center gap-2 rounded-full bg-[#14A3B8] px-10 py-4 text-xs font-semibold tracking-[0.12em] text-white shadow-[0_10px_25px_rgba(20,163,184,0.4)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0E8DA1] hover:shadow-[0_14px_30px_rgba(14,141,161,0.5)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60";
+
+  /* Selector de rol. Mismo lenguaje redondeado del resto de la tarjeta:
+     píldora doble, el activo en turquesa. Se muestra en los dos modos
+     porque tanto al entrar como al registrarse hay que decir de qué lado
+     de la plataforma se está. */
+  const roleSelector = (
+    <fieldset className="mb-5">
+      <legend className="mb-2 w-full text-center text-xs tracking-wide text-slate-500">
+        Ingresar como
+      </legend>
+      <div className="flex gap-3">
+        {ROLES.map((r) => {
+          const active = rol === r.id;
+          return (
+            <label
+              key={r.id}
+              className={`flex flex-1 cursor-pointer items-center gap-2.5 rounded-full px-4 py-3 transition-all duration-300 ${
+                active
+                  ? "bg-[#14A3B8] text-white shadow-[0_8px_20px_rgba(20,163,184,0.35)]"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200/70"
+              }`}
+            >
+              <input
+                type="radio"
+                name="rol"
+                value={r.id}
+                checked={active}
+                onChange={() => setRol(r.id)}
+                className="sr-only"
+              />
+              <r.Icon size={17} className="flex-shrink-0" />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold">{r.titulo}</span>
+                <span
+                  className={`block truncate text-[10.5px] ${
+                    active ? "text-white/75" : "text-slate-400"
+                  }`}
+                >
+                  {r.descripcion}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
 
   const socialButtons = (
     <div className="mt-4 flex justify-center gap-4">
@@ -353,12 +410,11 @@ const LoginPage: React.FC<LoginPageProps> = ({
               }`}
               style={brandStyle}
             >
-              {/* ▼▼▼ LOGO — public/logo.png ▼▼▼
-                  Ya no necesita tarjeta blanca: sobre el azul oscuro el
-                  turquesa del logo resalta solo. */}
+              {/* ▼▼▼ LOGO ▼▼▼ Lockup con contorno blanco: el borde lo despega
+                  del azul oscuro del panel. */}
               <img
                 src={logoSrc}
-                alt="PetFinder CR"
+                alt={MARCA.completo}
                 className="mb-1 h-32 w-auto object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.45)] md:h-40"
               />
               {/* ▲▲▲ FIN DEL LOGO ▲▲▲ */}
@@ -368,7 +424,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
               </h2>
               <p className="max-w-[17rem] text-sm leading-relaxed text-white/75">
                 {isSignUp
-                  ? "Inicia sesión para seguir cuidando a tu mascota con PetFinder CR."
+                  ? `Inicia sesión para seguir cuidando a tu mascota con ${MARCA.completo}.`
                   : "Únete a la comunidad y encuentra paseadores de confianza, veterinarias cercanas y mascotas perdidas cerca de ti."}
               </p>
               <button
@@ -402,6 +458,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
               {isSignUp ? (
                 /* ─── Formulario de registro ─── */
                 <form onSubmit={handleRegister} className="space-y-4">
+                  {roleSelector}
                   <div className="relative">
                     <User className={iconBase} size={18} />
                     <input
@@ -466,6 +523,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
               ) : (
                 /* ─── Formulario de login ─── */
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {roleSelector}
                   <div className="relative">
                     <User className={iconBase} size={18} />
                     <input

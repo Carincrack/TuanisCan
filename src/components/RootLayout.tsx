@@ -1,45 +1,78 @@
-import { Outlet } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useState } from "react";
 import LoginPage from "../page/LoginPage";
-import NavBar from "./NavBar";
+import AdminLoginPage from "../page/AdminLoginPage";
+import AppShell from "./AppShell";
+import Splash from "./Splash";
+import { RUTA_ADMIN, inicioDeRol, type Rol } from "../lib/nav";
+
+const CLAVE_ROL = "tuaniscan:rol";
+
+const esRol = (v: string | null): v is Rol =>
+  v === "dueno" || v === "paseador" || v === "admin";
+
+/* Tres puertas de entrada sobre el mismo shell:
+
+     /acceso-interno*  → login de administración (admin / 1234)
+     el resto          → login público, donde se elige dueño o paseador
+
+   La sesión es solo el rol guardado. No hay autenticación real todavía:
+   el backend llega después de la defensa. */
 
 const RootLayout = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [rol, setRol] = useState<Rol | null>(null);
+  const [cargado, setCargado] = useState(false);
+  const [splash, setSplash] = useState(false);
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
 
-  // Leer login de localStorage al iniciar
+  const zonaAdmin = pathname.startsWith(RUTA_ADMIN);
+
   useEffect(() => {
-    const logged = localStorage.getItem("loggedIn");
-    if (logged === "true") {
-      setIsLoggedIn(true);
-    }
+    const guardado = localStorage.getItem(CLAVE_ROL);
+    if (esRol(guardado)) setRol(guardado);
+    setCargado(true);
   }, []);
 
-  // Manejo de login
-  const handleLogin = (username: string, password: string) => {
-    if (username === "admin" && password === "1234") {
-      setIsLoggedIn(true);
-      localStorage.setItem("loggedIn", "true");
-    } else {
-      alert("Usuario o contraseña incorrectos ");
-    }
+  const entrar = (elegido: Rol) => {
+    localStorage.setItem(CLAVE_ROL, elegido);
+    setRol(elegido);
+    setSplash(true);
+    navigate({ to: inicioDeRol[elegido] });
   };
 
-  // Manejo de logout
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    localStorage.removeItem("loggedIn");
+  const salir = () => {
+    localStorage.removeItem(CLAVE_ROL);
+    setRol(null);
+    navigate({ to: zonaAdmin ? RUTA_ADMIN : "/" });
   };
 
-  // Si no está logueado → mostrar LoginPage
-  if (!isLoggedIn) {
-    return <LoginPage onLogin={handleLogin} />;
+  const cerrarSplash = useCallback(() => setSplash(false), []);
+
+  // Evita el parpadeo del login mientras se lee localStorage.
+  if (!cargado) return <div className="min-h-dvh bg-rail" />;
+
+  if (zonaAdmin && rol !== "admin") {
+    return <AdminLoginPage onLogin={() => entrar("admin")} />;
   }
 
-  // Si está logueado → NavBar contiene el Outlet como children
+  if (!zonaAdmin && (rol === null || rol === "admin")) {
+    return <LoginPage onLogin={entrar} />;
+  }
+
+  /* La `key` cambia cuando el splash termina: eso remonta el shell y sus
+     animaciones de entrada se reproducen ahí, no detrás de la cortina.
+     Sin esto la barra lateral aparecía ya asentada — sus ítems habían
+     animado mientras el splash los tapaba. */
   return (
-    <NavBar onLogout={handleLogout}>
-      <Outlet />
-    </NavBar>
+    <>
+      {splash && <Splash onFin={cerrarSplash} />}
+      <div key={splash ? "cargando" : "listo"} className="anim-app-in">
+        <AppShell rol={rol as Rol} onLogout={salir}>
+          <Outlet />
+        </AppShell>
+      </div>
+    </>
   );
 };
 
