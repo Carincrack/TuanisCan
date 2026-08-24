@@ -11,13 +11,12 @@ import {
   Footprints,
 } from "lucide-react";
 import { MARCA, type Rol } from "../lib/nav";
+import { useAuth } from "../hooks/useAuth";
 
 /** Rol elegido en el login. El administrador entra por /acceso-interno. */
 type RolPublico = Exclude<Rol, "admin">;
 
 interface LoginPageProps {
-  /** Recibe el rol elegido: define qué navegación y pantallas se montan. */
-  onLogin: (rol: RolPublico) => void;
   /** Lockup con contorno blanco. Ver MARCA en src/lib/nav.ts. */
   logoSrc?: string;
 }
@@ -91,9 +90,9 @@ const REVEAL_AT = 790; // la luna ya casi llegó → entra el contenido
 const ENTER_MS = 540; // desliz suave de entrada
 
 const LoginPage: React.FC<LoginPageProps> = ({
-  onLogin,
   logoSrc = MARCA.logoLogin,
 }) => {
+  const { login } = useAuth();
   // Rol elegido. Se comparte entre iniciar sesión y registrarse.
   const [rol, setRol] = useState<RolPublico>("dueno");
   const [mode, setMode] = useState<Mode>("signin");
@@ -150,11 +149,14 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setShowError(false);
     setIsLoading(true);
 
-    // Maqueta sin backend: cualquier credencial entra. Lo que importa es
-    // el rol elegido, que es lo que decide qué aplicación se monta.
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    onLogin(rol);
+    try {
+      await login(username.trim(), password);
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "No se pudo iniciar sesión");
+      setShowError(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRegister = (e: React.FormEvent) => {
@@ -168,7 +170,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
     setError(null);
     setShowError(false);
-    onLogin(rol);
   };
 
   const handleSocialLogin = (provider: string) => {
