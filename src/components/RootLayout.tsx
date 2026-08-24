@@ -1,78 +1,84 @@
 import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import LoginPage from "../page/LoginPage";
-import AdminLoginPage from "../page/AdminLoginPage";
 import AppShell from "./AppShell";
 import Splash from "./Splash";
-import { RUTA_ADMIN, inicioDeRol, type Rol } from "../lib/nav";
+import { navPorRol, RUTA_ADMIN, inicioDeRol, type Rol } from "../lib/nav";
+import { useAuth } from "../hooks/useAuth";
+import AuthGuard from "../guards/AuthGuard";
+import RoleGuard from "../guards/RoleGuard";
 
-const CLAVE_ROL = "tuaniscan:rol";
-
-const esRol = (v: string | null): v is Rol =>
-  v === "dueno" || v === "paseador" || v === "admin";
-
-/* Tres puertas de entrada sobre el mismo shell:
-
-     /acceso-interno*  → login de administración (admin / 1234)
-     el resto          → login público, donde se elige dueño o paseador
-
-   La sesión es solo el rol guardado. No hay autenticación real todavía:
-   el backend llega después de la defensa. */
+/* Un único login monta el shell correspondiente al rol recibido desde
+  Supabase Auth. */
 
 const RootLayout = () => {
-  const [rol, setRol] = useState<Rol | null>(null);
-  const [cargado, setCargado] = useState(false);
   const [splash, setSplash] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { role, logout } = useAuth();
 
   const zonaAdmin = pathname.startsWith(RUTA_ADMIN);
+  const esRutaAuth = [
+    "/registro",
+    "/recuperar-contrasena",
+    "/actualizar-contrasena",
+  ].includes(pathname);
+  const rol = role as Rol;
+  const rolesDeRuta = (Object.keys(navPorRol) as Rol[]).filter((rolDeRuta) =>
+    navPorRol[rolDeRuta].some((grupo) =>
+      grupo.items.some((item) => item.to === pathname)
+    )
+  );
+  const rolesPermitidos: Rol[] = rolesDeRuta.length
+    ? rolesDeRuta
+    : zonaAdmin
+    ? ["admin"]
+    : ["dueno", "paseador", "negocio"];
 
   useEffect(() => {
-    const guardado = localStorage.getItem(CLAVE_ROL);
-    if (esRol(guardado)) setRol(guardado);
-    setCargado(true);
-  }, []);
+    const rolesActuales = (Object.keys(navPorRol) as Rol[]).filter((rolDeRuta) =>
+      navPorRol[rolDeRuta].some((grupo) =>
+        grupo.items.some((item) => item.to === pathname)
+      )
+    );
+    const rutaPermitida = rolesActuales.length
+      ? rolesActuales
+      : zonaAdmin
+      ? ["admin"]
+      : ["dueno", "paseador", "negocio"];
 
-  const entrar = (elegido: Rol) => {
-    localStorage.setItem(CLAVE_ROL, elegido);
-    setRol(elegido);
-    setSplash(true);
-    navigate({ to: inicioDeRol[elegido] });
-  };
+    if (role && !rutaPermitida.includes(role)) {
+      setSplash(true);
+      navigate({ to: inicioDeRol[role] });
+    }
+  }, [navigate, pathname, role, zonaAdmin]);
 
-  const salir = () => {
-    localStorage.removeItem(CLAVE_ROL);
-    setRol(null);
+  const salir = async () => {
+    await logout();
     navigate({ to: zonaAdmin ? RUTA_ADMIN : "/" });
   };
 
   const cerrarSplash = useCallback(() => setSplash(false), []);
 
-  // Evita el parpadeo del login mientras se lee localStorage.
-  if (!cargado) return <div className="min-h-dvh bg-rail" />;
-
-  if (zonaAdmin && rol !== "admin") {
-    return <AdminLoginPage onLogin={() => entrar("admin")} />;
-  }
-
-  if (!zonaAdmin && (rol === null || rol === "admin")) {
-    return <LoginPage onLogin={entrar} />;
-  }
+  if (esRutaAuth) return <Outlet />;
 
   /* La `key` cambia cuando el splash termina: eso remonta el shell y sus
      animaciones de entrada se reproducen ahí, no detrás de la cortina.
      Sin esto la barra lateral aparecía ya asentada — sus ítems habían
      animado mientras el splash los tapaba. */
   return (
-    <>
-      {splash && <Splash onFin={cerrarSplash} />}
-      <div key={splash ? "cargando" : "listo"} className="anim-app-in">
-        <AppShell rol={rol as Rol} onLogout={salir}>
-          <Outlet />
-        </AppShell>
-      </div>
-    </>
+    <AuthGuard
+      fallback={<LoginPage />}
+    >
+      <RoleGuard roles={rolesPermitidos} fallback={<LoginPage />}>
+        {splash && <Splash onFin={cerrarSplash} />}
+        <div key={splash ? "cargando" : "listo"} className="anim-app-in">
+          <AppShell rol={rol} onLogout={salir}>
+            <Outlet />
+          </AppShell>
+        </div>
+      </RoleGuard>
+    </AuthGuard>
   );
 };
 
