@@ -91,6 +91,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
         { to: "/pagos", label: "Pagos", Icon: CreditCard },
         { to: "/resenas", label: "Reseñas", Icon: Star },
         { to: "/perfil", label: "Mis datos", Icon: UserCircle },
+          
       ],
     },
     {
@@ -141,7 +142,6 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
         { to: RUTA_ADMIN, label: "Panel general", Icon: BarChart3 },
         { to: `${RUTA_ADMIN}/finanzas`, label: "Finanzas", Icon: Wallet },
         { to: "/perfil", label: "Mis datos", Icon: UserCircle },
-        { to: "/actualizar-contrasena", label: "Cambio de contraseña", Icon: UserCircle },
       ],
     },
     {
@@ -170,11 +170,11 @@ export const perfilPorRol: Record<Rol, { nombre: string; detalle: string }> = {
 
 /** Título de la barra superior. Cae al primer ítem del rol si no hay match. */
 export const tituloDeRuta = (rol: Rol, pathname: string) => {
-  for (const grupo of navPorRol[rol]) {
-    const item = grupo.items.find((i) => i.to === pathname);
-    if (item) return item.label;
-  }
-  return navPorRol[rol][0].items[0].label;
+  const item = navPorRol[rol]
+    .flatMap((grupo) => grupo.items)
+    .find((navItem) => navItem.to === pathname);
+
+  return item?.label ?? "TuanisCan";
 };
 
 /** Ruta de arranque de cada rol. */

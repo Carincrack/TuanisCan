@@ -7,9 +7,6 @@ import { navPorRol, RUTA_ADMIN, inicioDeRol, type Rol } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
 import AuthGuard from "../guards/AuthGuard";
 import RoleGuard from "../guards/RoleGuard";
-import RegisterPage from "../page/RegisterPage";
-import ForgotPasswordPage from "../page/ForgotPasswordPage";
-import UpdatePasswordPage from "../page/UpdatePasswordPage";
 
 /* Un único login monta el shell correspondiente al rol recibido desde
   Supabase Auth. */
@@ -21,6 +18,11 @@ const RootLayout = () => {
   const { role, logout } = useAuth();
 
   const zonaAdmin = pathname.startsWith(RUTA_ADMIN);
+  const esRutaAuth = [
+    "/registro",
+    "/recuperar-contrasena",
+    "/actualizar-contrasena",
+  ].includes(pathname);
   const rol = role as Rol;
   const rolesDeRuta = (Object.keys(navPorRol) as Rol[]).filter((rolDeRuta) =>
     navPorRol[rolDeRuta].some((grupo) =>
@@ -58,9 +60,7 @@ const RootLayout = () => {
 
   const cerrarSplash = useCallback(() => setSplash(false), []);
 
-  if (pathname === "/registro") return <RegisterPage />;
-  if (pathname === "/recuperar-contrasena") return <ForgotPasswordPage />;
-  if (pathname === "/actualizar-contrasena") return <UpdatePasswordPage />;
+  if (esRutaAuth) return <Outlet />;
 
   /* La `key` cambia cuando el splash termina: eso remonta el shell y sus
      animaciones de entrada se reproducen ahí, no detrás de la cortina.

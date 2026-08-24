@@ -4,6 +4,7 @@ import { Check, Lock, Save } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import type { UserProfile } from "../types/auth.types";
 import { Page, PageHeader, Section, btnPrimary, input } from "../components/ui";
+import ProfileAvatar from "../components/ProfileAvatar";
 
 const ProfilePage = () => {
   const { user, role, getProfile, updateProfile } = useAuth();
@@ -65,6 +66,15 @@ const ProfilePage = () => {
         subtitle={`Información de tu cuenta ${role ?? ""}.`}
         action={<button type="button" onClick={() => navigate({ to: "/actualizar-contrasena" })} className={btnPrimary}><Lock size={15} /> Cambiar contraseña</button>}
       />
+      {profile && (
+        <Section bodyClass="flex items-center gap-4 px-6 py-5">
+          <ProfileAvatar profile={{ ...profile, nombre }} size="h-16 w-16" />
+          <div>
+            <p className="text-[16px] font-semibold text-ink">{nombre}</p>
+            <p className="mt-1 text-[13px] text-ink-soft">{profile.tipo_usuario}</p>
+          </div>
+        </Section>
+      )}
       <Section title="Datos personales" bodyClass="px-6 pb-6">
         <form onSubmit={save} className="grid gap-5 sm:grid-cols-2">
           <div>
