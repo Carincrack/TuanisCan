@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   User,
   Lock,
@@ -9,16 +10,17 @@ import {
   AlertCircle,
   PawPrint,
   Footprints,
+  Store,
 } from "lucide-react";
-import { MARCA, type Rol } from "../lib/nav";
+import { MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
+import type { RolPublico } from "../types/auth.types";
 
 /** Rol elegido en el login. El administrador entra por /acceso-interno. */
-type RolPublico = Exclude<Rol, "admin">;
-
 interface LoginPageProps {
   /** Lockup con contorno blanco. Ver MARCA en src/lib/nav.ts. */
   logoSrc?: string;
+  initialMode?: Mode;
 }
 
 const ROLES: {
@@ -38,6 +40,12 @@ const ROLES: {
     titulo: "Paseador",
     descripcion: "Realizo los paseos",
     Icon: Footprints,
+  },
+  {
+    id: "negocio",
+    titulo: "Negocio",
+    descripcion: "Ofrezco servicios",
+    Icon: Store,
   },
 ];
 
@@ -91,14 +99,16 @@ const ENTER_MS = 540; // desliz suave de entrada
 
 const LoginPage: React.FC<LoginPageProps> = ({
   logoSrc = MARCA.logoLogin,
+  initialMode = "signin",
 }) => {
-  const { login } = useAuth();
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
   // Rol elegido. Se comparte entre iniciar sesión y registrarse.
   const [rol, setRol] = useState<RolPublico>("dueno");
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   // Controla SOLO hacia dónde barre la media luna. Cambia en el instante
   // del click, independiente de `mode` (que cambia recién en "snap").
-  const [sweepMode, setSweepMode] = useState<Mode>("signin");
+  const [sweepMode, setSweepMode] = useState<Mode>(initialMode);
   const [phase, setPhase] = useState<Phase>("idle");
   const isSignUp = mode === "signup";
   const isSweepSignUp = sweepMode === "signup";
@@ -116,6 +126,10 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regUsername, setRegUsername] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [regPasswordConfirmation, setRegPasswordConfirmation] = useState("");
+  const [regTelefono, setRegTelefono] = useState("");
+  const [regNombreNegocio, setRegNombreNegocio] = useState("");
+  const [regTipoNegocio, setRegTipoNegocio] = useState<"veterinaria" | "tienda" | "refugio">("veterinaria");
   const [showRegPassword, setShowRegPassword] = useState(false);
 
   const toggleMode = () => {
@@ -159,17 +173,59 @@ const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!regUsername || !regEmail || !regPassword) {
+    if (!regUsername || !regEmail || !regPassword || !regPasswordConfirmation || !regTelefono) {
       setError("Por favor, complete todos los campos");
+      setShowError(true);
+      return;
+    }
+
+    if (rol === "negocio" && (!regNombreNegocio || !regTipoNegocio)) {
+      setError("Completa los datos del negocio");
+      setShowError(true);
+      return;
+    }
+
+    if (regPassword !== regPasswordConfirmation) {
+      setError("Las contraseñas no coinciden");
       setShowError(true);
       return;
     }
 
     setError(null);
     setShowError(false);
+    setIsLoading(true);
+
+    try {
+      const sessionCreated = await register(
+        regEmail.trim(),
+        regPassword,
+        {
+          nombre: regUsername.trim(),
+          telefono: regTelefono.trim(),
+          tipo_usuario: rol,
+          nombre_negocio: regNombreNegocio.trim() || undefined,
+          tipo_negocio: rol === "negocio" ? regTipoNegocio : undefined,
+        }
+      );
+      setError(
+        sessionCreated
+          ? "Cuenta creada correctamente"
+          : "Cuenta creada. Revisa tu correo para confirmar la cuenta."
+      );
+      setShowError(true);
+    } catch (registerError) {
+      setError(
+        registerError instanceof Error
+          ? registerError.message
+          : "No se pudo crear la cuenta"
+      );
+      setShowError(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSocialLogin = (provider: string) => {
@@ -485,6 +541,44 @@ const LoginPage: React.FC<LoginPageProps> = ({
                   </div>
 
                   <div className="relative">
+                    <User className={iconBase} size={18} />
+                    <input
+                      type="tel"
+                      placeholder="Teléfono"
+                      value={regTelefono}
+                      onChange={(e) => setRegTelefono(e.target.value)}
+                      className={inputBase}
+                      required
+                    />
+                  </div>
+
+                  {rol === "negocio" && (
+                    <>
+                      <div className="relative">
+                        <Store className={iconBase} size={18} />
+                        <input
+                          type="text"
+                          placeholder="Nombre del negocio"
+                          value={regNombreNegocio}
+                          onChange={(e) => setRegNombreNegocio(e.target.value)}
+                          className={inputBase}
+                          required
+                        />
+                      </div>
+                      <select
+                        value={regTipoNegocio}
+                        onChange={(e) => setRegTipoNegocio(e.target.value as typeof regTipoNegocio)}
+                        className={inputBase}
+                        aria-label="Tipo de negocio"
+                      >
+                        <option value="veterinaria">Veterinaria</option>
+                        <option value="tienda">Tienda</option>
+                        <option value="refugio">Refugio</option>
+                      </select>
+                    </>
+                  )}
+
+                  <div className="relative">
                     <Lock className={iconBase} size={18} />
                     <input
                       type={showRegPassword ? "text" : "password"}
@@ -508,6 +602,18 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     </button>
                   </div>
 
+                  <div className="relative">
+                    <Lock className={iconBase} size={18} />
+                    <input
+                      type={showRegPassword ? "text" : "password"}
+                      placeholder="Confirmar contraseña"
+                      value={regPasswordConfirmation}
+                      onChange={(e) => setRegPasswordConfirmation(e.target.value)}
+                      className={inputBase}
+                      required
+                    />
+                  </div>
+
                   {error && showError && (
                     <div className="flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
                       <AlertCircle size={16} className="flex-shrink-0" />
@@ -516,8 +622,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
                   )}
 
                   <div className="flex justify-center pt-2">
-                    <button type="submit" className={primaryBtn}>
-                      REGISTRARSE
+                    <button type="submit" disabled={isLoading} className={primaryBtn}>
+                      {isLoading ? "CREANDO..." : "REGISTRARSE"}
                     </button>
                   </div>
                 </form>
@@ -564,7 +670,10 @@ const LoginPage: React.FC<LoginPageProps> = ({
                   <div className="pr-2 text-right">
                     <a
                       href="#"
-                      onClick={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate({ to: "/recuperar-contrasena" });
+                      }}
                       className="text-xs text-slate-500 transition-colors hover:text-[#14A3B8]"
                     >
                       ¿Olvidaste tu contraseña?

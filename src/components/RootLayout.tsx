@@ -7,6 +7,9 @@ import { navPorRol, RUTA_ADMIN, inicioDeRol, type Rol } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
 import AuthGuard from "../guards/AuthGuard";
 import RoleGuard from "../guards/RoleGuard";
+import RegisterPage from "../page/RegisterPage";
+import ForgotPasswordPage from "../page/ForgotPasswordPage";
+import UpdatePasswordPage from "../page/UpdatePasswordPage";
 
 /* Un único login monta el shell correspondiente al rol recibido desde
   Supabase Auth. */
@@ -28,7 +31,7 @@ const RootLayout = () => {
     ? rolesDeRuta
     : zonaAdmin
     ? ["admin"]
-    : ["dueno", "paseador"];
+    : ["dueno", "paseador", "negocio"];
 
   useEffect(() => {
     const rolesActuales = (Object.keys(navPorRol) as Rol[]).filter((rolDeRuta) =>
@@ -40,7 +43,7 @@ const RootLayout = () => {
       ? rolesActuales
       : zonaAdmin
       ? ["admin"]
-      : ["dueno", "paseador"];
+      : ["dueno", "paseador", "negocio"];
 
     if (role && !rutaPermitida.includes(role)) {
       setSplash(true);
@@ -54,6 +57,10 @@ const RootLayout = () => {
   };
 
   const cerrarSplash = useCallback(() => setSplash(false), []);
+
+  if (pathname === "/registro") return <RegisterPage />;
+  if (pathname === "/recuperar-contrasena") return <ForgotPasswordPage />;
+  if (pathname === "/actualizar-contrasena") return <UpdatePasswordPage />;
 
   /* La `key` cambia cuando el splash termina: eso remonta el shell y sus
      animaciones de entrada se reproducen ahí, no detrás de la cortina.
