@@ -8,6 +8,9 @@ Solo se documenta lo que existe actualmente en el repositorio.
 
 - `supabase/migrations/20260823212916_create_zonas_table.sql`
 - `supabase/migrations/20260823215237_create_usuarios_table.sql`
+- `supabase/migrations/20260824034121_create_user_registration_trigger.sql`
+- `supabase/migrations/20260824035015_add_rls_to_usuarios.sql`
+- `supabase/migrations/20260824035102_add_rls_to_usuarios.sql`
 - `supabase/config.toml`
 - `supabase/.gitignore`
 - `supabase/.temp/`
@@ -298,21 +301,133 @@ Supabase remoto
 
 Los cambios de estructura deben quedar versionados como migraciones SQL dentro de `supabase/migrations/`. Despues de versionarlos con Git, `npx supabase db push` aplica esas migraciones pendientes al proyecto remoto de Supabase.
 
-## 10. Estado actual de la implementacion
+## 10. Cambios recientes en registro y seguridad de usuarios
 
-Verificado en el repositorio:
+Las migraciones recientes agregan el registro automatico de perfiles en `public.usuarios`, RLS sobre la tabla y protecciones adicionales para campos sensibles.
 
-- Configuracion local de Supabase inicializada en `supabase/config.toml`.
-- Carpeta `supabase/.temp/` presente con archivos generados por la CLI, incluido `linked-project.json`.
-- Migracion `20260823212916_create_zonas_table.sql` para crear `public.zonas`.
-- Activacion de PostGIS en la migracion de `zonas`.
-- Campo geoespacial `poligono_cobertura` con tipo `extensions.geometry(Polygon, 4326)`.
-- Migracion `20260823215237_create_usuarios_table.sql` para crear `public.usuarios`.
-- Enum `public.tipo_usuario` con valores `dueno`, `paseador`, `negocio` y `admin`.
-- Relacion `public.usuarios.id_usuario` hacia `auth.users(id)` con `on delete cascade`.
-- Relacion `public.usuarios.zona_id` hacia `public.zonas(id_zona)` con `on delete set null`.
-- Script `scripts/configure-admin.mjs` para configurar `app_metadata.app_role = admin` en Supabase Auth.
-- Variables requeridas documentadas en `.env.example`.
-- `.env` ignorado en `.gitignore`.
+### Registro automatico de usuarios
 
-No se encontro implementacion de RLS, politicas, login frontend conectado a Supabase, CRUD frontend conectado a Supabase, triggers, registro automatico de perfiles ni permisos administrativos adicionales en las migraciones o archivos revisados.
+Implementado en:
+
+```text
+supabase/migrations/20260824034121_create_user_registration_trigger.sql
+```
+
+Flujo implementado:
+
+```text
+signUp()
+    |
+    v
+auth.users
+    |
+    v
+trigger on_auth_user_created
+    |
+    v
+public.handle_new_user()
+    |
+    v
+public.usuarios
+```
+
+La funcion `public.handle_new_user()` se ejecuta con `security definer` despues de un `insert` en `auth.users`. Lee estos campos reales desde `new.raw_user_meta_data`:
+
+| Metadata | Uso en `public.usuarios` | Regla real |
+| --- | --- | --- |
+| `nombre` | `nombre` | Obligatorio; se aplica `trim()`. |
+| `telefono` | `telefono` | Opcional; cadena vacia se guarda como `null`. |
+| `tipo_usuario` | `tipo_usuario` | Obligatorio; solo permite `dueno`, `paseador` o `negocio`. |
+| `foto_perfil` | `foto_perfil` | Opcional; cadena vacia se guarda como `null`. |
+| `zona_id` | `zona_id` | Opcional; si viene informado se convierte a `uuid`. |
+
+La insercion reutiliza `new.id`, el UUID generado por Supabase Auth, como `public.usuarios.id_usuario`. La contrasena permanece exclusivamente en Supabase Auth y no se guarda en `public.usuarios`.
+
+El registro publico no puede crear usuarios `admin`: `handle_new_user()` rechaza cualquier `tipo_usuario` distinto de `dueno`, `paseador` o `negocio`.
+
+### RLS de `public.usuarios`
+
+Implementado en:
+
+```text
+supabase/migrations/20260824035015_add_rls_to_usuarios.sql
+```
+
+La migracion habilita Row Level Security:
+
+```sql
+alter table public.usuarios
+enable row level security;
+```
+
+Policies reales encontradas:
+
+| Policy | Operacion | Quien | Alcance |
+| --- | --- | --- | --- |
+| `usuarios_select_own` | `select` | `authenticated` | Permite leer solo la fila donde `(select auth.uid()) = id_usuario`. |
+| `admin_select_all_usuarios` | `select` | `authenticated` con rol interno `admin` | Permite leer todas las filas cuando `(select auth.jwt()) -> 'app_metadata' ->> 'app_role' = 'admin'`. |
+| `usuarios_update_own` | `update` | `authenticated` | Permite actualizar solo la fila propia y exige que la fila resultante siga teniendo `id_usuario = auth.uid()`. |
+| `admin_update_all_usuarios` | `update` | `authenticated` con rol interno `admin` | Permite actualizar cualquier fila cuando `app_metadata.app_role = 'admin'`; el `with check` exige la misma condicion. |
+
+No se encontraron policies de `insert` ni `delete` para `public.usuarios`.
+
+### Permisos actuales por tipo de usuario
+
+Un usuario autenticado normal puede:
+
+- Consultar su propio perfil.
+- Actualizar su propia fila.
+
+Un usuario autenticado normal no puede consultar perfiles ajenos ni actualizar filas ajenas por las policies actuales.
+
+Un administrador se detecta desde el JWT con:
+
+```sql
+(select auth.jwt()) -> 'app_metadata' ->> 'app_role' = 'admin'
+```
+
+La autorizacion administrativa usa `app_metadata`, configurado desde un proceso interno, no metadata editable por el usuario.
+
+### Proteccion de campos sensibles
+
+Implementado en:
+
+```text
+supabase/migrations/20260824035015_add_rls_to_usuarios.sql
+```
+
+La funcion `public.protect_usuario_system_fields()` y el trigger `protect_usuario_system_fields` se ejecutan `before update on public.usuarios`.
+
+Campos protegidos segun el SQL:
+
+| Campo | Restriccion |
+| --- | --- |
+| `id_usuario` | Nadie puede modificarlo. |
+| `fecha_registro` | Nadie puede modificarlo. |
+| `tipo_usuario` | No puede cambiarse a `admin`. Usuarios normales no pueden modificarlo. |
+| `activo` | Usuarios normales no pueden modificarlo. |
+
+El administrador puede modificar `tipo_usuario` y `activo`, excepto que `tipo_usuario` nunca puede quedar como `admin`. El rol `admin` vive en `auth.users.app_metadata.app_role`, no como tipo de perfil publico.
+
+RLS controla que filas puede leer o actualizar cada usuario. El trigger agrega una segunda capa sobre las columnas sensibles durante cualquier `update` permitido por RLS.
+
+### INSERT y DELETE
+
+El cliente no hace `insert` directo en `public.usuarios` con las policies actuales. La creacion del perfil ocurre automaticamente mediante `public.handle_new_user()` despues del registro en `auth.users`.
+
+`delete` directo sobre `public.usuarios` no esta habilitado por las policies actuales.
+
+La migracion `supabase/migrations/20260824035102_add_rls_to_usuarios.sql` existe en el repositorio, pero no contiene SQL.
+
+## 11. Estado actual de la implementacion
+
+Cambios recientes verificados en el repositorio:
+
+- Registro automatico de usuarios mediante `public.handle_new_user()`.
+- Trigger `on_auth_user_created` desde `auth.users` hacia `public.usuarios`.
+- Restriccion de registro publico como `admin`.
+- RLS habilitado en `public.usuarios`.
+- Policies de lectura y actualizacion para usuario propio y administrador.
+- Proteccion de campos sensibles mediante `public.protect_usuario_system_fields()` y trigger `protect_usuario_system_fields`.
+
+No se encontro implementacion de RLS de mascotas, recuperacion de contrasena ni cambio de contrasena frontend en los archivos revisados.
