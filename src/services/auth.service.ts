@@ -50,6 +50,20 @@ export const getZonas = async (): Promise<Zona[]> => {
   return (data ?? []) as Zona[];
 };
 
+export const getNegocios = async (): Promise<NegocioProfile[]> => {
+  const { data, error } = await supabase
+    .from("negocios")
+    .select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado")
+    .order("destacado", { ascending: false })
+    .order("nombre");
+  if (error) throw error;
+  return (data ?? []).map((negocio) => ({
+    ...negocio,
+    latitud: negocio.latitud === null ? null : Number(negocio.latitud),
+    longitud: negocio.longitud === null ? null : Number(negocio.longitud),
+  })) as NegocioProfile[];
+};
+
 export const createZona = async (zona: ZonaInput): Promise<Zona> => {
   const { data, error } = await supabase
     .from("zonas")

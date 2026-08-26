@@ -1,184 +1,462 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { divIcon, latLngBounds } from "leaflet";
+import type { Marker as LeafletMarker } from "leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import {
-  BadgeCheck,
   Clock,
+  ExternalLink,
+  HeartHandshake,
+  Maximize2,
   MapPin,
+  Minimize2,
+  Navigation,
   Phone,
-  Scissors,
   Search,
-  Star,
   Stethoscope,
   Store,
 } from "lucide-react";
+import { getNegocios, getZonas } from "../services/auth.service";
+import type { NegocioProfile, Zona } from "../types/auth.types";
 import {
   Badge,
   EmptyState,
   FilterTabs,
-  MockPhoto,
   Page,
   PageHeader,
+  btnQuiet,
   btnSecondary,
   input,
 } from "./ui";
 
-type Categoria = "Veterinaria" | "Tienda" | "Grooming";
+type TipoNegocio = NegocioProfile["tipo"];
 
-interface Comercio {
-  nombre: string;
-  categoria: Categoria;
-  foto: string;
-  zona: string;
-  rating: number;
-  resenas: number;
-  horario: string;
-  abierto: boolean;
-  telefono: string;
-  verificado: boolean;
-  nota: string;
-}
-
-const comercios: Comercio[] = [
-  { nombre: "Veterinaria San Rafael", categoria: "Veterinaria", foto: "/mock/local-1.svg", zona: "Curridabat", rating: 4.8, resenas: 132, horario: "8:00 – 18:00", abierto: true, telefono: "2271-4400", verificado: true, nota: "Urgencias 24/7 y vacunación a domicilio." },
-  { nombre: "PetShop La Sabana", categoria: "Tienda", foto: "/mock/local-2.svg", zona: "San José", rating: 4.6, resenas: 88, horario: "9:00 – 20:00", abierto: true, telefono: "2233-1180", verificado: true, nota: "Alimento premium y envío el mismo día." },
-  { nombre: "Spa Canino Escazú", categoria: "Grooming", foto: "/mock/local-3.svg", zona: "Escazú", rating: 4.9, resenas: 201, horario: "9:00 – 17:00", abierto: false, telefono: "2288-9012", verificado: true, nota: "Baño, corte de raza y limpieza dental." },
-  { nombre: "Clínica Veterinaria Heredia", categoria: "Veterinaria", foto: "/mock/local-1.svg", zona: "Heredia", rating: 4.5, resenas: 64, horario: "7:30 – 17:30", abierto: true, telefono: "2260-7745", verificado: false, nota: "Cirugía, laboratorio y control de peso." },
-  { nombre: "Mundo Mascota Cartago", categoria: "Tienda", foto: "/mock/local-2.svg", zona: "Cartago", rating: 4.3, resenas: 41, horario: "9:00 – 19:00", abierto: true, telefono: "2551-3390", verificado: false, nota: "Accesorios, juguetes y arena para gatos." },
-  { nombre: "Peluquería Patitas", categoria: "Grooming", foto: "/mock/local-3.svg", zona: "Curridabat", rating: 4.7, resenas: 97, horario: "10:00 – 18:00", abierto: true, telefono: "2272-6621", verificado: true, nota: "Atiende gatos y razas pequeñas sin sedación." },
-];
-
-const iconoCategoria: Record<Categoria, typeof Store> = {
-  Veterinaria: Stethoscope,
-  Tienda: Store,
-  Grooming: Scissors,
+const tipos = ["Todos", "Veterinarias", "Tiendas", "Refugios"];
+const tipoPorFiltro: Record<string, TipoNegocio | null> = {
+  Todos: null,
+  Veterinarias: "veterinaria",
+  Tiendas: "tienda",
+  Refugios: "refugio",
+};
+const detalleTipo: Record<TipoNegocio, { label: string; Icon: typeof Store }> = {
+  veterinaria: { label: "Veterinaria", Icon: Stethoscope },
+  tienda: { label: "Tienda", Icon: Store },
+  refugio: { label: "Refugio", Icon: HeartHandshake },
 };
 
-const categorias = ["Todas", "Veterinaria", "Tienda", "Grooming"];
+const tieneUbicacion = (negocio: NegocioProfile) =>
+  Number.isFinite(negocio.latitud) && Number.isFinite(negocio.longitud);
+
+const ControlMapa = ({
+  negocios,
+  seleccionado,
+  ampliado,
+}: {
+  negocios: NegocioProfile[];
+  seleccionado?: NegocioProfile;
+  ampliado: boolean;
+}) => {
+  const mapa = useMap();
+
+  useEffect(() => {
+    window.setTimeout(() => mapa.invalidateSize(), 100);
+  }, [ampliado, mapa]);
+
+  useEffect(() => {
+    if (seleccionado?.latitud != null && seleccionado.longitud != null) {
+      mapa.flyTo([seleccionado.latitud, seleccionado.longitud], Math.max(mapa.getZoom(), 14), {
+        duration: 0.7,
+      });
+      return;
+    }
+
+    if (negocios.length === 1) {
+      mapa.setView([negocios[0].latitud!, negocios[0].longitud!], 14);
+    } else if (negocios.length > 1) {
+      mapa.fitBounds(
+        latLngBounds(negocios.map((negocio) => [negocio.latitud!, negocio.longitud!])),
+        { padding: [36, 36], maxZoom: 13 }
+      );
+    }
+  }, [mapa, negocios, seleccionado]);
+
+  return null;
+};
+
+const PuntoNegocio = ({
+  negocio,
+  zona,
+  activo,
+  onSelect,
+}: {
+  negocio: NegocioProfile;
+  zona?: Zona;
+  activo: boolean;
+  onSelect: () => void;
+}) => {
+  const marcador = useRef<LeafletMarker>(null);
+  const icono = useMemo(
+    () =>
+      divIcon({
+        className: "tsc-map-marker",
+        html: `<span class="tsc-map-marker__pin${activo ? " is-active" : ""}"><span></span></span>`,
+        iconSize: [44, 48],
+        iconAnchor: [22, 44],
+        popupAnchor: [0, -42],
+      }),
+    [activo]
+  );
+
+  useEffect(() => {
+    if (activo) marcador.current?.openPopup();
+  }, [activo]);
+
+  return (
+    <Marker
+      ref={marcador}
+      position={[negocio.latitud!, negocio.longitud!]}
+      icon={icono}
+      eventHandlers={{ click: onSelect }}
+      riseOnHover
+      title={negocio.nombre}
+    >
+      <Popup minWidth={220}>
+        <div className="text-[13px] text-ink">
+          <p className="font-semibold">{negocio.nombre}</p>
+          <p className="mt-1 text-[12px] font-medium text-accent-dark">
+            {detalleTipo[negocio.tipo].label}
+          </p>
+          <p className="mt-2 text-[12px] text-ink-soft">
+            {negocio.direccion || "Dirección no indicada"}
+            {zona && <span className="block">{zona.nombre}, {zona.canton}</span>}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {negocio.telefono && (
+              <a href={`tel:${negocio.telefono}`} className="font-semibold text-accent-dark hover:underline">
+                Llamar
+              </a>
+            )}
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${negocio.latitud},${negocio.longitud}`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-accent-dark hover:underline"
+            >
+              Cómo llegar
+            </a>
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+};
 
 const Directorio = () => {
-  const [categoria, setCategoria] = useState("Todas");
+  const [negocios, setNegocios] = useState<NegocioProfile[]>([]);
+  const [zonas, setZonas] = useState<Zona[]>([]);
+  const [tipo, setTipo] = useState("Todos");
+  const [zonaId, setZonaId] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [intento, setIntento] = useState(0);
+  const [mapaAmpliado, setMapaAmpliado] = useState(false);
+  const contenedorMapa = useRef<HTMLDivElement>(null);
 
-  const q = busqueda.trim().toLowerCase();
-  const visibles = comercios.filter(
-    (c) =>
-      (categoria === "Todas" || c.categoria === categoria) &&
-      (q === "" ||
-        c.nombre.toLowerCase().includes(q) ||
-        c.zona.toLowerCase().includes(q))
+  useEffect(() => {
+    let vigente = true;
+    setCargando(true);
+    setError("");
+
+    Promise.all([getNegocios(), getZonas()])
+      .then(([negociosData, zonasData]) => {
+        if (!vigente) return;
+        setNegocios(negociosData);
+        setZonas(zonasData);
+      })
+      .catch(() => {
+        if (vigente) setError("No se pudo cargar el directorio desde Supabase.");
+      })
+      .finally(() => {
+        if (vigente) setCargando(false);
+      });
+
+    return () => {
+      vigente = false;
+    };
+  }, [intento]);
+
+  useEffect(() => {
+    const actualizarPantallaCompleta = () =>
+      setMapaAmpliado(document.fullscreenElement === contenedorMapa.current);
+    document.addEventListener("fullscreenchange", actualizarPantallaCompleta);
+    return () => document.removeEventListener("fullscreenchange", actualizarPantallaCompleta);
+  }, []);
+
+  const zonasPorId = useMemo(
+    () => new Map(zonas.map((zona) => [zona.id_zona, zona])),
+    [zonas]
   );
+  const visibles = useMemo(() => {
+    const consulta = busqueda.trim().toLocaleLowerCase("es");
+    const tipoSeleccionado = tipoPorFiltro[tipo];
+
+    return negocios.filter((negocio) => {
+      const zona = negocio.zona_id ? zonasPorId.get(negocio.zona_id) : null;
+      const texto = [
+        negocio.nombre,
+        negocio.direccion,
+        zona?.nombre,
+        zona?.canton,
+        zona?.provincia,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("es");
+
+      return (
+        (!tipoSeleccionado || negocio.tipo === tipoSeleccionado) &&
+        (!zonaId || negocio.zona_id === zonaId) &&
+        (!consulta || texto.includes(consulta))
+      );
+    });
+  }, [busqueda, negocios, tipo, zonaId, zonasPorId]);
+
+  const ubicados = useMemo(() => visibles.filter(tieneUbicacion), [visibles]);
+  const seleccionado =
+    visibles.find((negocio) => negocio.id_negocio === seleccionadoId) ??
+    ubicados[0] ??
+    visibles[0];
+  const seleccionadoEnMapa = ubicados.find(
+    (negocio) => negocio.id_negocio === seleccionadoId
+  );
+
+  const alternarMapaAmpliado = async () => {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await contenedorMapa.current?.requestFullscreen();
+  };
 
   return (
     <Page>
       <PageHeader
         title="Directorio"
-        subtitle="Veterinarias, tiendas y grooming cerca de tu zona."
+        subtitle="Veterinarias, tiendas y refugios de tu zona en un solo lugar."
       />
 
-      <div className="flex flex-col gap-3 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-[300px]">
-          <label htmlFor="buscar-comercio" className="sr-only">
-            Buscar comercio por nombre o zona
-          </label>
-          <input
-            id="buscar-comercio"
-            type="search"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o zona"
-            className={`${input} pl-9`}
-          />
-          <Search
-            size={15}
-            strokeWidth={1.9}
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute"
+      <section aria-label="Filtros del directorio" className="bg-surface p-4 sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(190px,0.55fr)_auto] lg:items-center">
+          <div className="relative">
+            <label htmlFor="buscar-negocio" className="sr-only">
+              Buscar por nombre, dirección o zona
+            </label>
+            <input
+              id="buscar-negocio"
+              type="search"
+              value={busqueda}
+              onChange={(event) => setBusqueda(event.target.value)}
+              placeholder="Buscar por nombre, dirección o zona"
+              className={`${input} pl-9`}
+            />
+            <Search
+              size={15}
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="zona-directorio" className="sr-only">
+              Filtrar por zona
+            </label>
+            <select
+              id="zona-directorio"
+              value={zonaId}
+              onChange={(event) => setZonaId(event.target.value)}
+              className={input}
+            >
+              <option value="">Todas las zonas</option>
+              {zonas.map((zona) => (
+                <option key={zona.id_zona} value={zona.id_zona}>
+                  {zona.nombre} · {zona.canton}, {zona.provincia}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <FilterTabs
+            label="Filtrar por tipo de negocio"
+            options={tipos}
+            value={tipo}
+            onChange={setTipo}
           />
         </div>
+      </section>
 
-        <FilterTabs
-          label="Filtrar por categoría"
-          options={categorias}
-          value={categoria}
-          onChange={setCategoria}
-        />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {visibles.map((c) => {
-          const Icon = iconoCategoria[c.categoria];
-          return (
-            <article key={c.nombre} className="flex flex-col bg-surface">
-              <MockPhoto
-                src={c.foto}
-                alt={`Fachada de ${c.nombre}`}
-                className="aspect-[16/9]"
-              />
-
-              <div className="flex flex-1 flex-col px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <Icon
-                    size={15}
-                    strokeWidth={1.8}
-                    aria-hidden
-                    className="flex-shrink-0 text-ink-mute"
-                  />
-                  <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">
-                    {c.nombre}
-                  </h3>
-                  {c.verificado && (
-                    <BadgeCheck
-                      size={15}
-                      strokeWidth={2}
-                      className="flex-shrink-0 text-accent"
-                      aria-label="Comercio verificado"
-                    />
-                  )}
-                </div>
-
-                <p className="nums mt-2 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
-                  <Star size={13} className="fill-warn text-warn" aria-hidden />
-                  <span className="font-semibold text-ink">{c.rating}</span>
-                  <span className="text-ink-mute">({c.resenas} reseñas)</span>
-                </p>
-
-                <p className="mt-2 text-[12.5px] leading-snug text-ink-soft">{c.nota}</p>
-
-                <dl className="mt-3 flex flex-col gap-1.5 text-[12.5px] text-ink-soft">
-                  <div className="flex items-center gap-2">
-                    <MapPin size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" />
-                    <dd>{c.zona}</dd>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" />
-                    <dd className="nums flex items-center gap-2">
-                      {c.horario}
-                      <Badge tono={c.abierto ? "ok" : "neutral"}>
-                        {c.abierto ? "Abierto" : "Cerrado"}
-                      </Badge>
-                    </dd>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" />
-                    <dd className="nums">{c.telefono}</dd>
-                  </div>
-                </dl>
-
-                <div className="mt-auto pt-4">
-                  <button type="button" className={`${btnSecondary} w-full`}>
-                    Ver ficha
-                  </button>
-                </div>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-
-      {visibles.length === 0 && (
+      {cargando ? (
+        <div className="bg-surface px-6 py-16 text-center text-[13px] text-ink-soft">
+          Cargando negocios…
+        </div>
+      ) : error ? (
+        <div className="bg-surface px-6 py-12 text-center">
+          <p className="text-[14px] font-semibold text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={() => setIntento((valor) => valor + 1)}
+            className={`${btnSecondary} mt-4`}
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : visibles.length === 0 ? (
         <EmptyState
-          title="Sin resultados"
-          hint="Prueba con otro nombre, zona o categoría."
+          title="No hay resultados"
+          hint="Prueba con otro nombre, tipo o zona."
         />
+      ) : (
+        <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.8fr)]">
+          <section aria-label={`${visibles.length} negocios encontrados`} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+            {visibles.map((negocio) => {
+              const zona = negocio.zona_id ? zonasPorId.get(negocio.zona_id) : null;
+              const { Icon, label } = detalleTipo[negocio.tipo];
+              const activo = negocio.id_negocio === seleccionado?.id_negocio;
+
+              return (
+                <article
+                  key={negocio.id_negocio}
+                  className={`flex min-w-0 flex-col bg-surface p-5 transition-colors ${
+                    activo ? "outline-2 -outline-offset-2 outline-accent" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center bg-accent-wash text-accent-dark">
+                      <Icon size={20} aria-hidden />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-[15px] font-semibold text-ink">{negocio.nombre}</h3>
+                        {negocio.destacado && <Badge tono="warn">Destacado</Badge>}
+                      </div>
+                      <p className="mt-1 text-[12px] font-medium text-accent-dark">{label}</p>
+                    </div>
+                  </div>
+
+                  <dl className="mt-4 flex flex-col gap-2.5 text-[13px] text-ink-soft">
+                    <div className="flex items-start gap-2">
+                      <MapPin size={15} className="mt-0.5 shrink-0 text-ink-mute" aria-hidden />
+                      <dd>
+                        {negocio.direccion || "Dirección no indicada"}
+                        {zona && (
+                          <span className="block text-[12px] text-ink-mute">
+                            {zona.nombre}, {zona.canton}, {zona.provincia}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Clock size={15} className="mt-0.5 shrink-0 text-ink-mute" aria-hidden />
+                      <dd>{negocio.horario || "Horario no indicado"}</dd>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Phone size={15} className="mt-0.5 shrink-0 text-ink-mute" aria-hidden />
+                      <dd>
+                        {negocio.telefono ? (
+                          <a className="hover:text-accent-dark hover:underline" href={`tel:${negocio.telefono}`}>
+                            {negocio.telefono}
+                          </a>
+                        ) : (
+                          "Teléfono no indicado"
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  {tieneUbicacion(negocio) && (
+                    <button
+                      type="button"
+                      onClick={() => setSeleccionadoId(negocio.id_negocio)}
+                      className={`${btnQuiet} mt-auto self-start pt-4 text-accent-dark`}
+                    >
+                      <Navigation size={14} aria-hidden />
+                      Ver en el mapa
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </section>
+
+          <aside
+            ref={contenedorMapa}
+            className="tsc-map-shell bg-surface xl:sticky xl:top-3"
+            aria-label="Mapa interactivo de negocios"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div>
+                <h3 className="text-[14px] font-semibold text-ink">Mapa interactivo</h3>
+                <p className="mt-0.5 text-[12px] text-ink-soft">
+                  {ubicados.length} {ubicados.length === 1 ? "ubicación disponible" : "ubicaciones disponibles"}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                {seleccionado && tieneUbicacion(seleccionado) && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${seleccionado.latitud},${seleccionado.longitud}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={btnQuiet}
+                  >
+                    Cómo llegar <ExternalLink size={13} aria-hidden />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={alternarMapaAmpliado}
+                  className={btnQuiet}
+                  aria-label={mapaAmpliado ? "Salir de pantalla completa" : "Ampliar mapa"}
+                  title={mapaAmpliado ? "Salir de pantalla completa" : "Ampliar mapa"}
+                >
+                  {mapaAmpliado ? <Minimize2 size={17} aria-hidden /> : <Maximize2 size={17} aria-hidden />}
+                  <span className="hidden sm:inline">{mapaAmpliado ? "Reducir" : "Ampliar"}</span>
+                </button>
+              </div>
+            </div>
+
+            {ubicados.length > 0 ? (
+              <MapContainer
+                center={[9.93, -84.09]}
+                zoom={8}
+                minZoom={7}
+                scrollWheelZoom
+                className="h-[380px] w-full bg-sunken sm:h-[460px] xl:h-[540px]"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <ControlMapa
+                  negocios={ubicados}
+                  seleccionado={seleccionadoEnMapa}
+                  ampliado={mapaAmpliado}
+                />
+                {ubicados.map((negocio) => (
+                  <PuntoNegocio
+                    key={negocio.id_negocio}
+                    negocio={negocio}
+                    zona={negocio.zona_id ? zonasPorId.get(negocio.zona_id) : undefined}
+                    activo={negocio.id_negocio === seleccionadoId}
+                    onSelect={() => setSeleccionadoId(negocio.id_negocio)}
+                  />
+                ))}
+              </MapContainer>
+            ) : (
+              <EmptyState
+                title="Sin coordenadas para mostrar"
+                hint="Los negocios aparecen en la lista aunque todavía no hayan agregado su ubicación."
+              />
+            )}
+          </aside>
+        </div>
       )}
     </Page>
   );
