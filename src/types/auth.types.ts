@@ -27,6 +27,8 @@ export interface Zona {
   provincia: string;
 }
 
+export type ZonaInput = Omit<Zona, "id_zona">;
+
 export interface PaseadorProfile {
   descripcion: string | null;
   tarifa_base: number | null;

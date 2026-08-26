@@ -7,6 +7,7 @@ import type {
   RegistrationData,
   UserProfile,
   Zona,
+  ZonaInput,
 } from "../types/auth.types";
 
 export const login = async (email: string, password: string): Promise<AuthResponse> =>
@@ -46,6 +47,21 @@ export const getZonas = async (): Promise<Zona[]> => {
     .order("nombre");
   if (error) throw error;
   return (data ?? []) as Zona[];
+};
+
+export const createZona = async (zona: ZonaInput): Promise<Zona> => {
+  const { data, error } = await supabase
+    .from("zonas")
+    .insert(zona)
+    .select("id_zona, nombre, canton, provincia")
+    .single();
+  if (error) throw error;
+  return data as Zona;
+};
+
+export const deleteZona = async (zoneId: string) => {
+  const { error } = await supabase.from("zonas").delete().eq("id_zona", zoneId);
+  if (error) throw error;
 };
 
 export const getUserProfile = async (
