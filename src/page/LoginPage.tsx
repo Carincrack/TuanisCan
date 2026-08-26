@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   User,
@@ -11,10 +11,18 @@ import {
   PawPrint,
   Footprints,
   Store,
+  MapPin,
+  Image,
+  FileText,
+  Banknote,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { MARCA } from "../lib/nav";
+import { inicioDeRol, MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
-import type { RolPublico } from "../types/auth.types";
+import { getZonas } from "../services/auth.service";
+import type { RolPublico, Zona } from "../types/auth.types";
 
 /** Rol elegido en el login. El administrador entra por /acceso-interno. */
 interface LoginPageProps {
@@ -119,6 +127,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [showError, setShowError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -128,9 +137,31 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regPassword, setRegPassword] = useState("");
   const [regPasswordConfirmation, setRegPasswordConfirmation] = useState("");
   const [regTelefono, setRegTelefono] = useState("");
+  const [regFotoPerfil, setRegFotoPerfil] = useState("");
+  const [regZonaId, setRegZonaId] = useState("");
+  const [regDescripcion, setRegDescripcion] = useState("");
+  const [regTarifa, setRegTarifa] = useState("");
+  const [regDisponible, setRegDisponible] = useState(false);
   const [regNombreNegocio, setRegNombreNegocio] = useState("");
   const [regTipoNegocio, setRegTipoNegocio] = useState<"veterinaria" | "tienda" | "refugio">("veterinaria");
+  const [regDireccion, setRegDireccion] = useState("");
+  const [regLatitud, setRegLatitud] = useState("");
+  const [regLongitud, setRegLongitud] = useState("");
+  const [regHorario, setRegHorario] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
+  const [registrationStep, setRegistrationStep] = useState(1);
+  const [zonas, setZonas] = useState<Zona[]>([]);
+  const [zonasLoading, setZonasLoading] = useState(true);
+
+  useEffect(() => {
+    getZonas()
+      .then(setZonas)
+      .catch(() => {
+        setError("No se pudo cargar el catálogo de zonas");
+        setShowError(true);
+      })
+      .finally(() => setZonasLoading(false));
+  }, []);
 
   const toggleMode = () => {
     if (busy) return;
@@ -142,7 +173,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setTimeout(() => {
       setMode(next);
       setError(null);
+      setSuccess(null);
       setShowError(false);
+      if (next === "signup") setRegistrationStep(1);
       setPhase("snap");
     }, SNAP_AT);
 
@@ -176,14 +209,35 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!regUsername || !regEmail || !regPassword || !regPasswordConfirmation || !regTelefono) {
-      setError("Por favor, complete todos los campos");
+    if (!regUsername.trim() || !regEmail.trim() || !regPassword || !regPasswordConfirmation || !regTelefono.trim() || !regZonaId) {
+      setError("Por favor, complete todos los campos obligatorios");
       setShowError(true);
       return;
     }
 
-    if (rol === "negocio" && (!regNombreNegocio || !regTipoNegocio)) {
+    if (rol === "paseador" && (!regDescripcion.trim() || Number(regTarifa) <= 0)) {
+      setError("Completa la descripción y una tarifa válida");
+      setShowError(true);
+      return;
+    }
+
+    if (rol === "negocio" && (!regNombreNegocio.trim() || !regDireccion.trim() || !regHorario.trim())) {
       setError("Completa los datos del negocio");
+      setShowError(true);
+      return;
+    }
+
+    if (rol === "negocio" && (
+      (regLatitud && (Number(regLatitud) < -90 || Number(regLatitud) > 90)) ||
+      (regLongitud && (Number(regLongitud) < -180 || Number(regLongitud) > 180))
+    )) {
+      setError("Las coordenadas del negocio no son válidas");
+      setShowError(true);
+      return;
+    }
+
+    if (regPassword.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres");
       setShowError(true);
       return;
     }
@@ -195,6 +249,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     }
 
     setError(null);
+    setSuccess(null);
     setShowError(false);
     setIsLoading(true);
 
@@ -205,17 +260,25 @@ const LoginPage: React.FC<LoginPageProps> = ({
         {
           nombre: regUsername.trim(),
           telefono: regTelefono.trim(),
+          foto_perfil: regFotoPerfil.trim() || undefined,
+          zona_id: regZonaId,
           tipo_usuario: rol,
+          descripcion: rol === "paseador" ? regDescripcion.trim() : undefined,
+          tarifa_base: rol === "paseador" ? Number(regTarifa) : undefined,
+          disponible: rol === "paseador" ? regDisponible : undefined,
           nombre_negocio: regNombreNegocio.trim() || undefined,
           tipo_negocio: rol === "negocio" ? regTipoNegocio : undefined,
+          direccion: rol === "negocio" ? regDireccion.trim() : undefined,
+          latitud: rol === "negocio" && regLatitud ? Number(regLatitud) : undefined,
+          longitud: rol === "negocio" && regLongitud ? Number(regLongitud) : undefined,
+          horario: rol === "negocio" ? regHorario.trim() : undefined,
         }
       );
-      setError(
-        sessionCreated
-          ? "Cuenta creada correctamente"
-          : "Cuenta creada. Revisa tu correo para confirmar la cuenta."
-      );
-      setShowError(true);
+      if (sessionCreated) {
+        navigate({ to: inicioDeRol[rol] });
+      } else {
+        setSuccess("Cuenta creada. Revisa tu correo para confirmarla.");
+      }
     } catch (registerError) {
       setError(
         registerError instanceof Error
@@ -226,6 +289,53 @@ const LoginPage: React.FC<LoginPageProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const nextRegistrationStep = () => {
+    setError(null);
+    setSuccess(null);
+    setShowError(false);
+
+    if (registrationStep === 2) {
+      if (!regUsername.trim() || !regEmail.trim() || !regTelefono.trim()) {
+        setError("Completa tu nombre, correo y teléfono");
+        setShowError(true);
+        return;
+      }
+      if (!/^\S+@\S+\.\S+$/.test(regEmail)) {
+        setError("Ingresa un correo electrónico válido");
+        setShowError(true);
+        return;
+      }
+    }
+
+    if (registrationStep === 3) {
+      if (!regZonaId) {
+        setError("Selecciona tu zona");
+        setShowError(true);
+        return;
+      }
+      if (rol === "paseador" && (!regDescripcion.trim() || Number(regTarifa) <= 0)) {
+        setError("Completa la descripción y una tarifa válida");
+        setShowError(true);
+        return;
+      }
+      if (rol === "negocio" && (!regNombreNegocio.trim() || !regDireccion.trim() || !regHorario.trim())) {
+        setError("Completa el nombre, dirección y horario del negocio");
+        setShowError(true);
+        return;
+      }
+      if (rol === "negocio" && (
+        (regLatitud && (Number(regLatitud) < -90 || Number(regLatitud) > 90)) ||
+        (regLongitud && (Number(regLongitud) < -180 || Number(regLongitud) > 180))
+      )) {
+        setError("Las coordenadas del negocio no son válidas");
+        setShowError(true);
+        return;
+      }
+    }
+
+    setRegistrationStep((step) => Math.min(step + 1, 4));
   };
 
   const handleSocialLogin = (provider: string) => {
@@ -299,7 +409,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const roleSelector = (
     <fieldset className="mb-5">
       <legend className="mb-2 w-full text-center text-xs tracking-wide text-slate-500">
-        Ingresar como
+        {isSignUp ? "Elige el tipo de cuenta" : "Ingresar como"}
       </legend>
       <div className="flex gap-3">
         {ROLES.map((r) => {
@@ -452,7 +562,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           </div>
         </div>
 
-        <div className="relative flex flex-col md:block md:min-h-[640px]">
+        <div className={`relative flex flex-col md:block ${isSignUp ? "md:min-h-[720px]" : "md:min-h-[640px]"}`}>
           {/* ─── CAPA z-30: panel de marca (montado sobre la media luna) ─── */}
           <div
             className={`relative z-30 bg-gradient-to-br from-[#1D4E6C] to-[#0E2733] px-8 py-12 md:absolute md:top-0 md:h-full md:w-1/2 md:bg-none md:px-12 md:py-0 ${
@@ -508,111 +618,116 @@ const LoginPage: React.FC<LoginPageProps> = ({
               }`}
               style={formStyle}
             >
-              <h1 className="mb-8 text-center text-4xl font-bold text-[#1E2A33]">
+              <h1 className={`${isSignUp ? "mb-4 text-3xl" : "mb-8 text-4xl"} text-center font-bold text-[#1E2A33]`}>
                 {isSignUp ? "Crear cuenta" : "Iniciar sesión"}
               </h1>
 
               {isSignUp ? (
                 /* ─── Formulario de registro ─── */
                 <form onSubmit={handleRegister} className="space-y-4">
-                  {roleSelector}
-                  <div className="relative">
-                    <User className={iconBase} size={18} />
-                    <input
-                      type="text"
-                      placeholder="Usuario"
-                      value={regUsername}
-                      onChange={(e) => setRegUsername(e.target.value)}
-                      className={inputBase}
-                      required
-                    />
+                  <div aria-label={`Paso ${registrationStep} de 4`} className="mb-5">
+                    <div className="mb-2 flex items-center justify-between text-[11px] font-semibold tracking-wide text-slate-500">
+                      <span>Paso {registrationStep} de 4</span>
+                      <span>{["Tipo de cuenta", "Datos personales", "Perfil", "Acceso"][registrationStep - 1]}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4].map((step) => (
+                        <span key={step} className={`h-1.5 flex-1 rounded-full ${step <= registrationStep ? "bg-[#14A3B8]" : "bg-slate-200"}`} />
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="relative">
-                    <Mail className={iconBase} size={18} />
-                    <input
-                      type="email"
-                      placeholder="Correo electrónico"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      className={inputBase}
-                      required
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <User className={iconBase} size={18} />
-                    <input
-                      type="tel"
-                      placeholder="Teléfono"
-                      value={regTelefono}
-                      onChange={(e) => setRegTelefono(e.target.value)}
-                      className={inputBase}
-                      required
-                    />
-                  </div>
-
-                  {rol === "negocio" && (
-                    <>
-                      <div className="relative">
-                        <Store className={iconBase} size={18} />
-                        <input
-                          type="text"
-                          placeholder="Nombre del negocio"
-                          value={regNombreNegocio}
-                          onChange={(e) => setRegNombreNegocio(e.target.value)}
-                          className={inputBase}
-                          required
-                        />
-                      </div>
-                      <select
-                        value={regTipoNegocio}
-                        onChange={(e) => setRegTipoNegocio(e.target.value as typeof regTipoNegocio)}
-                        className={inputBase}
-                        aria-label="Tipo de negocio"
-                      >
-                        <option value="veterinaria">Veterinaria</option>
-                        <option value="tienda">Tienda</option>
-                        <option value="refugio">Refugio</option>
-                      </select>
-                    </>
+                  {registrationStep === 1 && (
+                    <div>
+                      {roleSelector}
+                      <p className="rounded-2xl bg-slate-50 px-5 py-4 text-center text-xs leading-relaxed text-slate-500">
+                        Los datos del siguiente paso se adaptarán al tipo de cuenta que elijas.
+                      </p>
+                    </div>
                   )}
 
-                  <div className="relative">
-                    <Lock className={iconBase} size={18} />
-                    <input
-                      type={showRegPassword ? "text" : "password"}
-                      placeholder="Contraseña"
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      className={`${inputBase} pr-14`}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowRegPassword(!showRegPassword)}
-                      className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 hover:text-[#14A3B8]"
-                      aria-label={
-                        showRegPassword
-                          ? "Ocultar contraseña"
-                          : "Mostrar contraseña"
-                      }
-                    >
-                      {showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
+                  {registrationStep === 2 && (
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <User className={iconBase} size={18} />
+                        <input type="text" autoComplete="name" placeholder="Nombre completo *" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className={inputBase} maxLength={150} required />
+                      </div>
+                      <div className="relative">
+                        <Mail className={iconBase} size={18} />
+                        <input type="email" autoComplete="email" placeholder="Correo electrónico *" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className={inputBase} required />
+                      </div>
+                      <div className="relative">
+                        <User className={iconBase} size={18} />
+                        <input type="tel" autoComplete="tel" placeholder="Teléfono *" value={regTelefono} onChange={(e) => setRegTelefono(e.target.value)} className={inputBase} maxLength={20} required />
+                      </div>
+                    </div>
+                  )}
 
-                  <div className="relative">
-                    <Lock className={iconBase} size={18} />
-                    <input
-                      type={showRegPassword ? "text" : "password"}
-                      placeholder="Confirmar contraseña"
-                      value={regPasswordConfirmation}
-                      onChange={(e) => setRegPasswordConfirmation(e.target.value)}
-                      className={inputBase}
-                      required
-                    />
-                  </div>
+                  {registrationStep === 3 && (
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <MapPin className={iconBase} size={18} />
+                        <select value={regZonaId} onChange={(e) => setRegZonaId(e.target.value)} className={inputBase} aria-label="Zona" disabled={zonasLoading} required>
+                          <option value="">{zonasLoading ? "Cargando zonas..." : "Selecciona tu zona *"}</option>
+                          {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre}, {zona.canton} · {zona.provincia}</option>)}
+                        </select>
+                      </div>
+                      <div className="relative">
+                        <Image className={iconBase} size={18} />
+                        <input type="url" placeholder="URL de foto de perfil (opcional)" value={regFotoPerfil} onChange={(e) => setRegFotoPerfil(e.target.value)} className={inputBase} />
+                      </div>
+
+                      {rol === "paseador" && (
+                        <>
+                          <div className="relative">
+                            <FileText className="pointer-events-none absolute left-5 top-5 text-[#14A3B8]" size={18} />
+                            <textarea rows={3} placeholder="Cuéntanos sobre tu experiencia *" value={regDescripcion} onChange={(e) => setRegDescripcion(e.target.value)} className={`${inputBase} resize-none rounded-2xl`} maxLength={800} required />
+                          </div>
+                          <div className="relative">
+                            <Banknote className={iconBase} size={18} />
+                            <input type="number" min="0" step="100" placeholder="Tarifa base en colones *" value={regTarifa} onChange={(e) => setRegTarifa(e.target.value)} className={inputBase} required />
+                          </div>
+                          <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-100 px-5 py-3 text-sm text-slate-600">
+                            <input type="checkbox" checked={regDisponible} onChange={(e) => setRegDisponible(e.target.checked)} className="h-4 w-4 accent-[#14A3B8]" />
+                            Disponible para recibir solicitudes
+                          </label>
+                        </>
+                      )}
+
+                      {rol === "negocio" && (
+                        <>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="relative"><Store className={iconBase} size={18} /><input type="text" placeholder="Nombre del negocio *" value={regNombreNegocio} onChange={(e) => setRegNombreNegocio(e.target.value)} className={inputBase} maxLength={150} required /></div>
+                            <select value={regTipoNegocio} onChange={(e) => setRegTipoNegocio(e.target.value as typeof regTipoNegocio)} className={`${inputBase} pl-5`} aria-label="Tipo de negocio"><option value="veterinaria">Veterinaria</option><option value="tienda">Tienda</option><option value="refugio">Refugio</option></select>
+                          </div>
+                          <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder="Dirección exacta *" value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
+                          <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder="Horario de atención *" value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <input type="number" min="-90" max="90" step="any" placeholder="Latitud (opcional)" value={regLatitud} onChange={(e) => setRegLatitud(e.target.value)} className={`${inputBase} px-5`} />
+                            <input type="number" min="-180" max="180" step="any" placeholder="Longitud (opcional)" value={regLongitud} onChange={(e) => setRegLongitud(e.target.value)} className={`${inputBase} px-5`} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {registrationStep === 4 && (
+                    <div className="space-y-4">
+                      <div className="rounded-2xl bg-slate-50 px-5 py-4 text-xs leading-relaxed text-slate-600">
+                        <strong className="block text-sm text-[#1E2A33]">{regUsername}</strong>
+                        {regEmail} · {ROLES.find((item) => item.id === rol)?.titulo}
+                      </div>
+                      <div className="relative">
+                        <Lock className={iconBase} size={18} />
+                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder="Contraseña (mínimo 8 caracteres) *" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className={`${inputBase} pr-14`} minLength={8} required />
+                        <button type="button" onClick={() => setShowRegPassword(!showRegPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 hover:text-[#14A3B8]" aria-label={showRegPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>{showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                      </div>
+                      <div className="relative">
+                        <Lock className={iconBase} size={18} />
+                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder="Confirmar contraseña *" value={regPasswordConfirmation} onChange={(e) => setRegPasswordConfirmation(e.target.value)} className={inputBase} minLength={8} required />
+                      </div>
+                    </div>
+                  )}
 
                   {error && showError && (
                     <div className="flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
@@ -620,11 +735,19 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       <span>{error}</span>
                     </div>
                   )}
+                  {success && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-700">{success}</div>
+                  )}
 
-                  <div className="flex justify-center pt-2">
-                    <button type="submit" disabled={isLoading} className={primaryBtn}>
-                      {isLoading ? "CREANDO..." : "REGISTRARSE"}
-                    </button>
+                  <div className="flex items-center justify-between gap-3 pt-2">
+                    {registrationStep > 1 ? (
+                      <button type="button" onClick={() => { setRegistrationStep((step) => step - 1); setError(null); setShowError(false); }} className="inline-flex items-center gap-1 px-3 py-3 text-xs font-semibold text-slate-500 hover:text-[#14A3B8]"><ChevronLeft size={16} /> Atrás</button>
+                    ) : <span />}
+                    {registrationStep < 4 ? (
+                      <button type="button" onClick={nextRegistrationStep} className={primaryBtn}>SIGUIENTE <ChevronRight size={16} /></button>
+                    ) : (
+                      <button type="submit" disabled={isLoading || Boolean(success)} className={primaryBtn}>{isLoading ? "CREANDO..." : "CREAR CUENTA"}</button>
+                    )}
                   </div>
                 </form>
               ) : (
@@ -706,11 +829,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
                 </form>
               )}
 
-              <p className="mt-8 text-center text-sm text-slate-500">
-                {isSignUp ? "O regístrate con" : "O inicia sesión con"}
-              </p>
-
-              {socialButtons}
+              {!isSignUp && (
+                <>
+                  <p className="mt-8 text-center text-sm text-slate-500">O inicia sesión con</p>
+                  {socialButtons}
+                </>
+              )}
             </div>
           </div>
         </div>
