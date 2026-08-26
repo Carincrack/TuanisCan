@@ -23,6 +23,7 @@ import { inicioDeRol, MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
 import { getZonas } from "../services/auth.service";
 import type { RolPublico, Zona } from "../types/auth.types";
+import { isValidProfilePhotoUrl } from "../lib/profile";
 
 /** Rol elegido en el login. El administrador entra por /acceso-interno. */
 interface LoginPageProps {
@@ -236,6 +237,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
+    if (!isValidProfilePhotoUrl(regFotoPerfil.trim())) {
+      setError("La foto debe ser una URL https, no una imagen Base64");
+      setShowError(true);
+      return;
+    }
+
     if (regPassword.length < 8) {
       setError("La contraseña debe tener al menos 8 caracteres");
       setShowError(true);
@@ -312,6 +319,11 @@ const LoginPage: React.FC<LoginPageProps> = ({
     if (registrationStep === 3) {
       if (!regZonaId) {
         setError("Selecciona tu zona");
+        setShowError(true);
+        return;
+      }
+      if (!isValidProfilePhotoUrl(regFotoPerfil.trim())) {
+        setError("La foto debe ser una URL https, no una imagen Base64");
         setShowError(true);
         return;
       }
@@ -674,7 +686,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       </div>
                       <div className="relative">
                         <Image className={iconBase} size={18} />
-                        <input type="url" placeholder="URL de foto de perfil (opcional)" value={regFotoPerfil} onChange={(e) => setRegFotoPerfil(e.target.value)} className={inputBase} />
+                        <input type="url" placeholder="URL https de foto (opcional, no Base64)" value={regFotoPerfil} onChange={(e) => setRegFotoPerfil(e.target.value)} className={inputBase} maxLength={2048} />
                       </div>
 
                       {rol === "paseador" && (

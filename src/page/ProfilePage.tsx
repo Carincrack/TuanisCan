@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Check, Lock, Save } from "lucide-react";
+import { Check, Lock, RefreshCw, Save } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { getZonas } from "../services/auth.service";
+import { getZonas, refreshAuthSession } from "../services/auth.service";
 import type { ProfileUpdate, UserProfile, Zona } from "../types/auth.types";
 import { Badge, Page, PageHeader, Section, btnPrimary, input } from "../components/ui";
 import ProfileAvatar from "../components/ProfileAvatar";
+import { isValidProfilePhotoUrl } from "../lib/profile";
 
 interface ProfileForm {
   nombre: string;
@@ -84,21 +85,48 @@ const ProfilePage = () => {
   const setField = <K extends keyof ProfileForm>(field: K, value: ProfileForm[K]) =>
     setForm((current) => ({ ...current, [field]: value }));
 
-  useEffect(() => {
-    Promise.all([getProfile(), getZonas()])
-      .then(([value, zoneList]) => {
-        setProfile(value);
-        setZonas(zoneList);
-        if (value) setForm(formFromProfile(value));
-      })
-      .catch(() => setError("No se pudo cargar tu perfil"))
-      .finally(() => setLoading(false));
+  const load = useCallback(async (refreshSession = false) => {
+    setLoading(true);
+    setError(null);
+    if (refreshSession) {
+      try {
+        await refreshAuthSession();
+      } catch {
+        setError("No se pudo renovar la sesión. Cierra sesión e ingresa nuevamente.");
+        setLoading(false);
+        return;
+      }
+    }
+    const [profileResult, zonesResult] = await Promise.allSettled([getProfile(), getZonas()]);
+
+    if (profileResult.status === "fulfilled") {
+      setProfile(profileResult.value);
+      if (profileResult.value) setForm(formFromProfile(profileResult.value));
+    } else {
+      setProfile(null);
+      setError("Supabase no respondió al cargar tu perfil. Intenta nuevamente.");
+    }
+
+    if (zonesResult.status === "fulfilled") {
+      setZonas(zonesResult.value);
+    } else if (profileResult.status === "fulfilled") {
+      setError("El perfil cargó, pero el catálogo de zonas no está disponible temporalmente.");
+    }
+    setLoading(false);
   }, [getProfile]);
+
+  useEffect(() => {
+    void load(false);
+  }, [load]);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.nombre.trim()) {
       setError("El nombre es obligatorio");
+      return;
+    }
+    if (!isValidProfilePhotoUrl(form.foto_perfil.trim())) {
+      setError("La foto debe ser una URL https, no una imagen Base64");
       return;
     }
     if (profile?.tipo_usuario === "paseador" && form.tarifa_base && Number(form.tarifa_base) < 0) {
@@ -161,7 +189,14 @@ const ProfilePage = () => {
   ));
 
   if (loading) return <Page><Section bodyClass="px-6 py-8">Cargando perfil...</Section></Page>;
-  if (!profile && user) return <Page><Section bodyClass="px-6 py-8">No se encontró tu perfil.</Section></Page>;
+  if (!profile && user) return (
+    <Page>
+      <Section bodyClass="flex flex-col items-start gap-4 px-6 py-8">
+        <p className="text-[13px] text-danger">{error ?? "No se encontró tu perfil."}</p>
+        <button type="button" onClick={() => void load(true)} className={btnPrimary}><RefreshCw size={15} /> Renovar sesión y reintentar</button>
+      </Section>
+    </Page>
+  );
   if (!profile) return null;
 
   return (
@@ -192,7 +227,7 @@ const ProfilePage = () => {
           <div><label htmlFor="perfil-email" className={labelClass}>Correo electrónico</label><input id="perfil-email" value={profile.email} className={`${input} mt-2 opacity-70`} readOnly /></div>
           <div><label htmlFor="perfil-telefono" className={labelClass}>Teléfono</label><input id="perfil-telefono" type="tel" value={form.telefono} onChange={(e) => setField("telefono", e.target.value)} className={`${input} mt-2`} maxLength={20} /></div>
           <div><label htmlFor="perfil-zona" className={labelClass}>Zona</label><select id="perfil-zona" value={form.zona_id} onChange={(e) => setField("zona_id", e.target.value)} className={`${input} mt-2`}><option value="">Sin zona seleccionada</option>{zoneOptions}</select></div>
-          <div className="sm:col-span-2"><label htmlFor="perfil-foto" className={labelClass}>URL de foto de perfil</label><input id="perfil-foto" type="url" value={form.foto_perfil} onChange={(e) => setField("foto_perfil", e.target.value)} className={`${input} mt-2`} placeholder="https://..." /></div>
+          <div className="sm:col-span-2"><label htmlFor="perfil-foto" className={labelClass}>URL de foto de perfil</label><input id="perfil-foto" type="url" value={form.foto_perfil} onChange={(e) => setField("foto_perfil", e.target.value)} className={`${input} mt-2`} placeholder="https://... (no Base64)" maxLength={2048} /></div>
         </Section>
 
         {profile.tipo_usuario === "paseador" && profile.paseador && (

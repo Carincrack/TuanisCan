@@ -131,6 +131,12 @@ export const getSession = async (): Promise<Session | null> => {
   return data.session;
 };
 
+export const refreshAuthSession = async () => {
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) throw error;
+  return data.session;
+};
+
 export const logout = async () => {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
