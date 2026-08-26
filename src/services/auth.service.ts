@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import type {
   NegocioProfile,
   PaseadorProfile,
+  DocumentoPaseador,
   ProfileUpdate,
   RegistrationData,
   UserProfile,
@@ -76,26 +77,34 @@ export const getUserProfile = async (
   if (error) throw error;
   if (!data) return null;
 
-  const [zonaResult, paseadorResult, negocioResult] = await Promise.all([
+  const [zonaResult, paseadorResult, documentosResult, negocioResult] = await Promise.all([
     data.zona_id
       ? supabase.from("zonas").select("id_zona, nombre, canton, provincia").eq("id_zona", data.zona_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     data.tipo_usuario === "paseador"
-      ? supabase.from("paseadores").select("descripcion, tarifa_base, calificacion_promedio, estado_verificacion, disponible, documentos_verificacion").eq("id_usuario", userId).maybeSingle()
+      ? supabase.from("paseadores").select("descripcion, tarifa_base, calificacion_promedio, estado_verificacion, disponible").eq("id_usuario", userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    data.tipo_usuario === "paseador"
+      ? supabase.from("documentos_paseador").select("id_documento, ruta_storage, fecha_subida").eq("id_usuario", userId).order("fecha_subida", { ascending: false })
       : Promise.resolve({ data: null, error: null }),
     data.tipo_usuario === "negocio"
       ? supabase.from("negocios").select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado").eq("id_propietario", userId).limit(1).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
 
-  const relatedError = zonaResult.error || paseadorResult.error || negocioResult.error;
+  const relatedError = zonaResult.error || paseadorResult.error || documentosResult.error || negocioResult.error;
   if (relatedError) throw relatedError;
 
   return {
     ...data,
     email,
     zona: zonaResult.data as Zona | null,
-    paseador: paseadorResult.data as PaseadorProfile | null,
+    paseador: paseadorResult.data
+      ? {
+          ...paseadorResult.data,
+          documentos: (documentosResult.data ?? []) as DocumentoPaseador[],
+        } as PaseadorProfile
+      : null,
     negocio: negocioResult.data as NegocioProfile | null,
   } as UserProfile;
 };

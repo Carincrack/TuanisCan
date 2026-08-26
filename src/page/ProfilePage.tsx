@@ -202,7 +202,19 @@ const ProfilePage = () => {
             <label className="flex items-center gap-3 bg-sunken px-4 py-3 text-[13px] text-ink-soft sm:self-end"><input type="checkbox" checked={form.disponible} onChange={(e) => setField("disponible", e.target.checked)} className="h-4 w-4 accent-accent" />Disponible para recibir paseos</label>
             <div className="bg-sunken px-4 py-3"><p className={labelClass}>Verificación</p><p className="mt-1 text-[13px] text-ink">{profile.paseador.estado_verificacion}</p></div>
             <div className="bg-sunken px-4 py-3"><p className={labelClass}>Calificación</p><p className="nums mt-1 text-[13px] text-ink">{profile.paseador.calificacion_promedio.toFixed(2)} / 5</p></div>
-            <div className="bg-sunken px-4 py-3 sm:col-span-2"><p className={labelClass}>Documentos de verificación</p><p className="mt-1 break-all text-[13px] text-ink">{profile.paseador.documentos_verificacion || "No registrados"}</p></div>
+            <div className="bg-sunken px-4 py-3 sm:col-span-2">
+              <p className={labelClass}>Documentos de verificación</p>
+              {profile.paseador.documentos.length ? (
+                <ul className="mt-2 space-y-1">
+                  {profile.paseador.documentos.map((documento) => (
+                    <li key={documento.id_documento} className="flex flex-wrap justify-between gap-2 text-[13px] text-ink">
+                      <span className="break-all">{documento.ruta_storage}</span>
+                      <span className="text-ink-mute">{new Intl.DateTimeFormat("es-CR").format(new Date(documento.fecha_subida))}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="mt-1 text-[13px] text-ink">No registrados</p>}
+            </div>
           </Section>
         )}
 

@@ -35,7 +35,13 @@ export interface PaseadorProfile {
   calificacion_promedio: number;
   estado_verificacion: "pendiente" | "aprobado" | "rechazado";
   disponible: boolean;
-  documentos_verificacion: string | null;
+  documentos: DocumentoPaseador[];
+}
+
+export interface DocumentoPaseador {
+  id_documento: string;
+  ruta_storage: string;
+  fecha_subida: string;
 }
 
 export interface NegocioProfile {
