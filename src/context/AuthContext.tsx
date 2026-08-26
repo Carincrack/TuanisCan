@@ -12,7 +12,7 @@ import {
   getUserProfile,
   updateUserProfile,
 } from "../services/auth.service";
-import type { AuthState, RegistrationData, User, UserProfile } from "../types/auth.types";
+import type { AuthState, ProfileUpdate, RegistrationData, User, UserProfile } from "../types/auth.types";
 import type { Rol } from "../lib/nav";
 import { AuthContext } from "./auth-context";
 
@@ -83,10 +83,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updatePassword = (password: string) => updatePasswordService(password);
   const getProfile = useCallback(async (): Promise<UserProfile | null> => {
     if (!state.user) return null;
-    return getUserProfile(state.user.id);
+    return getUserProfile(state.user.id, state.user.email ?? "");
   }, [state.user]);
   const updateProfile = useCallback(async (
-    profile: Pick<UserProfile, "nombre" | "telefono" | "foto_perfil" | "zona_id">
+    profile: ProfileUpdate
   ) => {
     if (!state.user) throw new Error("No hay una sesión activa");
     await updateUserProfile(state.user.id, profile);

@@ -10,6 +10,7 @@ import RegisterPage from "./src/page/RegisterPage";
 import ForgotPasswordPage from "./src/page/ForgotPasswordPage";
 import UpdatePasswordPage from "./src/page/UpdatePasswordPage";
 import ProfilePage from "./src/page/ProfilePage";
+import ZonasAdminPage from "./src/page/ZonasAdminPage";
 import Paseos from "./src/components/paseos";
 import PaseoEnVivo from "./src/components/paseoEnVivo";
 import MascotasPerdidas from "./src/components/mascotasPerdidas";
@@ -154,6 +155,7 @@ const adminVerificacionesRoute = ruta(
   VerificacionesAdmin
 );
 const adminUsuariosRoute = ruta(`${RUTA_ADMIN}/usuarios`, UsuariosAdmin);
+const adminZonasRoute = ruta(`${RUTA_ADMIN}/zonas`, ZonasAdminPage);
 const adminPaseosRoute = ruta(`${RUTA_ADMIN}/paseos`, PaseosAdmin);
 
 // 3. Añadir al root
@@ -164,6 +166,7 @@ rootRoute.addChildren([
   adminPaseadoresRoute,
   adminVerificacionesRoute,
   adminUsuariosRoute,
+  adminZonasRoute,
   adminPaseosRoute,
   panelPaseadorRoute,
   solicitudesRoute,
