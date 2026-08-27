@@ -329,3 +329,24 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  .printing-carnet * {
+    visibility: hidden !important;
+  }
+
+  .printing-carnet .carnet-print,
+  .printing-carnet .carnet-print * {
+    visibility: visible !important;
+  }
+
+  .printing-carnet .carnet-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+}
