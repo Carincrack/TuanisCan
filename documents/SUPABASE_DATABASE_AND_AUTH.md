@@ -198,6 +198,10 @@ El script lee estas variables de entorno:
 SUPABASE_URL=
 SUPABASE_SECRET_KEY=
 ADMIN_EMAIL=
+ADMIN_NOMBRE=
+ADMIN_TELEFONO=
+ADMIN_FOTO_PERFIL=
+ADMIN_ZONA_ID=
 ```
 
 Luego crea un cliente de Supabase con `SUPABASE_SECRET_KEY` y opciones de Auth orientadas a ejecucion administrativa:
@@ -207,7 +211,7 @@ Luego crea un cliente de Supabase con `SUPABASE_SECRET_KEY` y opciones de Auth o
 
 El script busca en Supabase Auth el usuario cuyo correo coincida con `ADMIN_EMAIL`, ignorando diferencias entre mayusculas y minusculas. Para hacerlo, llama a `supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })` y busca el correo dentro de la lista recibida.
 
-Si el usuario no existe, el script falla con un error. Si el usuario ya tiene `admin.app_metadata.app_role === 'admin'`, imprime un mensaje y termina sin actualizarlo.
+Si el usuario no existe, el script falla con un error. Si el usuario ya tiene `admin.app_metadata.app_role === 'admin'`, imprime un mensaje y conserva el rol; aun asi continua con la verificacion del perfil personal asociado.
 
 Si el usuario existe y aun no tiene el rol, el script ejecuta:
 
@@ -223,11 +227,20 @@ app_metadata.app_role = admin
 
 El script conserva la metadata existente porque construye el nuevo `app_metadata` copiando primero `admin.app_metadata` y luego asignando `app_role: 'admin'`.
 
+Despues asegura que exista una fila en `public.usuarios` con el mismo UUID de Supabase Auth. Ese perfil guarda la informacion personal necesaria para identificar quien ingreso como administrador:
+
+- `ADMIN_NOMBRE` se guarda en `public.usuarios.nombre`.
+- `ADMIN_TELEFONO` se guarda en `public.usuarios.telefono` si se define.
+- `ADMIN_FOTO_PERFIL` se guarda en `public.usuarios.foto_perfil` si se define.
+- `ADMIN_ZONA_ID` se guarda en `public.usuarios.zona_id` si se define.
+
+Si no existe una fila previa en `public.usuarios`, `ADMIN_NOMBRE` es obligatorio. Si la fila ya existe, el script puede reutilizar el nombre guardado.
+
 ### Uso de `app_metadata`
 
 `app_metadata` se usa para informacion de autorizacion administrada por la aplicacion o por procesos internos. A diferencia de metadata editable por el usuario, este espacio es apropiado para guardar un rol como `admin` cuando se configura desde un entorno controlado con una clave administrativa.
 
-Segun la implementacion actual, esta cuenta administrativa no necesita obligatoriamente un registro en `public.usuarios`, porque su proposito es gestionar internamente la plataforma. El script solo actualiza Supabase Auth; no inserta ni modifica registros en `public.usuarios`.
+La cuenta administrativa debe tener registro en `public.usuarios`. El rol admin sigue viviendo en `auth.users.app_metadata.app_role`, pero la identidad visible de la persona que ingresa queda ligada por `public.usuarios.id_usuario = auth.users.id`.
 
 ## 7. Seguridad del script administrativo
 
@@ -247,6 +260,10 @@ Variables documentadas en `.env.example`:
 SUPABASE_URL=
 SUPABASE_SECRET_KEY=
 ADMIN_EMAIL=
+ADMIN_NOMBRE=
+ADMIN_TELEFONO=
+ADMIN_FOTO_PERFIL=
+ADMIN_ZONA_ID=
 ```
 
 No se deben escribir valores reales de llaves, contrasenas, tokens ni secretos en este documento ni en archivos versionados.
@@ -278,6 +295,9 @@ actualiza app_metadata
         |
         v
 app_role = admin
+        |
+        v
+crea o actualiza public.usuarios con su informacion personal
 ```
 
 Si la configuracion se completa, el script imprime el correo, el ID y el rol del usuario actualizado. Si falta una variable de entorno, si el usuario no existe o si Supabase devuelve un error, el script termina con codigo de error.

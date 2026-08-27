@@ -40,6 +40,8 @@ ADMIN:
 auth.users
    |
    +-- app_metadata.app_role = admin
+   |
+   +-- public.usuarios = identidad personal vinculada
 ```
 
 ## Tablas nuevas
@@ -193,12 +195,23 @@ Si una cuenta tiene varios roles, el shell muestra un selector de perfil y permi
 
 Admin continua fuera de `public.roles`.
 
+Admin debe tener una fila en `public.usuarios` con el mismo UUID de `auth.users`. Esa fila no le da permisos administrativos; solo guarda la identidad personal visible, como nombre, telefono, foto y zona, para saber exactamente quien ingreso.
+
 Un admin puede tener:
 
 ```json
 {
   "is_admin": true,
   "roles": ["dueno", "paseador"]
+}
+```
+
+Tambien puede tener:
+
+```json
+{
+  "is_admin": true,
+  "roles": []
 }
 ```
 
