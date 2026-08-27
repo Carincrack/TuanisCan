@@ -72,6 +72,17 @@ export interface UserProfile {
   negocio: NegocioProfile | null;
 }
 
+export interface AdminUser {
+  id_usuario: string;
+  nombre: string;
+  telefono: string | null;
+  foto_perfil: string | null;
+  tipo_usuario: RolPublico;
+  fecha_registro: string;
+  activo: boolean;
+  zona: Pick<Zona, "nombre" | "canton" | "provincia"> | null;
+}
+
 export interface ProfileUpdate {
   nombre: string;
   telefono: string | null;
