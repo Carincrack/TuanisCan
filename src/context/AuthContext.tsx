@@ -11,14 +11,40 @@ import {
   updatePassword as updatePasswordService,
   getUserProfile,
   updateUserProfile,
+  addRoleToMyAccount,
 } from "../services/auth.service";
-import type { AuthState, ProfileUpdate, RegistrationData, User, UserProfile } from "../types/auth.types";
+import type { AuthState, ProfileUpdate, RegistrationData, RolPublico, UserProfile } from "../types/auth.types";
 import type { Rol } from "../lib/nav";
 import { AuthContext } from "./auth-context";
 
-const roleFromUser = (user: User | null): Rol | null => {
+const ACTIVE_ROLE_KEY = "tuaniscan.activeRole";
+
+const adminFromUser = (user: Session["user"] | null): boolean => {
   const role = user?.app_metadata?.app_role;
-  return role === "dueno" || role === "paseador" || role === "negocio" || role === "admin" ? role : null;
+  return role === "admin";
+};
+
+const resolveActiveRole = (
+  profile: UserProfile | null,
+  session: Session | null,
+  preferredRole?: Rol
+): Rol | null => {
+  const roles = profile?.roles ?? [];
+  const isAdmin = Boolean(profile?.isAdmin || adminFromUser(session?.user ?? null));
+  const allowed: Rol[] = [...roles, ...(isAdmin ? (["admin"] as const) : [])];
+  const stored = sessionStorage.getItem(ACTIVE_ROLE_KEY) as Rol | null;
+  const selected = preferredRole && allowed.includes(preferredRole)
+    ? preferredRole
+    : stored && allowed.includes(stored)
+    ? stored
+    : allowed.length === 1
+    ? allowed[0]
+    : null;
+
+  if (selected) sessionStorage.setItem(ACTIVE_ROLE_KEY, selected);
+  else sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+
+  return selected;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -26,47 +52,63 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user: null,
     session: null,
     role: null,
+    roles: [],
+    isAdmin: false,
     loading: true,
   });
+
+  const loadSession = useCallback(async (session: Session | null, preferredRole?: Rol) => {
+    if (!session?.user) {
+      sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+      setState({
+        session: null,
+        user: null,
+        role: null,
+        roles: [],
+        isAdmin: false,
+        loading: false,
+      });
+      return;
+    }
+
+    const profile = await getUserProfile(session.user.id, session.user.email ?? "");
+    const isAdmin = Boolean(profile?.isAdmin || adminFromUser(session.user));
+    setState({
+      session,
+      user: session.user,
+      role: resolveActiveRole(profile, session, preferredRole),
+      roles: profile?.roles ?? [],
+      isAdmin,
+      loading: false,
+    });
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
     getSession()
       .then((session) => {
-        if (mounted) {
-          setState({
-            session,
-            user: session?.user ?? null,
-            role: roleFromUser(session?.user ?? null),
-            loading: false,
-          });
-        }
+        if (mounted) void loadSession(session);
       })
       .catch(() => {
         if (mounted) setState((current) => ({ ...current, loading: false }));
       });
 
     const { data } = onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      if (mounted) {
-        setState({
-          session,
-          user: session?.user ?? null,
-          role: roleFromUser(session?.user ?? null),
-          loading: false,
-        });
-      }
+      if (mounted) void loadSession(session);
     });
 
     return () => {
       mounted = false;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [loadSession]);
 
-  const login = async (email: string, password: string) => {
-    const { error } = await loginService(email, password);
+  const login = async (email: string, password: string, preferredRole?: Rol) => {
+    sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+    const { data, error } = await loginService(email, password);
     if (error) throw error;
+    await loadSession(data.session, preferredRole);
   };
 
   const register = async (
@@ -76,6 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   ) => {
     const { data, error } = await registerService(email, password, profile);
     if (error) throw error;
+    if (data.session) await loadSession(data.session, profile.tipo_usuario);
     return Boolean(data.session);
   };
 
@@ -92,13 +135,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await updateUserProfile(state.user.id, profile);
   }, [state.user]);
 
+  const addRole = useCallback(async (role: RolPublico) => {
+    if (!state.session) throw new Error("No hay una sesiÃ³n activa");
+    await addRoleToMyAccount(role);
+    await loadSession(state.session, state.role ?? undefined);
+  }, [loadSession, state.role, state.session]);
+
+  const setActiveRole = useCallback((role: Rol) => {
+    setState((current) => {
+      const allowed: Rol[] = [
+        ...current.roles,
+        ...(current.isAdmin ? (["admin"] as const) : []),
+      ];
+      if (!allowed.includes(role)) return current;
+      sessionStorage.setItem(ACTIVE_ROLE_KEY, role);
+      return { ...current, role };
+    });
+  }, []);
+
   const handleLogout = async () => {
     await logout();
   };
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, register, getProfile, updateProfile, resetPassword, updatePassword, logout: handleLogout }}
+      value={{ ...state, login, register, getProfile, updateProfile, addRole, setActiveRole, resetPassword, updatePassword, logout: handleLogout }}
     >
       {children}
     </AuthContext.Provider>
