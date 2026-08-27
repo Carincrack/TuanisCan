@@ -169,21 +169,44 @@ interface AppShellProps {
   children: ReactNode;
 }
 
+/** El estado de la barra lateral sobrevive a la recarga. */
+const CLAVE_RAIL = "tuaniscan:rail";
+
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [railVisible, setRailVisible] = useState(
+    () => localStorage.getItem(CLAVE_RAIL) !== "cerrado"
+  );
 
   // Cerrar el panel al navegar; si no, queda tapando la pantalla nueva.
   useEffect(() => setMenuAbierto(false), [pathname]);
 
+  const cambiarRail = (visible: boolean) => {
+    setRailVisible(visible);
+    localStorage.setItem(CLAVE_RAIL, visible ? "abierto" : "cerrado");
+  };
+
   return (
     <div className="plano flex h-dvh w-full overflow-hidden bg-canvas">
       {/* ── Columna izquierda ── */}
-      <aside className="hidden w-[248px] flex-shrink-0 flex-col bg-rail lg:flex">
-        <Marca />
-        <Navegacion rol={rol} />
-        <PiePerfil rol={rol} onLogout={onLogout} />
-      </aside>
+      {railVisible && (
+        <aside className="relative hidden w-[248px] flex-shrink-0 flex-col bg-rail lg:flex">
+          {/* Cerrar la barra. Vuelve a abrirse con el botón de menú de la
+              barra superior, que aparece en su lugar. */}
+          <button
+            type="button"
+            onClick={() => cambiarRail(false)}
+            aria-label="Cerrar menú"
+            className="absolute right-2 top-4 z-10 p-2 text-rail-mute transition-colors duration-200 hover:bg-rail-hover hover:text-white"
+          >
+            <X size={17} />
+          </button>
+          <Marca />
+          <Navegacion rol={rol} />
+          <PiePerfil rol={rol} onLogout={onLogout} />
+        </aside>
+      )}
 
       {/* Panel deslizable para móvil y tablet */}
       {menuAbierto && (
@@ -219,6 +242,19 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           >
             <Menu size={19} />
           </button>
+
+          {/* En escritorio solo aparece cuando la barra lateral está
+              cerrada: es la única forma de traerla de vuelta. */}
+          {!railVisible && (
+            <button
+              type="button"
+              onClick={() => cambiarRail(true)}
+              aria-label="Abrir menú"
+              className="hidden p-2 text-ink-soft transition-colors duration-200 hover:bg-sunken hover:text-ink lg:block"
+            >
+              <Menu size={19} />
+            </button>
+          )}
 
           <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
             {tituloDeRuta(rol, pathname)}
