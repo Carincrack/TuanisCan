@@ -176,6 +176,25 @@ export const updateUserProfile = async (
   if (error) throw error;
 };
 
+const PROFILE_PHOTOS_BUCKET = "perfiles";
+
+export const uploadProfilePhoto = async (userId: string, file: File) => {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${userId}/${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage
+    .from(PROFILE_PHOTOS_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw error;
+  return supabase.storage.from(PROFILE_PHOTOS_BUCKET).getPublicUrl(path).data.publicUrl;
+};
+
+export const deleteProfilePhoto = async (url: string | null) => {
+  if (!url) return;
+  const marker = `/storage/v1/object/public/${PROFILE_PHOTOS_BUCKET}/`;
+  const path = url.includes(marker) ? decodeURIComponent(url.split(marker)[1] ?? "") : "";
+  if (path) await supabase.storage.from(PROFILE_PHOTOS_BUCKET).remove([path]);
+};
+
 export const addRoleToMyAccount = async (role: "dueno" | "paseador" | "negocio") => {
   const { error } = await supabase.rpc("agregar_rol_a_mi_cuenta", {
     p_rol: role,

@@ -1,12 +1,42 @@
 import { useCallback, useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Check, Lock, RefreshCw, Save, UserPlus } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
-import { createBusinessProfile, getZonas, refreshAuthSession, requestWalkerProfile } from "../services/auth.service";
-import type { ProfileUpdate, RolPublico, UserProfile, Zona } from "../types/auth.types";
-import { Badge, Page, PageHeader, Section, btnPrimary, input } from "../components/ui";
+import {
+  Camera,
+  Check,
+  Footprints,
+  Lock,
+  PawPrint,
+  RefreshCw,
+  Save,
+  Store,
+  Trash2,
+  UserPlus,
+  X,
+} from "lucide-react";
 import ProfileAvatar from "../components/ProfileAvatar";
-import { isValidProfilePhotoUrl } from "../lib/profile";
+import {
+  Badge,
+  EmptyState,
+  Page,
+  PageHeader,
+  Section,
+  btnDanger,
+  btnPrimary,
+  btnQuiet,
+  btnSecondary,
+  input,
+} from "../components/ui";
+import { useAuth } from "../hooks/useAuth";
+import {
+  createBusinessProfile,
+  deleteProfilePhoto,
+  getZonas,
+  refreshAuthSession,
+  requestWalkerProfile,
+  uploadProfilePhoto,
+} from "../services/auth.service";
+import type { ProfileUpdate, RolPublico, UserProfile, Zona } from "../types/auth.types";
 
 interface ProfileForm {
   nombre: string;
@@ -69,14 +99,39 @@ const roleLabel = {
   admin: "Administrador",
 };
 
+const roleMeta = {
+  dueno: {
+    title: "Perfil de dueño",
+    text: "Registra mascotas, administra sus vacunas y genera carnés digitales.",
+    Icon: PawPrint,
+  },
+  paseador: {
+    title: "Perfil de paseador",
+    text: "Publica tu experiencia y tarifa. Requiere aprobación administrativa.",
+    Icon: Footprints,
+  },
+  negocio: {
+    title: "Perfil de negocio",
+    text: "Publica una veterinaria, tienda o refugio en el directorio.",
+    Icon: Store,
+  },
+};
+
+const publicRoles: RolPublico[] = ["dueno", "paseador", "negocio"];
 const labelClass = "text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase";
+const messageFrom = (error: unknown) =>
+  error instanceof Error ? error.message : "No se pudo completar la operación.";
 
 const ProfilePage = () => {
-  const { user, getProfile, updateProfile } = useAuth();
+  const { user, role, getProfile, updateProfile, addRole } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [form, setForm] = useState<ProfileForm>(emptyForm);
   const [zonas, setZonas] = useState<Zona[]>([]);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [roleSetup, setRoleSetup] = useState<RolPublico | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addingRole, setAddingRole] = useState<RolPublico | null>(null);
@@ -86,75 +141,82 @@ const ProfilePage = () => {
   const setField = <K extends keyof ProfileForm>(field: K, value: ProfileForm[K]) =>
     setForm((current) => ({ ...current, [field]: value }));
 
+  const applyProfile = (next: UserProfile | null) => {
+    setProfile(next);
+    if (next) setForm(formFromProfile(next));
+  };
+
   const load = useCallback(async (refreshSession = false) => {
     setLoading(true);
     setError(null);
-    if (refreshSession) {
-      try {
-        await refreshAuthSession();
-      } catch {
-        setError("No se pudo renovar la sesión. Cierra sesión e ingresa nuevamente.");
-        setLoading(false);
-        return;
-      }
+    try {
+      if (refreshSession) await refreshAuthSession();
+      const [nextProfile, nextZones] = await Promise.all([getProfile(), getZonas()]);
+      setProfile(nextProfile);
+      if (nextProfile) setForm(formFromProfile(nextProfile));
+      setZonas(nextZones);
+    } catch (cause) {
+      setError(messageFrom(cause));
+    } finally {
+      setLoading(false);
     }
-    const [profileResult, zonesResult] = await Promise.allSettled([getProfile(), getZonas()]);
-
-    if (profileResult.status === "fulfilled") {
-      setProfile(profileResult.value);
-      if (profileResult.value) setForm(formFromProfile(profileResult.value));
-    } else {
-      setProfile(null);
-      setError("Supabase no respondió al cargar tu perfil. Intenta nuevamente.");
-    }
-
-    if (zonesResult.status === "fulfilled") {
-      setZonas(zonesResult.value);
-    } else if (profileResult.status === "fulfilled") {
-      setError("El perfil cargó, pero el catálogo de zonas no está disponible temporalmente.");
-    }
-    setLoading(false);
   }, [getProfile]);
 
-  useEffect(() => {
-    void load(false);
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  const save = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!form.nombre.trim()) {
-      setError("El nombre es obligatorio");
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null);
       return;
     }
-    if (!isValidProfilePhotoUrl(form.foto_perfil.trim())) {
-      setError("La foto debe ser una URL https, no una imagen Base64");
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
+  const selectPhoto = (file: File | null) => {
+    setError(null);
+    if (file && (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024)) {
+      setError("La imagen debe ser JPG, PNG o WebP y pesar menos de 5 MB.");
+      setPhotoFile(null);
       return;
     }
-    if (profile?.roles.includes("paseador") && form.tarifa_base && Number(form.tarifa_base) < 0) {
-      setError("La tarifa no puede ser negativa");
-      return;
-    }
-    if (profile?.roles.includes("negocio") && profile.negocio && !form.nombre_negocio.trim()) {
-      setError("El nombre del negocio es obligatorio");
-      return;
+    setPhotoFile(file);
+    if (file) setRemovePhoto(false);
+  };
+
+  const validatePersonal = (complete = false) => {
+    if (!form.nombre.trim()) return "El nombre completo es obligatorio.";
+    if (complete && !form.telefono.trim()) return "Agrega tu teléfono antes de activar otro perfil.";
+    if (complete && !form.zona_id) return "Selecciona tu zona antes de activar otro perfil.";
+    return null;
+  };
+
+  const persistProfile = async (includeActiveRole: boolean) => {
+    if (!profile || !user) throw new Error("No hay una sesión activa.");
+    let uploadedUrl: string | null = null;
+    let nextPhoto = removePhoto ? null : form.foto_perfil || null;
+
+    if (photoFile) {
+      uploadedUrl = await uploadProfilePhoto(user.id, photoFile);
+      nextPhoto = uploadedUrl;
     }
 
     const changes: ProfileUpdate = {
       nombre: form.nombre.trim(),
       telefono: form.telefono.trim() || null,
-      foto_perfil: form.foto_perfil.trim() || null,
+      foto_perfil: nextPhoto,
       zona_id: form.zona_id || null,
     };
 
-    if (profile?.roles.includes("paseador")) {
+    if (includeActiveRole && role === "paseador" && profile.paseador) {
       changes.paseador = {
         descripcion: form.descripcion.trim() || null,
         tarifa_base: form.tarifa_base ? Number(form.tarifa_base) : null,
         disponible: form.disponible,
       };
     }
-
-    if (profile?.roles.includes("negocio") && profile.negocio) {
+    if (includeActiveRole && role === "negocio" && profile.negocio) {
       changes.negocio = {
         zona_id: form.negocio_zona_id || null,
         nombre: form.nombre_negocio.trim(),
@@ -167,211 +229,234 @@ const ProfilePage = () => {
       };
     }
 
+    try {
+      await updateProfile(changes);
+    } catch (cause) {
+      if (uploadedUrl) await deleteProfilePhoto(uploadedUrl);
+      throw cause;
+    }
+
+    if ((uploadedUrl || removePhoto) && profile.foto_perfil) {
+      await deleteProfilePhoto(profile.foto_perfil);
+    }
+    setPhotoFile(null);
+    setRemovePhoto(false);
+    const updated = await getProfile();
+    applyProfile(updated);
+    return updated;
+  };
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    const personalError = validatePersonal();
+    if (personalError) { setError(personalError); return; }
+    if (role === "paseador" && form.tarifa_base && Number(form.tarifa_base) < 0) {
+      setError("La tarifa no puede ser negativa.");
+      return;
+    }
+    if (role === "negocio" && profile?.negocio && !form.nombre_negocio.trim()) {
+      setError("El nombre del negocio es obligatorio.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      await updateProfile(changes);
-      const updated = await getProfile();
-      setProfile(updated);
-      if (updated) setForm(formFromProfile(updated));
-      setMessage("Perfil actualizado correctamente");
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "No se pudo guardar el perfil");
+      await persistProfile(true);
+      setMessage("Perfil actualizado correctamente.");
+    } catch (cause) {
+      setError(messageFrom(cause));
     } finally {
       setSaving(false);
     }
   };
 
-  const requestPaseador = async () => {
-    if (form.descripcion.trim().length < 20) {
-      setError("La descripcion debe tener al menos 20 caracteres");
-      return;
-    }
-    if (!form.tarifa_base || Number(form.tarifa_base) <= 0) {
-      setError("La tarifa base debe ser mayor a cero");
-      return;
-    }
-
-    setAddingRole("paseador");
+  const activateOwner = async () => {
+    const personalError = validatePersonal(true);
+    if (personalError) { setError(personalError); return; }
+    setAddingRole("dueno");
     setError(null);
     setMessage(null);
     try {
-      await requestWalkerProfile({
-        descripcion: form.descripcion.trim(),
-        tarifa_base: Number(form.tarifa_base),
-        disponible: form.disponible,
-      });
-      const updated = await getProfile();
-      setProfile(updated);
-      if (updated) setForm(formFromProfile(updated));
-      setMessage("Solicitud de paseador enviada para aprobacion");
-    } catch (roleError) {
-      setError(roleError instanceof Error ? roleError.message : "No se pudo enviar la solicitud");
+      await persistProfile(false);
+      await addRole("dueno");
+      applyProfile(await getProfile());
+      setRoleSetup(null);
+      setMessage("Perfil de dueño activado. Ya puedes cambiar a ese perfil.");
+    } catch (cause) {
+      setError(messageFrom(cause));
     } finally {
       setAddingRole(null);
     }
   };
 
-  const activateNegocio = async () => {
-    if (!form.nombre_negocio.trim() || !form.direccion.trim() || !form.horario.trim()) {
-      setError("Completa el nombre, direccion y horario del negocio");
+  const requestPaseador = async () => {
+    const personalError = validatePersonal(true);
+    if (personalError) { setError(personalError); return; }
+    if (form.descripcion.trim().length < 20) {
+      setError("Describe tu experiencia con al menos 20 caracteres.");
       return;
     }
+    if (!form.tarifa_base || Number(form.tarifa_base) <= 0) {
+      setError("La tarifa base debe ser mayor a cero.");
+      return;
+    }
+    const walkerData = {
+      descripcion: form.descripcion.trim(),
+      tarifa_base: Number(form.tarifa_base),
+      disponible: form.disponible,
+    };
+    setAddingRole("paseador");
+    setError(null);
+    setMessage(null);
+    try {
+      await persistProfile(false);
+      await requestWalkerProfile(walkerData);
+      applyProfile(await getProfile());
+      setRoleSetup(null);
+      setMessage("Solicitud de paseador enviada. El perfil se activará cuando administración la apruebe.");
+    } catch (cause) {
+      setError(messageFrom(cause));
+    } finally {
+      setAddingRole(null);
+    }
+  };
 
+  const activateBusiness = async () => {
+    const personalError = validatePersonal(true);
+    if (personalError) { setError(personalError); return; }
+    if (!form.nombre_negocio.trim() || !form.negocio_zona_id || !form.telefono_negocio.trim() || !form.direccion.trim() || !form.horario.trim()) {
+      setError("Completa nombre, zona, teléfono, dirección y horario del negocio.");
+      return;
+    }
+    const businessData = {
+      zona_id: form.negocio_zona_id,
+      nombre: form.nombre_negocio.trim(),
+      tipo: form.tipo_negocio,
+      direccion: form.direccion.trim(),
+      latitud: form.latitud ? Number(form.latitud) : null,
+      longitud: form.longitud ? Number(form.longitud) : null,
+      telefono: form.telefono_negocio.trim(),
+      horario: form.horario.trim(),
+    };
     setAddingRole("negocio");
     setError(null);
     setMessage(null);
     try {
-      await createBusinessProfile({
-        zona_id: form.negocio_zona_id || form.zona_id || null,
-        nombre: form.nombre_negocio.trim(),
-        tipo: form.tipo_negocio,
-        direccion: form.direccion.trim(),
-        latitud: form.latitud ? Number(form.latitud) : null,
-        longitud: form.longitud ? Number(form.longitud) : null,
-        telefono: form.telefono_negocio.trim() || form.telefono.trim() || null,
-        horario: form.horario.trim(),
-      });
-      const updated = await getProfile();
-      setProfile(updated);
-      if (updated) setForm(formFromProfile(updated));
-      setMessage("Perfil de negocio activado");
-    } catch (roleError) {
-      setError(roleError instanceof Error ? roleError.message : "No se pudo activar el negocio");
+      await persistProfile(false);
+      await createBusinessProfile(businessData);
+      await addRole("negocio");
+      applyProfile(await getProfile());
+      setRoleSetup(null);
+      setMessage("Perfil de negocio activado. Ya puedes cambiar a ese perfil.");
+    } catch (cause) {
+      setError(messageFrom(cause));
     } finally {
       setAddingRole(null);
     }
   };
 
   const zoneOptions = zonas.map((zona) => (
-    <option key={zona.id_zona} value={zona.id_zona}>
-      {zona.nombre}, {zona.canton} · {zona.provincia}
-    </option>
+    <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre}, {zona.canton} · {zona.provincia}</option>
   ));
 
-  if (loading) return <Page><Section bodyClass="px-6 py-8">Cargando perfil...</Section></Page>;
+  if (loading) return <Page><Section bodyClass="px-6 py-8">Cargando perfil…</Section></Page>;
   if (!profile && user) return (
-    <Page>
-      <Section bodyClass="flex flex-col items-start gap-4 px-6 py-8">
-        <p className="text-[13px] text-danger">{error ?? "No se encontró tu perfil."}</p>
-        <button type="button" onClick={() => void load(true)} className={btnPrimary}><RefreshCw size={15} /> Renovar sesión y reintentar</button>
-      </Section>
-    </Page>
+    <Page><Section bodyClass="flex flex-col items-start gap-4 px-6 py-8"><p className="text-[13px] text-danger">{error ?? "No se encontró tu perfil."}</p><button type="button" onClick={() => void load(true)} className={btnPrimary}><RefreshCw size={15} /> Renovar sesión y reintentar</button></Section></Page>
   );
   if (!profile) return null;
 
+  const missingRoles = publicRoles.filter((item) => !profile.roles.includes(item));
+  const avatarUrl = photoPreview || (removePhoto ? "" : form.foto_perfil);
+
   return (
     <Page>
-      <PageHeader
-        title="Mis datos"
-        subtitle="Consulta y actualiza la información asociada a tu cuenta."
-        action={<button type="button" onClick={() => navigate({ to: "/actualizar-contrasena" })} className={btnPrimary}><Lock size={15} /> Cambiar contraseña</button>}
-      />
+      <PageHeader title="Mis datos" subtitle="Administra tu información y los perfiles asociados a la misma cuenta." action={<button type="button" onClick={() => navigate({ to: "/actualizar-contrasena" })} className={btnSecondary}><Lock size={15} /> Cambiar contraseña</button>} />
 
-      <Section bodyClass="px-4 py-5 sm:px-6">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-          <ProfileAvatar profile={{ ...profile, nombre: form.nombre, foto_perfil: form.foto_perfil || null }} size="h-20 w-20" />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate text-[18px] font-semibold text-ink">{form.nombre || profile.nombre}</p>
-              <Badge tono={profile.activo ? "ok" : "danger"}>{profile.activo ? "Cuenta activa" : "Cuenta inactiva"}</Badge>
-            </div>
-            <p className="mt-1 text-[13px] text-ink-soft">{profile.roles.map((rol) => roleLabel[rol]).join(" + ") || (profile.isAdmin ? roleLabel.admin : "Sin perfil")} · {profile.email}</p>
-            <p className="mt-1 text-[12px] text-ink-mute">Registro: {new Intl.DateTimeFormat("es-CR", { dateStyle: "long" }).format(new Date(profile.fecha_registro))}</p>
-          </div>
-        </div>
-      </Section>
-
-      {!profile.roles.includes("paseador") && (
-        <Section title="Solicitud de paseador" bodyClass="grid gap-5 px-4 pb-6 sm:grid-cols-2 sm:px-6">
-          {profile.paseador && (
-            <div className="bg-sunken px-4 py-3 sm:col-span-2">
-              <p className={labelClass}>Estado</p>
-              <p className="mt-1 text-[13px] text-ink">{profile.paseador.estado_verificacion}</p>
-            </div>
-          )}
-          <div className="sm:col-span-2"><label htmlFor="solicitud-descripcion" className={labelClass}>Experiencia como paseador</label><textarea id="solicitud-descripcion" rows={4} value={form.descripcion} onChange={(e) => setField("descripcion", e.target.value)} className={`${input} mt-2 resize-y`} maxLength={800} /></div>
-          <div><label htmlFor="solicitud-tarifa" className={labelClass}>Tarifa base (₡)</label><input id="solicitud-tarifa" type="number" min="1" step="100" value={form.tarifa_base} onChange={(e) => setField("tarifa_base", e.target.value)} className={`${input} nums mt-2`} /></div>
-          <label className="flex items-center gap-3 bg-sunken px-4 py-3 text-[13px] text-ink-soft sm:self-end"><input type="checkbox" checked={form.disponible} onChange={(e) => setField("disponible", e.target.checked)} className="h-4 w-4 accent-accent" />Disponible al aprobarse</label>
-          <div className="sm:col-span-2">
-            <button type="button" onClick={() => void requestPaseador()} disabled={addingRole !== null || profile.paseador?.estado_verificacion === "rechazado"} className={btnPrimary}>
-              <UserPlus size={15} /> {addingRole === "paseador" ? "Enviando..." : profile.paseador ? "Actualizar solicitud" : "Enviar solicitud"}
-            </button>
-          </div>
-        </Section>
-      )}
-
-      {!profile.roles.includes("negocio") && (
-        <Section title="Activar negocio" bodyClass="grid gap-5 px-4 pb-6 sm:grid-cols-2 sm:px-6">
-          <div><label htmlFor="activar-negocio-nombre" className={labelClass}>Nombre del negocio</label><input id="activar-negocio-nombre" value={form.nombre_negocio} onChange={(e) => setField("nombre_negocio", e.target.value)} className={`${input} mt-2`} maxLength={150} /></div>
-          <div><label htmlFor="activar-negocio-tipo" className={labelClass}>Tipo</label><select id="activar-negocio-tipo" value={form.tipo_negocio} onChange={(e) => setField("tipo_negocio", e.target.value as ProfileForm["tipo_negocio"])} className={`${input} mt-2`}><option value="veterinaria">Veterinaria</option><option value="tienda">Tienda</option><option value="refugio">Refugio</option></select></div>
-          <div><label htmlFor="activar-negocio-zona" className={labelClass}>Zona del negocio</label><select id="activar-negocio-zona" value={form.negocio_zona_id || form.zona_id} onChange={(e) => setField("negocio_zona_id", e.target.value)} className={`${input} mt-2`}><option value="">Sin zona seleccionada</option>{zoneOptions}</select></div>
-          <div><label htmlFor="activar-negocio-telefono" className={labelClass}>Teléfono del negocio</label><input id="activar-negocio-telefono" type="tel" value={form.telefono_negocio} onChange={(e) => setField("telefono_negocio", e.target.value)} className={`${input} mt-2`} maxLength={20} /></div>
-          <div className="sm:col-span-2"><label htmlFor="activar-negocio-direccion" className={labelClass}>Dirección</label><input id="activar-negocio-direccion" value={form.direccion} onChange={(e) => setField("direccion", e.target.value)} className={`${input} mt-2`} /></div>
-          <div><label htmlFor="activar-negocio-latitud" className={labelClass}>Latitud</label><input id="activar-negocio-latitud" type="number" min="-90" max="90" step="any" value={form.latitud} onChange={(e) => setField("latitud", e.target.value)} className={`${input} nums mt-2`} /></div>
-          <div><label htmlFor="activar-negocio-longitud" className={labelClass}>Longitud</label><input id="activar-negocio-longitud" type="number" min="-180" max="180" step="any" value={form.longitud} onChange={(e) => setField("longitud", e.target.value)} className={`${input} nums mt-2`} /></div>
-          <div className="sm:col-span-2"><label htmlFor="activar-negocio-horario" className={labelClass}>Horario</label><input id="activar-negocio-horario" value={form.horario} onChange={(e) => setField("horario", e.target.value)} className={`${input} mt-2`} /></div>
-          <div className="sm:col-span-2">
-            <button type="button" onClick={() => void activateNegocio()} disabled={addingRole !== null} className={btnPrimary}>
-              <UserPlus size={15} /> {addingRole === "negocio" ? "Activando..." : "Activar negocio"}
-            </button>
-          </div>
-        </Section>
-      )}
+      {(error || message) && <div aria-live="polite" className={`flex items-center gap-2 px-5 py-4 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>{message && <Check size={15} />}{error ?? message}</div>}
 
       <form onSubmit={save} className="flex flex-col gap-3">
-        <Section title="Datos personales" bodyClass="grid gap-5 px-4 pb-6 sm:grid-cols-2 sm:px-6">
-          <div><label htmlFor="perfil-nombre" className={labelClass}>Nombre completo</label><input id="perfil-nombre" value={form.nombre} onChange={(e) => setField("nombre", e.target.value)} className={`${input} mt-2`} required maxLength={150} /></div>
-          <div><label htmlFor="perfil-email" className={labelClass}>Correo electrónico</label><input id="perfil-email" value={profile.email} className={`${input} mt-2 opacity-70`} readOnly /></div>
-          <div><label htmlFor="perfil-telefono" className={labelClass}>Teléfono</label><input id="perfil-telefono" type="tel" value={form.telefono} onChange={(e) => setField("telefono", e.target.value)} className={`${input} mt-2`} maxLength={20} /></div>
-          <div><label htmlFor="perfil-zona" className={labelClass}>Zona</label><select id="perfil-zona" value={form.zona_id} onChange={(e) => setField("zona_id", e.target.value)} className={`${input} mt-2`}><option value="">Sin zona seleccionada</option>{zoneOptions}</select></div>
-          <div className="sm:col-span-2"><label htmlFor="perfil-foto" className={labelClass}>URL de foto de perfil</label><input id="perfil-foto" type="url" value={form.foto_perfil} onChange={(e) => setField("foto_perfil", e.target.value)} className={`${input} mt-2`} placeholder="https://... (no Base64)" maxLength={2048} /></div>
-        </Section>
-
-        {profile.roles.includes("paseador") && profile.paseador && (
-          <Section title="Perfil de paseador" bodyClass="grid gap-5 px-4 pb-6 sm:grid-cols-2 sm:px-6">
-            <div className="sm:col-span-2"><label htmlFor="perfil-descripcion" className={labelClass}>Descripción</label><textarea id="perfil-descripcion" rows={4} value={form.descripcion} onChange={(e) => setField("descripcion", e.target.value)} className={`${input} mt-2 resize-y`} maxLength={800} /></div>
-            <div><label htmlFor="perfil-tarifa" className={labelClass}>Tarifa base (₡)</label><input id="perfil-tarifa" type="number" min="0" step="100" value={form.tarifa_base} onChange={(e) => setField("tarifa_base", e.target.value)} className={`${input} nums mt-2`} /></div>
-            <label className="flex items-center gap-3 bg-sunken px-4 py-3 text-[13px] text-ink-soft sm:self-end"><input type="checkbox" checked={form.disponible} onChange={(e) => setField("disponible", e.target.checked)} className="h-4 w-4 accent-accent" />Disponible para recibir paseos</label>
-            <div className="bg-sunken px-4 py-3"><p className={labelClass}>Verificación</p><p className="mt-1 text-[13px] text-ink">{profile.paseador.estado_verificacion}</p></div>
-            <div className="bg-sunken px-4 py-3"><p className={labelClass}>Calificación</p><p className="nums mt-1 text-[13px] text-ink">{profile.paseador.calificacion_promedio.toFixed(2)} / 5</p></div>
-            <div className="bg-sunken px-4 py-3 sm:col-span-2">
-              <p className={labelClass}>Documentos de verificación</p>
-              {profile.paseador.documentos.length ? (
-                <ul className="mt-2 space-y-1">
-                  {profile.paseador.documentos.map((documento) => (
-                    <li key={documento.id_documento} className="flex flex-wrap justify-between gap-2 text-[13px] text-ink">
-                      <span className="break-all">{documento.ruta_storage}</span>
-                      <span className="text-ink-mute">{new Intl.DateTimeFormat("es-CR").format(new Date(documento.fecha_subida))}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : <p className="mt-1 text-[13px] text-ink">No registrados</p>}
+        <Section title="Información personal" bodyClass="grid gap-6 px-4 pb-6 sm:px-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <ProfileAvatar key={avatarUrl || form.nombre} profile={{ ...profile, nombre: form.nombre, foto_perfil: avatarUrl || null }} size="h-24 w-24" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2"><p className="truncate text-[18px] font-semibold text-ink">{form.nombre || profile.nombre}</p><Badge tono={profile.activo ? "ok" : "danger"}>{profile.activo ? "Cuenta activa" : "Cuenta inactiva"}</Badge></div>
+              <p className="mt-1 text-[13px] text-ink-soft">{profile.roles.map((item) => roleLabel[item]).join(" + ") || (profile.isAdmin ? roleLabel.admin : "Sin perfil")} · {profile.email}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <label className={btnPrimary}><Camera size={15} /> Elegir imagen<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { selectPhoto(event.target.files?.[0] ?? null); event.target.value = ""; }} /></label>
+                {(form.foto_perfil || photoFile) && <button type="button" className={btnDanger} onClick={() => { setPhotoFile(null); setRemovePhoto(true); }}><Trash2 size={14} /> Quitar</button>}
+              </div>
+              <p className="mt-2 text-[11px] text-ink-mute">JPG, PNG o WebP. Máximo 5 MB.</p>
             </div>
-          </Section>
-        )}
+          </div>
 
-        {profile.roles.includes("negocio") && profile.negocio && (
-          <Section title="Datos del negocio" bodyClass="grid gap-5 px-4 pb-6 sm:grid-cols-2 sm:px-6">
-            <div><label htmlFor="negocio-nombre" className={labelClass}>Nombre del negocio</label><input id="negocio-nombre" value={form.nombre_negocio} onChange={(e) => setField("nombre_negocio", e.target.value)} className={`${input} mt-2`} required maxLength={150} /></div>
-            <div><label htmlFor="negocio-tipo" className={labelClass}>Tipo</label><select id="negocio-tipo" value={form.tipo_negocio} onChange={(e) => setField("tipo_negocio", e.target.value as ProfileForm["tipo_negocio"])} className={`${input} mt-2`}><option value="veterinaria">Veterinaria</option><option value="tienda">Tienda</option><option value="refugio">Refugio</option></select></div>
-            <div><label htmlFor="negocio-zona" className={labelClass}>Zona del negocio</label><select id="negocio-zona" value={form.negocio_zona_id} onChange={(e) => setField("negocio_zona_id", e.target.value)} className={`${input} mt-2`}><option value="">Sin zona seleccionada</option>{zoneOptions}</select></div>
-            <div><label htmlFor="negocio-telefono" className={labelClass}>Teléfono del negocio</label><input id="negocio-telefono" type="tel" value={form.telefono_negocio} onChange={(e) => setField("telefono_negocio", e.target.value)} className={`${input} mt-2`} maxLength={20} /></div>
-            <div className="sm:col-span-2"><label htmlFor="negocio-direccion" className={labelClass}>Dirección</label><input id="negocio-direccion" value={form.direccion} onChange={(e) => setField("direccion", e.target.value)} className={`${input} mt-2`} /></div>
-            <div><label htmlFor="negocio-latitud" className={labelClass}>Latitud</label><input id="negocio-latitud" type="number" min="-90" max="90" step="any" value={form.latitud} onChange={(e) => setField("latitud", e.target.value)} className={`${input} nums mt-2`} /></div>
-            <div><label htmlFor="negocio-longitud" className={labelClass}>Longitud</label><input id="negocio-longitud" type="number" min="-180" max="180" step="any" value={form.longitud} onChange={(e) => setField("longitud", e.target.value)} className={`${input} nums mt-2`} /></div>
-            <div className="sm:col-span-2"><label htmlFor="negocio-horario" className={labelClass}>Horario</label><input id="negocio-horario" value={form.horario} onChange={(e) => setField("horario", e.target.value)} className={`${input} mt-2`} /></div>
-            <div className="bg-sunken px-4 py-3"><p className={labelClass}>ID del negocio</p><p className="mt-1 break-all text-[12px] text-ink">{profile.negocio.id_negocio}</p></div>
-            <div className="bg-sunken px-4 py-3"><p className={labelClass}>Destacado</p><p className="mt-1 text-[13px] text-ink">{profile.negocio.destacado ? "Sí" : "No"}</p></div>
-          </Section>
-        )}
-
-        <Section bodyClass="flex flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div aria-live="polite">{(error || message) && <p className={`flex items-center gap-2 text-[13px] ${error ? "text-danger" : "text-ok"}`}>{message && <Check size={15} />}{error ?? message}</p>}</div>
-          <button type="submit" disabled={saving} className={`${btnPrimary} w-full sm:w-auto`}><Save size={15} /> {saving ? "Guardando..." : "Guardar cambios"}</button>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div><label htmlFor="perfil-nombre" className={labelClass}>Nombre completo</label><input id="perfil-nombre" value={form.nombre} onChange={(event) => setField("nombre", event.target.value)} className={`${input} mt-2`} required maxLength={150} /></div>
+            <div><label htmlFor="perfil-email" className={labelClass}>Correo electrónico</label><input id="perfil-email" value={profile.email} className={`${input} mt-2 opacity-70`} readOnly /></div>
+            <div><label htmlFor="perfil-telefono" className={labelClass}>Teléfono</label><input id="perfil-telefono" type="tel" value={form.telefono} onChange={(event) => setField("telefono", event.target.value)} className={`${input} mt-2`} maxLength={20} /></div>
+            <div><label htmlFor="perfil-zona" className={labelClass}>Zona</label><select id="perfil-zona" value={form.zona_id} onChange={(event) => setField("zona_id", event.target.value)} className={`${input} mt-2`}><option value="">Seleccionar zona</option>{zoneOptions}</select></div>
+          </div>
         </Section>
+
+        {role === "dueno" && (
+          <Section title="Perfil de dueño" bodyClass="flex flex-col items-start gap-3 px-4 pb-6 sm:px-6">
+            <p className="text-[13px] text-ink-soft">Los datos de tus mascotas, vacunas y carnés se administran desde su sección dedicada.</p>
+            <button type="button" className={btnSecondary} onClick={() => void navigate({ to: "/mascotas" })}><PawPrint size={15} /> Gestionar mis mascotas</button>
+          </Section>
+        )}
+
+        {role === "paseador" && profile.paseador && (
+          <Section title="Datos del perfil de paseador" bodyClass="grid gap-5 px-4 pb-6 sm:grid-cols-2 sm:px-6">
+            <div className="sm:col-span-2"><label htmlFor="perfil-descripcion" className={labelClass}>Experiencia y descripción</label><textarea id="perfil-descripcion" rows={4} value={form.descripcion} onChange={(event) => setField("descripcion", event.target.value)} className={`${input} mt-2 resize-y`} maxLength={800} /></div>
+            <div><label htmlFor="perfil-tarifa" className={labelClass}>Tarifa base (₡)</label><input id="perfil-tarifa" type="number" min="0" step="100" value={form.tarifa_base} onChange={(event) => setField("tarifa_base", event.target.value)} className={`${input} nums mt-2`} /></div>
+            <label className="flex items-center gap-3 bg-sunken px-4 py-3 text-[13px] text-ink-soft sm:self-end"><input type="checkbox" checked={form.disponible} onChange={(event) => setField("disponible", event.target.checked)} className="h-4 w-4 accent-accent" />Disponible para recibir paseos</label>
+            <div className="bg-sunken px-4 py-3"><p className={labelClass}>Verificación</p><p className="mt-1 text-[13px] capitalize text-ink">{profile.paseador.estado_verificacion}</p></div>
+            <div className="bg-sunken px-4 py-3"><p className={labelClass}>Calificación</p><p className="nums mt-1 text-[13px] text-ink">{profile.paseador.calificacion_promedio.toFixed(2)} / 5</p></div>
+          </Section>
+        )}
+
+        {role === "negocio" && profile.negocio && (
+          <Section title="Datos del negocio" bodyClass="grid gap-5 px-4 pb-6 sm:grid-cols-2 sm:px-6">
+            <div><label htmlFor="negocio-nombre" className={labelClass}>Nombre del negocio</label><input id="negocio-nombre" value={form.nombre_negocio} onChange={(event) => setField("nombre_negocio", event.target.value)} className={`${input} mt-2`} required maxLength={150} /></div>
+            <div><label htmlFor="negocio-tipo" className={labelClass}>Tipo</label><select id="negocio-tipo" value={form.tipo_negocio} onChange={(event) => setField("tipo_negocio", event.target.value as ProfileForm["tipo_negocio"])} className={`${input} mt-2`}><option value="veterinaria">Veterinaria</option><option value="tienda">Tienda</option><option value="refugio">Refugio</option></select></div>
+            <div><label htmlFor="negocio-zona" className={labelClass}>Zona</label><select id="negocio-zona" value={form.negocio_zona_id} onChange={(event) => setField("negocio_zona_id", event.target.value)} className={`${input} mt-2`}><option value="">Seleccionar zona</option>{zoneOptions}</select></div>
+            <div><label htmlFor="negocio-telefono" className={labelClass}>Teléfono</label><input id="negocio-telefono" type="tel" value={form.telefono_negocio} onChange={(event) => setField("telefono_negocio", event.target.value)} className={`${input} mt-2`} maxLength={20} /></div>
+            <div className="sm:col-span-2"><label htmlFor="negocio-direccion" className={labelClass}>Dirección</label><input id="negocio-direccion" value={form.direccion} onChange={(event) => setField("direccion", event.target.value)} className={`${input} mt-2`} /></div>
+            <div><label htmlFor="negocio-latitud" className={labelClass}>Latitud</label><input id="negocio-latitud" type="number" min="-90" max="90" step="any" value={form.latitud} onChange={(event) => setField("latitud", event.target.value)} className={`${input} nums mt-2`} /></div>
+            <div><label htmlFor="negocio-longitud" className={labelClass}>Longitud</label><input id="negocio-longitud" type="number" min="-180" max="180" step="any" value={form.longitud} onChange={(event) => setField("longitud", event.target.value)} className={`${input} nums mt-2`} /></div>
+            <div className="sm:col-span-2"><label htmlFor="negocio-horario" className={labelClass}>Horario</label><input id="negocio-horario" value={form.horario} onChange={(event) => setField("horario", event.target.value)} className={`${input} mt-2`} /></div>
+          </Section>
+        )}
+
+        <Section bodyClass="flex justify-end px-4 py-5 sm:px-6"><button type="submit" disabled={saving} className={`${btnPrimary} w-full sm:w-auto`}><Save size={15} /> {saving ? "Guardando…" : "Guardar cambios"}</button></Section>
       </form>
+
+      <Section title="Agregar otro perfil a esta cuenta" bodyClass="grid gap-3 px-4 pb-6 sm:grid-cols-3 sm:px-6">
+        {missingRoles.length ? missingRoles.map((item) => {
+          const meta = roleMeta[item];
+          const pending = item === "paseador" && profile.paseador?.estado_verificacion === "pendiente";
+          const rejected = item === "paseador" && profile.paseador?.estado_verificacion === "rechazado";
+          return (
+            <button key={item} type="button" disabled={rejected} onClick={() => { setRoleSetup(item); setError(null); setMessage(null); }} className={`flex min-h-40 flex-col items-start bg-sunken p-5 text-left transition-colors hover:bg-neutral-wash disabled:cursor-not-allowed disabled:opacity-60 ${roleSetup === item ? "outline-2 -outline-offset-2 outline-accent" : ""}`}>
+              <meta.Icon size={24} className="text-accent-dark" />
+              <span className="mt-4 text-[14px] font-semibold text-ink">{meta.title}</span>
+              <span className="mt-1 text-[12px] leading-relaxed text-ink-soft">{rejected ? "Solicitud rechazada. Contacta a administración." : pending ? "Solicitud pendiente. Puedes actualizarla." : meta.text}</span>
+              <span className="mt-auto pt-4 text-[12px] font-semibold text-accent-dark">{pending ? "Editar solicitud" : "Configurar perfil"}</span>
+            </button>
+          );
+        }) : <div className="sm:col-span-3"><EmptyState title="Todos los perfiles están activos" hint="Puedes cambiar entre ellos desde el selector de la barra lateral." /></div>}
+      </Section>
+
+      {roleSetup && (
+        <Section title={`Configurar ${roleMeta[roleSetup].title.toLowerCase()}`} aside={<button type="button" className={btnQuiet} onClick={() => setRoleSetup(null)}><X size={15} /> Cerrar</button>} bodyClass="grid gap-5 px-4 pb-6 sm:grid-cols-2 sm:px-6">
+          {roleSetup === "dueno" && <><div className="bg-sunken px-4 py-4 sm:col-span-2"><p className="text-[13px] font-medium text-ink">Usaremos tu nombre, teléfono y zona de la información personal.</p><p className="mt-1 text-[12px] text-ink-soft">Completa esos campos arriba; el perfil solo se agrega después de validarlos.</p></div><div className="sm:col-span-2"><button type="button" onClick={() => void activateOwner()} disabled={addingRole !== null} className={btnPrimary}><UserPlus size={15} /> {addingRole === "dueno" ? "Activando…" : "Activar perfil de dueño"}</button></div></>}
+
+          {roleSetup === "paseador" && <><div className="sm:col-span-2"><label htmlFor="solicitud-descripcion" className={labelClass}>Experiencia como paseador *</label><textarea id="solicitud-descripcion" rows={4} value={form.descripcion} onChange={(event) => setField("descripcion", event.target.value)} className={`${input} mt-2 resize-y`} maxLength={800} /></div><div><label htmlFor="solicitud-tarifa" className={labelClass}>Tarifa base (₡) *</label><input id="solicitud-tarifa" type="number" min="1" step="100" value={form.tarifa_base} onChange={(event) => setField("tarifa_base", event.target.value)} className={`${input} nums mt-2`} /></div><label className="flex items-center gap-3 bg-sunken px-4 py-3 text-[13px] text-ink-soft sm:self-end"><input type="checkbox" checked={form.disponible} onChange={(event) => setField("disponible", event.target.checked)} className="h-4 w-4 accent-accent" />Disponible cuando se apruebe</label><div className="sm:col-span-2"><button type="button" onClick={() => void requestPaseador()} disabled={addingRole !== null} className={btnPrimary}><UserPlus size={15} /> {addingRole === "paseador" ? "Enviando…" : profile.paseador ? "Actualizar solicitud" : "Enviar solicitud"}</button></div></>}
+
+          {roleSetup === "negocio" && <><div><label htmlFor="activar-negocio-nombre" className={labelClass}>Nombre del negocio *</label><input id="activar-negocio-nombre" value={form.nombre_negocio} onChange={(event) => setField("nombre_negocio", event.target.value)} className={`${input} mt-2`} maxLength={150} /></div><div><label htmlFor="activar-negocio-tipo" className={labelClass}>Tipo *</label><select id="activar-negocio-tipo" value={form.tipo_negocio} onChange={(event) => setField("tipo_negocio", event.target.value as ProfileForm["tipo_negocio"])} className={`${input} mt-2`}><option value="veterinaria">Veterinaria</option><option value="tienda">Tienda</option><option value="refugio">Refugio</option></select></div><div><label htmlFor="activar-negocio-zona" className={labelClass}>Zona *</label><select id="activar-negocio-zona" value={form.negocio_zona_id} onChange={(event) => setField("negocio_zona_id", event.target.value)} className={`${input} mt-2`}><option value="">Seleccionar zona</option>{zoneOptions}</select></div><div><label htmlFor="activar-negocio-telefono" className={labelClass}>Teléfono *</label><input id="activar-negocio-telefono" type="tel" value={form.telefono_negocio} onChange={(event) => setField("telefono_negocio", event.target.value)} className={`${input} mt-2`} maxLength={20} /></div><div className="sm:col-span-2"><label htmlFor="activar-negocio-direccion" className={labelClass}>Dirección *</label><input id="activar-negocio-direccion" value={form.direccion} onChange={(event) => setField("direccion", event.target.value)} className={`${input} mt-2`} /></div><div><label htmlFor="activar-negocio-latitud" className={labelClass}>Latitud</label><input id="activar-negocio-latitud" type="number" min="-90" max="90" step="any" value={form.latitud} onChange={(event) => setField("latitud", event.target.value)} className={`${input} nums mt-2`} /></div><div><label htmlFor="activar-negocio-longitud" className={labelClass}>Longitud</label><input id="activar-negocio-longitud" type="number" min="-180" max="180" step="any" value={form.longitud} onChange={(event) => setField("longitud", event.target.value)} className={`${input} nums mt-2`} /></div><div className="sm:col-span-2"><label htmlFor="activar-negocio-horario" className={labelClass}>Horario *</label><input id="activar-negocio-horario" value={form.horario} onChange={(event) => setField("horario", event.target.value)} className={`${input} mt-2`} /></div><div className="sm:col-span-2"><button type="button" onClick={() => void activateBusiness()} disabled={addingRole !== null} className={btnPrimary}><UserPlus size={15} /> {addingRole === "negocio" ? "Activando…" : "Crear y activar negocio"}</button></div></>}
+        </Section>
+      )}
     </Page>
   );
 };
