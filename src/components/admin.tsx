@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { Check, Download, ShieldCheck, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Download, Search, ShieldCheck, X } from "lucide-react";
+import { getAdminUsuarios } from "../services/auth.service";
+import type { AdminUser, RolPublico } from "../types/auth.types";
 import {
   Avatar,
   Badge,
@@ -14,6 +16,7 @@ import {
   btnPrimary,
   btnSecondary,
   colones,
+  input,
 } from "./ui";
 
 /* ─────────────────────────────────────────────────────────────
@@ -403,77 +406,66 @@ export const VerificacionesAdmin = () => {
 
 /* ── Usuarios ────────────────────────────────────────────────── */
 
-const usuarios = [
-  { nombre: "Ana Corrales", correo: "ana@correo.com", zona: "San José", mascotas: 3, paseos: 42, desde: "mar 2026", estado: "Activo" as const },
-  { nombre: "Diego Solís", correo: "diego@correo.com", zona: "Curridabat", mascotas: 1, paseos: 28, desde: "abr 2026", estado: "Activo" as const },
-  { nombre: "Laura Vega", correo: "laura@correo.com", zona: "San Pedro", mascotas: 2, paseos: 9, desde: "ago 2026", estado: "Activo" as const },
-  { nombre: "Roberto Jiménez", correo: "roberto@correo.com", zona: "Escazú", mascotas: 1, paseos: 3, desde: "jul 2026", estado: "Inactivo" as const },
-  { nombre: "Priscilla Ramírez", correo: "pris@correo.com", zona: "Heredia", mascotas: 4, paseos: 61, desde: "feb 2026", estado: "Activo" as const },
+const usuariosDemo: AdminUser[] = [
+  { id_usuario: "demo-1", nombre: "Ana Corrales", telefono: "8888-1200", foto_perfil: null, tipo_usuario: "dueno", fecha_registro: "2026-03-12", activo: true, zona: { nombre: "San José", canton: "San José", provincia: "San José" } },
+  { id_usuario: "demo-2", nombre: "Diego Solís", telefono: "8888-2310", foto_perfil: null, tipo_usuario: "dueno", fecha_registro: "2026-04-20", activo: true, zona: { nombre: "Curridabat", canton: "Curridabat", provincia: "San José" } },
+  { id_usuario: "demo-3", nombre: "Laura Vega", telefono: "8888-4532", foto_perfil: null, tipo_usuario: "dueno", fecha_registro: "2026-08-04", activo: true, zona: { nombre: "San Pedro", canton: "Montes de Oca", provincia: "San José" } },
+  { id_usuario: "demo-4", nombre: "Roberto Jiménez", telefono: "8888-6789", foto_perfil: null, tipo_usuario: "dueno", fecha_registro: "2026-07-16", activo: false, zona: { nombre: "Escazú", canton: "Escazú", provincia: "San José" } },
+  { id_usuario: "demo-5", nombre: "María Fernández", telefono: "8888-9012", foto_perfil: null, tipo_usuario: "paseador", fecha_registro: "2026-02-08", activo: true, zona: { nombre: "Curridabat", canton: "Curridabat", provincia: "San José" } },
 ];
 
-export const UsuariosAdmin = () => (
-  <Page>
-    <PageHeader
-      title="Usuarios"
-      subtitle="Dueños de mascotas registrados en la plataforma."
-      action={
-        <button type="button" className={btnSecondary}>
-          <Download size={14} strokeWidth={1.9} />
-          Exportar
-        </button>
-      }
-    />
+const rolLabel: Record<RolPublico, string> = { dueno: "Dueño", paseador: "Paseador", negocio: "Negocio" };
+const rolTono = (rol: RolPublico) => rol === "paseador" ? "accent" : rol === "negocio" ? "warn" : "neutral";
 
-    <div className="grid gap-px bg-canvas sm:grid-cols-3">
-      <Stat etiqueta="Dueños registrados" valor="418" nota="+37 este mes" />
-      <Stat etiqueta="Mascotas" valor="726" nota="1.7 por dueño" />
-      <Stat etiqueta="Retención 90 días" valor="71%" nota="+4 pts vs julio" />
-    </div>
+export const UsuariosAdmin = () => {
+  const [usuarios, setUsuarios] = useState<AdminUser[]>(usuariosDemo);
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroRol, setFiltroRol] = useState<"todos" | RolPublico>("todos");
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-    <Section bodyClass="">
-      <Table
-        caption="Usuarios dueños registrados"
-        columnas={[
-          { label: "Usuario" },
-          { label: "Zona" },
-          { label: "Mascotas", align: "right" },
-          { label: "Paseos", align: "right" },
-          { label: "Desde" },
-          { label: "Estado" },
-        ]}
-      >
-        {usuarios.map((u) => (
-          <tr key={u.correo}>
-            <td className="px-6 py-3">
-              <div className="flex items-center gap-3">
-                <Avatar nombre={u.nombre} size={30} />
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-ink">
-                    {u.nombre}
-                  </p>
-                  <p className="truncate text-[11.5px] text-ink-mute">{u.correo}</p>
-                </div>
-              </div>
-            </td>
-            <td className="px-6 py-3 text-[12.5px] text-ink-soft">{u.zona}</td>
-            <td className="nums px-6 py-3 text-right text-[12.5px] text-ink-soft">
-              {u.mascotas}
-            </td>
-            <td className="nums px-6 py-3 text-right text-[12.5px] text-ink-soft">
-              {u.paseos}
-            </td>
-            <td className="px-6 py-3 text-[12.5px] text-ink-soft">{u.desde}</td>
-            <td className="px-6 py-3">
-              <Badge tono={u.estado === "Activo" ? "ok" : "neutral"}>
-                {u.estado}
-              </Badge>
-            </td>
-          </tr>
-        ))}
-      </Table>
-    </Section>
-  </Page>
-);
+  useEffect(() => {
+    getAdminUsuarios().then(setUsuarios).catch(() => setError(true)).finally(() => setLoading(false));
+  }, []);
+
+  const visibles = usuarios.filter((usuario) => {
+    const texto = `${usuario.nombre} ${usuario.telefono ?? ""} ${usuario.zona?.nombre ?? ""}`.toLowerCase();
+    return texto.includes(busqueda.toLowerCase()) && (filtroRol === "todos" || usuario.tipo_usuario === filtroRol) && (filtroEstado === "todos" || (filtroEstado === "activos" ? usuario.activo : !usuario.activo));
+  });
+  const activos = usuarios.filter((usuario) => usuario.activo).length;
+  const duenos = usuarios.filter((usuario) => usuario.tipo_usuario === "dueno").length;
+  const exportar = () => {
+    const csv = ["Nombre,Telefono,Rol,Zona,Registro,Estado", ...visibles.map((u) => [u.nombre, u.telefono ?? "", rolLabel[u.tipo_usuario], u.zona?.nombre ?? "Sin zona", u.fecha_registro, u.activo ? "Activo" : "Inactivo"].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
+    const enlace = document.createElement("a");
+    enlace.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    enlace.download = "usuarios-tuaniscan.csv";
+    enlace.click();
+    URL.revokeObjectURL(enlace.href);
+  };
+
+  return (
+    <Page>
+      <PageHeader title="Usuarios" subtitle="Directorio general de las personas y negocios registrados." action={<button type="button" onClick={exportar} className={btnSecondary}><Download size={14} strokeWidth={1.9} /> Exportar vista</button>} />
+      <div className="grid gap-px bg-canvas sm:grid-cols-3">
+        <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas públicas" />
+        <Stat etiqueta="Cuentas activas" valor={String(activos)} nota={`${usuarios.length ? Math.round((activos / usuarios.length) * 100) : 0}% del total`} />
+        <Stat etiqueta="Dueños de mascotas" valor={String(duenos)} nota="Segmento principal" />
+      </div>
+      <Section title="Directorio" aside={<span className="text-[12px] text-ink-mute">{visibles.length} resultados</span>} bodyClass="px-4 py-4 sm:px-6">
+        <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_160px_160px]">
+          <label className="relative block"><Search size={15} className="absolute top-3 left-3 text-ink-mute" aria-hidden /><span className="sr-only">Buscar usuarios</span><input value={busqueda} onChange={(event) => setBusqueda(event.target.value)} className={`${input} pl-9`} placeholder="Buscar por nombre, teléfono o zona" /></label>
+          <select value={filtroRol} onChange={(event) => setFiltroRol(event.target.value as typeof filtroRol)} className={input} aria-label="Filtrar por rol"><option value="todos">Todos los roles</option><option value="dueno">Dueños</option><option value="paseador">Paseadores</option><option value="negocio">Negocios</option></select>
+          <select value={filtroEstado} onChange={(event) => setFiltroEstado(event.target.value as typeof filtroEstado)} className={input} aria-label="Filtrar por estado"><option value="todos">Todos los estados</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option></select>
+        </div>
+      </Section>
+      {error && <div className="bg-warn-wash px-6 py-3 text-[13px] text-warn">No se pudo conectar con Supabase. Mostrando datos de demostración.</div>}
+      <Section bodyClass="">
+        {loading ? <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando directorio...</p> : visibles.length === 0 ? <EmptyState title="No hay usuarios con esos filtros" hint="Prueba con otra búsqueda o limpia los filtros." /> : <Table caption="Directorio de usuarios" columnas={[{ label: "Usuario" }, { label: "Rol" }, { label: "Contacto" }, { label: "Zona" }, { label: "Registro" }, { label: "Estado" }]}>{visibles.map((usuario) => <tr key={usuario.id_usuario}><td className="px-6 py-3"><div className="flex items-center gap-3">{usuario.foto_perfil ? <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 object-cover" /> : <Avatar nombre={usuario.nombre} size={36} />}<div className="min-w-0"><p className="truncate text-[13px] font-medium text-ink">{usuario.nombre}</p><p className="text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p></div></div></td><td className="px-6 py-3"><Badge tono={rolTono(usuario.tipo_usuario)}>{rolLabel[usuario.tipo_usuario]}</Badge></td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.telefono || "Sin teléfono"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" }).format(new Date(usuario.fecha_registro))}</td><td className="px-6 py-3"><Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge></td></tr>)}</Table>}
+      </Section>
+    </Page>
+  );
+};
 
 /* ── Paseos de la plataforma ─────────────────────────────────── */
 

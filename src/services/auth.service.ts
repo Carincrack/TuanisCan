@@ -9,6 +9,7 @@ import type {
   UserProfile,
   Zona,
   ZonaInput,
+  AdminUser,
 } from "../types/auth.types";
 
 export const login = async (email: string, password: string): Promise<AuthResponse> =>
@@ -48,6 +49,19 @@ export const getZonas = async (): Promise<Zona[]> => {
     .order("nombre");
   if (error) throw error;
   return (data ?? []) as Zona[];
+};
+
+export const getAdminUsuarios = async (): Promise<AdminUser[]> => {
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id_usuario, nombre, telefono, foto_perfil, tipo_usuario, fecha_registro, activo, zona:zonas(nombre, canton, provincia)")
+    .neq("tipo_usuario", "admin")
+    .order("fecha_registro", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((usuario) => ({
+    ...usuario,
+    zona: Array.isArray(usuario.zona) ? usuario.zona[0] ?? null : usuario.zona,
+  })) as AdminUser[];
 };
 
 export const getNegocios = async (): Promise<NegocioProfile[]> => {

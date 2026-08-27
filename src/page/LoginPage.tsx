@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   User,
@@ -106,6 +106,15 @@ const SNAP_AT = 500; // dentro de la ventana de cobertura total
 const REVEAL_AT = 790; // la luna ya casi llegó → entra el contenido
 const ENTER_MS = 540; // desliz suave de entrada
 
+
+const normalizarTexto = (valor: string) =>
+  valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("es");
+
+
 const LoginPage: React.FC<LoginPageProps> = ({
   logoSrc = MARCA.logoLogin,
   initialMode = "signin",
@@ -152,7 +161,13 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [registrationStep, setRegistrationStep] = useState(1);
   const [zonas, setZonas] = useState<Zona[]>([]);
-  const [zonasLoading, setZonasLoading] = useState(true);
+const [zonasLoading, setZonasLoading] = useState(true);
+const [regZonaBusqueda, setRegZonaBusqueda] = useState("");
+const [zonaDropdownOpen, setZonaDropdownOpen] = useState(false);
+
+const zonaSelectorRef = useRef<HTMLDivElement>(null);
+
+
 
   useEffect(() => {
     getZonas()
@@ -164,6 +179,44 @@ const LoginPage: React.FC<LoginPageProps> = ({
       .finally(() => setZonasLoading(false));
   }, []);
 
+
+  const zonasFiltradas = useMemo(() => {
+  const termino = normalizarTexto(regZonaBusqueda);
+
+  /*
+   * Si el campo está vacío mostramos todas.
+   */
+  if (!termino) {
+    return zonas;
+  }
+
+  return zonas.filter((zona) => {
+    const contenido = normalizarTexto(
+      `${zona.nombre} ${zona.canton} ${zona.provincia}`,
+    );
+
+    return contenido.includes(termino);
+  });
+}, [zonas, regZonaBusqueda]);
+
+
+
+useEffect(() => {
+  const cerrarSelectorZona = (event: MouseEvent) => {
+    if (
+      zonaSelectorRef.current &&
+      !zonaSelectorRef.current.contains(event.target as Node)
+    ) {
+      setZonaDropdownOpen(false);
+    }
+  };
+
+  document.addEventListener("mousedown", cerrarSelectorZona);
+
+  return () => {
+    document.removeEventListener("mousedown", cerrarSelectorZona);
+  };
+}, []);
   const toggleMode = () => {
     if (busy) return;
     const next: Mode = mode === "signin" ? "signup" : "signin";
@@ -677,13 +730,162 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
                   {registrationStep === 3 && (
                     <div className="space-y-4">
-                      <div className="relative">
-                        <MapPin className={iconBase} size={18} />
-                        <select value={regZonaId} onChange={(e) => setRegZonaId(e.target.value)} className={inputBase} aria-label="Zona" disabled={zonasLoading} required>
-                          <option value="">{zonasLoading ? "Cargando zonas..." : "Selecciona tu zona *"}</option>
-                          {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre}, {zona.canton} · {zona.provincia}</option>)}
-                        </select>
-                      </div>
+                      <div
+  ref={zonaSelectorRef}
+  className="relative"
+>
+  <MapPin
+    className={iconBase}
+    size={18}
+  />
+
+  <input
+    type="text"
+    value={regZonaBusqueda}
+    disabled={zonasLoading}
+    placeholder={
+      zonasLoading
+        ? "Cargando zonas..."
+        : "Busca y selecciona tu zona *"
+    }
+    autoComplete="off"
+    className={`${inputBase} pr-12`}
+    onFocus={() => {
+      if (!zonasLoading) {
+        setZonaDropdownOpen(true);
+      }
+    }}
+    onChange={(e) => {
+      /*
+       * Cuando el usuario vuelve a escribir,
+       * eliminamos la selección anterior.
+       *
+       * Así evitamos enviar un id_zona que ya
+       * no corresponde al texto visible.
+       */
+      setRegZonaBusqueda(e.target.value);
+      setRegZonaId("");
+      setZonaDropdownOpen(true);
+    }}
+    aria-label="Buscar zona"
+    aria-expanded={zonaDropdownOpen}
+    aria-autocomplete="list"
+    role="combobox"
+  />
+
+  {/* Lista desplegable */}
+  {zonaDropdownOpen && !zonasLoading && (
+    <div
+      role="listbox"
+      className="
+        absolute
+        left-0
+        right-0
+        top-[calc(100%+8px)]
+        z-50
+        max-h-64
+        overflow-y-auto
+        rounded-2xl
+        border
+        border-slate-200
+        bg-white
+        py-2
+        shadow-[0_18px_45px_rgba(15,32,44,0.18)]
+      "
+    >
+      {zonasFiltradas.length > 0 ? (
+        zonasFiltradas.map((zona) => {
+          const seleccionada =
+            regZonaId === zona.id_zona;
+
+          return (
+            <button
+              key={zona.id_zona}
+              type="button"
+              role="option"
+              aria-selected={seleccionada}
+              onMouseDown={(e) => {
+                /*
+                 * Evita que el input pierda el foco
+                 * antes de procesar la selección.
+                 */
+                e.preventDefault();
+              }}
+              onClick={() => {
+                setRegZonaId(zona.id_zona);
+
+                setRegZonaBusqueda(
+                  `${zona.nombre}, ${zona.canton} · ${zona.provincia}`,
+                );
+
+                setZonaDropdownOpen(false);
+
+                /*
+                 * Limpiamos un posible error anterior
+                 * relacionado con no seleccionar zona.
+                 */
+                setError(null);
+                setShowError(false);
+              }}
+              className={`
+                flex
+                w-full
+                items-start
+                gap-3
+                px-5
+                py-3
+                text-left
+                transition-colors
+                ${
+                  seleccionada
+                    ? "bg-[#14A3B8]/10"
+                    : "hover:bg-slate-50"
+                }
+              `}
+            >
+              <MapPin
+                size={16}
+                className="mt-0.5 flex-shrink-0 text-[#14A3B8]"
+              />
+
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[#1E2A33]">
+                  {zona.nombre}
+                </span>
+
+                <span className="mt-0.5 block text-xs text-slate-500">
+                  {zona.canton} · {zona.provincia}
+                </span>
+              </span>
+            </button>
+          );
+        })
+      ) : (
+        <div className="px-5 py-5 text-center">
+          <MapPin
+            size={22}
+            className="mx-auto mb-2 text-slate-300"
+          />
+
+          <p className="text-sm font-medium text-slate-500">
+            No encontramos esa zona
+          </p>
+
+          <p className="mt-1 text-xs text-slate-400">
+            Intenta buscar por zona, cantón o provincia.
+          </p>
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* Indicador de selección correcta */}
+  {regZonaId && (
+    <p className="mt-2 pl-5 text-[11px] font-medium text-[#14A3B8]">
+      Zona seleccionada
+    </p>
+  )}
+</div>
                       <div className="relative">
                         <Image className={iconBase} size={18} />
                         <input type="url" placeholder="URL https de foto (opcional, no Base64)" value={regFotoPerfil} onChange={(e) => setRegFotoPerfil(e.target.value)} className={inputBase} maxLength={2048} />
