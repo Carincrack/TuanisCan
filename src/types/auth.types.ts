@@ -2,6 +2,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import type { Rol } from "../lib/nav";
 
 export type RolPublico = Exclude<Rol, "admin">;
+export type UserRole = RolPublico;
 
 export interface RegistrationData {
   nombre: string;
@@ -9,6 +10,7 @@ export interface RegistrationData {
   foto_perfil?: string;
   zona_id?: string;
   tipo_usuario: RolPublico;
+  roles?: RolPublico[];
   descripcion?: string;
   tarifa_base?: number;
   disponible?: boolean;
@@ -64,7 +66,8 @@ export interface UserProfile {
   telefono: string | null;
   foto_perfil: string | null;
   zona_id: string | null;
-  tipo_usuario: Rol;
+  roles: RolPublico[];
+  isAdmin: boolean;
   fecha_registro: string;
   activo: boolean;
   zona: Zona | null;
@@ -77,7 +80,7 @@ export interface AdminUser {
   nombre: string;
   telefono: string | null;
   foto_perfil: string | null;
-  tipo_usuario: RolPublico;
+  roles: RolPublico[];
   fecha_registro: string;
   activo: boolean;
   zona: Pick<Zona, "nombre" | "canton" | "provincia"> | null;
@@ -101,5 +104,13 @@ export interface AuthState {
   user: User | null;
   session: Session | null;
   role: Rol | null;
+  roles: RolPublico[];
+  isAdmin: boolean;
   loading: boolean;
+}
+
+export interface SessionProfile {
+  usuario: Omit<UserProfile, "email" | "zona" | "paseador" | "negocio" | "roles" | "isAdmin"> | null;
+  roles: RolPublico[];
+  is_admin: boolean;
 }

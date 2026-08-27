@@ -323,6 +323,7 @@ useEffect(() => {
           foto_perfil: regFotoPerfil.trim() || undefined,
           zona_id: regZonaId,
           tipo_usuario: rol,
+          roles: [rol],
           descripcion: rol === "paseador" ? regDescripcion.trim() : undefined,
           tarifa_base: rol === "paseador" ? Number(regTarifa) : undefined,
           disponible: rol === "paseador" ? regDisponible : undefined,
@@ -474,7 +475,7 @@ useEffect(() => {
   const roleSelector = (
     <fieldset className="mb-5">
       <legend className="mb-2 w-full text-center text-xs tracking-wide text-slate-500">
-        {isSignUp ? "Elige el tipo de cuenta" : "Ingresar como"}
+        Elige el tipo de cuenta
       </legend>
       <div className="flex gap-3">
         {ROLES.map((r) => {
@@ -967,7 +968,6 @@ useEffect(() => {
               ) : (
                 /* ─── Formulario de login ─── */
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {roleSelector}
                   <div className="relative">
                     <User className={iconBase} size={18} />
                     <input

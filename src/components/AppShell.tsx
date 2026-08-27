@@ -124,9 +124,28 @@ const Navegacion = ({ rol, onNavigate }: { rol: Rol; onNavigate?: () => void }) 
   );
 };
 
-const PiePerfil = ({ profile, rol, onLogout }: { profile: UserProfile | null; rol: Rol; onLogout?: () => void }) => {
+const roleLabel: Record<Rol, string> = {
+  dueno: "Dueño",
+  paseador: "Paseador",
+  negocio: "Negocio",
+  admin: "Admin",
+};
+
+const PiePerfil = ({
+  profile,
+  rol,
+  rolesDisponibles,
+  onRoleChange,
+  onLogout,
+}: {
+  profile: UserProfile | null;
+  rol: Rol;
+  rolesDisponibles: Rol[];
+  onRoleChange: (rol: Rol) => void;
+  onLogout?: () => void;
+}) => {
   const nombre = profile?.nombre || "Usuario";
-  const detalle = profile?.tipo_usuario || rol;
+  const detalle = roleLabel[rol];
 
   return (
     <div className="bg-rail-hover">
@@ -141,6 +160,26 @@ const PiePerfil = ({ profile, rol, onLogout }: { profile: UserProfile | null; ro
           </span>
         </span>
       </div>
+
+      {rolesDisponibles.length > 1 && (
+        <div className="px-5 pb-3">
+          <label htmlFor="active-role" className="sr-only">
+            Cambiar perfil
+          </label>
+          <select
+            id="active-role"
+            value={rol}
+            onChange={(event) => onRoleChange(event.target.value as Rol)}
+            className="w-full bg-rail px-3 py-2 text-[12px] font-medium text-white outline-none transition-colors hover:bg-[#2d6a86]"
+          >
+            {rolesDisponibles.map((item) => (
+              <option key={item} value={item}>
+                {roleLabel[item]}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {onLogout && (
         <button
@@ -168,9 +207,10 @@ interface AppShellProps {
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname } = useLocation();
-  const { getProfile } = useAuth();
+  const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const rolesDisponibles: Rol[] = [...roles, ...(isAdmin ? (["admin"] as const) : [])];
 
   // Cerrar el panel al navegar; si no, queda tapando la pantalla nueva.
   useEffect(() => setMenuAbierto(false), [pathname]);
@@ -185,7 +225,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       <aside className="hidden w-[248px] flex-shrink-0 flex-col bg-rail lg:flex">
         <Marca />
         <Navegacion rol={rol} />
-        <PiePerfil profile={profile} rol={rol} onLogout={onLogout} />
+        <PiePerfil profile={profile} rol={rol} rolesDisponibles={rolesDisponibles} onRoleChange={setActiveRole} onLogout={onLogout} />
       </aside>
 
       {/* Panel deslizable para móvil y tablet */}
@@ -206,7 +246,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             </button>
             <Marca />
             <Navegacion rol={rol} onNavigate={() => setMenuAbierto(false)} />
-            <PiePerfil profile={profile} rol={rol} onLogout={onLogout} />
+            <PiePerfil profile={profile} rol={rol} rolesDisponibles={rolesDisponibles} onRoleChange={setActiveRole} onLogout={onLogout} />
           </div>
         </div>
       )}
