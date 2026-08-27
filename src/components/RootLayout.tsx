@@ -2,6 +2,7 @@ import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import LoginPage from "../page/LoginPage";
 import AppShell from "./AppShell";
+import Landing from "./landing";
 import Splash from "./Splash";
 import { navPorRol, RUTA_ADMIN, inicioDeRol, type Rol } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
@@ -64,6 +65,11 @@ const RoleChooser = ({
 
 const RootLayout = () => {
   const [splash, setSplash] = useState(false);
+  /* Qué ve quien no tiene sesión: la portada, o el login si ya pulsó
+     alguno de sus botones. `null` = portada. */
+  const [accesoPublico, setAccesoPublico] = useState<"signin" | "signup" | null>(
+    null
+  );
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { role, roles, isAdmin, logout, setActiveRole } = useAuth();
@@ -127,10 +133,34 @@ const RootLayout = () => {
      animaciones de entrada se reproducen ahí, no detrás de la cortina.
      Sin esto la barra lateral aparecía ya asentada — sus ítems habían
      animado mientras el splash los tapaba. */
+  /* El panel interno no tiene portada: /acceso-interno entra directo al
+     login. El resto del mundo llega primero a la portada pública. */
+  const puertaPublica =
+    zonaAdmin || accesoPublico !== null ? (
+      <LoginPage
+        modoInicial={accesoPublico ?? "signin"}
+        onVolver={zonaAdmin ? undefined : () => setAccesoPublico(null)}
+      />
+    ) : (
+      <Landing
+        onEntrar={(modo) =>
+          setAccesoPublico(modo === "registro" ? "signup" : "signin")
+        }
+      />
+    );
+
   return (
     <AuthGuard
-      fallback={<LoginPage />}
+      fallback={puertaPublica}
     >
+      <RoleGuard roles={rolesPermitidos} fallback={puertaPublica}>
+        {splash && <Splash onFin={cerrarSplash} />}
+        <div key={splash ? "cargando" : "listo"} className="anim-app-in">
+          <AppShell rol={rol} onLogout={salir}>
+            <Outlet />
+          </AppShell>
+        </div>
+      </RoleGuard>
       {!role ? (
         <RoleChooser roles={roles} isAdmin={isAdmin} onChoose={escogerRol} onLogout={salir} />
       ) : (

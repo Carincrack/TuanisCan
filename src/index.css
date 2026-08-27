@@ -178,6 +178,39 @@
   }
 }
 
+/* Portada pública. Un solo momento de movimiento: la ruta del paseo se
+   dibuja al cargar. Todo lo demás entra una vez y se queda quieto. */
+@keyframes tsc-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes tsc-trazo {
+  from {
+    stroke-dashoffset: 760;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes tsc-menu-in {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @layer utilities {
   /* Cifras de ancho fijo para dinero, horas y contadores. */
   .nums {
@@ -211,6 +244,20 @@
   .anim-bar {
     animation: tsc-bar 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
     transform-origin: left;
+  }
+
+  /* Solo portada. */
+  .anim-pop {
+    animation: tsc-pop 0.62s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .anim-menu-in {
+    animation: tsc-menu-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  /* El trazo punteado se dibuja de una punta a la otra. El dash corto
+     del `stroke-dasharray` viene del SVG; aquí solo se corre. */
+  .anim-trazo {
+    stroke-dashoffset: 760;
+    animation: tsc-trazo 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
   }
 
   /* Escalonado de listas y rejillas. */
