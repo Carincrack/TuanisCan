@@ -8,7 +8,6 @@ import {
   EyeOff,
   Loader,
   AlertCircle,
-  ArrowLeft,
   PawPrint,
   Footprints,
   Store,
@@ -30,11 +29,6 @@ import { isValidProfilePhotoUrl } from "../lib/profile";
 interface LoginPageProps {
   /** Lockup con contorno blanco. Ver MARCA en src/lib/nav.ts. */
   logoSrc?: string;
-  /** Con qué cara arranca la tarjeta. La portada pública abre
-      "signup" desde sus botones de crear cuenta. */
-  modoInicial?: Mode;
-  /** Si viene, se pinta el enlace de vuelta a la portada. */
-  onVolver?: () => void;
   initialMode?: Mode;
 }
 
@@ -123,15 +117,16 @@ const normalizarTexto = (valor: string) =>
 
 const LoginPage: React.FC<LoginPageProps> = ({
   logoSrc = MARCA.logoLogin,
+  initialMode = "signin",
 }) => {
   const { login, register } = useAuth();
   const navigate = useNavigate();
   // Rol elegido. Se comparte entre iniciar sesión y registrarse.
   const [rol, setRol] = useState<RolPublico>("dueno");
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   // Controla SOLO hacia dónde barre la media luna. Cambia en el instante
   // del click, independiente de `mode` (que cambia recién en "snap").
-  const [sweepMode, setSweepMode] = useState<Mode>("signin");
+  const [sweepMode, setSweepMode] = useState<Mode>(initialMode);
   const [phase, setPhase] = useState<Phase>("idle");
   const isSignUp = mode === "signup";
   const isSweepSignUp = sweepMode === "signup";
@@ -576,25 +571,12 @@ useEffect(() => {
 
   return (
     <div
-      className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-8"
+      className="min-h-screen w-full flex items-center justify-center p-4 sm:p-8"
       style={{
         background:
           "linear-gradient(135deg, #4C8CB0 0%, #2E6584 55%, #163C52 100%)",
       }}
     >
-      {/* Vuelta a la portada. Sin esto, quien entra desde el hero queda
-          encerrado en el login. */}
-      {onVolver && (
-        <button
-          type="button"
-          onClick={onVolver}
-          className="absolute left-5 top-5 inline-flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-medium text-white/75 transition-colors hover:text-white sm:left-8 sm:top-8"
-        >
-          <ArrowLeft size={15} strokeWidth={2.1} aria-hidden />
-          Volver al inicio
-        </button>
-      )}
-
       {/* Tarjeta principal */}
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-[0_30px_80px_rgba(15,32,44,0.4)]">
         {/* ─── CAPA z-20: media luna (solo escritorio) ─── */}
