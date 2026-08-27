@@ -30,6 +30,7 @@ interface LoginPageProps {
   /** Lockup con contorno blanco. Ver MARCA en src/lib/nav.ts. */
   logoSrc?: string;
   initialMode?: Mode;
+  onBack?: () => void;
 }
 
 const ROLES: {
@@ -118,6 +119,7 @@ const normalizarTexto = (valor: string) =>
 const LoginPage: React.FC<LoginPageProps> = ({
   logoSrc = MARCA.logoLogin,
   initialMode = "signin",
+  onBack,
 }) => {
   const { login, register } = useAuth();
   const navigate = useNavigate();
@@ -572,12 +574,22 @@ useEffect(() => {
 
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center p-4 sm:p-8"
+      className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-8"
       style={{
         background:
           "linear-gradient(135deg, #4C8CB0 0%, #2E6584 55%, #163C52 100%)",
       }}
     >
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="absolute top-5 left-5 z-50 inline-flex items-center gap-1 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
+        >
+          <ChevronLeft size={17} />
+          Volver
+        </button>
+      )}
       {/* Tarjeta principal */}
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-[0_30px_80px_rgba(15,32,44,0.4)]">
         {/* ─── CAPA z-20: media luna (solo escritorio) ─── */}

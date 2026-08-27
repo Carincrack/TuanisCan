@@ -1,291 +1,170 @@
-import { useState } from "react";
-import { Download, QrCode, Share2, Syringe } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { Camera, Download, PawPrint, Share2, Syringe } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
+import { formatDate, petAge } from "../lib/pets";
+import { MARCA } from "../lib/nav";
+import { listPets } from "../services/pets.service";
+import type { UserProfile } from "../types/auth.types";
+import type { Pet } from "../types/pet.types";
 import {
   Badge,
-  FilterTabs,
+  EmptyState,
   Page,
   PageHeader,
   Table,
   btnPrimary,
   btnSecondary,
+  input,
 } from "./ui";
-import { MARCA } from "../lib/nav";
-
-/* Carnet digital: la ficha que el dueño muestra en la veterinaria o al
-   entregar la mascota al paseador. Un solo bloque, alto contraste,
-   legible desde el teléfono de otra persona. */
-
-interface Vacuna {
-  nombre: string;
-  aplicada: string;
-  vence: string;
-  estado: "Vigente" | "Por vencer" | "Vencida";
-}
-
-interface Carnet {
-  id: string;
-  nombre: string;
-  foto: string;
-  especie: string;
-  raza: string;
-  sexo: string;
-  nacimiento: string;
-  edad: string;
-  peso: string;
-  color: string;
-  microchip: string;
-  esterilizado: string;
-  zona: string;
-  dueno: string;
-  telefono: string;
-  veterinaria: string;
-  alergias: string;
-  notas: string;
-  vacunas: Vacuna[];
-}
-
-const carnets: Carnet[] = [
-  {
-    id: "TSC-0001-RCK",
-    nombre: "Rocky",
-    foto: "/mock/dog-rocky.jpg",
-    especie: "Perro",
-    raza: "Labrador Retriever",
-    sexo: "Macho",
-    nacimiento: "12/04/2023",
-    edad: "3 años",
-    peso: "28 kg",
-    color: "Dorado",
-    microchip: "506 0012 4478 901",
-    esterilizado: "Sí",
-    zona: "Curridabat, San José",
-    dueno: "Ana Corrales",
-    telefono: "8712-4490",
-    veterinaria: "Veterinaria San Rafael",
-    alergias: "Ninguna registrada",
-    notas: "Tira un poco de la correa al inicio. Muy sociable con otros perros.",
-    vacunas: [
-      { nombre: "Antirrábica", aplicada: "02/03/2026", vence: "02/03/2027", estado: "Vigente" },
-      { nombre: "Parvovirus", aplicada: "15/01/2026", vence: "15/01/2027", estado: "Vigente" },
-      { nombre: "Moquillo", aplicada: "15/01/2026", vence: "15/01/2027", estado: "Vigente" },
-      { nombre: "Desparasitación", aplicada: "01/07/2026", vence: "01/10/2026", estado: "Vigente" },
-    ],
-  },
-  {
-    id: "TSC-0002-MCH",
-    nombre: "Michi",
-    foto: "/mock/cat-1.jpg",
-    especie: "Gato",
-    raza: "Doméstico pelo corto",
-    sexo: "Macho",
-    nacimiento: "20/06/2024",
-    edad: "2 años",
-    peso: "4.2 kg",
-    color: "Atigrado café",
-    microchip: "506 0012 5590 233",
-    esterilizado: "Sí",
-    zona: "Curridabat, San José",
-    dueno: "Ana Corrales",
-    telefono: "8712-4490",
-    veterinaria: "Veterinaria San Rafael",
-    alergias: "Pollo",
-    notas: "Se esconde con ruidos fuertes. No sacar sin transportadora.",
-    vacunas: [
-      { nombre: "Antirrábica", aplicada: "28/08/2025", vence: "28/08/2026", estado: "Por vencer" },
-      { nombre: "Triple felina", aplicada: "10/02/2026", vence: "10/02/2027", estado: "Vigente" },
-      { nombre: "Leucemia felina", aplicada: "10/02/2026", vence: "10/02/2027", estado: "Vigente" },
-      { nombre: "Desparasitación", aplicada: "05/05/2026", vence: "05/08/2026", estado: "Vencida" },
-    ],
-  },
-  {
-    id: "TSC-0003-LNA",
-    nombre: "Luna",
-    foto: "/mock/dog-luna.jpg",
-    especie: "Perro",
-    raza: "Border Collie",
-    sexo: "Hembra",
-    nacimiento: "03/09/2021",
-    edad: "5 años",
-    peso: "19 kg",
-    color: "Blanco y negro",
-    microchip: "506 0011 8834 117",
-    esterilizado: "Sí",
-    zona: "Escazú, San José",
-    dueno: "Ana Corrales",
-    telefono: "8712-4490",
-    veterinaria: "Spa Canino Escazú",
-    alergias: "Ninguna registrada",
-    notas: "Necesita mucha actividad; ideal paseos de 60 min.",
-    vacunas: [
-      { nombre: "Antirrábica", aplicada: "18/05/2026", vence: "18/05/2027", estado: "Vigente" },
-      { nombre: "Parvovirus", aplicada: "18/05/2026", vence: "18/05/2027", estado: "Vigente" },
-      { nombre: "Moquillo", aplicada: "18/05/2026", vence: "18/05/2027", estado: "Vigente" },
-      { nombre: "Desparasitación", aplicada: "20/06/2026", vence: "20/09/2026", estado: "Vigente" },
-    ],
-  },
-];
-
-const tonoVacuna = (e: Vacuna["estado"]) =>
-  e === "Vigente" ? "ok" : e === "Por vencer" ? "warn" : "danger";
 
 const Dato = ({ etiqueta, valor }: { etiqueta: string; valor: string }) => (
   <div className="bg-sunken px-4 py-3">
-    <dt className="text-[10px] font-semibold tracking-[0.1em] text-ink-mute uppercase">
-      {etiqueta}
-    </dt>
+    <dt className="text-[10px] font-semibold tracking-[0.1em] text-ink-mute uppercase">{etiqueta}</dt>
     <dd className="nums mt-1 text-[13px] text-ink">{valor}</dd>
   </div>
 );
 
-const CarnetDigital = () => {
-  const [nombre, setNombre] = useState(carnets[0].nombre);
-  const c = carnets.find((x) => x.nombre === nombre) ?? carnets[0];
+const cardId = (pet: Pet) => {
+  const initials = pet.nombre.replace(/[^a-záéíóúñ]/gi, "").slice(0, 3).toUpperCase();
+  return `TSC-${pet.id_mascota.slice(0, 8).toUpperCase()}-${initials}`;
+};
 
-  const alerta = c.vacunas.find((v) => v.estado !== "Vigente");
+const messageFrom = (error: unknown) =>
+  error instanceof Error ? error.message : "No se pudo cargar el carné digital.";
+
+const CarnetDigital = () => {
+  const { getProfile } = useAuth();
+  const navigate = useNavigate();
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [selectedId, setSelectedId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    Promise.all([listPets(), getProfile()])
+      .then(([nextPets, nextProfile]) => {
+        setPets(nextPets);
+        setProfile(nextProfile);
+        const preferred = sessionStorage.getItem("tuaniscan.carnetPetId");
+        const initial = nextPets.find((pet) => pet.id_mascota === preferred) ?? nextPets[0];
+        setSelectedId(initial?.id_mascota ?? "");
+      })
+      .catch((cause) => setError(messageFrom(cause)))
+      .finally(() => setLoading(false));
+  }, [getProfile]);
+
+  const pet = pets.find((item) => item.id_mascota === selectedId) ?? null;
+  const alert = pet?.vacunas.some((vaccine) => vaccine.estado !== "vigente");
+  const zone = profile?.zona
+    ? `${profile.zona.nombre}, ${profile.zona.provincia}`
+    : "No registrada";
+
+  const share = async () => {
+    if (!pet) return;
+    const text = `Carné digital de ${pet.nombre} · ${pet.especie}, ${pet.raza} · ID ${cardId(pet)}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Carné de ${pet.nombre}`, text, url: window.location.href });
+        setNotice("Carné compartido.");
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${window.location.href}`);
+        setNotice("Enlace copiado al portapapeles.");
+      }
+    } catch (cause) {
+      if (!(cause instanceof DOMException && cause.name === "AbortError")) {
+        setNotice("No fue posible compartir el carné en este dispositivo.");
+      }
+    }
+  };
+
+  const print = () => {
+    document.body.classList.add("printing-carnet");
+    const cleanup = () => document.body.classList.remove("printing-carnet");
+    window.addEventListener("afterprint", cleanup, { once: true });
+    window.print();
+    window.setTimeout(cleanup, 1000);
+  };
 
   return (
     <Page>
       <PageHeader
-        title="Carnet digital"
-        subtitle="La ficha oficial de tu mascota. Muéstrala en la veterinaria o al entregarla al paseador."
-        action={
-          <div className="flex gap-px">
-            <button type="button" className={btnSecondary}>
-              <Share2 size={14} strokeWidth={1.9} />
-              Compartir
-            </button>
-            <button type="button" className={btnPrimary}>
-              <Download size={14} strokeWidth={1.9} />
-              Descargar PDF
-            </button>
-          </div>
-        }
+        title="Carné digital"
+        subtitle="Identificación, cuidados e historial de salud de tu mascota en un solo lugar."
+        action={pet && <div className="flex flex-wrap gap-1"><button type="button" className={btnSecondary} onClick={() => void share()}><Share2 size={14} /> Compartir</button><button type="button" className={btnPrimary} onClick={print}><Download size={14} /> Guardar PDF</button></div>}
       />
 
-      <div className="bg-surface">
-        <FilterTabs
-          label="Elegir mascota"
-          options={carnets.map((x) => x.nombre)}
-          value={nombre}
-          onChange={setNombre}
-        />
-      </div>
+      {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
+      {loading && <div className="bg-surface px-6 py-10 text-center text-[13px] text-ink-soft">Cargando carnés…</div>}
 
-      {/* ── El carnet ── */}
-      <article key={c.id} className="anim-rise bg-surface">
-        <header className="flex flex-wrap items-center justify-between gap-4 bg-rail px-6 py-4">
-          <div className="flex items-center gap-3">
-            <img
-              src={MARCA.logoSimbolo}
-              alt=""
-              aria-hidden
-              className="h-8 w-8 object-contain"
-            />
-            <div>
-              <p className="text-[13px] font-semibold tracking-[-0.01em] text-white">
-                {MARCA.nombre}
-                <span className="text-accent">{MARCA.acento}</span>
-              </p>
-              <p className="text-[10px] tracking-[0.14em] text-rail-mute uppercase">
-                Carnet de identificación
-              </p>
-            </div>
-          </div>
-          <p className="nums text-[12px] text-rail-text">{c.id}</p>
-        </header>
+      {!loading && !pets.length && (
+        <section className="bg-surface p-5">
+          <EmptyState title="No hay carnés disponibles" hint="Registra una mascota y su carné se creará automáticamente." />
+          <div className="mt-4 text-center"><button type="button" className={btnPrimary} onClick={() => void navigate({ to: "/mascotas" })}>Registrar mascota</button></div>
+        </section>
+      )}
 
-        <div className="flex flex-col gap-5 p-6 sm:flex-row">
-          <div className="flex flex-shrink-0 flex-col gap-3 sm:w-[196px]">
-            <img
-              src={c.foto}
-              alt={`Fotografía de ${c.nombre}`}
-              className="aspect-[3/4] w-full bg-sunken object-cover"
-            />
-            {/* Marcador de QR: la generación real llega con el backend. */}
-            <div className="flex items-center gap-3 bg-sunken px-4 py-3">
-              <QrCode
-                size={38}
-                strokeWidth={1.3}
-                aria-hidden
-                className="flex-shrink-0 text-ink"
-              />
-              <p className="text-[11px] leading-snug text-ink-soft">
-                Escanea para verificar este carnet en línea.
-              </p>
-            </div>
+      {pet && (
+        <>
+          <div className="flex flex-wrap items-center gap-3 bg-surface px-5 py-4">
+            <label htmlFor="card-pet" className="text-[12px] font-semibold text-ink-soft">Elegir mascota</label>
+            <select id="card-pet" className={`${input} max-w-[260px]`} value={selectedId} onChange={(event) => { setSelectedId(event.target.value); sessionStorage.setItem("tuaniscan.carnetPetId", event.target.value); setNotice(""); }}>
+              {pets.map((item) => <option key={item.id_mascota} value={item.id_mascota}>{item.nombre}</option>)}
+            </select>
+            {notice && <p role="status" className="ml-auto text-[12px] text-ok">{notice}</p>}
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-[26px] font-semibold tracking-[-0.02em] text-ink">
-                {c.nombre}
-              </h3>
-              <Badge tono={alerta ? "warn" : "ok"}>
-                {alerta ? "Requiere atención" : "Al día"}
-              </Badge>
+          <article key={pet.id_mascota} className="carnet-print anim-rise bg-surface">
+            <header className="flex flex-wrap items-center justify-between gap-4 bg-rail px-6 py-4">
+              <div className="flex items-center gap-3">
+                <img src={MARCA.logoSimbolo} alt="" aria-hidden className="h-8 w-8 object-contain" />
+                <div><p className="text-[13px] font-semibold text-white">{MARCA.nombre}<span className="text-accent">{MARCA.acento}</span></p><p className="text-[10px] tracking-[0.14em] text-rail-mute uppercase">Carné de identificación y salud</p></div>
+              </div>
+              <p className="nums text-[12px] text-rail-text">{cardId(pet)}</p>
+            </header>
+
+            <div className="flex flex-col gap-5 p-6 sm:flex-row">
+              <div className="flex flex-shrink-0 flex-col gap-3 sm:w-[196px]">
+                {pet.fotoUrl ? <img src={pet.fotoUrl} alt={`Fotografía de ${pet.nombre}`} className="aspect-[3/4] w-full bg-sunken object-cover" /> : <div className="flex aspect-[3/4] w-full items-center justify-center bg-sunken text-ink-mute"><Camera size={42} strokeWidth={1.3} /><span className="sr-only">Sin fotografía</span></div>}
+                <div className="flex items-center gap-3 bg-accent-wash px-4 py-3"><PawPrint size={32} strokeWidth={1.5} className="flex-shrink-0 text-accent-dark" /><p className="text-[11px] leading-snug text-accent-dark">Carné emitido por TuanisCan para la cuenta del responsable.</p></div>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-3"><h3 className="text-[26px] font-semibold tracking-[-0.02em] text-ink">{pet.nombre}</h3><Badge tono={alert ? "warn" : pet.vacunas.length ? "ok" : "neutral"}>{alert ? "Requiere atención" : pet.vacunas.length ? "Al día" : "Sin vacunas"}</Badge></div>
+                <p className="mt-1 text-[13px] text-ink-soft">{pet.especie} · {pet.raza}</p>
+                <dl className="mt-5 grid grid-cols-2 gap-px bg-canvas sm:grid-cols-3">
+                  <Dato etiqueta="Sexo" valor={pet.sexo === "macho" ? "Macho" : "Hembra"} />
+                  <Dato etiqueta="Nacimiento" valor={formatDate(pet.fecha_nacimiento)} />
+                  <Dato etiqueta="Edad" valor={petAge(pet.fecha_nacimiento)} />
+                  <Dato etiqueta="Peso" valor={`${pet.peso} kg`} />
+                  <Dato etiqueta="Color" valor={pet.color} />
+                  <Dato etiqueta="Esterilizado" valor={pet.esterilizado ? "Sí" : "No"} />
+                </dl>
+                <dl className="mt-px grid grid-cols-1 gap-px bg-canvas sm:grid-cols-2">
+                  <Dato etiqueta="Microchip" valor={pet.microchip || "No registrado"} />
+                  <Dato etiqueta="Zona" valor={zone} />
+                  <Dato etiqueta="Responsable" valor={profile?.nombre || "No registrado"} />
+                  <Dato etiqueta="Teléfono" valor={profile?.telefono || "No registrado"} />
+                  <Dato etiqueta="Veterinaria" valor={pet.veterinaria || "No registrada"} />
+                  <Dato etiqueta="Alergias / condiciones" valor={pet.alergias || "Ninguna registrada"} />
+                </dl>
+                {pet.notas && <p className="mt-4 whitespace-pre-wrap bg-accent-wash px-4 py-3 text-[12.5px] leading-snug text-accent-dark">{pet.notas}</p>}
+              </div>
             </div>
-            <p className="mt-1 text-[13px] text-ink-soft">
-              {c.especie} · {c.raza}
-            </p>
 
-            <dl className="mt-5 grid grid-cols-2 gap-px bg-canvas sm:grid-cols-3">
-              <Dato etiqueta="Sexo" valor={c.sexo} />
-              <Dato etiqueta="Nacimiento" valor={c.nacimiento} />
-              <Dato etiqueta="Edad" valor={c.edad} />
-              <Dato etiqueta="Peso" valor={c.peso} />
-              <Dato etiqueta="Color" valor={c.color} />
-              <Dato etiqueta="Esterilizado" valor={c.esterilizado} />
-            </dl>
-
-            <dl className="mt-px grid grid-cols-1 gap-px bg-canvas sm:grid-cols-2">
-              <Dato etiqueta="Microchip" valor={c.microchip} />
-              <Dato etiqueta="Zona" valor={c.zona} />
-              <Dato etiqueta="Dueño" valor={c.dueno} />
-              <Dato etiqueta="Teléfono de contacto" valor={c.telefono} />
-              <Dato etiqueta="Veterinaria" valor={c.veterinaria} />
-              <Dato etiqueta="Alergias" valor={c.alergias} />
-            </dl>
-
-            <p className="mt-4 bg-accent-wash px-4 py-3 text-[12.5px] leading-snug text-accent-dark">
-              {c.notas}
-            </p>
-          </div>
-        </div>
-
-        <div className="px-6 pb-6">
-          <h4 className="flex items-center gap-2 pb-3 text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase">
-            <Syringe size={13} strokeWidth={1.9} aria-hidden />
-            Historial de vacunación
-          </h4>
-
-          <Table
-            caption={`Vacunas registradas de ${c.nombre}`}
-            columnas={[
-              { label: "Vacuna" },
-              { label: "Aplicada" },
-              { label: "Vence" },
-              { label: "Estado" },
-            ]}
-          >
-            {c.vacunas.map((v) => (
-              <tr key={v.nombre}>
-                <td className="px-6 py-3 text-[13px] font-medium text-ink">
-                  {v.nombre}
-                </td>
-                <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">
-                  {v.aplicada}
-                </td>
-                <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">
-                  {v.vence}
-                </td>
-                <td className="px-6 py-3">
-                  <Badge tono={tonoVacuna(v.estado)}>{v.estado}</Badge>
-                </td>
-              </tr>
-            ))}
-          </Table>
-        </div>
-      </article>
+            <div className="px-6 pb-6">
+              <h4 className="flex items-center gap-2 pb-3 text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase"><Syringe size={13} /> Historial de vacunación</h4>
+              {pet.vacunas.length ? (
+                <Table caption={`Vacunas registradas de ${pet.nombre}`} columnas={[{ label: "Vacuna" }, { label: "Aplicada" }, { label: "Vence" }, { label: "Estado" }]}>
+                  {pet.vacunas.map((vaccine) => <tr key={vaccine.id_vacuna}><td className="px-6 py-3 text-[13px] font-medium text-ink">{vaccine.nombre_vacuna}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_aplicacion)}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_vencimiento)}</td><td className="px-6 py-3"><Badge tono={vaccine.estado === "vigente" ? "ok" : vaccine.estado === "pendiente" ? "warn" : "danger"}>{vaccine.estado === "pendiente" ? "Por vencer" : vaccine.estado}</Badge></td></tr>)}
+                </Table>
+              ) : <EmptyState title="Sin vacunas registradas" hint="Agrega los registros desde Mis mascotas." />}
+            </div>
+          </article>
+        </>
+      )}
     </Page>
   );
 };

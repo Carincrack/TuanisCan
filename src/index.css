@@ -239,65 +239,69 @@
   .d-8 { animation-delay: 320ms; }
 }
 
-.tsc-map-marker {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 0;
-}
+
+
 
 .tsc-map-marker__pin {
+  position: relative;
+
   display: flex;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
+
   align-items: center;
   justify-content: center;
+
   transform: rotate(45deg);
-  border: 3px solid white;
+
+  border: 3px solid var(--color-surface, #ffffff);
+  border-radius: 50% 50% 50% 14%;
+
   background: var(--color-ink);
-  box-shadow: 0 2px 8px rgb(20 36 46 / 32%);
-  transition: transform 150ms ease, background-color 150ms ease;
+
+  box-shadow:
+    0 6px 14px rgb(15 23 42 / 20%),
+    0 12px 28px rgb(15 23 42 / 14%);
+
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
+/* Centro del marcador */
 .tsc-map-marker__pin > span {
-  width: 8px;
-  height: 8px;
+  position: relative;
+
+  width: 14px;
+  height: 14px;
+
+  border: 3px solid rgb(255 255 255 / 95%);
+  border-radius: 999px;
+
+  background: transparent;
+
+  box-shadow:
+    0 1px 4px rgb(0 0 0 / 16%);
+}
+
+/* Punto pequeño interno */
+.tsc-map-marker__pin > span::after {
+  content: "";
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  width: 4px;
+  height: 4px;
+
+  transform: translate(-50%, -50%);
+
+  border-radius: 999px;
+
   background: white;
 }
-
-.tsc-map-marker:hover .tsc-map-marker__pin,
-.tsc-map-marker__pin.is-active {
-  transform: rotate(45deg) scale(1.18);
-  background: var(--color-accent-dark);
-}
-
-.tsc-map-shell:fullscreen {
-  display: flex;
-  height: 100dvh;
-  flex-direction: column;
-  background: var(--color-surface);
-}
-
-.tsc-map-shell:fullscreen .leaflet-container {
-  height: auto !important;
-  flex: 1;
-}
-
-.leaflet-container {
-  font-family: var(--font-sans);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 /* ─────────────────────────────────────────────────────────────
    Portada pública (`.portada`)
 

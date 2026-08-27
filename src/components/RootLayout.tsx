@@ -289,8 +289,8 @@ const RootLayout = () => {
   const puertaPublica =
     zonaAdmin || accesoPublico !== null ? (
       <LoginPage
-        modoInicial={accesoPublico ?? "signin"}
-        onVolver={
+        initialMode={accesoPublico ?? "signin"}
+        onBack={
           zonaAdmin
             ? undefined
             : () => setAccesoPublico(null)
