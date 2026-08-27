@@ -166,9 +166,6 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-/** El estado de la barra lateral sobrevive a la recarga. */
-const CLAVE_RAIL = "tuaniscan:rail";
-
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname } = useLocation();
   const { getProfile } = useAuth();
@@ -225,19 +222,6 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           >
             <Menu size={19} />
           </button>
-
-          {/* En escritorio solo aparece cuando la barra lateral está
-              cerrada: es la única forma de traerla de vuelta. */}
-          {!railVisible && (
-            <button
-              type="button"
-              onClick={() => cambiarRail(true)}
-              aria-label="Abrir menú"
-              className="hidden p-2 text-ink-soft transition-colors duration-200 hover:bg-sunken hover:text-ink lg:block"
-            >
-              <Menu size={19} />
-            </button>
-          )}
 
           <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
             {tituloDeRuta(rol, pathname)}
