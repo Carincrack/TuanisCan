@@ -155,6 +155,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
           badge: 4,
         },
         { to: `${RUTA_ADMIN}/usuarios`, label: "Usuarios", Icon: Users },
+        { to: `${RUTA_ADMIN}/zonas`, label: "Zonas", Icon: MapPin },
         { to: `${RUTA_ADMIN}/paseos`, label: "Paseos", Icon: CalendarDays },
       ],
     },
