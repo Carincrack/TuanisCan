@@ -407,15 +407,16 @@ export const VerificacionesAdmin = () => {
 /* ── Usuarios ────────────────────────────────────────────────── */
 
 const usuariosDemo: AdminUser[] = [
-  { id_usuario: "demo-1", nombre: "Ana Corrales", telefono: "8888-1200", foto_perfil: null, tipo_usuario: "dueno", fecha_registro: "2026-03-12", activo: true, zona: { nombre: "San José", canton: "San José", provincia: "San José" } },
-  { id_usuario: "demo-2", nombre: "Diego Solís", telefono: "8888-2310", foto_perfil: null, tipo_usuario: "dueno", fecha_registro: "2026-04-20", activo: true, zona: { nombre: "Curridabat", canton: "Curridabat", provincia: "San José" } },
-  { id_usuario: "demo-3", nombre: "Laura Vega", telefono: "8888-4532", foto_perfil: null, tipo_usuario: "dueno", fecha_registro: "2026-08-04", activo: true, zona: { nombre: "San Pedro", canton: "Montes de Oca", provincia: "San José" } },
-  { id_usuario: "demo-4", nombre: "Roberto Jiménez", telefono: "8888-6789", foto_perfil: null, tipo_usuario: "dueno", fecha_registro: "2026-07-16", activo: false, zona: { nombre: "Escazú", canton: "Escazú", provincia: "San José" } },
-  { id_usuario: "demo-5", nombre: "María Fernández", telefono: "8888-9012", foto_perfil: null, tipo_usuario: "paseador", fecha_registro: "2026-02-08", activo: true, zona: { nombre: "Curridabat", canton: "Curridabat", provincia: "San José" } },
+  { id_usuario: "demo-1", nombre: "Ana Corrales", telefono: "8888-1200", foto_perfil: null, roles: ["dueno"], fecha_registro: "2026-03-12", activo: true, zona: { nombre: "San José", canton: "San José", provincia: "San José" } },
+  { id_usuario: "demo-2", nombre: "Diego Solís", telefono: "8888-2310", foto_perfil: null, roles: ["dueno"], fecha_registro: "2026-04-20", activo: true, zona: { nombre: "Curridabat", canton: "Curridabat", provincia: "San José" } },
+  { id_usuario: "demo-3", nombre: "Laura Vega", telefono: "8888-4532", foto_perfil: null, roles: ["dueno"], fecha_registro: "2026-08-04", activo: true, zona: { nombre: "San Pedro", canton: "Montes de Oca", provincia: "San José" } },
+  { id_usuario: "demo-4", nombre: "Roberto Jiménez", telefono: "8888-6789", foto_perfil: null, roles: ["dueno"], fecha_registro: "2026-07-16", activo: false, zona: { nombre: "Escazú", canton: "Escazú", provincia: "San José" } },
+  { id_usuario: "demo-5", nombre: "María Fernández", telefono: "8888-9012", foto_perfil: null, roles: ["dueno", "paseador"], fecha_registro: "2026-02-08", activo: true, zona: { nombre: "Curridabat", canton: "Curridabat", provincia: "San José" } },
 ];
 
 const rolLabel: Record<RolPublico, string> = { dueno: "Dueño", paseador: "Paseador", negocio: "Negocio" };
-const rolTono = (rol: RolPublico) => rol === "paseador" ? "accent" : rol === "negocio" ? "warn" : "neutral";
+const rolTono = (rol: RolPublico | null) => rol === "paseador" ? "accent" : rol === "negocio" ? "warn" : "neutral";
+const rolesLabel = (roles: RolPublico[]) => roles.map((rol) => rolLabel[rol]).join(" + ") || "Sin rol";
 
 export const UsuariosAdmin = () => {
   const [usuarios, setUsuarios] = useState<AdminUser[]>(usuariosDemo);
@@ -431,12 +432,12 @@ export const UsuariosAdmin = () => {
 
   const visibles = usuarios.filter((usuario) => {
     const texto = `${usuario.nombre} ${usuario.telefono ?? ""} ${usuario.zona?.nombre ?? ""}`.toLowerCase();
-    return texto.includes(busqueda.toLowerCase()) && (filtroRol === "todos" || usuario.tipo_usuario === filtroRol) && (filtroEstado === "todos" || (filtroEstado === "activos" ? usuario.activo : !usuario.activo));
+    return texto.includes(busqueda.toLowerCase()) && (filtroRol === "todos" || usuario.roles.includes(filtroRol)) && (filtroEstado === "todos" || (filtroEstado === "activos" ? usuario.activo : !usuario.activo));
   });
   const activos = usuarios.filter((usuario) => usuario.activo).length;
-  const duenos = usuarios.filter((usuario) => usuario.tipo_usuario === "dueno").length;
+  const duenos = usuarios.filter((usuario) => usuario.roles.includes("dueno")).length;
   const exportar = () => {
-    const csv = ["Nombre,Telefono,Rol,Zona,Registro,Estado", ...visibles.map((u) => [u.nombre, u.telefono ?? "", rolLabel[u.tipo_usuario], u.zona?.nombre ?? "Sin zona", u.fecha_registro, u.activo ? "Activo" : "Inactivo"].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
+    const csv = ["Nombre,Telefono,Roles,Zona,Registro,Estado", ...visibles.map((u) => [u.nombre, u.telefono ?? "", rolesLabel(u.roles), u.zona?.nombre ?? "Sin zona", u.fecha_registro, u.activo ? "Activo" : "Inactivo"].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
     const enlace = document.createElement("a");
     enlace.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     enlace.download = "usuarios-tuaniscan.csv";
@@ -461,7 +462,7 @@ export const UsuariosAdmin = () => {
       </Section>
       {error && <div className="bg-warn-wash px-6 py-3 text-[13px] text-warn">No se pudo conectar con Supabase. Mostrando datos de demostración.</div>}
       <Section bodyClass="">
-        {loading ? <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando directorio...</p> : visibles.length === 0 ? <EmptyState title="No hay usuarios con esos filtros" hint="Prueba con otra búsqueda o limpia los filtros." /> : <Table caption="Directorio de usuarios" columnas={[{ label: "Usuario" }, { label: "Rol" }, { label: "Contacto" }, { label: "Zona" }, { label: "Registro" }, { label: "Estado" }]}>{visibles.map((usuario) => <tr key={usuario.id_usuario}><td className="px-6 py-3"><div className="flex items-center gap-3">{usuario.foto_perfil ? <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 object-cover" /> : <Avatar nombre={usuario.nombre} size={36} />}<div className="min-w-0"><p className="truncate text-[13px] font-medium text-ink">{usuario.nombre}</p><p className="text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p></div></div></td><td className="px-6 py-3"><Badge tono={rolTono(usuario.tipo_usuario)}>{rolLabel[usuario.tipo_usuario]}</Badge></td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.telefono || "Sin teléfono"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" }).format(new Date(usuario.fecha_registro))}</td><td className="px-6 py-3"><Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge></td></tr>)}</Table>}
+        {loading ? <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando directorio...</p> : visibles.length === 0 ? <EmptyState title="No hay usuarios con esos filtros" hint="Prueba con otra búsqueda o limpia los filtros." /> : <Table caption="Directorio de usuarios" columnas={[{ label: "Usuario" }, { label: "Roles" }, { label: "Contacto" }, { label: "Zona" }, { label: "Registro" }, { label: "Estado" }]}>{visibles.map((usuario) => <tr key={usuario.id_usuario}><td className="px-6 py-3"><div className="flex items-center gap-3">{usuario.foto_perfil ? <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 object-cover" /> : <Avatar nombre={usuario.nombre} size={36} />}<div className="min-w-0"><p className="truncate text-[13px] font-medium text-ink">{usuario.nombre}</p><p className="text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p></div></div></td><td className="px-6 py-3"><Badge tono={rolTono(usuario.roles[0] ?? null)}>{rolesLabel(usuario.roles)}</Badge></td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.telefono || "Sin teléfono"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" }).format(new Date(usuario.fecha_registro))}</td><td className="px-6 py-3"><Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge></td></tr>)}</Table>}
       </Section>
     </Page>
   );
