@@ -41,7 +41,7 @@ const Servicios = () => (
     className="relative scroll-mt-6 overflow-hidden px-6 pt-32 pb-24 sm:px-10 lg:px-14 lg:pt-40 lg:pb-32"
     style={{ background: HUESO }}
   >
-    <Onda color={AZUL} />
+    <Onda color={AZUL} tapa={HUESO} />
 
     <div className="relative z-10 mx-auto grid max-w-[1320px] gap-14 lg:grid-cols-[5fr_7fr] lg:gap-16">
       <div>

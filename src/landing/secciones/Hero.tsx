@@ -26,6 +26,52 @@ import type { ConAcceso } from "../tipos";
    `object-contain object-bottom` hace el resto: la foto se acomoda
    al escenario sin deformarse y se apoya en el borde de abajo.
 
+   Desde `lg` la caja crece un poco por debajo de ese borde, y con
+   ella el perro. No es adorno: la onda que separa las dos bandas
+   pinta el AZUL del hero POR DEBAJO del borde, y `#7EA3B4` contra
+   blanco se lee como una franja gris. Sin el estirón las patas
+   quedan a media franja, flotando, y el corte se ve como un hueco.
+
+   El desborde tiene que PASARSE de la curva, no quedarse justo en
+   ella. Quien decide dónde termina el perro es la `tapa` de la onda:
+   el blanco de la banda de abajo se pinta encima y lo recorta. Así
+   el corte lo da la curva —que se mueve con el scroll— y no el alto
+   de la foto, que es fijo.
+
+   El rango a cubrir: la curva baja entre el 29% y el 44.25% de su
+   alto en el centro, que es por donde va el perro. Con la onda en
+   `clamp(44px, 6vw, 88px)`, el punto más hondo va de 20 a 39 px.
+   `clamp(30px, 4vw, 62px)` se pasa de eso en todo el rango y sigue
+   quedando corto contra el alto de la onda, que es lo que marca el
+   otro límite: si el desborde superara ese alto, el perro asomaría
+   por debajo de la tapa.
+
+   Va en el ALTO y no en un `bottom` negativo. Un `img` es elemento
+   reemplazado: con `position: absolute`, `top` y `bottom` juntos no
+   lo estiran como a un `div` —toma su tamaño intrínseco y descarta
+   el `bottom`—, así que sin `h-full` la foto sale a 1129 × 1393
+   pegada arriba a la izquierda. Con el alto en `100% + franja` y
+   `top` en cero la caja crece hacia abajo, y `object-contain` mide
+   contra la caja: el perro crece con ella sin mover su borde de
+   arriba, que es lo que lo mantiene lejos del wordmark.
+
+   Solo desde `lg`. Por debajo las píldoras van en flujo y el
+   escenario termina encima de ellas, no en el borde de la banda:
+   estirarlo ahí solo metería al perro detrás de las píldoras.
+
+   Dos cosas lo sostienen y las dos son fáciles de romper:
+
+   1. `overflow-x-clip` y no `overflow-hidden`. Hace falta recortar a
+      lo ancho —el wordmark va `nowrap` y en pantallas angostas se
+      sale—, pero `hidden` recorta también a lo alto y se comería el
+      estirón. `clip` es el único valor que deja el otro eje en
+      `visible` sin convertirlo en `auto`.
+   2. El `z-10` de la banda. `container-type: inline-size` implica
+      `contain: layout`, y eso convierte a la sección en un contexto
+      de apilado: el `z-10` de la foto ya no sale de acá. Sin subir
+      la banda entera, la sección siguiente —que va después en el
+      documento— pintaría encima y taparía las patas.
+
    Va con `min-h-dvh` y no `h-dvh`: si el contenido no cupiera, la
    banda crece y se puede bajar. Con altura fija se cortarían las
    píldoras sin forma de llegar a ellas. Y `dvh` en vez de `vh`
@@ -42,7 +88,7 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
 
   return (
     <section
-      className="banda-hero relative flex min-h-dvh flex-col overflow-hidden"
+      className="banda-hero relative z-10 flex min-h-dvh flex-col overflow-x-clip"
       style={{ background: AZUL }}
     >
       <Barra onEntrar={onEntrar} onAbrirMenu={onAbrirMenu} />
@@ -84,11 +130,11 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
           alt="Border collie atento, listo para salir a pasear"
           fetchPriority="high"
           decoding="async"
-          className="anim-entra absolute inset-0 h-full w-full object-contain object-bottom"
+          className="anim-entra absolute inset-0 z-10 h-full w-full object-contain object-bottom lg:h-[calc(100%+clamp(30px,4vw,62px))]"
         />
 
-        <Rayas className="absolute bottom-[34%] left-[6%] w-[6cqw] max-w-[130px] min-w-[48px] sm:left-[14%] lg:left-[20%]" />
-        <Correa className="absolute bottom-[6%] left-1/2 w-[26cqw] max-w-[420px] min-w-[170px] -translate-x-1/2" />
+        <Rayas className="absolute bottom-[34%] left-[6%] z-20 w-[6cqw] max-w-[130px] min-w-[48px] sm:left-[14%] lg:left-[20%]" />
+        <Correa className="absolute bottom-[6%] left-1/2 z-20 w-[26cqw] max-w-[420px] min-w-[170px] -translate-x-1/2" />
       </div>
 
       {/* ── Píldoras ──

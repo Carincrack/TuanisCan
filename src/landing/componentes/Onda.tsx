@@ -1,4 +1,4 @@
-import { REPOSO, trazarOnda } from "../onda";
+import { REPOSO, trazarOnda, trazarOndaBajo } from "../onda";
 
 /* ─────────────────────────────────────────────────────────────
    El borde entre dos bandas.
@@ -21,26 +21,48 @@ import { REPOSO, trazarOnda } from "../onda";
    Va dentro de la banda de abajo, pintada del color de la de
    arriba: así el color de arriba se derrama sobre la de abajo sin
    que nada sobresalga de una caja con `overflow: hidden`.
+
+   `tapa` agrega una segunda capa con la MISMA curva cerrada al
+   revés, del color de esta banda y por encima de todo. Solo hace
+   falta donde algo de la banda de arriba se desborda hacia acá —hoy
+   el perro del hero—: sin ella el desborde tapa el corte, con ella
+   la curva lo recorta. Cuesta un elemento de más, así que no se
+   pone "por si acaso": encima del contenido de la banda taparía
+   texto.
    ───────────────────────────────────────────────────────────── */
 
 interface OndaProps {
   /** El color de la banda de la que la onda se derrama. */
   color: string;
+  /** El color de ESTA banda, pintado encima de lo que se desborde. */
+  tapa?: string;
   className?: string;
 }
 
-const Onda = ({ color, className }: OndaProps) => (
-  <svg
-    viewBox="0 0 100 100"
-    preserveAspectRatio="none"
-    aria-hidden
-    className={
-      "pointer-events-none absolute inset-x-0 top-0 z-0 h-[clamp(44px,6vw,88px)] w-full " +
-      (className ?? "")
-    }
-  >
-    <path data-anim="onda" d={trazarOnda(REPOSO)} fill={color} />
-  </svg>
+const CAJA = "pointer-events-none absolute inset-x-0 top-0 h-[clamp(44px,6vw,88px)] w-full ";
+
+const Onda = ({ color, tapa, className }: OndaProps) => (
+  <>
+    <svg
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-hidden
+      className={CAJA + "z-0 " + (className ?? "")}
+    >
+      <path data-anim="onda" d={trazarOnda(REPOSO)} fill={color} />
+    </svg>
+
+    {tapa ? (
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden
+        className={CAJA + "z-20 " + (className ?? "")}
+      >
+        <path data-anim="onda" data-onda="bajo" d={trazarOndaBajo(REPOSO)} fill={tapa} />
+      </svg>
+    ) : null}
+  </>
 );
 
 export default Onda;

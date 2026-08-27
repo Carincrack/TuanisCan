@@ -4,7 +4,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import Lenis from "lenis";
 
-import { RECORRIDO, REPOSO, trazarOnda } from "./onda";
+import { RECORRIDO, REPOSO, trazarOnda, trazarOndaBajo } from "./onda";
 import { registrarScroll } from "./scroll";
 
 /* ─────────────────────────────────────────────────────────────
@@ -116,15 +116,27 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
           const escena = path.closest(BANDA);
           if (!escena) return;
 
+          /* Un separador puede traer dos capas: la de arriba, que
+             derrama el color de la banda anterior, y la `tapa`, que
+             recorta con el color de esta. Misma curva, cerrada contra
+             el borde contrario. */
+          const trazar =
+            path.getAttribute("data-onda") === "bajo" ? trazarOndaBajo : trazarOnda;
+
           const estado = { y: REPOSO };
           const mover = gsap.quickTo(estado, "y", {
             duration: 0.35,
             ease: "power2.out",
-            onUpdate: () => path.setAttribute("d", trazarOnda(estado.y)),
+            onUpdate: () => path.setAttribute("d", trazar(estado.y)),
           });
 
+          /* El rango arranca en `REPOSO` y no en cero. Con cero, el
+             primer `onRefresh` mandaba la curva a `y = 0` —una panza
+             del 52.5%, más honda que cualquier punto del recorrido— y
+             la portada abría con un salto respecto de lo que el
+             navegador ya había pintado. */
           const alScroll = (self: ScrollTrigger) =>
-            mover(gsap.utils.mapRange(0, 1, 0, RECORRIDO, self.progress));
+            mover(gsap.utils.mapRange(0, 1, REPOSO, RECORRIDO, self.progress));
 
           /* `onRefresh` además de `onUpdate`: si la página carga ya
              pasada esta banda —una recarga a media página, una
