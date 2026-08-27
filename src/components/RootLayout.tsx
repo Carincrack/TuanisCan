@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import LoginPage from "../page/LoginPage";
 import AppShell from "./AppShell";
-import Landing from "./landing";
+import Landing from "../landing";
 import Splash from "./Splash";
 import { navPorRol, RUTA_ADMIN, inicioDeRol, type Rol } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
