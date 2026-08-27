@@ -72,7 +72,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const profile = await getUserProfile(session.user.id, session.user.email ?? "");
-    const isAdmin = Boolean(profile?.isAdmin || adminFromUser(session.user));
+    const hasAdminRole = adminFromUser(session.user);
+
+    if (hasAdminRole && !profile) {
+      await logout();
+      sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+      setState({
+        session: null,
+        user: null,
+        role: null,
+        roles: [],
+        isAdmin: false,
+        loading: false,
+      });
+      throw new Error(
+        "La cuenta admin no tiene informacion personal vinculada. Ejecuta scripts/configure-admin.mjs con ADMIN_NOMBRE.",
+      );
+    }
+
+    const isAdmin = Boolean(profile?.isAdmin || hasAdminRole);
     setState({
       session,
       user: session.user,
@@ -88,7 +106,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     getSession()
       .then((session) => {
-        if (mounted) void loadSession(session);
+        if (mounted) {
+          void loadSession(session).catch(() => {
+            if (mounted) setState((current) => ({ ...current, loading: false }));
+          });
+        }
       })
       .catch(() => {
         if (mounted) setState((current) => ({ ...current, loading: false }));
