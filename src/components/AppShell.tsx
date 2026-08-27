@@ -5,13 +5,15 @@ import { Bell, LogOut, Menu, Search, X } from "lucide-react";
 import {
   MARCA,
   navPorRol,
-  perfilPorRol,
   tituloDeRuta,
   type NavItem,
   type Rol,
 } from "../lib/nav";
+import type { UserProfile } from "../types/auth.types";
+import { useAuth } from "../hooks/useAuth";
 import { AsideDeRol } from "./aside";
 import { input } from "./ui";
+import ProfileAvatar from "./ProfileAvatar";
 
 /* ─────────────────────────────────────────────────────────────
    Estructura de tres columnas:
@@ -32,7 +34,7 @@ const NavLink = ({
   onNavigate?: () => void;
 }) => {
   const { pathname } = useLocation();
-  const activo = pathname === item.to;
+  const activo = item.to === pathname;
   const { Icon } = item;
 
   return (
@@ -122,25 +124,20 @@ const Navegacion = ({ rol, onNavigate }: { rol: Rol; onNavigate?: () => void }) 
   );
 };
 
-const PiePerfil = ({ rol, onLogout }: { rol: Rol; onLogout?: () => void }) => {
-  const perfil = perfilPorRol[rol];
+const PiePerfil = ({ profile, rol, onLogout }: { profile: UserProfile | null; rol: Rol; onLogout?: () => void }) => {
+  const nombre = profile?.nombre || "Usuario";
+  const detalle = profile?.tipo_usuario || rol;
 
   return (
     <div className="bg-rail-hover">
       <div className="flex items-center gap-3 px-5 py-4">
-        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center bg-accent text-[12px] font-semibold text-white">
-          {perfil.nombre
-            .split(" ")
-            .slice(0, 2)
-            .map((p) => p[0])
-            .join("")}
-        </span>
+        {profile ? <ProfileAvatar profile={profile} /> : <span className="h-9 w-9 flex-shrink-0 rounded-full bg-accent" />}
         <span className="min-w-0">
           <span className="block truncate text-[13px] font-medium text-white">
-            {perfil.nombre}
+            {nombre}
           </span>
           <span className="block truncate text-[11.5px] text-rail-mute">
-            {perfil.detalle}
+            {detalle}
           </span>
         </span>
       </div>
@@ -174,39 +171,25 @@ const CLAVE_RAIL = "tuaniscan:rail";
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname } = useLocation();
+  const { getProfile } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [railVisible, setRailVisible] = useState(
-    () => localStorage.getItem(CLAVE_RAIL) !== "cerrado"
-  );
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   // Cerrar el panel al navegar; si no, queda tapando la pantalla nueva.
   useEffect(() => setMenuAbierto(false), [pathname]);
 
-  const cambiarRail = (visible: boolean) => {
-    setRailVisible(visible);
-    localStorage.setItem(CLAVE_RAIL, visible ? "abierto" : "cerrado");
-  };
+  useEffect(() => {
+    getProfile().then(setProfile).catch(() => setProfile(null));
+  }, [getProfile]);
 
   return (
     <div className="plano flex h-dvh w-full overflow-hidden bg-canvas">
       {/* ── Columna izquierda ── */}
-      {railVisible && (
-        <aside className="relative hidden w-[248px] flex-shrink-0 flex-col bg-rail lg:flex">
-          {/* Cerrar la barra. Vuelve a abrirse con el botón de menú de la
-              barra superior, que aparece en su lugar. */}
-          <button
-            type="button"
-            onClick={() => cambiarRail(false)}
-            aria-label="Cerrar menú"
-            className="absolute right-2 top-4 z-10 p-2 text-rail-mute transition-colors duration-200 hover:bg-rail-hover hover:text-white"
-          >
-            <X size={17} />
-          </button>
-          <Marca />
-          <Navegacion rol={rol} />
-          <PiePerfil rol={rol} onLogout={onLogout} />
-        </aside>
-      )}
+      <aside className="hidden w-[248px] flex-shrink-0 flex-col bg-rail lg:flex">
+        <Marca />
+        <Navegacion rol={rol} />
+        <PiePerfil profile={profile} rol={rol} onLogout={onLogout} />
+      </aside>
 
       {/* Panel deslizable para móvil y tablet */}
       {menuAbierto && (
@@ -226,7 +209,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             </button>
             <Marca />
             <Navegacion rol={rol} onNavigate={() => setMenuAbierto(false)} />
-            <PiePerfil rol={rol} onLogout={onLogout} />
+            <PiePerfil profile={profile} rol={rol} onLogout={onLogout} />
           </div>
         </div>
       )}

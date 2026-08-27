@@ -24,6 +24,11 @@ const RootLayout = () => {
   const { role, logout } = useAuth();
 
   const zonaAdmin = pathname.startsWith(RUTA_ADMIN);
+  const esRutaAuth = [
+    "/registro",
+    "/recuperar-contrasena",
+    "/actualizar-contrasena",
+  ].includes(pathname);
   const rol = role as Rol;
   const rolesDeRuta = (Object.keys(navPorRol) as Rol[]).filter((rolDeRuta) =>
     navPorRol[rolDeRuta].some((grupo) =>
@@ -34,7 +39,7 @@ const RootLayout = () => {
     ? rolesDeRuta
     : zonaAdmin
     ? ["admin"]
-    : ["dueno", "paseador"];
+    : ["dueno", "paseador", "negocio"];
 
   useEffect(() => {
     const rolesActuales = (Object.keys(navPorRol) as Rol[]).filter((rolDeRuta) =>
@@ -46,7 +51,7 @@ const RootLayout = () => {
       ? rolesActuales
       : zonaAdmin
       ? ["admin"]
-      : ["dueno", "paseador"];
+      : ["dueno", "paseador", "negocio"];
 
     if (role && !rutaPermitida.includes(role)) {
       setSplash(true);
@@ -60,6 +65,8 @@ const RootLayout = () => {
   };
 
   const cerrarSplash = useCallback(() => setSplash(false), []);
+
+  if (esRutaAuth) return <Outlet />;
 
   /* La `key` cambia cuando el splash termina: eso remonta el shell y sus
      animaciones de entrada se reproducen ahí, no detrás de la cortina.

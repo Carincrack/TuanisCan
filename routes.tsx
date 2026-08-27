@@ -6,6 +6,11 @@ import AboutPage from "./src/page/AboutPage";
 import dashboardPage from "./src/page/dashboardPage";
 import MascotasPage from "./src/page/MascotasPage";
 import PaseadoresPage from "./src/page/PaseadoresPage";
+import RegisterPage from "./src/page/RegisterPage";
+import ForgotPasswordPage from "./src/page/ForgotPasswordPage";
+import UpdatePasswordPage from "./src/page/UpdatePasswordPage";
+import ProfilePage from "./src/page/ProfilePage";
+import ZonasAdminPage from "./src/page/ZonasAdminPage";
 import Paseos from "./src/components/paseos";
 import PaseoEnVivo from "./src/components/paseoEnVivo";
 import MascotasPerdidas from "./src/components/mascotasPerdidas";
@@ -48,6 +53,26 @@ const aboutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/about",
   component: AboutPage,
+});
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/registro",
+  component: RegisterPage,
+});
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/recuperar-contrasena",
+  component: ForgotPasswordPage,
+});
+const updatePasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/actualizar-contrasena",
+  component: UpdatePasswordPage,
+});
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/perfil",
+  component: ProfilePage,
 });
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -130,6 +155,7 @@ const adminVerificacionesRoute = ruta(
   VerificacionesAdmin
 );
 const adminUsuariosRoute = ruta(`${RUTA_ADMIN}/usuarios`, UsuariosAdmin);
+const adminZonasRoute = ruta(`${RUTA_ADMIN}/zonas`, ZonasAdminPage);
 const adminPaseosRoute = ruta(`${RUTA_ADMIN}/paseos`, PaseosAdmin);
 
 // 3. Añadir al root
@@ -140,6 +166,7 @@ rootRoute.addChildren([
   adminPaseadoresRoute,
   adminVerificacionesRoute,
   adminUsuariosRoute,
+  adminZonasRoute,
   adminPaseosRoute,
   panelPaseadorRoute,
   solicitudesRoute,
@@ -150,6 +177,10 @@ rootRoute.addChildren([
   resenasPaseadorRoute,
   homeRoute,
   aboutRoute,
+  registerRoute,
+  forgotPasswordRoute,
+  updatePasswordRoute,
+  profileRoute,
   dashboardRoute,
   mascotasRoute,
   paseadoresRoute,

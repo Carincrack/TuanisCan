@@ -51,7 +51,7 @@ export const MARCA = {
   logoSimbolo: "/logo-simbolo.png",
 };
 
-export type Rol = "dueno" | "paseador" | "admin";
+export type Rol = "dueno" | "paseador" | "negocio" | "admin";
 
 export const RUTA_ADMIN = "/acceso-interno";
 
@@ -90,6 +90,8 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       items: [
         { to: "/pagos", label: "Pagos", Icon: CreditCard },
         { to: "/resenas", label: "Reseñas", Icon: Star },
+        { to: "/perfil", label: "Mis datos", Icon: UserCircle },
+          
       ],
     },
     {
@@ -116,8 +118,19 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       titulo: "Mi cuenta",
       items: [
         { to: "/p/ganancias", label: "Ganancias", Icon: Wallet },
-        { to: "/p/perfil", label: "Mi perfil", Icon: UserCircle },
+        { to: "/perfil", label: "Mi perfil", Icon: UserCircle },
+        { to: "/p/perfil", label: "Perfil público", Icon: UserCircle },
         { to: "/p/resenas", label: "Reseñas recibidas", Icon: Star },
+      ],
+    },
+  ],
+
+  negocio: [
+    {
+      titulo: "Mi negocio",
+      items: [
+        { to: "/directorio", label: "Directorio", Icon: Store },
+        { to: "/perfil", label: "Mi perfil", Icon: UserCircle },
       ],
     },
   ],
@@ -128,6 +141,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       items: [
         { to: RUTA_ADMIN, label: "Panel general", Icon: BarChart3 },
         { to: `${RUTA_ADMIN}/finanzas`, label: "Finanzas", Icon: Wallet },
+        { to: "/perfil", label: "Mis datos", Icon: UserCircle },
       ],
     },
     {
@@ -141,6 +155,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
           badge: 4,
         },
         { to: `${RUTA_ADMIN}/usuarios`, label: "Usuarios", Icon: Users },
+        { to: `${RUTA_ADMIN}/zonas`, label: "Zonas", Icon: MapPin },
         { to: `${RUTA_ADMIN}/paseos`, label: "Paseos", Icon: CalendarDays },
       ],
     },
@@ -150,21 +165,23 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
 export const perfilPorRol: Record<Rol, { nombre: string; detalle: string }> = {
   dueno: { nombre: "Ana Corrales", detalle: "Dueña · San José" },
   paseador: { nombre: "María Fernández", detalle: "Paseadora · Curridabat" },
+  negocio: { nombre: "Mi negocio", detalle: "Cuenta de negocio" },
   admin: { nombre: "Administración", detalle: "TuanisCan" },
 };
 
 /** Título de la barra superior. Cae al primer ítem del rol si no hay match. */
 export const tituloDeRuta = (rol: Rol, pathname: string) => {
-  for (const grupo of navPorRol[rol]) {
-    const item = grupo.items.find((i) => i.to === pathname);
-    if (item) return item.label;
-  }
-  return navPorRol[rol][0].items[0].label;
+  const item = navPorRol[rol]
+    .flatMap((grupo) => grupo.items)
+    .find((navItem) => navItem.to === pathname);
+
+  return item?.label ?? "TuanisCan";
 };
 
 /** Ruta de arranque de cada rol. */
 export const inicioDeRol: Record<Rol, string> = {
   dueno: "/",
   paseador: "/p/panel",
+  negocio: "/directorio",
   admin: RUTA_ADMIN,
 };

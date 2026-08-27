@@ -95,6 +95,12 @@ extensions.geometry(Polygon, 4326)
 
 El SRID `4326` corresponde al sistema de coordenadas WGS 84, usado comunmente para coordenadas de latitud y longitud. Gracias a esto, la aplicacion puede representar areas geograficas reales, no solo texto como "San Jose" o "Cartago".
 
+### Catalogo flexible
+
+El catalogo puede precargarse mediante migraciones y tambien puede crecer desde la pantalla administrativa. El formulario exige zona, canton y provincia, y valida duplicados por canton y provincia antes de insertar. La tabla conserva `poligono_cobertura` opcional, tal como fue definida originalmente, para agregar informacion geoespacial cuando exista sin bloquear el registro de una zona nueva.
+
+La ubicacion seleccionada por el usuario siempre se guarda mediante `zona_id`, nunca como texto libre. Si un lugar no aparece, administracion puede agregarlo; si una zona se elimina mientras esta en uso, las claves foraneas existentes la protegen o dejan la referencia en `null` segun la tabla relacionada.
+
 ## 3. Tabla `usuarios`
 
 La tabla `public.usuarios` esta definida en:

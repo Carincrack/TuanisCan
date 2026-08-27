@@ -271,6 +271,55 @@
   .d-8 { animation-delay: 320ms; }
 }
 
+.tsc-map-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+}
+
+.tsc-map-marker__pin {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(45deg);
+  border: 3px solid white;
+  background: var(--color-ink);
+  box-shadow: 0 2px 8px rgb(20 36 46 / 32%);
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+
+.tsc-map-marker__pin > span {
+  width: 8px;
+  height: 8px;
+  background: white;
+}
+
+.tsc-map-marker:hover .tsc-map-marker__pin,
+.tsc-map-marker__pin.is-active {
+  transform: rotate(45deg) scale(1.18);
+  background: var(--color-accent-dark);
+}
+
+.tsc-map-shell:fullscreen {
+  display: flex;
+  height: 100dvh;
+  flex-direction: column;
+  background: var(--color-surface);
+}
+
+.tsc-map-shell:fullscreen .leaflet-container {
+  height: auto !important;
+  flex: 1;
+}
+
+.leaflet-container {
+  font-family: var(--font-sans);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
