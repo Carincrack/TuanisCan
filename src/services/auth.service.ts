@@ -59,8 +59,8 @@ export const getAdminUsuarios = async (): Promise<AdminUser[]> => {
     .select("id_usuario, nombre, telefono, foto_perfil, fecha_registro, activo, zona:zonas(nombre, canton, provincia)")
     .order("fecha_registro", { ascending: false }),
     supabase
-      .from("usuario_roles")
-      .select("id_usuario, rol:roles(nombre)"),
+      .from("usuario_rol")
+      .select("id_usuario, rol:rol(nombre)"),
   ]);
 
   if (usuariosResult.error) throw usuariosResult.error;
