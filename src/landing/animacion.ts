@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useLayoutEffect, type RefObject } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
@@ -44,6 +44,18 @@ const MANO = "power2.inOut";
    un `footer`, no un `section`. */
 const BANDA = "section, footer";
 
+/* GSAP arranca ANTES del primer pintado y no después.
+
+   `useEffect` corre cuando el navegador ya pintó, así que toda entrada
+   hecha con `gsap.from()` muestra un fotograma en su estado final antes
+   de saltar al inicial. Con una sola cosa moviéndose casi no se nota;
+   con el hero entero encima del pliegue es un parpadeo.
+
+   El `typeof window` es por si algún día esto se renderiza en el
+   servidor: ahí no hay pintado que adelantar y React avisa por consola
+   de que el efecto de layout no corre. */
+const useEfectoVisual = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 const quieto = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -84,7 +96,7 @@ const montarScrollSuave = () => {
 };
 
 export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
-  useEffect(() => {
+  useEfectoVisual(() => {
     const nodo = raiz.current;
     if (!nodo) return;
 
@@ -99,6 +111,85 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
         if (!ctx.conditions?.anima) return;
         const q = ctx.selector;
         if (!q) return;
+
+        /* ── La entrada del hero ──────────────────────────────
+           Todo el hero entra en UNA línea de tiempo. No es prolijidad:
+           es la única forma de repartir la carga. Con cinco tweens
+           sueltos cada uno arranca cuando su `forEach` llega, todos
+           caen encima del mismo cuarto de segundo y la pantalla se
+           mueve entera de golpe.
+
+           Va al montar y no con el scroll: está en la primera
+           pantalla, así que un disparador de scroll no se dispararía
+           nunca.
+
+           El orden es una jerarquía de lectura, no un adorno. El
+           wordmark manda —es lo que hay que leer primero— y arranca
+           en cero, solo. Todo lo demás sale escalonado detrás y sin
+           coincidir con el pico de nadie:
+
+             0.00  wordmark   la marca, sola en escena
+             0.05  barra      cae desde arriba, se quita de en medio
+             0.18  perro      grande, así que lento
+             0.34  entrada    el párrafo, cuando la marca ya asentó
+             0.50  píldoras   lo último, cuando ya hay dónde pararse
+
+           A los 0.34 el wordmark todavía se mueve, pero `expo.out`
+           gasta el 90% de su recorrido en el primer tercio: lo que
+           queda es un frenado, no movimiento que compita.
+
+           Nada usa escala y ningún desplazamiento pasa de 16 px salvo
+           las letras. Lo que se quería es que apareciera entero y
+           tranquilo, no que cada pieza hiciera su número. */
+        const entrada = gsap.timeline({ defaults: { ease: SALIDA } });
+
+        /* Las letras suben desde detrás del borde de la máscara, el
+           mismo gesto que los titulares de sección. `110` y no `100`
+           para que la letra quede del todo fuera antes de empezar:
+           con exactamente el 100% su borde de arriba coincide con el
+           de la máscara y se alcanza a ver una raya.
+
+           El escalonado es corto —35 ms— porque son nueve letras: a
+           50 ms la última entraría medio segundo después que la
+           primera y dejaría de leerse como una sola palabra. */
+        q("[data-anim='marca']").forEach((marca) => {
+          entrada.from(
+            marca.querySelectorAll(".letra"),
+            { yPercent: 110, duration: 1.05, ease: TITULAR, stagger: 0.035 },
+            0,
+          );
+        });
+
+        entrada.from(q("[data-entra='barra']"), { y: -14, opacity: 0, duration: 0.7 }, 0.05);
+
+        /* La foto va en `yPercent` y no en píxeles a propósito: el alto
+           del escenario cambia con la ventana, y un desplazamiento en
+           píxeles que en escritorio es un roce, en un móvil bajo es un
+           salto. El 2.5% se mide siempre contra la foto.
+
+           Es el elemento más grande de la pantalla y por eso es el más
+           lento: en el mundo real las cosas grandes tardan más en
+           frenar, y una foto de ese tamaño entrando en medio segundo
+           se lee como un empujón. */
+        entrada.from(
+          q("[data-entra='perro']"),
+          { yPercent: 2.5, opacity: 0, duration: 1.1 },
+          0.18,
+        );
+
+        entrada.from(q("[data-entra='entrada']"), { y: 14, opacity: 0, duration: 0.75 }, 0.34);
+
+        /* Las píldoras se animan por hijos y no por el contenedor: en
+           escritorio ese contenedor es `absolute` contra la banda, así
+           que moverlo movería las dos esquinas a la vez. Por dentro,
+           cada una llega por su lado. */
+        q("[data-entra='pildoras']").forEach((cont) => {
+          entrada.from(
+            cont.children,
+            { y: 16, opacity: 0, duration: 0.7, stagger: 0.09 },
+            0.5,
+          );
+        });
 
         /* ── El borde entre bandas ────────────────────────────
            La curva se estira mientras la sección sube por la

@@ -107,6 +107,14 @@ const SNAP_AT = 500; // dentro de la ventana de cobertura total
 const REVEAL_AT = 790; // la luna ya casi llegó → entra el contenido
 const ENTER_MS = 540; // desliz suave de entrada
 
+/* La media luna existe desde `lg` para arriba y nada más. Debajo de
+   eso la coreografía de 900 ms deja la tarjeta EN BLANCO: la fase
+   "snap" oculta las dos caras a la vez porque cuenta con que la luna
+   las esté tapando, y sin luna eso son 290 ms de tarjeta vacía más un
+   contenido que entra deslizándose de costado sin motivo. En móvil el
+   cambio es directo, con un fundido corto. */
+const MEDIA_ANCHO = "(min-width: 1024px)";
+
 
 const normalizarTexto = (valor: string) =>
   valor
@@ -130,6 +138,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
   // del click, independiente de `mode` (que cambia recién en "snap").
   const [sweepMode, setSweepMode] = useState<Mode>(initialMode);
   const [phase, setPhase] = useState<Phase>("idle");
+  /* Se lee una vez para el primer pintado y después se escucha: si la
+     ventana cruza el corte a mitad de sesión, el cambio de modo tiene
+     que cambiar de coreografía con ella. */
+  const [ancho, setAncho] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(MEDIA_ANCHO).matches,
+  );
   const isSignUp = mode === "signup";
   const isSweepSignUp = sweepMode === "signup";
   const busy = phase !== "idle";
@@ -219,19 +233,40 @@ useEffect(() => {
     document.removeEventListener("mousedown", cerrarSelectorZona);
   };
 }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia(MEDIA_ANCHO);
+    const alCambiar = (e: MediaQueryListEvent) => setAncho(e.matches);
+    setAncho(mq.matches);
+    mq.addEventListener("change", alCambiar);
+    return () => mq.removeEventListener("change", alCambiar);
+  }, []);
+  const aplicarModo = (next: Mode) => {
+    setMode(next);
+    setError(null);
+    setSuccess(null);
+    setShowError(false);
+    if (next === "signup") setRegistrationStep(1);
+  };
+
   const toggleMode = () => {
     if (busy) return;
     const next: Mode = mode === "signin" ? "signup" : "signin";
 
     setSweepMode(next); // la luna arranca a moverse YA, en este mismo click
+
+    /* En móvil no hay luna que tapar: se cambia y ya. La fase se queda
+       en "idle", así que `busy` nunca bloquea el botón y no hay ventana
+       muerta de 1.3 s entre un formulario y el otro. */
+    if (!ancho) {
+      aplicarModo(next);
+      return;
+    }
+
     setPhase("sweeping");
 
     setTimeout(() => {
-      setMode(next);
-      setError(null);
-      setSuccess(null);
-      setShowError(false);
-      if (next === "signup") setRegistrationStep(1);
+      aplicarModo(next);
       setPhase("snap");
     }, SNAP_AT);
 
@@ -430,10 +465,19 @@ useEffect(() => {
 
   const ENTER_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 
+  /* Quieto y visible: lo que ven las dos caras cuando no hay luna. El
+     fundido de entrada lo pone el `key` de más abajo, no estas fases. */
+  const QUIETO: React.CSSProperties = {
+    transform: "translateX(0)",
+    opacity: 1,
+    transition: "none",
+  };
+
   /* FORMULARIO: nunca se desvanece al salir. Se queda quieto y la media
      luna lo tapa. Solo se mueve para ENTRAR, desde su lado correcto. */
-  const formStyle: React.CSSProperties =
-    phase === "snap"
+  const formStyle: React.CSSProperties = !ancho
+    ? QUIETO
+    : phase === "snap"
       ? { transform: `translateX(${formOffset})`, opacity: 0, transition: "none" }
       : phase === "entering"
       ? {
@@ -445,8 +489,9 @@ useEffect(() => {
 
   /* PANEL DE MARCA: va encima de la media luna, nadie lo puede tapar.
      Por eso sale solo, y recién cuando ya está todo cubierto. */
-  const brandStyle: React.CSSProperties =
-    phase === "sweeping"
+  const brandStyle: React.CSSProperties = !ancho
+    ? QUIETO
+    : phase === "sweeping"
       ? {
           transform: `translateX(${brandOffset})`,
           opacity: 0,
@@ -464,28 +509,43 @@ useEffect(() => {
 
   // ─── Clases reutilizables ───
   const inputBase =
-    "w-full rounded-full border border-transparent bg-slate-100 py-4 pl-14 pr-5 text-sm text-[#1E2A33] placeholder:text-slate-400 transition-all duration-200 focus:border-[#14A3B8]/40 focus:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#14A3B8]/25";
+    "w-full rounded-full border border-transparent bg-slate-100 py-4 pl-14 pr-5 text-[16px] sm:text-sm text-[#1E2A33] placeholder:text-slate-400 transition-all duration-200 focus:border-[#14A3B8]/40 focus:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#14A3B8]/25";
   const iconBase =
     "pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#14A3B8]";
+  /* Ancho completo cuando la columna es angosta, píldora cuando hay
+     sitio. El corte va por CONSULTA DE CONTENEDOR (`@xs`, 20rem) y no
+     por ancho de ventana: este botón vive dentro de media tarjeta, así
+     que el ancho de la ventana no dice nada sobre el sitio que tiene.
+     A 1280 px de ventana su columna mide 376; a 1024, 344.
+
+     `min-w-[190px]` solo existe del lado ancho. Estando a la par de
+     "Atrás" es lo que evita que "SIGUIENTE" y "CREAR CUENTA" —que no
+     miden lo mismo— muevan el botón de sitio al cambiar de paso. */
   const primaryBtn =
-    "flex min-w-[190px] items-center justify-center gap-2 rounded-full bg-[#14A3B8] px-10 py-4 text-xs font-semibold tracking-[0.12em] text-white shadow-[0_10px_25px_rgba(20,163,184,0.4)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0E8DA1] hover:shadow-[0_14px_30px_rgba(14,141,161,0.5)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60";
+    "flex w-full items-center justify-center gap-2 rounded-full bg-[#14A3B8] px-6 py-4 @xs:w-auto @xs:min-w-[190px] @xs:px-10 text-xs font-semibold tracking-[0.12em] text-white shadow-[0_10px_25px_rgba(20,163,184,0.4)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0E8DA1] hover:shadow-[0_14px_30px_rgba(14,141,161,0.5)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60";
 
   /* Selector de rol. Mismo lenguaje redondeado del resto de la tarjeta:
      píldora doble, el activo en turquesa. Se muestra en los dos modos
      porque tanto al entrar como al registrarse hay que decir de qué lado
      de la plataforma se está. */
   const roleSelector = (
-    <fieldset className="mb-5">
+    <fieldset className="@container mb-5">
       <legend className="mb-2 w-full text-center text-xs tracking-wide text-slate-500">
         Elige el tipo de cuenta
       </legend>
-      <div className="flex gap-3">
+      {/* Tres píldoras en fila no caben en una columna de 344 px: la
+          etiqueta se parte en "Pasea/dor". Apiladas de a una cuando la
+          columna es angosta, y en tres columnas —con el icono ARRIBA del
+          texto, no al lado— desde 20rem de contenedor. Poner el icono
+          arriba es lo que devuelve los 27 px que se comían el icono y su
+          separación, y es la diferencia entre 48 y 83 px de texto útil. */}
+      <div className="grid gap-2 @xs:grid-cols-3 @xs:gap-3">
         {ROLES.map((r) => {
           const active = rol === r.id;
           return (
             <label
               key={r.id}
-              className={`flex flex-1 cursor-pointer items-center gap-2.5 rounded-full px-4 py-3 transition-all duration-300 ${
+              className={`flex min-w-0 cursor-pointer items-center gap-2.5 rounded-full px-4 py-3 transition-all duration-300 @xs:flex-col @xs:gap-1.5 @xs:rounded-3xl @xs:px-2.5 @xs:py-3.5 @xs:text-center ${
                 active
                   ? "bg-[#14A3B8] text-white shadow-[0_8px_20px_rgba(20,163,184,0.35)]"
                   : "bg-slate-100 text-slate-500 hover:bg-slate-200/70"
@@ -501,9 +561,12 @@ useEffect(() => {
               />
               <r.Icon size={17} className="flex-shrink-0" />
               <span className="min-w-0">
-                <span className="block text-xs font-semibold">{r.titulo}</span>
+                <span className="block text-xs leading-tight font-semibold">{r.titulo}</span>
+                {/* `truncate` escrito a mano para poder deshacerlo: en fila
+                    la descripción no tiene dónde caer y hay que cortarla,
+                    pero en columna sí puede ocupar dos renglones. */}
                 <span
-                  className={`block truncate text-[10.5px] ${
+                  className={`block overflow-hidden text-[10.5px] leading-snug text-ellipsis whitespace-nowrap @xs:overflow-visible @xs:whitespace-normal ${
                     active ? "text-white/75" : "text-slate-400"
                   }`}
                 >
@@ -574,7 +637,7 @@ useEffect(() => {
 
   return (
     <div
-      className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-8"
+      className="relative min-h-dvh w-full flex items-center justify-center p-0 sm:p-8"
       style={{
         background:
           "linear-gradient(135deg, #4C8CB0 0%, #2E6584 55%, #163C52 100%)",
@@ -584,16 +647,20 @@ useEffect(() => {
         <button
           type="button"
           onClick={onBack}
-          className="absolute top-5 left-5 z-50 inline-flex items-center gap-1 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
+          className="absolute top-4 left-4 z-50 inline-flex min-h-11 items-center gap-1 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-200 sm:top-5 sm:left-5 sm:bg-white/15 sm:text-white sm:backdrop-blur-sm sm:hover:bg-white/25 lg:min-h-0"
         >
           <ChevronLeft size={17} />
           Volver
         </button>
       )}
       {/* Tarjeta principal */}
-      <div className="relative w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-[0_30px_80px_rgba(15,32,44,0.4)]">
+      <div
+        className={`relative flex min-h-dvh w-full max-w-5xl flex-col overflow-hidden bg-white sm:min-h-0 sm:rounded-[28px] sm:pt-0 sm:shadow-[0_30px_80px_rgba(15,32,44,0.4)] ${
+          onBack ? "pt-14" : ""
+        }`}
+      >
         {/* ─── CAPA z-20: media luna (solo escritorio) ─── */}
-        <div className="pointer-events-none absolute inset-0 z-20 hidden overflow-hidden md:block">
+        <div className="pointer-events-none absolute inset-0 z-20 hidden overflow-hidden lg:block">
           <div
             className="h-full w-[220%]"
             style={{
@@ -640,34 +707,42 @@ useEffect(() => {
           </div>
         </div>
 
-        <div className={`relative flex flex-col md:block ${isSignUp ? "md:min-h-[720px]" : "md:min-h-[640px]"}`}>
+        <div className={`relative flex flex-1 flex-col lg:block ${isSignUp ? "lg:min-h-[720px]" : "lg:min-h-[640px]"}`}>
           {/* ─── CAPA z-30: panel de marca (montado sobre la media luna) ─── */}
           <div
-            className={`relative z-30 bg-gradient-to-br from-[#1D4E6C] to-[#0E2733] px-8 py-12 md:absolute md:top-0 md:h-full md:w-1/2 md:bg-none md:px-12 md:py-0 ${
-              isSignUp ? "md:left-1/2" : "md:left-0"
+            className={`relative z-30 mt-auto px-6 pt-8 pb-4 sm:px-8 sm:pt-6 sm:pb-6 lg:absolute lg:mt-0 lg:top-0 lg:h-full lg:w-1/2 lg:px-12 lg:py-0 ${
+              isSignUp ? "lg:left-1/2" : "lg:left-0"
             }`}
           >
             <div
               /* El padding va del lado de la CURVA, para separar el texto
                  de ella. Antes estaba al revés y por eso se tocaban. */
-              className={`flex h-full flex-col items-center justify-center gap-5 text-center ${
-                isSignUp ? "md:pl-12" : "md:pr-12"
+              className={`flex h-full flex-col items-center justify-center gap-3 text-center sm:gap-4 lg:gap-5 ${
+                isSignUp ? "lg:pl-12" : "lg:pr-12"
               }`}
               style={brandStyle}
             >
-              {/* ▼▼▼ LOGO ▼▼▼ Lockup con contorno blanco: el borde lo despega
-                  del azul oscuro del panel. */}
+              {/* ▼▼▼ LOGO ▼▼▼ Dos fondos, dos versiones del mismo lockup.
+                  En escritorio va sobre la media luna: ahí hace falta el
+                  contorno blanco de `logoLogin` para despegarlo del azul.
+                  Apilado el fondo es blanco y ese mismo contorno se come
+                  el dibujo, así que entra `logoSistema`, que es el lockup
+                  sin contorno y existe justo para fondos claros.
+
+                  El interruptor es `ancho`, el estado que ya decide la
+                  coreografía: sigue siendo UNA imagen con UN texto
+                  alternativo, no dos etiquetas escondiéndose entre sí. */}
               <img
-                src={logoSrc}
+                src={ancho ? logoSrc : MARCA.logoSistema}
                 alt={MARCA.completo}
-                className="mb-1 h-32 w-auto object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.45)] md:h-40"
+                className="mb-1 h-24 w-auto object-contain sm:h-28 lg:h-40 lg:drop-shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
               />
               {/* ▲▲▲ FIN DEL LOGO ▲▲▲ */}
 
-              <h2 className="text-2xl font-bold text-white">
+              <h2 className="hidden font-bold text-white lg:block lg:text-2xl">
                 {isSignUp ? "¿Ya tienes cuenta?" : "¿Nuevo por aquí?"}
               </h2>
-              <p className="max-w-[17rem] text-sm leading-relaxed text-white/75">
+              <p className="hidden max-w-[17rem] text-sm leading-relaxed text-white/75 lg:block">
                 {isSignUp
                   ? `Inicia sesión para seguir cuidando a tu mascota con ${MARCA.completo}.`
                   : "Únete a la comunidad y encuentra paseadores de confianza, veterinarias cercanas y mascotas perdidas cerca de ti."}
@@ -676,27 +751,29 @@ useEffect(() => {
                 type="button"
                 onClick={toggleMode}
                 disabled={busy}
-                className="mt-2 rounded-full border-2 border-white/80 px-9 py-2.5 text-xs font-semibold tracking-[0.12em] text-white transition-all duration-300 hover:border-white hover:bg-white hover:text-[#16242F] disabled:pointer-events-none"
+                className="hidden rounded-full border-2 border-white/80 px-9 py-2.5 text-xs font-semibold tracking-[0.12em] text-white transition-all duration-300 hover:border-white hover:bg-white hover:text-[#16242F] disabled:pointer-events-none lg:mt-2 lg:block"
               >
                 {isSignUp ? "INICIAR SESIÓN" : "REGISTRARSE"}
               </button>
             </div>
           </div>
 
+          {/* ─── El pie va después en el documento; ver más abajo ─── */}
           {/* ─── CAPA z-10: formulario (lo tapa la media luna) ─── */}
           <div
-            className={`relative z-10 px-8 py-12 md:absolute md:top-0 md:h-full md:w-1/2 md:px-12 md:py-0 ${
-              isSignUp ? "md:left-0" : "md:left-1/2"
+            className={`relative z-10 px-5 py-6 sm:px-8 sm:py-10 lg:absolute lg:top-0 lg:h-full lg:w-1/2 lg:px-12 lg:py-0 ${
+              isSignUp ? "lg:left-0" : "lg:left-1/2"
             }`}
           >
             <div
               /* Igual que arriba: el padding extra va del lado de la curva */
-              className={`flex h-full flex-col justify-center ${
-                isSignUp ? "md:pr-10" : "md:pl-10"
+              key={`cara-${mode}`}
+              className={`@container animate-[tsc-fade_240ms_ease-out] flex h-full flex-col justify-center lg:animate-none ${
+                isSignUp ? "lg:pr-10" : "lg:pl-10"
               }`}
               style={formStyle}
             >
-              <h1 className={`${isSignUp ? "mb-4 text-3xl" : "mb-8 text-4xl"} text-center font-bold text-[#1E2A33]`}>
+              <h1 className={`${isSignUp ? "mb-4 text-2xl sm:text-3xl" : "mb-6 text-3xl sm:mb-8 sm:text-4xl"} text-center font-bold text-[#1E2A33]`}>
                 {isSignUp ? "Crear cuenta" : "Iniciar sesión"}
               </h1>
 
@@ -923,13 +1000,13 @@ useEffect(() => {
 
                       {rol === "negocio" && (
                         <>
-                          <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid gap-3 @sm:grid-cols-2">
                             <div className="relative"><Store className={iconBase} size={18} /><input type="text" placeholder="Nombre del negocio *" value={regNombreNegocio} onChange={(e) => setRegNombreNegocio(e.target.value)} className={inputBase} maxLength={150} required /></div>
                             <select value={regTipoNegocio} onChange={(e) => setRegTipoNegocio(e.target.value as typeof regTipoNegocio)} className={`${inputBase} pl-5`} aria-label="Tipo de negocio"><option value="veterinaria">Veterinaria</option><option value="tienda">Tienda</option><option value="refugio">Refugio</option></select>
                           </div>
                           <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder="Dirección exacta *" value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
                           <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder="Horario de atención *" value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>
-                          <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid gap-3 @sm:grid-cols-2">
                             <input type="number" min="-90" max="90" step="any" placeholder="Latitud (opcional)" value={regLatitud} onChange={(e) => setRegLatitud(e.target.value)} className={`${inputBase} px-5`} />
                             <input type="number" min="-180" max="180" step="any" placeholder="Longitud (opcional)" value={regLongitud} onChange={(e) => setRegLongitud(e.target.value)} className={`${inputBase} px-5`} />
                           </div>
@@ -966,9 +1043,18 @@ useEffect(() => {
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-700">{success}</div>
                   )}
 
-                  <div className="flex items-center justify-between gap-3 pt-2">
+                  {/* `flex-col-reverse` y no `flex-col`: apilados, el botón
+                      principal queda ARRIBA. Es la acción que se busca, y
+                      dejarla debajo de "Atrás" invierte la jerarquía. */}
+                  <div
+                    className={`flex flex-col-reverse gap-2 pt-2 @xs:flex-row @xs:items-center @xs:gap-3 ${
+                      registrationStep > 1
+                        ? "@xs:justify-between"
+                        : "@xs:justify-center lg:@xs:justify-between"
+                    }`}
+                  >
                     {registrationStep > 1 ? (
-                      <button type="button" onClick={() => { setRegistrationStep((step) => step - 1); setError(null); setShowError(false); }} className="inline-flex items-center gap-1 px-3 py-3 text-xs font-semibold text-slate-500 hover:text-[#14A3B8]"><ChevronLeft size={16} /> Atrás</button>
+                      <button type="button" onClick={() => { setRegistrationStep((step) => step - 1); setError(null); setShowError(false); }} className="inline-flex min-h-11 items-center justify-center gap-1 px-3 py-3 text-xs font-semibold text-slate-500 hover:text-[#14A3B8]"><ChevronLeft size={16} /> Atrás</button>
                     ) : <span />}
                     {registrationStep < 4 ? (
                       <button type="button" onClick={nextRegistrationStep} className={primaryBtn}>SIGUIENTE <ChevronRight size={16} /></button>
@@ -1062,6 +1148,24 @@ useEffect(() => {
                 </>
               )}
             </div>
+          </div>
+
+          {/* ─── Cambio de modo (solo apilado) ─── */}
+          <div
+            key={`pie-${mode}`}
+            className="animate-[tsc-fade_240ms_ease-out] relative z-10 mt-auto border-t border-slate-200 px-5 pt-5 pb-6 text-center sm:px-8 sm:pb-8 lg:hidden"
+          >
+            <p className="text-sm text-slate-500">
+              {isSignUp ? "¿Ya tienes cuenta?" : "¿Nuevo por aquí?"}
+            </p>
+            <button
+              type="button"
+              onClick={toggleMode}
+              disabled={busy}
+              className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#14A3B8]/45 px-9 py-2.5 text-xs font-semibold tracking-[0.12em] text-[#14A3B8] transition-all duration-300 hover:border-[#14A3B8] hover:bg-[#14A3B8] hover:text-white disabled:pointer-events-none"
+            >
+              {isSignUp ? "INICIAR SESIÓN" : "REGISTRARSE"}
+            </button>
           </div>
         </div>
       </div>
