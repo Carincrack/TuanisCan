@@ -94,13 +94,11 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
     mm.add(
       {
         anima: "(prefers-reduced-motion: no-preference)",
-        ancho: "(min-width: 768px)",
       },
       (ctx) => {
         if (!ctx.conditions?.anima) return;
         const q = ctx.selector;
         if (!q) return;
-        const ancho = Boolean(ctx.conditions.ancho);
 
         /* ── El borde entre bandas ────────────────────────────
            La curva se estira mientras la sección sube por la
@@ -295,64 +293,44 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
         });
 
         /* ── Los tres módulos ─────────────────────────────────
-           Lista, no rejilla: bajan en cascada. El filete de cada
-           fila se traza de izquierda a derecha justo antes de que
-           llegue su contenido — la línea abre el espacio y el
-           texto lo ocupa. */
+           Tres tarjetas en escalera, no una lista con filetes: cada
+           una sube por separado y con su propio retraso, así que la
+           cascada dibuja el mismo escalonado que ya tienen en reposo
+           por CSS (`md:mt-*`). Nada de línea divisoria — el aire
+           entre columnas ya separa una cosa de la otra. */
         q("[data-anim='modulos']").forEach((lista) => {
-          const tl = gsap.timeline({
-            scrollTrigger: { trigger: lista, start: "top 82%" },
-          });
-
-          /* La fila primero y el filete después: la fila entra
-             desde opacidad cero y, al revés, el trazo del filete
-             se dibujaría escondido dentro de ella. */
-          tl.from(lista.querySelectorAll("[data-anim='modulo']"), {
+          gsap.from(lista.querySelectorAll("[data-anim='modulo']"), {
             y: 34,
             opacity: 0,
             duration: 0.75,
             ease: SALIDA,
             stagger: 0.14,
-          }).from(
-            lista.querySelectorAll("[data-anim='filete']"),
-            { scaleX: 0, duration: 0.6, ease: MANO, stagger: 0.14 },
-            0.22,
-          );
+            scrollTrigger: { trigger: lista, start: "top 82%" },
+          });
         });
 
-        /* ── La ruta de los pasos ─────────────────────────────
-           Es una secuencia, así que se dibuja como recorrido: el
-           riel primero, los hitos cuando el riel ya pasó por
-           ellos, y el texto al final. Horizontal en pantalla
-           ancha, vertical en el teléfono. */
+        /* ── La lista de los pasos ────────────────────────────
+           Es tipografía, no tarjeta: el número de cada fila entra
+           deslizándose desde la izquierda —no con el rebote que
+           usan los puntos de un mapa— y el bloque de texto lo sigue
+           justo después. Ambos por fila, así que la lista se lee
+           fila por fila y no como dos columnas que entran por
+           separado. */
         q("[data-anim='ruta']").forEach((cont) => {
           const tl = gsap.timeline({
             scrollTrigger: { trigger: cont, start: "top 80%" },
           });
 
-          const riel = cont.querySelector("[data-anim='riel']");
-          if (riel) {
-            tl.from(riel, {
-              duration: 0.85,
-              ease: MANO,
-              ...(ancho ? { scaleX: 0 } : { scaleY: 0 }),
-            });
-          }
-
-          tl.from(
-            cont.querySelectorAll("[data-anim='hito']"),
-            {
-              scale: 0.45,
-              opacity: 0,
-              duration: 0.42,
-              ease: "back.out(1.9)",
-              stagger: 0.14,
-            },
-            0.24,
-          ).from(
+          tl.from(cont.querySelectorAll("[data-anim='cifra']"), {
+            x: -18,
+            opacity: 0,
+            duration: 0.6,
+            ease: SALIDA,
+            stagger: 0.16,
+          }).from(
             cont.querySelectorAll("[data-anim='paso']"),
-            { y: 26, opacity: 0, duration: 0.65, ease: SALIDA, stagger: 0.14 },
-            0.34,
+            { y: 18, opacity: 0, duration: 0.6, ease: SALIDA, stagger: 0.16 },
+            0.08,
           );
         });
 

@@ -1,46 +1,34 @@
 import EncabezadoSeccion from "../componentes/EncabezadoSeccion";
 import Onda from "../componentes/Onda";
 import { PASEADORES_DESTACADOS, PASOS } from "../datos";
-import { CIELO, HUESO, NAVY, TINTA, TINTA_SUAVE, TURQUESA } from "../tokens";
+import { AZUL_HONDO, CIELO, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
 
 /* ─────────────────────────────────────────────────────────────
    Cómo funciona. Banda celeste, entre dos bandas blancas.
 
-   Esto sí es una secuencia —no se puede pedir un paseo sin haber
-   registrado la mascota— así que se dibuja como recorrido: un
-   riel, un hito por paso y el texto colgando. Antes eran tres
-   tarjetas blancas idénticas a las de la banda de arriba, y hacían
-   leer dos cosas distintas como si fueran la misma.
+   Tercera vuelta. Las dos anteriores vestían el paso de tarjeta con
+   foto —primero con insignia circular, después alineada a la
+   izquierda igual que "Qué resuelve"— y ahí estaba el problema real:
+   "Qué resuelve" YA es fotografía. Si esta banda repite esa misma
+   ropa, la página dice la misma frase dos veces con distinto disfraz
+   en vez de dos ideas distintas.
 
-   Detrás de cada paso va su cifra en grande, casi transparente, y
-   cada una se mueve a distinta velocidad y con distinta deriva al
-   hacer scroll. Es la única capa de profundidad de la banda: no
-   hace falta una foto para que el bloque tenga fondo.
+   Acá no hay foto. El peso lo lleva la tipografía: un número grande
+   y sobrio por fila, el titular al lado, un filete que cierra cada
+   fila. Es una lista editorial —la que usan las agencias en su
+   sección de servicios—, no una rejilla de tarjetas, y por eso el
+   contenedor es angosto (`max-w-[720px]`) en vez de estirarse a lo
+   ancho de la banda: una línea de texto de 1300 px es ilegible, y
+   un número gigante necesita aire de sobra a los lados para leerse
+   como número y no como fondo.
 
-   El riel corre en horizontal desde `md` y en vertical en el
-   teléfono; el mismo elemento cambia de eje con las utilidades del
-   breakpoint. Se desvanece en la punta para que la línea no siga
-   de largo después del último hito.
-
-   Geometría: en vertical el riel va en x=21 con 2px de ancho —eje
-   en 22— y el hito de 16px en x=14, o sea centro 22. En horizontal
-   el riel va en y=7 y el hito en y=0: los dos con centro en 8.
-   Si se toca un número hay que tocar el otro.
+   El número va en `AZUL_HONDO`, el tono que `tokens.ts` documenta
+   como "para la banda de pasos" desde el principio y que nadie
+   había usado todavía. No es NAVY —el color que ya llevan la marca,
+   los botones y el rótulo turquesa en todas las demás bandas—, así
+   que esta sección se distingue por su propio acento y no solo por
+   el layout.
    ───────────────────────────────────────────────────────────── */
-
-const RIEL =
-  "pointer-events-none absolute top-1 bottom-1 left-[21px] w-[2px] origin-top " +
-  "bg-[linear-gradient(180deg,#1a425733_0%,#1a425733_86%,#1a425700_100%)] " +
-  "md:top-[7px] md:right-0 md:bottom-auto md:left-0 md:h-[2px] md:w-auto md:origin-left " +
-  "md:bg-[linear-gradient(90deg,#1a425733_0%,#1a425733_72%,#1a425700_100%)]";
-
-/* Distinta velocidad y distinta deriva por cifra: sin el desfase
-   las tres se mueven en bloque y el efecto desaparece. */
-const DESFASE = [
-  { par: 30, x: -7, rot: -1.8 },
-  { par: 48, x: 5, rot: 1.4 },
-  { par: 66, x: -4, rot: 2.2 },
-];
 
 const Pasos = () => (
   <section
@@ -59,51 +47,36 @@ const Pasos = () => (
         subrayada="paseando."
       />
 
-      <div data-anim="ruta" className="relative mt-16">
-        <span data-anim="riel" aria-hidden className={RIEL} />
+      <ol data-anim="ruta" className="mt-16 max-w-[720px]">
+        {PASOS.map(({ titulo, texto }, i) => (
+          <li
+            key={titulo}
+            className="group flex flex-col gap-2 border-b py-9 transition-transform duration-300 ease-out first:pt-0 hover:translate-x-1.5 sm:flex-row sm:items-baseline sm:gap-10 md:py-11"
+            style={{ borderColor: "#1a425722" }}
+          >
+            <span
+              data-anim="cifra"
+              aria-hidden
+              className="display text-[46px] leading-none sm:w-[108px] sm:shrink-0 sm:text-[54px]"
+              style={{ color: AZUL_HONDO }}
+            >
+              0{i + 1}
+            </span>
 
-        <ol className="grid gap-12 md:grid-cols-3 md:gap-8">
-          {PASOS.map(({ titulo, texto }, i) => (
-            <li key={titulo} className="relative overflow-hidden pl-14 md:pt-14 md:pl-0">
-              <span
-                data-anim="hito"
-                aria-hidden
-                className="absolute top-0 left-[14px] z-10 h-4 w-4 rounded-full border-[3px] md:left-0"
-                style={{ background: TURQUESA, borderColor: CIELO }}
-              />
-
-              <span
-                data-par={DESFASE[i].par}
-                data-par-x={DESFASE[i].x}
-                data-par-rot={DESFASE[i].rot}
-                aria-hidden
-                className="display pointer-events-none absolute -top-3 right-0 z-0 text-[104px] leading-none select-none md:top-9"
-                style={{ color: "#1a42571a" }}
+            <div data-anim="paso" className="min-w-0">
+              <h3 className="display text-[20px] leading-tight sm:text-[22px]" style={{ color: TINTA }}>
+                {titulo}
+              </h3>
+              <p
+                className="mt-2.5 max-w-[50ch] text-[14.5px] leading-relaxed"
+                style={{ color: TINTA_SUAVE }}
               >
-                {i + 1}
-              </span>
-
-              <div data-anim="paso" className="relative z-10">
-                <span className="rotulo block" style={{ color: NAVY }}>
-                  Paso {i + 1}
-                </span>
-                <h3
-                  className="display mt-3.5 text-[20px] leading-tight"
-                  style={{ color: TINTA }}
-                >
-                  {titulo}
-                </h3>
-                <p
-                  className="mt-3 max-w-[38ch] text-[14.5px] leading-relaxed"
-                  style={{ color: TINTA_SUAVE }}
-                >
-                  {texto}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
+                {texto}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
 
       <div data-anim="prueba" className="mt-16 flex items-center gap-3.5">
         <div className="flex -space-x-3">
