@@ -47,7 +47,7 @@ interface CorreaProps {
 
 /** La correa enrollada. */
 export const Correa = ({ className = "", diferido = false }: CorreaProps) => (
-  <svg viewBox="0 0 260 130" fill="none" aria-hidden className={className}>
+  <svg viewBox="0 0 360 110" fill="none" aria-hidden className={className}>
     <path
       d={
         "M14,96 C4,54 40,20 88,26 C118,30 126,58 106,68 C88,77 74,58 92,46 " +

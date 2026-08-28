@@ -134,7 +134,7 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
         />
 
         <Rayas className="absolute bottom-[34%] left-[6%] z-20 w-[6cqw] max-w-[130px] min-w-[48px] sm:left-[14%] lg:left-[20%]" />
-        <Correa className="absolute bottom-[6%] left-1/2 z-20 w-[26cqw] max-w-[420px] min-w-[170px] -translate-x-1/2" />
+        <Correa className="absolute bottom-[6%] left-[70%] z-20 w-[26cqw] max-w-[420px] min-w-[170px] -translate-x-2/7"/>
       </div>
 
       {/* ── Píldoras ──

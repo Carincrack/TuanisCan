@@ -69,11 +69,26 @@ export interface Modulo {
    cuadrito de color. Cada módulo lleva la suya en vez de compartir el
    par decorativo que había antes; así la foto ilustra lo que el
    texto de al lado promete y no un adorno de fondo sin relación. */
+/* Las tres de acá abajo NO son de `public/mock`: viven en
+   `public/img` y son recortes sin fondo, elegidos a mano. Salieron
+   de `src/resources/img` pesando 7,9 MB entre las tres; se les
+   sangró el color del sujeto sobre el halo del recorte —venían de
+   fondos oscuros y dejaban borde gris sobre blanco—, se escalaron a
+   600 px de ancho y se guardaron en WebP con alfa: 257 KB en total.
+
+   600 px porque en la banda se dibujan a unos 290: da 2x de sobra
+   para pantalla retina y no más.
+
+   Las tres llevan alfa, así que aguantan cualquier color de banda.
+
+   En `public/img` viven además los dos juguetes que flotan en esa
+   misma banda. Son decoración y no contenido, así que no salen de
+   acá: los declara `Servicios.tsx`, que es quien los coloca. */
 export const MODULOS: Modulo[] = [
   {
     foto: {
-      src: "/mock/dog-rocky.jpg",
-      alt: "Labrador chocolate relamiéndose, de cerca, en una acera",
+      src: "/img/golden.webp",
+      alt: "Golden retriever adulto sentado, con la boca abierta, mirando a cámara",
     },
     etiqueta: "Paseos",
     titulo: "Paseos con quien sí conocés",
@@ -82,8 +97,8 @@ export const MODULOS: Modulo[] = [
   },
   {
     foto: {
-      src: "/mock/cat-1.jpg",
-      alt: "Gato atigrado sentado en unas gradas claras, mirando de frente",
+      src: "/img/gato-angora.webp",
+      alt: "Gato angora blanco y negro sentado, mirando a cámara",
     },
     etiqueta: "Directorio",
     titulo: "Veterinarias y tiendas cerca",
@@ -92,8 +107,8 @@ export const MODULOS: Modulo[] = [
   },
   {
     foto: {
-      src: "/mock/dog-nala.jpg",
-      alt: "Cachorro golden retriever sentado en un patio con un tulipán en el hocico",
+      src: "/img/chihuahua.webp",
+      alt: "Chihuahua color crema sentado, con la lengua afuera, mirando a cámara",
     },
     etiqueta: "Alertas",
     titulo: "Una comunidad que busca",
@@ -128,7 +143,11 @@ export const PASOS: Paso[] = [
   },
 ];
 
-/** Caras del grupo de prueba social. */
+/** Caras del grupo de prueba social.
+
+    Hoy no lo usa nadie: el bloque "Paseadores verificados" salió de
+    "Cómo funciona". Se deja porque las fotos siguen en `public/mock`
+    y la lista es el único sitio donde está escrito cuáles eran. */
 export const PASEADORES_DESTACADOS = ["walker-1", "walker-2", "walker-3"];
 
 /* ── Fotos ─────────────────────────────────────────────────────
@@ -148,10 +167,3 @@ export interface Ficha {
   /** Describe lo que se ve. Si la foto cambia, esto cambia. */
   alt: string;
 }
-
-/* El hero abre con un border collie; Luna es border collie. La
-   portada cierra con el mismo perro con el que abrió. */
-export const FICHA_CIERRE: Ficha = {
-  src: "/mock/dog-luna.jpg",
-  alt: "Border collie café y blanco con la boca abierta, en la playa",
-};

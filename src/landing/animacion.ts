@@ -334,17 +334,6 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
           );
         });
 
-        q("[data-anim='prueba']").forEach((el) => {
-          gsap.from(el.querySelectorAll("[data-anim='cara'], [data-anim='nota']"), {
-            opacity: 0,
-            x: -14,
-            duration: 0.5,
-            ease: SALIDA,
-            stagger: 0.07,
-            scrollTrigger: { trigger: el, start: "top 92%" },
-          });
-        });
-
         /* ── Cierre ───────────────────────────────────────────
            La correa cruza el fondo dibujándose durante todo el
            bloque; el texto sube encima mientras tanto. */

@@ -1,6 +1,6 @@
 import EncabezadoSeccion from "../componentes/EncabezadoSeccion";
 import Onda from "../componentes/Onda";
-import { PASEADORES_DESTACADOS, PASOS } from "../datos";
+import { PASOS } from "../datos";
 import { AZUL_HONDO, CIELO, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
 
 /* ─────────────────────────────────────────────────────────────
@@ -22,6 +22,55 @@ import { AZUL_HONDO, CIELO, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
    un número gigante necesita aire de sobra a los lados para leerse
    como número y no como fondo.
 
+   Una sola columna. El contenido se topa en 1000 px, el mismo ancho
+   que "Qué resuelve", para que las dos bandas compartan borde
+   izquierdo y derecho: dos cajas distintas una encima de otra se
+   notan al hacer scroll aunque nadie sepa decir por qué.
+
+   Dentro de esa caja la lista se queda en 720 px y el encabezado en
+   672. Los dos son angostos y por la misma razón —una línea de texto
+   de 1000 px no se lee—, así que el blanco de la derecha es el mismo
+   de arriba abajo y se lee como columna, no como hueco.
+
+   ── El plato ──
+
+   A la derecha, grande, en el blanco que deja la lista. Es
+   decoración: `alt` vacío, `aria-hidden` y sin eventos de puntero.
+
+   Cuelga de la BANDA y no del contenedor, igual que los juguetes de
+   "Qué resuelve": la banda va a sangre y el contenido se topa en
+   1000 px, así que en pantallas anchas hay margen de sobra donde
+   meterlo sin quitarle sitio a nadie.
+
+   El hueco es real y se mide: la lista se queda en 720 px de los
+   1000 del contenedor, o sea que a su derecha quedan 280 px libres,
+   más el margen de la banda. A 1280 px de ventana el plato empieza
+   62 px después de donde termina la lista; más ancho, más aire.
+
+   Desde `xl` y no desde `lg`. A 1024 el contenedor se queda en 912
+   —lo recorta el respiro lateral de la banda— y el plato se le
+   montaría a la lista por unos 40 px. A 1280 ya no.
+
+   La altura busca el paso 02. Medido desde arriba de la banda: el
+   respiro (160) + el encabezado (~167) + el `mt-16` de la lista (64)
+   la ponen a arrancar cerca de 391 px; la primera fila mide ~130 y
+   la segunda ~174, así que la cifra "02" cae alrededor de 564. Con
+   `bottom-56` el plato ocupa de 544 a 772: el 02 queda en su tercio
+   de arriba y el centro del plato, a la altura de esa fila.
+
+   Va en píxeles y no en porcentaje a propósito. Un porcentaje se
+   mide contra el alto TOTAL de la sección, así que cualquier texto
+   que crezca una línea movería el plato solo, y justo lo que hay que
+   sostener es su relación con una fila concreta.
+
+   Ojo: esos números salen de medir cuerpos y renglones, no de una
+   captura. Si en pantalla no coincide, el único valor a mover es
+   `bottom-56` — cada paso de la escala son 4 px.
+
+   Las filas no se mueven al pasar el mouse. Un `hover` promete
+   que algo va a pasar al hacer clic, y acá no pasa nada: no son
+   enlaces, son los tres pasos. La lista se lee, no se toca.
+
    El número va en `AZUL_HONDO`, el tono que `tokens.ts` documenta
    como "para la banda de pasos" desde el principio y que nadie
    había usado todavía. No es NAVY —el color que ya llevan la marca,
@@ -38,9 +87,19 @@ const Pasos = () => (
   >
     <Onda color={HUESO} />
 
+    <img
+      src="/img/plato-comida.webp"
+      alt=""
+      aria-hidden
+      loading="lazy"
+      decoding="async"
+      data-par="30"
+      className="pointer-events-none absolute right-[9%] bottom-72 hidden w-[clamp(230px,24vw,360px)] select-none xl:block"
+    />
+
     {/* La banda va a sangre; el contenido no. Sin tope, las líneas se
         vuelven ilegibles en pantallas anchas. */}
-    <div className="relative z-10 mx-auto max-w-[1320px]">
+    <div className="relative z-10 mx-auto max-w-[1000px]">
       <EncabezadoSeccion
         antetitulo="Cómo funciona"
         lineas={["Tres pasos y tu perro", "ya anda"]}
@@ -51,7 +110,7 @@ const Pasos = () => (
         {PASOS.map(({ titulo, texto }, i) => (
           <li
             key={titulo}
-            className="group flex flex-col gap-2 border-b py-9 transition-transform duration-300 ease-out first:pt-0 hover:translate-x-1.5 sm:flex-row sm:items-baseline sm:gap-10 md:py-11"
+            className="flex flex-col gap-2 border-b py-9 first:pt-0 sm:flex-row sm:items-baseline sm:gap-10 md:py-11"
             style={{ borderColor: "#1a425722" }}
           >
             <span
@@ -77,32 +136,6 @@ const Pasos = () => (
           </li>
         ))}
       </ol>
-
-      <div data-anim="prueba" className="mt-16 flex items-center gap-3.5">
-        <div className="flex -space-x-3">
-          {PASEADORES_DESTACADOS.map((w) => (
-            <img
-              key={w}
-              data-anim="cara"
-              src={`/mock/${w}.jpg`}
-              alt=""
-              aria-hidden
-              loading="lazy"
-              className="h-11 w-11 rounded-full border-[3px] object-cover transition-transform duration-200 ease-out hover:-translate-y-1"
-              style={{ borderColor: CIELO }}
-            />
-          ))}
-        </div>
-        <p
-          data-anim="nota"
-          className="text-[13.5px] leading-tight font-medium"
-          style={{ color: TINTA }}
-        >
-          Paseadores verificados
-          <br />
-          en el Gran Área Metropolitana
-        </p>
-      </div>
     </div>
   </section>
 );
