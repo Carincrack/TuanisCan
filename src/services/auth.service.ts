@@ -59,8 +59,8 @@ export const getAdminUsuarios = async (): Promise<AdminUser[]> => {
     .select("id_usuario, nombre, telefono, foto_perfil, fecha_registro, activo, zona:zonas(nombre, canton, provincia)")
     .order("fecha_registro", { ascending: false }),
     supabase
-      .from("usuario_roles")
-      .select("id_usuario, rol:roles(nombre)"),
+      .from("usuario_rol")
+      .select("id_usuario, rol:rol(nombre)"),
   ]);
 
   if (usuariosResult.error) throw usuariosResult.error;
@@ -137,7 +137,7 @@ export const getUserProfile = async (
       ? supabase.from("documentos_paseador").select("id_documento, ruta_storage, fecha_subida").eq("id_usuario", userId).order("fecha_subida", { ascending: false })
       : Promise.resolve({ data: null, error: null }),
     roles.includes("negocio")
-      ? supabase.from("negocios").select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado").eq("id_propietario", userId).limit(1).maybeSingle()
+      ? supabase.from("negocios").select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado").eq("id_usuario", userId).limit(1).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
 
@@ -169,7 +169,7 @@ export const updateUserProfile = async (
     supabase.from("usuarios").update(usuario).eq("id_usuario", userId),
   ];
   if (paseador) updates.push(supabase.from("paseadores").update(paseador).eq("id_usuario", userId));
-  if (negocio) updates.push(supabase.from("negocios").update(negocio).eq("id_propietario", userId));
+  if (negocio) updates.push(supabase.from("negocios").update(negocio).eq("id_usuario", userId));
 
   const results = await Promise.all(updates);
   const error = results.find((result) => result.error)?.error;
