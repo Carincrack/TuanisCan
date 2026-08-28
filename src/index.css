@@ -71,9 +71,17 @@
     color: var(--color-ink);
   }
 
+  /* El anillo va en `currentColor` y no en el turquesa de la marca.
+     El turquesa sobre el azul del hero da 1.1:1 —lo dice la tabla de
+     contraste de `tokens.ts`— así que en esa banda el foco era
+     invisible, y el foco invisible es teclado inutilizable. Con
+     `currentColor` el anillo hereda el color del texto, que por
+     definición ya contrasta contra su propio fondo: funciona en el
+     azul del hero, en el blanco de las bandas y en el navy del pie
+     sin una regla por banda. */
   :focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
   }
 
   th {
@@ -368,28 +376,66 @@
   }
 }
 
-/* Nada aparece de la nada: la foto entra desde una escala visible,
-   no desde cero. */
-.portada .anim-entra {
-  animation: tsc-entra 0.55s cubic-bezier(0.23, 1, 0.32, 1) both;
-}
-
-@keyframes tsc-entra {
-  from {
-    opacity: 0;
-    transform: scale(0.94) translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
+/* Los garabatos son lo único del hero que se dibuja con CSS y no con
+   GSAP —el resto entra en la línea de tiempo de `animacion.ts`—, y el
+   motor no los ve: su comprobación de `prefers-reduced-motion` no los
+   apaga. Hay que apagarlos acá o la portada los sigue trazando con la
+   preferencia puesta. */
 @media (prefers-reduced-motion: reduce) {
   .garabato {
     animation: none !important;
     stroke-dashoffset: 0;
   }
+}
+
+/* ── El wordmark que entra ────────────────────────────────────
+   Las letras suben desde debajo del borde de su propia caja, igual
+   que las palabras de los titulares de sección. Sin fundido: el ojo
+   lee un movimiento físico, no una opacidad.
+
+   La máscara va sobre el propio `.wordmark`, que es hijo de un `h1`
+   con `display: flex` y por lo tanto ya es una caja de bloque. Eso
+   importa: un `inline-block` con `overflow: hidden` cambia su línea
+   base a la del borde inferior del margen, y el wordmark se habría
+   corrido varios píxeles hacia abajo sin que nadie tocara nada.
+
+   El respiro de arriba —con margen negativo que lo cancela— es por
+   el `line-height: 0.78`. Con esa interlínea la caja de texto queda
+   más baja que las mayúsculas: sobran unos 0.03em por encima, y
+   cualquier diferencia en las métricas de la fuente le recortaría el
+   techo a las letras. Abajo no hace falta: no hay descendentes.
+
+   El respiro lateral es para el tracking negativo, que puede sacar el
+   borde de la última letra fuera de la caja. */
+.portada .marca-mascara {
+  overflow: hidden;
+  padding: 0.08em 0.04em 0;
+  margin: -0.08em -0.04em 0;
+}
+
+.portada .letra {
+  display: inline-block;
+}
+
+/* ── Recortes sobre la banda ──────────────────────────────────
+   Las fotos de "Qué resuelve" no llevan marco: se apoyan sobre el
+   fondo y se desvanecen abajo, para que el corte de la foto no se
+   lea como un corte.
+
+   `no-repeat` no es opcional. Por defecto la máscara se repite, así
+   que lo que el paralaje saca de la caja vuelve a aparecer debajo.
+   Con `no-repeat`, fuera de la caja la máscara vale cero: además de
+   difuminar, recorta — y hace de `overflow-hidden`, que este marco
+   ya no tiene.
+
+   El prefijo `-webkit-` es para Safari anterior a 15.4. Si el
+   navegador no entiende ninguna de las dos, no hay degradado y la
+   foto se ve entera: se pierde el efecto, no el contenido. */
+.portada .recorte {
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 /* ── Titulares partidos ───────────────────────────────────────

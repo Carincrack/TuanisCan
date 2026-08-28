@@ -3,7 +3,6 @@ import PildoraCTA from "../componentes/PildoraCTA";
 import Subrayado from "../componentes/Subrayado";
 import TitularPartido from "../componentes/TitularPartido";
 import { Correa } from "../componentes/Garabatos";
-import { FICHA_CIERRE } from "../datos";
 import { CIELO, HUESO, NAVY, TINTA_SUAVE } from "../tokens";
 import type { ConAcceso } from "../tipos";
 
@@ -17,11 +16,6 @@ import type { ConAcceso } from "../tipos";
    pero acá abajo eso significaría que la animación ya terminó
    antes de que nadie llegue a verla. La dibuja GSAP al entrar en
    pantalla y, además, va más lenta que el scroll.
-
-   La ficha de foto aparece recién en `xl`. A 1280 px el texto
-   ocupa 672 px centrados y sobran 304 px por lado: la ficha de
-   194 px entra sin tocar el texto. Por debajo de eso no cabe, y
-   una foto encima del titular no es una foto, es un estorbo.
 
    Las manijas de acá se llaman `linea-cierre` y no `linea`: esa
    ya es la ventana de una línea de titular, y las dos cosas se
@@ -44,24 +38,6 @@ const Cierre = ({ onEntrar }: ConAcceso) => (
     >
       <Correa diferido className="w-full" />
     </div>
-
-    <figure
-      data-cursor=""
-      className="absolute bottom-16 left-10 z-10 hidden h-[142px] w-[194px] overflow-hidden rounded-[22px] ring-1 ring-[#1a42571f] transition-transform duration-300 ease-out hover:scale-[1.04] xl:block"
-    >
-      <div data-anim="ficha" className="h-full w-full">
-        <img
-          data-par="-40"
-          data-par-x="10"
-          data-par-rot="1.8"
-          src={FICHA_CIERRE.src}
-          alt={FICHA_CIERRE.alt}
-          loading="lazy"
-          decoding="async"
-          className="-mt-[48px] -ml-[20px] h-[calc(100%+96px)] w-[calc(100%+40px)] max-w-none object-cover"
-        />
-      </div>
-    </figure>
 
     <div className="relative z-10 mx-auto max-w-2xl text-center">
       <span data-anim="linea-cierre" className="rotulo block" style={{ color: TINTA_SUAVE }}>

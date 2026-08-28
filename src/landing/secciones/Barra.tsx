@@ -17,7 +17,10 @@ interface BarraProps extends ConAcceso {
 }
 
 const Barra = ({ onEntrar, onAbrirMenu }: BarraProps) => (
-  <header className="relative flex h-20 shrink-0 items-center justify-between px-5 sm:h-24 sm:px-8">
+  <header
+    data-entra="barra"
+    className="relative flex h-20 shrink-0 items-center justify-between px-5 sm:h-24 sm:px-8"
+  >
     <nav className="hidden items-center gap-7 md:flex">
       {ENLACES.map((e) => (
         <a

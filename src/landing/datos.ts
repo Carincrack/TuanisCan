@@ -1,4 +1,4 @@
-import { Footprints, PawPrint, Siren, Store, type LucideIcon } from "lucide-react";
+import { Footprints, PawPrint, type LucideIcon } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────
    Contenido de la portada. Separado del maquetado a propósito: el
@@ -55,32 +55,61 @@ export const PUBLICOS: Publico[] = [
 ];
 
 export interface Modulo {
-  Icon: LucideIcon;
-  /** Nombre corto del módulo, de rótulo en la esquina de la tarjeta.
-      Nombra la parte del producto; no la enumera, porque las tres son
+  foto: Ficha;
+  /** Nombre corto del módulo, de rótulo sobre el titular. Nombra la
+      parte del producto; no la enumera, porque las tres son
       paralelas y ninguna va antes que otra. */
   etiqueta: string;
   titulo: string;
   texto: string;
 }
 
+/* Sin ícono: la referencia (era-residence.com) no lleva ni uno en su
+   bloque de tres — la elegancia sale de la foto y del aire, no de un
+   cuadrito de color. Cada módulo lleva la suya en vez de compartir el
+   par decorativo que había antes; así la foto ilustra lo que el
+   texto de al lado promete y no un adorno de fondo sin relación. */
+/* Las tres de acá abajo NO son de `public/mock`: viven en
+   `public/img` y son recortes sin fondo, elegidos a mano. Salieron
+   de `src/resources/img` pesando 7,9 MB entre las tres; se les
+   sangró el color del sujeto sobre el halo del recorte —venían de
+   fondos oscuros y dejaban borde gris sobre blanco—, se escalaron a
+   600 px de ancho y se guardaron en WebP con alfa: 257 KB en total.
+
+   600 px porque en la banda se dibujan a unos 290: da 2x de sobra
+   para pantalla retina y no más.
+
+   Las tres llevan alfa, así que aguantan cualquier color de banda.
+
+   En `public/img` viven además los dos juguetes que flotan en esa
+   misma banda. Son decoración y no contenido, así que no salen de
+   acá: los declara `Servicios.tsx`, que es quien los coloca. */
 export const MODULOS: Modulo[] = [
   {
-    Icon: Footprints,
+    foto: {
+      src: "/img/golden.webp",
+      alt: "Golden retriever adulto sentado, con la boca abierta, mirando a cámara",
+    },
     etiqueta: "Paseos",
     titulo: "Paseos con quien sí conocés",
     texto:
       "Paseadores verificados, con calificación y zona visible. Agendás, seguís el paseo y pagás desde la misma pantalla.",
   },
   {
-    Icon: Store,
+    foto: {
+      src: "/img/gato-angora.webp",
+      alt: "Gato angora blanco y negro sentado, mirando a cámara",
+    },
     etiqueta: "Directorio",
     titulo: "Veterinarias y tiendas cerca",
     texto:
       "Directorio de comercios aliados con horario, teléfono y reseñas. Se acabó buscar en tres grupos de Facebook distintos.",
   },
   {
-    Icon: Siren,
+    foto: {
+      src: "/img/chihuahua.webp",
+      alt: "Chihuahua color crema sentado, con la lengua afuera, mirando a cámara",
+    },
     etiqueta: "Alertas",
     titulo: "Una comunidad que busca",
     texto:
@@ -94,7 +123,11 @@ export interface Paso {
 }
 
 /* Esto sí es una secuencia — no se puede pedir un paseo sin haber
-   registrado la mascota — y por eso va numerado. */
+   registrado la mascota — pero ya no lleva foto. `MODULOS`, arriba,
+   es todo fotografía; si "Cómo funciona" repite el mismo molde de
+   tarjeta con imagen, la página lee dos veces la misma idea con
+   ropa distinta. Acá el peso lo lleva la tipografía: el número
+   grande y el texto, sin caja, sin ficha, sin ícono. */
 export const PASOS: Paso[] = [
   {
     titulo: "Registrá a tu mascota",
@@ -110,7 +143,11 @@ export const PASOS: Paso[] = [
   },
 ];
 
-/** Caras del grupo de prueba social. */
+/** Caras del grupo de prueba social.
+
+    Hoy no lo usa nadie: el bloque "Paseadores verificados" salió de
+    "Cómo funciona". Se deja porque las fotos siguen en `public/mock`
+    y la lista es el único sitio donde está escrito cuáles eran. */
 export const PASEADORES_DESTACADOS = ["walker-1", "walker-2", "walker-3"];
 
 /* ── Fotos ─────────────────────────────────────────────────────
@@ -130,21 +167,3 @@ export interface Ficha {
   /** Describe lo que se ve. Si la foto cambia, esto cambia. */
   alt: string;
 }
-
-export const FICHAS_SERVICIOS: Ficha[] = [
-  {
-    src: "/mock/dog-nala.jpg",
-    alt: "Cachorro golden retriever sentado en un patio con un tulipán en el hocico",
-  },
-  {
-    src: "/mock/dog-rocky.jpg",
-    alt: "Labrador chocolate relamiéndose, de cerca, en una acera",
-  },
-];
-
-/* El hero abre con un border collie; Luna es border collie. La
-   portada cierra con el mismo perro con el que abrió. */
-export const FICHA_CIERRE: Ficha = {
-  src: "/mock/dog-luna.jpg",
-  alt: "Border collie café y blanco con la boca abierta, en la playa",
-};
