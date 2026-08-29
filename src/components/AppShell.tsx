@@ -222,7 +222,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   return (
     <div className="plano flex h-dvh w-full overflow-hidden bg-canvas">
       {/* ── Columna izquierda ── */}
-      <aside className="hidden w-[248px] flex-shrink-0 flex-col bg-rail lg:flex">
+      <aside className="hidden w-[248px] flex-shrink-0 flex-col bg-rail lg:flex scr">
         <Marca />
         <Navegacion rol={rol} />
         <PiePerfil profile={profile} rol={rol} rolesDisponibles={rolesDisponibles} onRoleChange={setActiveRole} onLogout={onLogout} />

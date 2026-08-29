@@ -43,26 +43,26 @@ const ProfileAvatar = ({
     <span className="relative inline-flex flex-shrink-0">
       {avatar}
 
-    {verified && (
-  <span
-    title="Perfil verificado"
-    aria-label="Perfil verificado"
-    className="
+      {verified && (
+        <span
+          title="Perfil verificado"
+          aria-label="Perfil verificado"
+          className="
       verified-badge-shape
       absolute -right-1 -bottom-1
       flex h-5 w-5
       items-center justify-center
       shadow-sm
     "
-  >
-    <Check
-      size={11}
-      strokeWidth={3.4}
-      className="text-white"
-      aria-hidden
-    />
-  </span>
-)}
+        >
+          <Check
+            size={11}
+            strokeWidth={3.4}
+            className="text-white"
+            aria-hidden
+          />
+        </span>
+      )}
     </span>
   );
 };
