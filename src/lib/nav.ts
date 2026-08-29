@@ -152,7 +152,6 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
           to: `${RUTA_ADMIN}/verificaciones`,
           label: "Verificaciones",
           Icon: BadgeCheck,
-          badge: 4,
         },
         { to: `${RUTA_ADMIN}/usuarios`, label: "Usuarios", Icon: Users },
         { to: `${RUTA_ADMIN}/zonas`, label: "Zonas", Icon: MapPin },

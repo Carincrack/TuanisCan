@@ -3,6 +3,12 @@ import type { Rol } from "../lib/nav";
 
 export type RolPublico = Exclude<Rol, "admin">;
 export type UserRole = RolPublico;
+export type VerificationStatus = "sin_solicitud" | "pendiente" | "aprobado" | "rechazado";
+export type VerificationDocumentType =
+  | "cedula_frente"
+  | "cedula_reverso"
+  | "hoja_delincuencia"
+  | "permiso_funcionamiento";
 
 export interface RegistrationData {
   nombre: string;
@@ -46,6 +52,22 @@ export interface DocumentoPaseador {
   fecha_subida: string;
 }
 
+export interface VerificationDocument {
+  id_documento: string;
+  tipo_documento: VerificationDocumentType;
+  nombre_archivo: string;
+  ruta_storage: string;
+  fecha_subida: string;
+}
+
+export interface UserVerification {
+  estado: VerificationStatus;
+  observacion: string | null;
+  fecha_solicitud: string | null;
+  fecha_revision: string | null;
+  documentos: VerificationDocument[];
+}
+
 export interface NegocioProfile {
   id_negocio: string;
   zona_id: string | null;
@@ -73,6 +95,18 @@ export interface UserProfile {
   zona: Zona | null;
   paseador: PaseadorProfile | null;
   negocio: NegocioProfile | null;
+  verificacion: UserVerification;
+}
+
+export interface AdminVerificationRequest {
+  id_usuario: string;
+  nombre: string;
+  correo: string;
+  foto_perfil: string | null;
+  zona: string;
+  roles: RolPublico[];
+  fecha_solicitud: string;
+  documentos: VerificationDocument[];
 }
 
 export interface AdminUser {
@@ -146,7 +180,12 @@ export interface AuthState {
 }
 
 export interface SessionProfile {
-  usuario: Omit<UserProfile, "email" | "zona" | "paseador" | "negocio" | "roles" | "isAdmin"> | null;
+  usuario: Omit<UserProfile, "email" | "zona" | "paseador" | "negocio" | "roles" | "isAdmin" | "verificacion"> & {
+    estado_verificacion: VerificationStatus;
+    observacion_verificacion: string | null;
+    fecha_solicitud_verificacion: string | null;
+    fecha_revision_verificacion: string | null;
+  } | null;
   roles: RolPublico[];
   is_admin: boolean;
 }
