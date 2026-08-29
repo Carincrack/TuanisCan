@@ -128,16 +128,27 @@ export const updateUserProfile = async (
   userId: string,
   profile: ProfileUpdate
 ) => {
-  const { paseador, negocio, ...usuario } = profile;
-  const updates = [
-    supabase.from("usuarios").update(usuario).eq("id_usuario", userId),
-  ];
-  if (paseador) updates.push(supabase.from("paseadores").update(paseador).eq("id_usuario", userId));
-  if (negocio) updates.push(supabase.from("negocios").update(negocio).eq("id_usuario", userId));
+  const { paseador, negocio, ...perfil } = profile;
+  const perfilResult = await supabase
+    .from("perfil_usuario")
+    .upsert({ id_usuario: userId, ...perfil }, { onConflict: "id_usuario" });
+  if (perfilResult.error) throw perfilResult.error;
 
-  const results = await Promise.all(updates);
-  const error = results.find((result) => result.error)?.error;
-  if (error) throw error;
+  if (paseador) {
+    const { error } = await supabase
+      .from("paseadores")
+      .update(paseador)
+      .eq("id_usuario", userId);
+    if (error) throw error;
+  }
+
+  if (negocio) {
+    const { error } = await supabase
+      .from("negocios")
+      .update(negocio)
+      .eq("id_usuario", userId);
+    if (error) throw error;
+  }
 };
 
 const PROFILE_PHOTOS_BUCKET = "perfiles";

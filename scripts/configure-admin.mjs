@@ -87,7 +87,7 @@ async function configureAdmin() {
   }
 
   const { data: profile, error: profileReadError } = await supabase
-    .from('usuarios')
+    .from('perfil_usuario')
     .select('id_usuario, nombre')
     .eq('id_usuario', configuredAdmin.id)
     .maybeSingle()
@@ -104,6 +104,20 @@ async function configureAdmin() {
     )
   }
 
+  const adminAccount = {
+    id_usuario: configuredAdmin.id,
+    correo: configuredAdmin.email,
+    activo: true,
+  }
+
+  const { error: accountWriteError } = await supabase
+    .from('usuarios')
+    .upsert(adminAccount, { onConflict: 'id_usuario' })
+
+  if (accountWriteError) {
+    throw accountWriteError
+  }
+
   const adminProfile = {
     id_usuario: configuredAdmin.id,
     nombre,
@@ -115,7 +129,7 @@ async function configureAdmin() {
   }
 
   const { error: profileWriteError } = await supabase
-    .from('usuarios')
+    .from('perfil_usuario')
     .upsert(adminProfile, { onConflict: 'id_usuario' })
 
   if (profileWriteError) {
