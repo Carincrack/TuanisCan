@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Bell, LogOut, Menu, Search, X } from "lucide-react";
+import { Bell, LogOut, Menu, Search, ShieldAlert, X } from "lucide-react";
 import {
   MARCA,
   navPorRol,
@@ -217,7 +217,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
   useEffect(() => {
     getProfile().then(setProfile).catch(() => setProfile(null));
-  }, [getProfile]);
+  }, [getProfile, pathname]);
 
   return (
     <div className="plano flex h-dvh w-full overflow-hidden bg-canvas">
@@ -294,6 +294,22 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             <span aria-hidden className="absolute top-2 right-2 h-1.5 w-1.5 bg-accent" />
           </button>
         </header>
+
+        {rol !== "admin" && profile?.verificacion.estado !== "aprobado" && (
+          <div className="flex flex-wrap items-center gap-2 bg-warn-wash px-4 py-3 text-[12.5px] text-warn lg:px-6" role="status">
+            <ShieldAlert size={16} aria-hidden />
+            <span className="flex-1">
+              {profile?.verificacion.estado === "pendiente"
+                ? "Tu verificación está en revisión. Puedes consultar información, pero las operaciones siguen bloqueadas."
+                : profile?.verificacion.estado === "rechazado"
+                  ? `Debes corregir tu verificación: ${profile.verificacion.observacion ?? "revisa los documentos enviados."}`
+                  : "Verifica tu perfil para registrar mascotas, solicitar paseos y usar las funciones de la plataforma."}
+            </span>
+            <Link to="/perfil" className="font-semibold underline underline-offset-2">
+              Ir a verificación
+            </Link>
+          </div>
+        )}
 
         <div className="flex min-h-0 flex-1 overflow-y-auto">
           <main className="min-w-0 flex-1 p-3 lg:p-4">

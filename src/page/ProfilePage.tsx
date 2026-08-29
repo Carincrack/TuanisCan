@@ -4,11 +4,14 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   Camera,
   Check,
+  FileText,
   Footprints,
   Lock,
   PawPrint,
   RefreshCw,
   Save,
+  Send,
+  ShieldCheck,
   Store,
   Trash2,
   UserPlus,
@@ -36,7 +39,17 @@ import {
   requestWalkerProfile,
   uploadProfilePhoto,
 } from "../services/auth.service";
-import type { ProfileUpdate, RolPublico, UserProfile, Zona } from "../types/auth.types";
+import {
+  submitVerificationRequest,
+  uploadVerificationDocument,
+} from "../services/verification.service";
+import type {
+  ProfileUpdate,
+  RolPublico,
+  UserProfile,
+  VerificationDocumentType,
+  Zona,
+} from "../types/auth.types";
 
 interface ProfileForm {
   nombre: string;
@@ -119,8 +132,24 @@ const roleMeta = {
 
 const publicRoles: RolPublico[] = ["dueno", "paseador", "negocio"];
 const labelClass = "text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase";
+const verificationDocumentLabels: Record<VerificationDocumentType, string> = {
+  cedula_frente: "Cédula por el frente",
+  cedula_reverso: "Cédula por el reverso",
+  hoja_delincuencia: "Hoja de delincuencia",
+  permiso_funcionamiento: "Permiso de funcionamiento",
+};
+const verificationStatusLabels = {
+  sin_solicitud: "Sin solicitar",
+  pendiente: "En revisión",
+  aprobado: "Perfil verificado",
+  rechazado: "Requiere correcciones",
+};
 const messageFrom = (error: unknown) =>
-  error instanceof Error ? error.message : "No se pudo completar la operación.";
+  error instanceof Error
+    ? error.message
+    : typeof error === "object" && error && "message" in error
+      ? String(error.message)
+      : "No se pudo completar la operación.";
 
 const ProfilePage = () => {
   const { user, role, getProfile, updateProfile, addRole } = useAuth();
@@ -135,6 +164,8 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addingRole, setAddingRole] = useState<RolPublico | null>(null);
+  const [uploadingDocument, setUploadingDocument] = useState<VerificationDocumentType | null>(null);
+  const [submittingVerification, setSubmittingVerification] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -357,6 +388,43 @@ const ProfilePage = () => {
     }
   };
 
+  const uploadDocument = async (type: VerificationDocumentType, file: File | null) => {
+    if (!file || !user) return;
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setError("El documento debe ser PDF, JPG, PNG o WebP y pesar menos de 10 MB.");
+      return;
+    }
+
+    setUploadingDocument(type);
+    setError(null);
+    setMessage(null);
+    try {
+      await uploadVerificationDocument(user.id, type, file);
+      applyProfile(await getProfile());
+      setMessage(`${verificationDocumentLabels[type]} guardado correctamente.`);
+    } catch (cause) {
+      setError(messageFrom(cause));
+    } finally {
+      setUploadingDocument(null);
+    }
+  };
+
+  const submitVerification = async () => {
+    setSubmittingVerification(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await submitVerificationRequest();
+      applyProfile(await getProfile());
+      setMessage("Solicitud de verificación enviada a administración.");
+    } catch (cause) {
+      setError(messageFrom(cause));
+    } finally {
+      setSubmittingVerification(false);
+    }
+  };
+
   const zoneOptions = zonas.map((zona) => (
     <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre}, {zona.canton} · {zona.provincia}</option>
   ));
@@ -369,12 +437,92 @@ const ProfilePage = () => {
 
   const missingRoles = publicRoles.filter((item) => !profile.roles.includes(item));
   const avatarUrl = photoPreview || (removePhoto ? "" : form.foto_perfil);
+  const requiredVerificationDocuments: VerificationDocumentType[] = [
+    "cedula_frente",
+    "cedula_reverso",
+    ...(profile.paseador ? (["hoja_delincuencia"] as const) : []),
+    ...(profile.negocio ? (["permiso_funcionamiento"] as const) : []),
+  ];
+  const uploadedTypes = new Set(profile.verificacion.documentos.map((document) => document.tipo_documento));
+  const verificationEditable = profile.verificacion.estado === "sin_solicitud" || profile.verificacion.estado === "rechazado";
+  const missingDocuments = requiredVerificationDocuments.filter((type) => !uploadedTypes.has(type));
 
   return (
     <Page>
       <PageHeader title="Mis datos" subtitle="Administra tu información y los perfiles asociados a la misma cuenta." action={<button type="button" onClick={() => navigate({ to: "/actualizar-contrasena" })} className={btnSecondary}><Lock size={15} /> Cambiar contraseña</button>} />
 
       {(error || message) && <div aria-live="polite" className={`flex items-center gap-2 px-5 py-4 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>{message && <Check size={15} />}{error ?? message}</div>}
+
+      {!profile.isAdmin && (
+        <Section
+          title="Verificación de identidad"
+          aside={
+            <Badge tono={profile.verificacion.estado === "aprobado" ? "ok" : profile.verificacion.estado === "rechazado" ? "danger" : "warn"}>
+              {verificationStatusLabels[profile.verificacion.estado]}
+            </Badge>
+          }
+          bodyClass="grid gap-4 px-4 pb-6 sm:px-6"
+        >
+          <div className="flex gap-3 bg-sunken px-4 py-4 text-[13px] text-ink-soft">
+            <ShieldCheck size={20} className="mt-0.5 flex-shrink-0 text-accent-dark" aria-hidden />
+            <p>Sube los documentos requeridos. Mientras administración los revisa puedes consultar la plataforma, pero no crear ni modificar información.</p>
+          </div>
+
+          {profile.verificacion.estado === "rechazado" && profile.verificacion.observacion && (
+            <div className="bg-danger-wash px-4 py-3 text-[13px] text-danger" role="alert">
+              <span className="font-semibold">Observación de administración:</span> {profile.verificacion.observacion}
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {requiredVerificationDocuments.map((type) => {
+              const document = profile.verificacion.documentos.find((item) => item.tipo_documento === type);
+              return (
+                <div key={type} className="flex min-h-24 flex-col gap-2 bg-sunken px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <FileText size={17} className="mt-0.5 flex-shrink-0 text-accent-dark" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-semibold text-ink">{verificationDocumentLabels[type]}</span>
+                      <span className="block truncate text-[11.5px] text-ink-mute">{document?.nombre_archivo ?? "Pendiente de subir"}</span>
+                    </span>
+                    {document && <Check size={16} className="text-ok" aria-label="Documento cargado" />}
+                  </div>
+                  {verificationEditable && (
+                    <label className={`${btnSecondary} mt-auto cursor-pointer self-start`}>
+                      {uploadingDocument === type ? "Subiendo…" : document ? "Reemplazar" : "Subir documento"}
+                      <input
+                        type="file"
+                        accept="application/pdf,image/jpeg,image/png,image/webp"
+                        className="sr-only"
+                        disabled={uploadingDocument !== null}
+                        onChange={(event) => {
+                          void uploadDocument(type, event.target.files?.[0] ?? null);
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {verificationEditable && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[11.5px] text-ink-mute">PDF, JPG, PNG o WebP. Máximo 10 MB por archivo.</p>
+              <button
+                type="button"
+                onClick={() => void submitVerification()}
+                disabled={submittingVerification || uploadingDocument !== null || missingDocuments.length > 0}
+                className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                <Send size={15} />
+                {submittingVerification ? "Enviando…" : "Enviar solicitud"}
+              </button>
+            </div>
+          )}
+        </Section>
+      )}
 
       <form onSubmit={save} className="flex flex-col gap-3">
         <Section title="Información personal" bodyClass="grid gap-6 px-4 pb-6 sm:px-6">
