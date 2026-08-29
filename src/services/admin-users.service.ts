@@ -1,43 +1,37 @@
 import { supabase } from "../lib/supabase";
 import type { AdminUser } from "../types/auth.types";
 
-type UsuarioRolRow = {
-  id_usuario: string;
-  rol: { nombre: string } | { nombre: string }[] | null;
+type AdminUserRow = Omit<AdminUser, "zona" | "roles"> & {
+  zona_nombre: string | null;
+  zona_canton: string | null;
+  zona_provincia: string | null;
+  roles: string[] | null;
 };
 
 const isPublicRole = (rol: string): rol is AdminUser["roles"][number] =>
   rol === "dueno" || rol === "paseador" || rol === "negocio";
 
 export const getAdminUsuarios = async (): Promise<AdminUser[]> => {
-  const [usuariosResult, rolesResult] = await Promise.all([
-    supabase
-      .from("usuarios")
-      .select(
-        "id_usuario, nombre, correo, telefono, foto_perfil, fecha_registro, activo, zona:zonas(nombre, canton, provincia)"
-      )
-      .order("fecha_registro", { ascending: false }),
-    supabase.from("usuario_rol").select("id_usuario, rol:rol(nombre)"),
-  ]);
+  const { data, error } = await supabase.rpc("listar_usuarios_admin");
+  if (error) throw error;
 
-  if (usuariosResult.error) throw usuariosResult.error;
-  if (rolesResult.error) throw rolesResult.error;
-
-  const rolesPorUsuario = new Map<string, AdminUser["roles"]>();
-  for (const item of (rolesResult.data ?? []) as UsuarioRolRow[]) {
-    const rol = Array.isArray(item.rol) ? item.rol[0]?.nombre : item.rol?.nombre;
-    if (!rol || !isPublicRole(rol)) continue;
-    rolesPorUsuario.set(item.id_usuario, [
-      ...(rolesPorUsuario.get(item.id_usuario) ?? []),
-      rol,
-    ]);
-  }
-
-  return (usuariosResult.data ?? []).map((usuario) => ({
-    ...usuario,
-    roles: rolesPorUsuario.get(usuario.id_usuario) ?? [],
-    zona: Array.isArray(usuario.zona) ? usuario.zona[0] ?? null : usuario.zona,
-  })) as AdminUser[];
+  return ((data ?? []) as AdminUserRow[]).map((usuario) => ({
+    id_usuario: usuario.id_usuario,
+    nombre: usuario.nombre,
+    correo: usuario.correo,
+    telefono: usuario.telefono,
+    foto_perfil: usuario.foto_perfil,
+    fecha_registro: usuario.fecha_registro,
+    activo: usuario.activo,
+    roles: (usuario.roles ?? []).filter(isPublicRole),
+    zona: usuario.zona_nombre
+      ? {
+          nombre: usuario.zona_nombre,
+          canton: usuario.zona_canton ?? "",
+          provincia: usuario.zona_provincia ?? "",
+        }
+      : null,
+  }));
 };
 
 const cambiarEstadoUsuario = async (idUsuario: string, activo: boolean) => {
