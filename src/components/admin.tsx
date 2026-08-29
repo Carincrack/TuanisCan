@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Check, Download, Loader, Search, ShieldCheck, UserCheck, UserX, X } from "lucide-react";
+import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
-import type { AdminUser, RolPublico } from "../types/auth.types";
+import type { AdminUser, AdminWalker, RolPublico } from "../types/auth.types";
 import {
   Avatar,
   Badge,
@@ -235,33 +236,27 @@ export const FinanzasAdmin = () => {
 
 /* ── Paseadores ──────────────────────────────────────────────── */
 
-interface PaseadorAdmin {
-  nombre: string;
-  foto: string;
-  zona: string;
-  paseos: number;
-  rating: number;
-  generado: number;
-  estado: "Activo" | "Inactivo" | "Suspendido";
-}
+const estadoPaseadorLabel: Record<AdminWalker["estado"], string> = {
+  activo: "Activo",
+  inactivo: "Inactivo",
+  suspendido: "Suspendido",
+};
 
-const paseadoresAdmin: PaseadorAdmin[] = [
-  { nombre: "María Fernández", foto: "/mock/walker-1.jpg", zona: "Curridabat", paseos: 312, rating: 4.9, generado: 1404000, estado: "Activo" },
-  { nombre: "Luis Rojas", foto: "/mock/walker-2.jpg", zona: "Heredia", paseos: 268, rating: 4.8, generado: 1018400, estado: "Activo" },
-  { nombre: "Carolina Mora", foto: "/mock/walker-3.jpg", zona: "Escazú", paseos: 241, rating: 4.9, generado: 1253200, estado: "Activo" },
-  { nombre: "Andrés Blanco", foto: "/mock/walker-4.jpg", zona: "Cartago", paseos: 94, rating: 4.6, generado: 329000, estado: "Inactivo" },
-  { nombre: "Valeria Chacón", foto: "/mock/walker-5.jpg", zona: "Escazú", paseos: 187, rating: 4.7, generado: 897600, estado: "Activo" },
-  { nombre: "Jorge Salas", foto: "/mock/walker-6.jpg", zona: "Curridabat", paseos: 41, rating: 3.9, generado: 159900, estado: "Suspendido" },
-];
-
-const tonoPaseador = (e: PaseadorAdmin["estado"]) =>
-  e === "Activo" ? "ok" : e === "Suspendido" ? "danger" : "neutral";
+const tonoPaseador = (estado: AdminWalker["estado"]) =>
+  estado === "activo" ? "ok" : estado === "suspendido" ? "danger" : "neutral";
 
 export const PaseadoresAdmin = () => {
+  const { paseadores, loading, error } = useAdminPaseadores();
   const [filtro, setFiltro] = useState("Todos");
 
-  const visibles = paseadoresAdmin.filter((p) =>
-    filtro === "Todos" ? true : p.estado === filtro.slice(0, -1)
+  const visibles = paseadores.filter((paseador) =>
+    filtro === "Todos"
+      ? true
+      : filtro === "Activos"
+        ? paseador.estado === "activo"
+        : filtro === "Inactivos"
+          ? paseador.estado === "inactivo"
+          : paseador.estado === "suspendido"
   );
 
   return (
@@ -280,8 +275,16 @@ export const PaseadoresAdmin = () => {
         />
       </div>
 
+      {error && (
+        <div aria-live="polite" className="bg-danger-wash px-6 py-3 text-[13px] text-danger">
+          {error}
+        </div>
+      )}
+
       <Section bodyClass="">
-        {visibles.length > 0 ? (
+        {loading ? (
+          <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando paseadores...</p>
+        ) : visibles.length > 0 ? (
           <Table
             caption={`Paseadores filtrados por ${filtro.toLowerCase()}`}
             columnas={[
@@ -294,15 +297,19 @@ export const PaseadoresAdmin = () => {
             ]}
           >
             {visibles.map((p) => (
-              <tr key={p.nombre}>
+              <tr key={p.id_usuario}>
                 <td className="px-6 py-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={p.foto}
-                      alt=""
-                      aria-hidden
-                      className="h-9 w-9 flex-shrink-0 bg-sunken object-cover"
-                    />
+                    {p.foto_perfil ? (
+                      <img
+                        src={p.foto_perfil}
+                        alt=""
+                        aria-hidden
+                        className="h-9 w-9 flex-shrink-0 bg-sunken object-cover"
+                      />
+                    ) : (
+                      <Avatar nombre={p.nombre} size={36} />
+                    )}
                     <span className="text-[13px] font-medium text-ink">
                       {p.nombre}
                     </span>
@@ -319,13 +326,13 @@ export const PaseadoresAdmin = () => {
                   {colones(p.generado)}
                 </td>
                 <td className="px-6 py-3">
-                  <Badge tono={tonoPaseador(p.estado)}>{p.estado}</Badge>
+                  <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
                 </td>
               </tr>
             ))}
           </Table>
         ) : (
-          <EmptyState title="Sin paseadores" hint="Cambia el filtro para ver el resto." />
+          <EmptyState title="Sin paseadores" hint={error ? "Revisa la conexión o los permisos de administrador." : "Cambia el filtro para ver el resto."} />
         )}
       </Section>
     </Page>
