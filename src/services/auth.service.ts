@@ -10,7 +10,6 @@ import type {
   UserProfile,
   Zona,
   ZonaInput,
-  AdminUser,
 } from "../types/auth.types";
 
 export const login = async (email: string, password: string): Promise<AuthResponse> =>
@@ -50,41 +49,6 @@ export const getZonas = async (): Promise<Zona[]> => {
     .order("nombre");
   if (error) throw error;
   return (data ?? []) as Zona[];
-};
-
-export const getAdminUsuarios = async (): Promise<AdminUser[]> => {
-  const [usuariosResult, rolesResult] = await Promise.all([
-    supabase
-    .from("usuarios")
-    .select("id_usuario, nombre, telefono, foto_perfil, fecha_registro, activo, zona:zonas(nombre, canton, provincia)")
-    .order("fecha_registro", { ascending: false }),
-    supabase
-      .from("usuario_rol")
-      .select("id_usuario, rol:rol(nombre)"),
-  ]);
-
-  if (usuariosResult.error) throw usuariosResult.error;
-  if (rolesResult.error) throw rolesResult.error;
-
-  type UsuarioRolRow = {
-    id_usuario: string;
-    rol: { nombre: string } | { nombre: string }[] | null;
-  };
-  const rolesPorUsuario = new Map<string, AdminUser["roles"]>();
-  for (const item of (rolesResult.data ?? []) as UsuarioRolRow[]) {
-    const rol = Array.isArray(item.rol) ? item.rol[0]?.nombre : item.rol?.nombre;
-    if (rol !== "dueno" && rol !== "paseador" && rol !== "negocio") continue;
-    rolesPorUsuario.set(item.id_usuario, [...(rolesPorUsuario.get(item.id_usuario) ?? []), rol]);
-  }
-
-  return (usuariosResult.data ?? []).map((usuario) => {
-    const roles = rolesPorUsuario.get(usuario.id_usuario) ?? [];
-    return {
-      ...usuario,
-      roles,
-      zona: Array.isArray(usuario.zona) ? usuario.zona[0] ?? null : usuario.zona,
-    };
-  }) as AdminUser[];
 };
 
 export const getNegocios = async (): Promise<NegocioProfile[]> => {

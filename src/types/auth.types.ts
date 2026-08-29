@@ -78,6 +78,7 @@ export interface UserProfile {
 export interface AdminUser {
   id_usuario: string;
   nombre: string;
+  correo: string | null;
   telefono: string | null;
   foto_perfil: string | null;
   roles: RolPublico[];
@@ -107,6 +108,7 @@ export interface AuthState {
   roles: RolPublico[];
   isAdmin: boolean;
   loading: boolean;
+  accessError: string | null;
 }
 
 export interface SessionProfile {
