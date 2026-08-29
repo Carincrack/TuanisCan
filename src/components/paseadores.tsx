@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { listPets } from "../services/pets.service";
 import { listActiveWalkers, requestWalk } from "../services/walkers.service";
+import { useAuth } from "../hooks/useAuth";
 import type { PublicWalker, WalkRequestInput } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import {
@@ -58,6 +59,7 @@ const normalizar = (value: string) =>
     .toLowerCase();
 
 const Paseadores = () => {
+  const { getProfile, isAdmin } = useAuth();
   const [walkers, setWalkers] = useState<PublicWalker[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [zona, setZona] = useState("Todas");
@@ -69,14 +71,16 @@ const Paseadores = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [canOperate, setCanOperate] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    Promise.all([listActiveWalkers(), listPets()])
-      .then(([nextWalkers, nextPets]) => {
+    Promise.all([listActiveWalkers(), listPets(), getProfile()])
+      .then(([nextWalkers, nextPets, profile]) => {
         setWalkers(nextWalkers);
         setPets(nextPets);
+        setCanOperate(isAdmin || profile?.verificacion.estado === "aprobado");
         setForm((current) => ({
           ...current,
           id_mascota: current.id_mascota || nextPets[0]?.id_mascota || "",
@@ -84,7 +88,7 @@ const Paseadores = () => {
       })
       .catch((cause) => setError(messageFrom(cause)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [getProfile, isAdmin]);
 
   const zonas = useMemo(
     () => ["Todas", ...Array.from(new Set(walkers.map((w) => w.zona))).sort()],
@@ -103,6 +107,10 @@ const Paseadores = () => {
   }, [busqueda, walkers, zona]);
 
   const openRequest = (walker: PublicWalker) => {
+    if (!canOperate) {
+      setError("Debes verificar tu perfil antes de solicitar un paseo.");
+      return;
+    }
     setSolicitud(walker);
     setError(null);
     setMessage(null);
@@ -250,7 +258,7 @@ const Paseadores = () => {
                 <button type="button" onClick={() => setPerfil(w)} className={`${btnSecondary} flex-1`}>
                   Ver perfil
                 </button>
-                <button type="button" onClick={() => openRequest(w)} disabled={!w.disponible || !w.tarifa_base} className={`${btnPrimary} flex-1`}>
+                <button type="button" onClick={() => openRequest(w)} disabled={!canOperate || !w.disponible || !w.tarifa_base} className={`${btnPrimary} flex-1 disabled:cursor-not-allowed disabled:opacity-50`}>
                   Solicitar paseo
                 </button>
               </div>
@@ -299,7 +307,7 @@ const Paseadores = () => {
               </div>
               <div className="mt-5 flex justify-end gap-px">
                 <button type="button" onClick={() => setPerfil(null)} className={btnSecondary}>Cerrar</button>
-                <button type="button" onClick={() => { setPerfil(null); openRequest(perfil); }} disabled={!perfil.tarifa_base} className={btnPrimary}>Solicitar paseo</button>
+                <button type="button" onClick={() => { setPerfil(null); openRequest(perfil); }} disabled={!canOperate || !perfil.tarifa_base} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}>Solicitar paseo</button>
               </div>
             </div>
           </div>
