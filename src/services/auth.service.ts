@@ -4,6 +4,7 @@ import type {
   NegocioProfile,
   PaseadorProfile,
   DocumentoPaseador,
+  VerificationDocument,
   ProfileUpdate,
   RegistrationData,
   SessionProfile,
@@ -92,7 +93,7 @@ export const getUserProfile = async (
   const roles = sessionProfile?.roles ?? [];
   const isAdmin = Boolean(sessionProfile?.is_admin);
 
-  const [zonaResult, paseadorResult, documentosResult, negocioResult] = await Promise.all([
+  const [zonaResult, paseadorResult, documentosResult, negocioResult, verificationDocumentsResult] = await Promise.all([
     usuario.zona_id
       ? supabase.from("zonas").select("id_zona, nombre, canton, provincia").eq("id_zona", usuario.zona_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -103,13 +104,34 @@ export const getUserProfile = async (
     roles.includes("negocio")
       ? supabase.from("negocios").select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado").eq("id_usuario", userId).limit(1).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from("documentos_verificacion_usuario")
+      .select("id_documento, tipo_documento, nombre_archivo, ruta_storage, fecha_subida")
+      .eq("id_usuario", userId)
+      .order("fecha_subida", { ascending: true }),
   ]);
 
-  const relatedError = zonaResult.error || paseadorResult.error || documentosResult.error || negocioResult.error;
+  const verificationSchemaMissing = verificationDocumentsResult.error && (
+    verificationDocumentsResult.error.code === "42P01"
+    || verificationDocumentsResult.error.code === "PGRST205"
+  );
+  const relatedError = zonaResult.error
+    || paseadorResult.error
+    || documentosResult.error
+    || negocioResult.error
+    || (verificationSchemaMissing ? null : verificationDocumentsResult.error);
   if (relatedError) throw relatedError;
 
+  const {
+    estado_verificacion,
+    observacion_verificacion,
+    fecha_solicitud_verificacion,
+    fecha_revision_verificacion,
+    ...personalData
+  } = usuario;
+
   return {
-    ...usuario,
+    ...personalData,
     email,
     roles,
     isAdmin,
@@ -121,6 +143,13 @@ export const getUserProfile = async (
         } as PaseadorProfile
       : null,
     negocio: negocioResult.data as NegocioProfile | null,
+    verificacion: {
+      estado: estado_verificacion ?? "sin_solicitud",
+      observacion: observacion_verificacion ?? null,
+      fecha_solicitud: fecha_solicitud_verificacion ?? null,
+      fecha_revision: fecha_revision_verificacion ?? null,
+      documentos: (verificationDocumentsResult.data ?? []) as VerificationDocument[],
+    },
   } as UserProfile;
 };
 

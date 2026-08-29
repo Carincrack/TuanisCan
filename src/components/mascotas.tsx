@@ -188,7 +188,7 @@ const PetPhoto = ({ pet, className }: { pet: Pet; className: string }) => pet.fo
 );
 
 const Mascotas = () => {
-  const { user } = useAuth();
+  const { user, getProfile, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [pets, setPets] = useState<Pet[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -196,19 +196,21 @@ const Mascotas = () => {
   const [editingVaccine, setEditingVaccine] = useState<Vaccine | null | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [canOperate, setCanOperate] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
     try {
-      const next = await listPets();
+      const [next, profile] = await Promise.all([listPets(), getProfile()]);
       setPets(next);
+      setCanOperate(isAdmin || profile?.verificacion.estado === "aprobado");
       setSelectedId((current) => current && next.some((pet) => pet.id_mascota === current) ? current : null);
     } catch (cause) {
       setError(messageFrom(cause));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getProfile, isAdmin]);
   useEffect(() => { void load(); }, [load]);
   const selected = pets.find((pet) => pet.id_mascota === selectedId) ?? null;
 
@@ -227,7 +229,7 @@ const Mascotas = () => {
 
   return (
     <Page>
-      <PageHeader title="Mis mascotas" subtitle={loading ? "Cargando perfiles…" : `${pets.length} ${pets.length === 1 ? "mascota registrada" : "mascotas registradas"} en tu cuenta.`} action={<button type="button" className={btnPrimary} onClick={() => setEditingPet(null)}><Plus size={15} /> Registrar mascota</button>} />
+      <PageHeader title="Mis mascotas" subtitle={loading ? "Cargando perfiles…" : `${pets.length} ${pets.length === 1 ? "mascota registrada" : "mascotas registradas"} en tu cuenta.`} action={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingPet(null)}><Plus size={15} /> Registrar mascota</button>} />
       {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
 
       {!loading && !pets.length ? (
@@ -252,7 +254,7 @@ const Mascotas = () => {
               </article>
             );
           })}
-          <button type="button" className="flex min-h-[240px] flex-col items-center justify-center gap-3 bg-sunken text-ink-mute hover:bg-neutral-wash hover:text-ink" onClick={() => setEditingPet(null)}><Plus size={22} aria-hidden /><span className="text-[13px] font-medium">Registrar otra mascota</span></button>
+          <button type="button" disabled={!canOperate} className="flex min-h-[240px] flex-col items-center justify-center gap-3 bg-sunken text-ink-mute hover:bg-neutral-wash hover:text-ink disabled:cursor-not-allowed disabled:opacity-50" onClick={() => setEditingPet(null)}><Plus size={22} aria-hidden /><span className="text-[13px] font-medium">Registrar otra mascota</span></button>
         </div>
       )}
 
@@ -263,8 +265,8 @@ const Mascotas = () => {
             <div className="min-w-0"><h3 className="truncate text-[18px] font-semibold text-white">{selected.nombre}</h3><p className="text-[12px] text-rail-text">{selected.especie} · {selected.raza}</p></div>
             <div className="ml-auto flex flex-wrap gap-1">
               <button type="button" className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white"} onClick={() => openCard(selected)}><IdCard size={15} /> Carné</button>
-              <button type="button" className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white"} onClick={() => setEditingPet(selected)}><Pencil size={15} /> Editar</button>
-              <button type="button" className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white"} onClick={() => void removePet(selected)}><Trash2 size={15} /> Eliminar</button>
+              <button type="button" disabled={!canOperate} className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"} onClick={() => setEditingPet(selected)}><Pencil size={15} /> Editar</button>
+              <button type="button" disabled={!canOperate} className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"} onClick={() => void removePet(selected)}><Trash2 size={15} /> Eliminar</button>
               <button type="button" aria-label="Cerrar perfil" className="p-2 text-rail-text hover:bg-rail-hover hover:text-white" onClick={() => setSelectedId(null)}><X size={18} /></button>
             </div>
           </header>
@@ -272,14 +274,14 @@ const Mascotas = () => {
             {[["Nacimiento", formatDate(selected.fecha_nacimiento)], ["Sexo", selected.sexo === "macho" ? "Macho" : "Hembra"], ["Color", selected.color], ["Microchip", selected.microchip || "No registrado"], ["Esterilizado", selected.esterilizado ? "Sí" : "No"], ["Veterinaria", selected.veterinaria || "No registrada"]].map(([label, value]) => <div key={label} className="bg-sunken px-5 py-3"><dt className="text-[10px] uppercase tracking-[0.08em] text-ink-mute">{label}</dt><dd className="mt-1 text-[13px] text-ink">{value}</dd></div>)}
           </dl>
           {(selected.alergias || selected.notas) && <div className="grid gap-px bg-canvas sm:grid-cols-2"><div className="bg-surface p-5"><h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Alergias y condiciones</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || "Ninguna registrada"}</p></div><div className="bg-surface p-5"><h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Cuidados y notas</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || "Sin notas"}</p></div></div>}
-          <div className="flex items-center justify-between gap-3 px-5 py-4"><h4 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-mute"><Syringe size={14} /> Historial de vacunas</h4><button type="button" className={btnPrimary} onClick={() => setEditingVaccine(null)}><Plus size={14} /> Agregar vacuna</button></div>
+          <div className="flex items-center justify-between gap-3 px-5 py-4"><h4 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-mute"><Syringe size={14} /> Historial de vacunas</h4><button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingVaccine(null)}><Plus size={14} /> Agregar vacuna</button></div>
           {selected.vacunas.length ? (
             <Table caption={`Vacunas de ${selected.nombre}`} columnas={[{ label: "Vacuna" }, { label: "Aplicada" }, { label: "Vence" }, { label: "Estado" }, { label: "Acciones", align: "right" }]}>
               {selected.vacunas.map((vaccine) => <tr key={vaccine.id_vacuna}>
                 <td className="px-6 py-3 text-[13px] font-medium text-ink"><span className="block">{vaccine.nombre_vacuna}</span>{vaccine.veterinaria && <span className="text-[11px] font-normal text-ink-mute">{vaccine.veterinaria}</span>}</td>
                 <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_aplicacion)}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_vencimiento)}</td>
                 <td className="px-6 py-3"><Badge tono={vaccine.estado === "vigente" ? "ok" : vaccine.estado === "pendiente" ? "warn" : "danger"}>{vaccine.estado === "pendiente" ? "Por vencer" : vaccine.estado}</Badge></td>
-                <td className="px-4 py-2 text-right"><button type="button" className={btnQuiet} aria-label={`Editar ${vaccine.nombre_vacuna}`} onClick={() => setEditingVaccine(vaccine)}><Pencil size={14} /></button><button type="button" className={btnQuiet + " text-danger"} aria-label={`Eliminar ${vaccine.nombre_vacuna}`} onClick={() => void removeVaccine(vaccine)}><Trash2 size={14} /></button></td>
+                <td className="px-4 py-2 text-right"><button type="button" disabled={!canOperate} className={`${btnQuiet} disabled:cursor-not-allowed disabled:opacity-50`} aria-label={`Editar ${vaccine.nombre_vacuna}`} onClick={() => setEditingVaccine(vaccine)}><Pencil size={14} /></button><button type="button" disabled={!canOperate} className={btnQuiet + " text-danger disabled:cursor-not-allowed disabled:opacity-50"} aria-label={`Eliminar ${vaccine.nombre_vacuna}`} onClick={() => void removeVaccine(vaccine)}><Trash2 size={14} /></button></td>
               </tr>)}
             </Table>
           ) : <div className="px-5 pb-5"><EmptyState title="Sin registros de vacunación" hint="Agrega la primera vacuna o desparasitación de esta mascota." /></div>}

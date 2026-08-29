@@ -1,9 +1,15 @@
-import { useMemo, useState } from "react";
-import { Check, Download, Loader, Search, ShieldCheck, UserCheck, UserX, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check, Download, Eye, Loader, Search, ShieldCheck, UserCheck, UserX, X } from "lucide-react";
 import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
-import type { AdminUser, AdminWalker, RolPublico } from "../types/auth.types";
+import {
+  downloadVerificationDocument,
+  listVerificationRequests,
+  getVerificationDocumentUrl,
+  reviewVerificationRequest,
+} from "../services/verification.service";
+import type { AdminUser, AdminVerificationRequest, AdminWalker, RolPublico, VerificationDocument, VerificationDocumentType } from "../types/auth.types";
 import {
   Avatar,
   Badge,
@@ -341,72 +347,192 @@ export const PaseadoresAdmin = () => {
 
 /* ── Verificaciones ──────────────────────────────────────────── */
 
-const pendientesVerificacion = [
-  { id: "V-041", nombre: "Andrés Blanco", foto: "/mock/walker-4.jpg", zona: "Cartago", enviado: "hace 2 días", faltante: "Cédula y comprobante de domicilio" },
-  { id: "V-042", nombre: "Jorge Salas", foto: "/mock/walker-6.jpg", zona: "Curridabat", enviado: "hace 1 día", faltante: "Hoja de delincuencia" },
-  { id: "V-043", nombre: "Sofía Ureña", foto: "/mock/walker-5.jpg", zona: "Heredia", enviado: "hace 4 horas", faltante: "Cédula por ambos lados" },
-  { id: "V-044", nombre: "Kevin Araya", foto: "/mock/walker-2.jpg", zona: "Alajuela", enviado: "hace 2 horas", faltante: "Foto de perfil y cédula" },
-];
+const documentLabel: Record<VerificationDocumentType, string> = {
+  cedula_frente: "Cédula (frente)",
+  cedula_reverso: "Cédula (reverso)",
+  hoja_delincuencia: "Hoja de delincuencia",
+  permiso_funcionamiento: "Permiso de funcionamiento",
+};
+
+const verificationRoleLabel: Record<RolPublico, string> = {
+  dueno: "Dueño",
+  paseador: "Paseador",
+  negocio: "Negocio",
+};
+
+const verificationDate = new Intl.DateTimeFormat("es-CR", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+const errorMessage = (cause: unknown) =>
+  cause instanceof Error ? cause.message : "No se pudo completar la revisión.";
 
 export const VerificacionesAdmin = () => {
-  const [resueltas, setResueltas] = useState<Record<string, boolean>>({});
-  const pendientes = pendientesVerificacion.filter((v) => !resueltas[v.id]);
+  const [pendientes, setPendientes] = useState<AdminVerificationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [observation, setObservation] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [preview, setPreview] = useState<{ document: VerificationDocument; url: string } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setPendientes(await listVerificationRequests());
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const review = async (request: AdminVerificationRequest, status: "aprobado" | "rechazado") => {
+    if (status === "rechazado" && observation.trim().length < 5) {
+      setError("Escribe una observación de al menos 5 caracteres para rechazar.");
+      return;
+    }
+    setProcessingId(request.id_usuario);
+    setError(null);
+    try {
+      await reviewVerificationRequest(request.id_usuario, status, status === "rechazado" ? observation.trim() : undefined);
+      setPendientes((current) => current.filter((item) => item.id_usuario !== request.id_usuario));
+      setRejectingId(null);
+      setObservation("");
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const viewDocument = async (document: VerificationDocument) => {
+    setPreviewLoading(document.id_documento);
+    setError(null);
+    try {
+      setPreview({ document, url: await getVerificationDocumentUrl(document) });
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPreviewLoading(null);
+    }
+  };
+
+  const downloadDocument = async () => {
+    if (!preview) return;
+    setDownloadLoading(true);
+    setError(null);
+    try {
+      await downloadVerificationDocument(preview.document);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
 
   return (
     <Page>
       <PageHeader
         title="Verificaciones"
-        subtitle="Paseadores esperando aprobación para empezar a recibir solicitudes."
+        subtitle="Solicitudes de identidad pendientes de revisión administrativa."
         action={<Badge tono="warn">{pendientes.length} pendientes</Badge>}
       />
 
+      {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
+
+      {loading && <div className="flex items-center gap-2 bg-surface px-6 py-8 text-[13px] text-ink-soft"><Loader size={16} className="animate-spin" /> Cargando solicitudes…</div>}
+
       {pendientes.map((v) => (
-        <article key={v.id} className="anim-rise bg-surface px-6 py-5">
-          <div className="flex flex-wrap items-center gap-5">
-            <img
-              src={v.foto}
-              alt=""
-              aria-hidden
-              className="h-16 w-16 flex-shrink-0 bg-sunken object-cover"
-            />
+        <article key={v.id_usuario} className="anim-rise bg-surface px-6 py-5">
+          <div className="flex flex-wrap items-start gap-5">
+            {v.foto_perfil ? <img src={v.foto_perfil} alt={`Foto de ${v.nombre}`} className="h-16 w-16 flex-shrink-0 bg-sunken object-cover" /> : <Avatar nombre={v.nombre} size={64} />}
 
             <div className="min-w-[200px] flex-1">
               <h3 className="text-[15px] font-semibold text-ink">{v.nombre}</h3>
               <p className="mt-0.5 text-[12.5px] text-ink-soft">
-                {v.zona} · enviado {v.enviado}
+                {v.correo} · {v.zona}
               </p>
-              <p className="mt-2.5 bg-warn-wash px-3 py-2 text-[12.5px] text-warn">
-                Falta: {v.faltante}
-              </p>
+              <p className="mt-1 text-[11.5px] text-ink-mute">{v.roles.map((role) => verificationRoleLabel[role]).join(" + ") || "Perfil de paseador solicitado"} · enviado {verificationDate.format(new Date(v.fecha_solicitud))}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {v.documentos.map((document) => (
+                  <button key={document.id_documento} type="button" onClick={() => void viewDocument(document)} disabled={previewLoading !== null} className={`${btnSecondary} disabled:cursor-wait disabled:opacity-60`}>
+                    {previewLoading === document.id_documento ? <Loader size={14} className="animate-spin" /> : <Eye size={14} />} Ver {documentLabel[document.tipo_documento]}
+                  </button>
+                ))}
+              </div>
+              {rejectingId === v.id_usuario && (
+                <div className="mt-4">
+                  <label htmlFor={`observation-${v.id_usuario}`} className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Observación para el usuario *</label>
+                  <textarea id={`observation-${v.id_usuario}`} value={observation} onChange={(event) => setObservation(event.target.value)} rows={3} maxLength={500} className={`${input} mt-2 resize-y`} placeholder="Indica qué documento debe corregir y por qué." />
+                </div>
+              )}
             </div>
 
-            <div className="flex gap-px">
+            <div className="flex flex-wrap gap-px">
               <button
                 type="button"
-                onClick={() => setResueltas({ ...resueltas, [v.id]: true })}
+                onClick={() => void review(v, "aprobado")}
+                disabled={processingId !== null}
                 className={btnPrimary}
               >
-                <Check size={15} strokeWidth={2.2} />
-                Aprobar
+                {processingId === v.id_usuario ? <Loader size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.2} />}
+                Aprobar perfil
               </button>
               <button
                 type="button"
-                onClick={() => setResueltas({ ...resueltas, [v.id]: true })}
+                onClick={() => {
+                  if (rejectingId === v.id_usuario) void review(v, "rechazado");
+                  else { setRejectingId(v.id_usuario); setObservation(""); setError(null); }
+                }}
+                disabled={processingId !== null}
                 className={btnDanger}
               >
                 <X size={15} strokeWidth={2.2} />
-                Rechazar
+                {rejectingId === v.id_usuario ? "Confirmar rechazo" : "Rechazar"}
               </button>
             </div>
           </div>
         </article>
       ))}
 
-      {pendientes.length === 0 && (
+      {!loading && pendientes.length === 0 && (
         <EmptyState
           title="No hay verificaciones pendientes"
           hint="Todas las solicitudes fueron revisadas."
         />
+      )}
+
+      {preview && (
+        <div className="fixed inset-0 z-[100] flex overflow-y-auto bg-[#0b2331]/75 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="document-preview-title">
+          <button type="button" aria-label="Cerrar vista previa" onClick={() => setPreview(null)} className="absolute inset-0" />
+          <section className="relative m-auto flex h-[calc(100dvh-1.5rem)] max-h-[900px] w-full max-w-[1000px] min-w-0 flex-col overflow-hidden bg-surface sm:h-[90dvh]">
+            <header className="flex flex-wrap items-center gap-2 bg-rail px-4 py-3 sm:flex-nowrap sm:px-5 sm:py-4">
+              <div className="min-w-0 flex-1">
+                <h3 id="document-preview-title" className="truncate text-[15px] font-semibold text-white">{documentLabel[preview.document.tipo_documento]}</h3>
+                <p className="truncate text-[11.5px] text-rail-text">{preview.document.nombre_archivo}</p>
+              </div>
+              <button type="button" onClick={() => void downloadDocument()} disabled={downloadLoading} className={`${btnSecondary} flex-shrink-0 disabled:cursor-wait disabled:opacity-60`}>
+                {downloadLoading ? <Loader size={14} className="animate-spin" /> : <Download size={14} />}
+                <span className="hidden sm:inline">Descargar</span>
+              </button>
+              <button type="button" onClick={() => setPreview(null)} aria-label="Cerrar vista previa" className="p-2 text-rail-text hover:bg-rail-hover hover:text-white"><X size={19} /></button>
+            </header>
+            <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-auto bg-sunken p-2 sm:p-4">
+              {/\.pdf$/i.test(preview.document.nombre_archivo) ? (
+                <iframe src={preview.url} title={documentLabel[preview.document.tipo_documento]} className="h-full min-h-[480px] w-full min-w-0 bg-white" />
+              ) : (
+                <img src={preview.url} alt={documentLabel[preview.document.tipo_documento]} className="block max-h-full max-w-full object-contain" />
+              )}
+            </div>
+          </section>
+        </div>
       )}
     </Page>
   );

@@ -1,5 +1,13 @@
 import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import {
+  ArrowRight,
+  Footprints,
+  LogOut,
+  PawPrint,
+  ShieldCheck,
+  Store,
+} from "lucide-react";
 
 import LoginPage from "../page/LoginPage";
 import AppShell from "./AppShell";
@@ -22,11 +30,41 @@ import RoleGuard from "../guards/RoleGuard";
  * desde Supabase Auth.
  */
 
-const rolLabel: Record<Rol, string> = {
-  dueno: "Dueño",
-  paseador: "Paseador",
-  negocio: "Negocio",
-  admin: "Admin",
+/* ============================================================
+   INFORMACIÓN VISUAL DE LOS ROLES
+   ============================================================ */
+
+const rolMeta: Record<
+  Rol,
+  {
+    titulo: string;
+    descripcion: string;
+    Icon: typeof PawPrint;
+  }
+> = {
+  dueno: {
+    titulo: "Dueño",
+    descripcion: "Administra tus mascotas, vacunas y solicitudes de paseo.",
+    Icon: PawPrint,
+  },
+
+  paseador: {
+    titulo: "Paseador",
+    descripcion: "Gestiona solicitudes, disponibilidad y servicios de paseo.",
+    Icon: Footprints,
+  },
+
+  negocio: {
+    titulo: "Negocio",
+    descripcion: "Administra tu negocio y presencia dentro del directorio.",
+    Icon: Store,
+  },
+
+  admin: {
+    titulo: "Administrador",
+    descripcion: "Gestiona usuarios, verificaciones y configuración general.",
+    Icon: ShieldCheck,
+  },
 };
 
 /* ============================================================
@@ -54,40 +92,340 @@ const RoleChooser = ({
   ];
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-canvas px-4">
-      <section className="w-full max-w-[420px] bg-surface px-6 py-7 text-center shadow-[0_18px_50px_rgba(15,32,44,0.12)]">
-        <h1 className="text-[24px] font-semibold text-ink">
-          ¿Cómo quieres ingresar?
-        </h1>
+    <main
+      className="
+        relative
+        flex min-h-dvh
+        items-center
+        justify-center
+        overflow-hidden
+        bg-canvas
+        px-4
+        py-10
+      "
+    >
+      {/* Decoración de fondo */}
+      <div
+        aria-hidden
+        className="
+          pointer-events-none
+          absolute
+          -left-24 -top-20
+          h-72 w-72
+          rounded-full
+          bg-accent/[0.07]
+          blur-3xl
+        "
+      />
 
-        <div className="mt-6 grid gap-2">
-          {disponibles.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => onChoose(item)}
-              className="bg-sunken px-4 py-3 text-[14px] font-semibold text-ink transition-colors hover:bg-accent hover:text-white"
+      <div
+        aria-hidden
+        className="
+          pointer-events-none
+          absolute
+          -bottom-28 -right-20
+          h-80 w-80
+          rounded-full
+          bg-accent/[0.05]
+          blur-3xl
+        "
+      />
+
+      <section
+        className="
+          relative
+          w-full
+          max-w-[620px]
+          overflow-hidden
+          rounded-3xl
+          border
+          border-black/[0.06]
+          bg-surface
+          shadow-[0_24px_70px_rgba(15,32,44,0.10)]
+        "
+      >
+        {/* ====================================================
+            CABECERA
+           ==================================================== */}
+
+        <div
+          className="
+            relative
+            overflow-hidden
+            border-b
+            border-black/[0.05]
+            bg-gradient-to-br
+            from-accent/[0.09]
+            via-surface
+            to-accent/[0.025]
+            px-6
+            py-7
+            text-center
+            sm:px-8
+            sm:py-8
+          "
+        >
+          <div
+            aria-hidden
+            className="
+              pointer-events-none
+              absolute
+              left-1/2 top-0
+              h-40 w-40
+              -translate-x-1/2
+              -translate-y-1/2
+              rounded-full
+              bg-accent/[0.08]
+              blur-3xl
+            "
+          />
+
+          <div className="relative">
+            <div
+              className="
+                mx-auto
+                flex h-12 w-12
+                items-center
+                justify-center
+                rounded-2xl
+                bg-accent/10
+                text-accent-dark
+              "
             >
-              {rolLabel[item]}
-            </button>
-          ))}
+              <PawPrint size={22} strokeWidth={1.9} />
+            </div>
+
+            <p
+              className="
+                mt-4
+                text-[10px]
+                font-semibold
+                uppercase
+                tracking-[0.16em]
+                text-accent-dark
+              "
+            >
+              TuanisCan
+            </p>
+
+            <h1
+              className="
+                mt-2
+                text-[25px]
+                font-semibold
+                tracking-[-0.025em]
+                text-ink
+                sm:text-[28px]
+              "
+            >
+              ¿Cómo quieres ingresar?
+            </h1>
+
+            <p
+              className="
+                mx-auto
+                mt-2
+                max-w-md
+                text-[13px]
+                leading-relaxed
+                text-ink-soft
+              "
+            >
+              Selecciona el perfil que deseas utilizar. Podrás cambiarlo
+              posteriormente desde la aplicación.
+            </p>
+          </div>
         </div>
 
-        {!disponibles.length && (
-          <p className="mt-4 text-[13px] text-danger">
-            Esta cuenta no tiene perfiles activos.
-          </p>
-        )}
+        {/* ====================================================
+            OPCIONES
+           ==================================================== */}
 
-        <button
-          type="button"
-          onClick={onLogout}
-          className="mt-5 text-[13px] font-medium text-ink-soft hover:text-ink"
-        >
-          Cerrar sesión
-        </button>
+        <div className="p-5 sm:p-6">
+          {disponibles.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {disponibles.map((item) => {
+                const meta = rolMeta[item];
+
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => onChoose(item)}
+                    className="
+                      group
+                      relative
+                      flex min-h-[150px]
+                      overflow-hidden
+                      rounded-2xl
+                      border
+                      border-black/[0.06]
+                      bg-surface
+                      p-5
+                      text-left
+                      transition-all
+                      duration-200
+
+                      hover:-translate-y-0.5
+                      hover:border-accent/30
+                      hover:bg-accent/[0.025]
+                      hover:shadow-[0_10px_30px_rgba(15,32,44,0.07)]
+
+                      focus-visible:outline-none
+                      focus-visible:ring-2
+                      focus-visible:ring-accent/40
+                    "
+                  >
+                    {/* Decoración al hover */}
+                    <span
+                      aria-hidden
+                      className="
+                        pointer-events-none
+                        absolute
+                        -right-10 -top-10
+                        h-24 w-24
+                        rounded-full
+                        bg-accent/0
+                        transition-all
+                        duration-300
+                        group-hover:bg-accent/[0.06]
+                      "
+                    />
+
+                    <div className="relative flex w-full flex-col">
+                      <div className="flex items-start justify-between gap-4">
+                        <span
+                          className="
+                            flex h-11 w-11
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
+                            bg-accent/10
+                            text-accent-dark
+                            transition-all
+                            duration-200
+
+                            group-hover:bg-accent
+                            group-hover:text-white
+                          "
+                        >
+                          <meta.Icon size={20} strokeWidth={1.9} />
+                        </span>
+
+                        <span
+                          className="
+                            flex h-8 w-8
+                            items-center
+                            justify-center
+                            rounded-full
+                            text-ink-mute
+                            transition-all
+                            duration-200
+
+                            group-hover:translate-x-0.5
+                            group-hover:bg-accent/10
+                            group-hover:text-accent-dark
+                          "
+                        >
+                          <ArrowRight size={16} />
+                        </span>
+                      </div>
+
+                      <div className="mt-4">
+                        <h2
+                          className="
+                            text-[14px]
+                            font-semibold
+                            text-ink
+                          "
+                        >
+                          {meta.titulo}
+                        </h2>
+
+                        <p
+                          className="
+                            mt-1.5
+                            text-[11.5px]
+                            leading-relaxed
+                            text-ink-soft
+                          "
+                        >
+                          {meta.descripcion}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div
+              className="
+                rounded-2xl
+                border
+                border-danger/10
+                bg-danger-wash
+                px-5
+                py-5
+                text-center
+              "
+            >
+              <p className="text-[13px] font-medium text-danger">
+                Esta cuenta no tiene perfiles activos.
+              </p>
+
+              <p className="mt-1 text-[11.5px] text-danger/80">
+                Contacta a administración si consideras que esto es un error.
+              </p>
+            </div>
+          )}
+
+          {/* ====================================================
+              CERRAR SESIÓN
+             ==================================================== */}
+
+          <div
+            className="
+              mt-6
+              flex
+              items-center
+              justify-center
+              border-t
+              border-black/[0.05]
+              pt-5
+            "
+          >
+            <button
+              type="button"
+              onClick={onLogout}
+              className="
+                inline-flex
+                items-center
+                gap-2
+                rounded-xl
+                px-3
+                py-2
+                text-[12px]
+                font-medium
+                text-ink-mute
+                transition
+
+                hover:bg-sunken
+                hover:text-ink
+
+                focus-visible:outline-none
+                focus-visible:ring-2
+                focus-visible:ring-accent/30
+              "
+            >
+              <LogOut size={14} />
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
       </section>
-    </div>
+    </main>
   );
 };
 
@@ -155,8 +493,8 @@ const RootLayout = () => {
   const rolesDeRuta = (Object.keys(navPorRol) as Rol[]).filter(
     (rolDeRuta) =>
       navPorRol[rolDeRuta].some((grupo) =>
-        grupo.items.some((item) => item.to === pathname)
-      )
+        grupo.items.some((item) => item.to === pathname),
+      ),
   );
 
   /*
@@ -182,8 +520,8 @@ const RootLayout = () => {
     const rolesActuales = (Object.keys(navPorRol) as Rol[]).filter(
       (rolDeRuta) =>
         navPorRol[rolDeRuta].some((grupo) =>
-          grupo.items.some((item) => item.to === pathname)
-        )
+          grupo.items.some((item) => item.to === pathname),
+        ),
     );
 
     const rutaPermitida: Rol[] = rolesActuales.length
@@ -302,7 +640,7 @@ const RootLayout = () => {
           setAccesoPublico(
             modo === "registro"
               ? "signup"
-              : "signin"
+              : "signin",
           );
         }}
       />
@@ -314,19 +652,6 @@ const RootLayout = () => {
 
   return (
     <AuthGuard fallback={puertaPublica}>
-      {/*
-       * Ya existe una sesión, pero todavía no se ha escogido
-       * cuál perfil utilizar.
-       *
-       * Ejemplo:
-       *
-       * usuario
-       * ├── dueño
-       * ├── paseador
-       * └── negocio
-       *
-       * Aquí aparece el selector.
-       */}
       {!role ? (
         <RoleChooser
           roles={roles}
@@ -335,11 +660,6 @@ const RootLayout = () => {
           onLogout={salir}
         />
       ) : (
-        /*
-         * Ya existe sesión y además existe un rol activo.
-         * Ahora validamos que ese rol tenga permiso para
-         * entrar a la ruta actual.
-         */
         <RoleGuard
           roles={rolesPermitidos}
           fallback={puertaPublica}
@@ -348,12 +668,6 @@ const RootLayout = () => {
             <Splash onFin={cerrarSplash} />
           )}
 
-          {/*
-           * La key cambia cuando termina el Splash.
-           *
-           * Esto hace que AppShell vuelva a montarse y las
-           * animaciones se ejecuten después del splash.
-           */}
           <div
             key={splash ? "cargando" : "listo"}
             className="anim-app-in"
