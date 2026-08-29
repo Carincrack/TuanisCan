@@ -129,7 +129,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   initialMode = "signin",
   onBack,
 }) => {
-  const { login, register } = useAuth();
+  const { login, register, accessError } = useAuth();
   const navigate = useNavigate();
   // Rol elegido. Se comparte entre iniciar sesión y registrarse.
   const [rol, setRol] = useState<RolPublico>("dueno");
@@ -156,6 +156,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [showError, setShowError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (!accessError) return;
+    setError(accessError);
+    setShowError(true);
+  }, [accessError]);
 
   // ─── Estado del registro ───
   const [regUsername, setRegUsername] = useState("");
