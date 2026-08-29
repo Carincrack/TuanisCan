@@ -1,4 +1,5 @@
 import EncabezadoSeccion from "../componentes/EncabezadoSeccion";
+import Boronas from "../componentes/Boronas";
 import Onda from "../componentes/Onda";
 import { PASOS } from "../datos";
 import { AZUL_HONDO, CIELO, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
@@ -86,6 +87,8 @@ const Pasos = () => (
     style={{ background: CIELO }}
   >
     <Onda color={HUESO} />
+
+    <Boronas />
 
     <img
       src="/img/plato-comida.webp"
