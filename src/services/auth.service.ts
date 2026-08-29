@@ -10,7 +10,6 @@ import type {
   UserProfile,
   Zona,
   ZonaInput,
-  AdminUser,
 } from "../types/auth.types";
 
 export const login = async (email: string, password: string): Promise<AuthResponse> =>
@@ -50,41 +49,6 @@ export const getZonas = async (): Promise<Zona[]> => {
     .order("nombre");
   if (error) throw error;
   return (data ?? []) as Zona[];
-};
-
-export const getAdminUsuarios = async (): Promise<AdminUser[]> => {
-  const [usuariosResult, rolesResult] = await Promise.all([
-    supabase
-    .from("usuarios")
-    .select("id_usuario, nombre, telefono, foto_perfil, fecha_registro, activo, zona:zonas(nombre, canton, provincia)")
-    .order("fecha_registro", { ascending: false }),
-    supabase
-      .from("usuario_roles")
-      .select("id_usuario, rol:roles(nombre)"),
-  ]);
-
-  if (usuariosResult.error) throw usuariosResult.error;
-  if (rolesResult.error) throw rolesResult.error;
-
-  type UsuarioRolRow = {
-    id_usuario: string;
-    rol: { nombre: string } | { nombre: string }[] | null;
-  };
-  const rolesPorUsuario = new Map<string, AdminUser["roles"]>();
-  for (const item of (rolesResult.data ?? []) as UsuarioRolRow[]) {
-    const rol = Array.isArray(item.rol) ? item.rol[0]?.nombre : item.rol?.nombre;
-    if (rol !== "dueno" && rol !== "paseador" && rol !== "negocio") continue;
-    rolesPorUsuario.set(item.id_usuario, [...(rolesPorUsuario.get(item.id_usuario) ?? []), rol]);
-  }
-
-  return (usuariosResult.data ?? []).map((usuario) => {
-    const roles = rolesPorUsuario.get(usuario.id_usuario) ?? [];
-    return {
-      ...usuario,
-      roles,
-      zona: Array.isArray(usuario.zona) ? usuario.zona[0] ?? null : usuario.zona,
-    };
-  }) as AdminUser[];
 };
 
 export const getNegocios = async (): Promise<NegocioProfile[]> => {
@@ -137,7 +101,7 @@ export const getUserProfile = async (
       ? supabase.from("documentos_paseador").select("id_documento, ruta_storage, fecha_subida").eq("id_usuario", userId).order("fecha_subida", { ascending: false })
       : Promise.resolve({ data: null, error: null }),
     roles.includes("negocio")
-      ? supabase.from("negocios").select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado").eq("id_propietario", userId).limit(1).maybeSingle()
+      ? supabase.from("negocios").select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado").eq("id_usuario", userId).limit(1).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
 
@@ -164,16 +128,27 @@ export const updateUserProfile = async (
   userId: string,
   profile: ProfileUpdate
 ) => {
-  const { paseador, negocio, ...usuario } = profile;
-  const updates = [
-    supabase.from("usuarios").update(usuario).eq("id_usuario", userId),
-  ];
-  if (paseador) updates.push(supabase.from("paseadores").update(paseador).eq("id_usuario", userId));
-  if (negocio) updates.push(supabase.from("negocios").update(negocio).eq("id_propietario", userId));
+  const { paseador, negocio, ...perfil } = profile;
+  const perfilResult = await supabase
+    .from("perfil_usuario")
+    .upsert({ id_usuario: userId, ...perfil }, { onConflict: "id_usuario" });
+  if (perfilResult.error) throw perfilResult.error;
 
-  const results = await Promise.all(updates);
-  const error = results.find((result) => result.error)?.error;
-  if (error) throw error;
+  if (paseador) {
+    const { error } = await supabase
+      .from("paseadores")
+      .update(paseador)
+      .eq("id_usuario", userId);
+    if (error) throw error;
+  }
+
+  if (negocio) {
+    const { error } = await supabase
+      .from("negocios")
+      .update(negocio)
+      .eq("id_usuario", userId);
+    if (error) throw error;
+  }
 };
 
 const PROFILE_PHOTOS_BUCKET = "perfiles";

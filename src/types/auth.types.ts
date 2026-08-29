@@ -78,12 +78,47 @@ export interface UserProfile {
 export interface AdminUser {
   id_usuario: string;
   nombre: string;
+  correo: string | null;
   telefono: string | null;
   foto_perfil: string | null;
   roles: RolPublico[];
   fecha_registro: string;
   activo: boolean;
   zona: Pick<Zona, "nombre" | "canton" | "provincia"> | null;
+}
+
+export interface AdminWalker {
+  id_usuario: string;
+  nombre: string;
+  foto_perfil: string | null;
+  zona: string;
+  paseos: number;
+  rating: number;
+  generado: number;
+  estado: "activo" | "inactivo" | "suspendido";
+}
+
+export interface PublicWalker {
+  id_usuario: string;
+  nombre: string;
+  foto_perfil: string | null;
+  zona_id: string | null;
+  zona: string;
+  descripcion: string | null;
+  tarifa_base: number | null;
+  calificacion_promedio: number;
+  disponible: boolean;
+  total_resenas: number;
+  total_paseos: number;
+}
+
+export interface WalkRequestInput {
+  id_mascota: string;
+  id_paseador: string;
+  fecha: string;
+  hora_inicio: string;
+  duracion_min: number;
+  direccion_encuentro: string;
 }
 
 export interface ProfileUpdate {
@@ -107,6 +142,7 @@ export interface AuthState {
   roles: RolPublico[];
   isAdmin: boolean;
   loading: boolean;
+  accessError: string | null;
 }
 
 export interface SessionProfile {

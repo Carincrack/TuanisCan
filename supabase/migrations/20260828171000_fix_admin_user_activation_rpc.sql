@@ -1,0 +1,70 @@
+-- Ajuste incremental: la RPC administrativa no necesita devolver toda la fila
+-- de usuarios. `void` evita exponer columnas internas y simplifica PostgREST.
+
+drop function if exists public.cambiar_estado_usuario(uuid, boolean);
+
+create or replace function public.cambiar_estado_usuario(
+    p_id_usuario uuid,
+    p_activo boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_admins_activos integer;
+begin
+    if auth.uid() is null then
+        raise exception 'Usuario no autenticado';
+    end if;
+
+    if not public.es_admin_actual() or not public.usuario_actual_activo() then
+        raise exception 'No tiene permisos para cambiar el estado de usuarios';
+    end if;
+
+    if p_id_usuario is null or p_activo is null then
+        raise exception 'Debe indicar usuario y estado';
+    end if;
+
+    if not exists (
+        select 1
+        from public.usuarios
+        where id_usuario = p_id_usuario
+        for update
+    ) then
+        raise exception 'El usuario no existe';
+    end if;
+
+    -- Si este bloqueo se dispara, primero configure otro admin activo.
+    if p_activo = false and p_id_usuario = auth.uid() then
+        raise exception 'No puedes inactivar tu propia cuenta administradora';
+    end if;
+
+    if p_activo = false and exists (
+        select 1
+        from auth.users au
+        where au.id = p_id_usuario
+          and au.app_metadata ->> 'app_role' = 'admin'
+    ) then
+        select count(*)
+        into v_admins_activos
+        from public.usuarios u
+        inner join auth.users au
+            on au.id = u.id_usuario
+        where u.activo = true
+          and au.app_metadata ->> 'app_role' = 'admin';
+
+        if v_admins_activos <= 1 then
+            raise exception 'No se puede inactivar al ultimo administrador activo';
+        end if;
+    end if;
+
+    update public.usuarios
+    set activo = p_activo
+    where id_usuario = p_id_usuario;
+end;
+$$;
+
+revoke all on function public.cambiar_estado_usuario(uuid, boolean) from public;
+grant execute on function public.cambiar_estado_usuario(uuid, boolean) to authenticated;

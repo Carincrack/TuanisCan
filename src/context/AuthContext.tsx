@@ -18,6 +18,8 @@ import type { Rol } from "../lib/nav";
 import { AuthContext } from "./auth-context";
 
 const ACTIVE_ROLE_KEY = "tuaniscan.activeRole";
+const INACTIVE_ACCOUNT_MESSAGE =
+  "Tu cuenta está inactiva. Contacta a administración para reactivarla.";
 
 const adminFromUser = (user: Session["user"] | null): boolean => {
   const role = user?.app_metadata?.app_role;
@@ -55,10 +57,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     roles: [],
     isAdmin: false,
     loading: true,
+    accessError: null,
   });
 
   const loadSession = useCallback(async (session: Session | null, preferredRole?: Rol) => {
     if (!session?.user) {
+      sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+      setState((current) => ({
+        session: null,
+        user: null,
+        role: null,
+        roles: [],
+        isAdmin: false,
+        loading: false,
+        accessError: current.accessError,
+      }));
+      return;
+    }
+
+    const profile = await getUserProfile(session.user.id, session.user.email ?? "");
+    const hasAdminRole = adminFromUser(session.user);
+
+    if (hasAdminRole && !profile) {
+      await logout();
       sessionStorage.removeItem(ACTIVE_ROLE_KEY);
       setState({
         session: null,
@@ -67,12 +88,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         roles: [],
         isAdmin: false,
         loading: false,
+        accessError: null,
       });
-      return;
+      throw new Error(
+        "La cuenta admin no tiene informacion personal vinculada. Ejecuta scripts/configure-admin.mjs con ADMIN_NOMBRE.",
+      );
     }
 
-    const profile = await getUserProfile(session.user.id, session.user.email ?? "");
-    const isAdmin = Boolean(profile?.isAdmin || adminFromUser(session.user));
+    if (profile && !profile.activo) {
+      await logout();
+      sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+      setState({
+        session: null,
+        user: null,
+        role: null,
+        roles: [],
+        isAdmin: false,
+        loading: false,
+        accessError: INACTIVE_ACCOUNT_MESSAGE,
+      });
+      throw new Error(INACTIVE_ACCOUNT_MESSAGE);
+    }
+
+    const isAdmin = Boolean(profile?.isAdmin || hasAdminRole);
     setState({
       session,
       user: session.user,
@@ -80,6 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       roles: profile?.roles ?? [],
       isAdmin,
       loading: false,
+      accessError: null,
     });
   }, []);
 
@@ -88,7 +127,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     getSession()
       .then((session) => {
-        if (mounted) void loadSession(session);
+        if (mounted) {
+          void loadSession(session).catch(() => {
+            if (mounted) setState((current) => ({ ...current, loading: false }));
+          });
+        }
       })
       .catch(() => {
         if (mounted) setState((current) => ({ ...current, loading: false }));

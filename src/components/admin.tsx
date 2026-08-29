@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import { Check, Download, Search, ShieldCheck, X } from "lucide-react";
-import { getAdminUsuarios } from "../services/auth.service";
-import type { AdminUser, RolPublico } from "../types/auth.types";
+import { useMemo, useState } from "react";
+import { Check, Download, Loader, Search, ShieldCheck, UserCheck, UserX, X } from "lucide-react";
+import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
+import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
+import { useAuth } from "../hooks/useAuth";
+import type { AdminUser, AdminWalker, RolPublico } from "../types/auth.types";
 import {
   Avatar,
   Badge,
@@ -234,33 +236,27 @@ export const FinanzasAdmin = () => {
 
 /* ── Paseadores ──────────────────────────────────────────────── */
 
-interface PaseadorAdmin {
-  nombre: string;
-  foto: string;
-  zona: string;
-  paseos: number;
-  rating: number;
-  generado: number;
-  estado: "Activo" | "Inactivo" | "Suspendido";
-}
+const estadoPaseadorLabel: Record<AdminWalker["estado"], string> = {
+  activo: "Activo",
+  inactivo: "Inactivo",
+  suspendido: "Suspendido",
+};
 
-const paseadoresAdmin: PaseadorAdmin[] = [
-  { nombre: "María Fernández", foto: "/mock/walker-1.jpg", zona: "Curridabat", paseos: 312, rating: 4.9, generado: 1404000, estado: "Activo" },
-  { nombre: "Luis Rojas", foto: "/mock/walker-2.jpg", zona: "Heredia", paseos: 268, rating: 4.8, generado: 1018400, estado: "Activo" },
-  { nombre: "Carolina Mora", foto: "/mock/walker-3.jpg", zona: "Escazú", paseos: 241, rating: 4.9, generado: 1253200, estado: "Activo" },
-  { nombre: "Andrés Blanco", foto: "/mock/walker-4.jpg", zona: "Cartago", paseos: 94, rating: 4.6, generado: 329000, estado: "Inactivo" },
-  { nombre: "Valeria Chacón", foto: "/mock/walker-5.jpg", zona: "Escazú", paseos: 187, rating: 4.7, generado: 897600, estado: "Activo" },
-  { nombre: "Jorge Salas", foto: "/mock/walker-6.jpg", zona: "Curridabat", paseos: 41, rating: 3.9, generado: 159900, estado: "Suspendido" },
-];
-
-const tonoPaseador = (e: PaseadorAdmin["estado"]) =>
-  e === "Activo" ? "ok" : e === "Suspendido" ? "danger" : "neutral";
+const tonoPaseador = (estado: AdminWalker["estado"]) =>
+  estado === "activo" ? "ok" : estado === "suspendido" ? "danger" : "neutral";
 
 export const PaseadoresAdmin = () => {
+  const { paseadores, loading, error } = useAdminPaseadores();
   const [filtro, setFiltro] = useState("Todos");
 
-  const visibles = paseadoresAdmin.filter((p) =>
-    filtro === "Todos" ? true : p.estado === filtro.slice(0, -1)
+  const visibles = paseadores.filter((paseador) =>
+    filtro === "Todos"
+      ? true
+      : filtro === "Activos"
+        ? paseador.estado === "activo"
+        : filtro === "Inactivos"
+          ? paseador.estado === "inactivo"
+          : paseador.estado === "suspendido"
   );
 
   return (
@@ -279,8 +275,16 @@ export const PaseadoresAdmin = () => {
         />
       </div>
 
+      {error && (
+        <div aria-live="polite" className="bg-danger-wash px-6 py-3 text-[13px] text-danger">
+          {error}
+        </div>
+      )}
+
       <Section bodyClass="">
-        {visibles.length > 0 ? (
+        {loading ? (
+          <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando paseadores...</p>
+        ) : visibles.length > 0 ? (
           <Table
             caption={`Paseadores filtrados por ${filtro.toLowerCase()}`}
             columnas={[
@@ -293,15 +297,19 @@ export const PaseadoresAdmin = () => {
             ]}
           >
             {visibles.map((p) => (
-              <tr key={p.nombre}>
+              <tr key={p.id_usuario}>
                 <td className="px-6 py-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={p.foto}
-                      alt=""
-                      aria-hidden
-                      className="h-9 w-9 flex-shrink-0 bg-sunken object-cover"
-                    />
+                    {p.foto_perfil ? (
+                      <img
+                        src={p.foto_perfil}
+                        alt=""
+                        aria-hidden
+                        className="h-9 w-9 flex-shrink-0 bg-sunken object-cover"
+                      />
+                    ) : (
+                      <Avatar nombre={p.nombre} size={36} />
+                    )}
                     <span className="text-[13px] font-medium text-ink">
                       {p.nombre}
                     </span>
@@ -318,13 +326,13 @@ export const PaseadoresAdmin = () => {
                   {colones(p.generado)}
                 </td>
                 <td className="px-6 py-3">
-                  <Badge tono={tonoPaseador(p.estado)}>{p.estado}</Badge>
+                  <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
                 </td>
               </tr>
             ))}
           </Table>
         ) : (
-          <EmptyState title="Sin paseadores" hint="Cambia el filtro para ver el resto." />
+          <EmptyState title="Sin paseadores" hint={error ? "Revisa la conexión o los permisos de administrador." : "Cambia el filtro para ver el resto."} />
         )}
       </Section>
     </Page>
@@ -406,38 +414,34 @@ export const VerificacionesAdmin = () => {
 
 /* ── Usuarios ────────────────────────────────────────────────── */
 
-const usuariosDemo: AdminUser[] = [
-  { id_usuario: "demo-1", nombre: "Ana Corrales", telefono: "8888-1200", foto_perfil: null, roles: ["dueno"], fecha_registro: "2026-03-12", activo: true, zona: { nombre: "San José", canton: "San José", provincia: "San José" } },
-  { id_usuario: "demo-2", nombre: "Diego Solís", telefono: "8888-2310", foto_perfil: null, roles: ["dueno"], fecha_registro: "2026-04-20", activo: true, zona: { nombre: "Curridabat", canton: "Curridabat", provincia: "San José" } },
-  { id_usuario: "demo-3", nombre: "Laura Vega", telefono: "8888-4532", foto_perfil: null, roles: ["dueno"], fecha_registro: "2026-08-04", activo: true, zona: { nombre: "San Pedro", canton: "Montes de Oca", provincia: "San José" } },
-  { id_usuario: "demo-4", nombre: "Roberto Jiménez", telefono: "8888-6789", foto_perfil: null, roles: ["dueno"], fecha_registro: "2026-07-16", activo: false, zona: { nombre: "Escazú", canton: "Escazú", provincia: "San José" } },
-  { id_usuario: "demo-5", nombre: "María Fernández", telefono: "8888-9012", foto_perfil: null, roles: ["dueno", "paseador"], fecha_registro: "2026-02-08", activo: true, zona: { nombre: "Curridabat", canton: "Curridabat", provincia: "San José" } },
-];
-
 const rolLabel: Record<RolPublico, string> = { dueno: "Dueño", paseador: "Paseador", negocio: "Negocio" };
 const rolTono = (rol: RolPublico | null) => rol === "paseador" ? "accent" : rol === "negocio" ? "warn" : "neutral";
 const rolesLabel = (roles: RolPublico[]) => roles.map((rol) => rolLabel[rol]).join(" + ") || "Sin rol";
+const PAGE_SIZE = 8;
+const dateFormatter = new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" });
 
 export const UsuariosAdmin = () => {
-  const [usuarios, setUsuarios] = useState<AdminUser[]>(usuariosDemo);
+  const { user } = useAuth();
+  const { usuarios, loading, procesandoId, error, mensaje, cambiarEstado, clearMessage } = useAdminUsuarios();
   const [busqueda, setBusqueda] = useState("");
   const [filtroRol, setFiltroRol] = useState<"todos" | RolPublico>("todos");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [pagina, setPagina] = useState(1);
+  const [confirmar, setConfirmar] = useState<AdminUser | null>(null);
 
-  useEffect(() => {
-    getAdminUsuarios().then(setUsuarios).catch(() => setError(true)).finally(() => setLoading(false));
-  }, []);
-
-  const visibles = usuarios.filter((usuario) => {
+  const visibles = useMemo(() => usuarios.filter((usuario) => {
     const texto = `${usuario.nombre} ${usuario.telefono ?? ""} ${usuario.zona?.nombre ?? ""}`.toLowerCase();
     return texto.includes(busqueda.toLowerCase()) && (filtroRol === "todos" || usuario.roles.includes(filtroRol)) && (filtroEstado === "todos" || (filtroEstado === "activos" ? usuario.activo : !usuario.activo));
-  });
+  }), [busqueda, filtroEstado, filtroRol, usuarios]);
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const paginaUsuarios = visibles.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE);
   const activos = usuarios.filter((usuario) => usuario.activo).length;
   const duenos = usuarios.filter((usuario) => usuario.roles.includes("dueno")).length;
+  const cambiarFiltroRol = (value: "todos" | RolPublico) => { setFiltroRol(value); setPagina(1); };
+  const cambiarFiltroEstado = (value: "todos" | "activos" | "inactivos") => { setFiltroEstado(value); setPagina(1); };
   const exportar = () => {
-    const csv = ["Nombre,Telefono,Roles,Zona,Registro,Estado", ...visibles.map((u) => [u.nombre, u.telefono ?? "", rolesLabel(u.roles), u.zona?.nombre ?? "Sin zona", u.fecha_registro, u.activo ? "Activo" : "Inactivo"].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
+    const csv = ["Nombre,Correo,Telefono,Roles,Zona,Registro,Estado", ...visibles.map((u) => [u.nombre, u.correo ?? "", u.telefono ?? "", rolesLabel(u.roles), u.zona?.nombre ?? "Sin zona", u.fecha_registro, u.activo ? "Activo" : "Inactivo"].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
     const enlace = document.createElement("a");
     enlace.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     enlace.download = "usuarios-tuaniscan.csv";
@@ -455,15 +459,45 @@ export const UsuariosAdmin = () => {
       </div>
       <Section title="Directorio" aside={<span className="text-[12px] text-ink-mute">{visibles.length} resultados</span>} bodyClass="px-4 py-4 sm:px-6">
         <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_160px_160px]">
-          <label className="relative block"><Search size={15} className="absolute top-3 left-3 text-ink-mute" aria-hidden /><span className="sr-only">Buscar usuarios</span><input value={busqueda} onChange={(event) => setBusqueda(event.target.value)} className={`${input} pl-9`} placeholder="Buscar por nombre, teléfono o zona" /></label>
-          <select value={filtroRol} onChange={(event) => setFiltroRol(event.target.value as typeof filtroRol)} className={input} aria-label="Filtrar por rol"><option value="todos">Todos los roles</option><option value="dueno">Dueños</option><option value="paseador">Paseadores</option><option value="negocio">Negocios</option></select>
-          <select value={filtroEstado} onChange={(event) => setFiltroEstado(event.target.value as typeof filtroEstado)} className={input} aria-label="Filtrar por estado"><option value="todos">Todos los estados</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option></select>
+          <label className="relative block"><Search size={15} className="absolute top-3 left-3 text-ink-mute" aria-hidden /><span className="sr-only">Buscar usuarios</span><input value={busqueda} onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }} className={`${input} pl-9`} placeholder="Buscar por nombre, teléfono o zona" /></label>
+          <select value={filtroRol} onChange={(event) => cambiarFiltroRol(event.target.value as typeof filtroRol)} className={input} aria-label="Filtrar por rol"><option value="todos">Todos los roles</option><option value="dueno">Dueños</option><option value="paseador">Paseadores</option><option value="negocio">Negocios</option></select>
+          <select value={filtroEstado} onChange={(event) => cambiarFiltroEstado(event.target.value as typeof filtroEstado)} className={input} aria-label="Filtrar por estado"><option value="todos">Todos los estados</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option></select>
         </div>
       </Section>
-      {error && <div className="bg-warn-wash px-6 py-3 text-[13px] text-warn">No se pudo conectar con Supabase. Mostrando datos de demostración.</div>}
+      {(error || mensaje) && <div aria-live="polite" className={`px-6 py-3 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>{error ?? mensaje}</div>}
       <Section bodyClass="">
-        {loading ? <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando directorio...</p> : visibles.length === 0 ? <EmptyState title="No hay usuarios con esos filtros" hint="Prueba con otra búsqueda o limpia los filtros." /> : <Table caption="Directorio de usuarios" columnas={[{ label: "Usuario" }, { label: "Roles" }, { label: "Contacto" }, { label: "Zona" }, { label: "Registro" }, { label: "Estado" }]}>{visibles.map((usuario) => <tr key={usuario.id_usuario}><td className="px-6 py-3"><div className="flex items-center gap-3">{usuario.foto_perfil ? <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 object-cover" /> : <Avatar nombre={usuario.nombre} size={36} />}<div className="min-w-0"><p className="truncate text-[13px] font-medium text-ink">{usuario.nombre}</p><p className="text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p></div></div></td><td className="px-6 py-3"><Badge tono={rolTono(usuario.roles[0] ?? null)}>{rolesLabel(usuario.roles)}</Badge></td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.telefono || "Sin teléfono"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" }).format(new Date(usuario.fecha_registro))}</td><td className="px-6 py-3"><Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge></td></tr>)}</Table>}
+        {loading ? <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando directorio...</p> : visibles.length === 0 ? <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} /> : <Table caption="Directorio de usuarios" columnas={[{ label: "Usuario" }, { label: "Roles" }, { label: "Contacto" }, { label: "Zona" }, { label: "Registro" }, { label: "Estado" }, { label: "Acciones" }]}>{paginaUsuarios.map((usuario) => {
+          const esCuentaActual = usuario.id_usuario === user?.id;
+          return <tr key={usuario.id_usuario}><td className="px-6 py-3"><div className="flex items-center gap-3">{usuario.foto_perfil ? <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 object-cover" /> : <Avatar nombre={usuario.nombre} size={36} />}<div className="min-w-0"><p className="truncate text-[13px] font-medium text-ink">{usuario.nombre}</p><p className="text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p></div></div></td><td className="px-6 py-3"><Badge tono={rolTono(usuario.roles[0] ?? null)}>{rolesLabel(usuario.roles)}</Badge></td><td className="px-6 py-3 text-[12.5px] text-ink-soft"><span className="block">{usuario.correo || "Sin correo"}</span><span className="block text-[11px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span></td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td><td className="px-6 py-3"><Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge></td><td className="px-6 py-3">{esCuentaActual ? <span className="text-[12px] font-medium text-ink-mute">Tu cuenta</span> : <button type="button" disabled={procesandoId === usuario.id_usuario} onClick={() => { clearMessage(); setConfirmar(usuario); }} className={usuario.activo ? btnDanger : btnPrimary}>{procesandoId === usuario.id_usuario ? <Loader size={14} className="animate-spin" /> : usuario.activo ? <UserX size={14} /> : <UserCheck size={14} />}{usuario.activo ? "Inactivar" : "Activar"}</button>}</td></tr>;
+        })}</Table>}
       </Section>
+      {!loading && visibles.length > PAGE_SIZE && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-surface px-6 py-4">
+          <span className="text-[12px] text-ink-mute">Página {paginaActual} de {totalPaginas}</span>
+          <div className="flex gap-px">
+            <button type="button" disabled={paginaActual === 1} onClick={() => setPagina((actual) => Math.max(1, actual - 1))} className={btnSecondary}>Anterior</button>
+            <button type="button" disabled={paginaActual === totalPaginas} onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))} className={btnSecondary}>Siguiente</button>
+          </div>
+        </div>
+      )}
+      {confirmar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b2331]/60 px-4" role="dialog" aria-modal="true" aria-labelledby="estado-usuario-title">
+          <div className="w-full max-w-[440px] bg-surface">
+            <div className={`px-6 py-5 ${confirmar.activo ? "bg-danger-wash" : "bg-ok-wash"}`}>
+              <h3 id="estado-usuario-title" className={`text-[18px] font-semibold ${confirmar.activo ? "text-danger" : "text-ok"}`}>{confirmar.activo ? "Inactivar usuario" : "Activar usuario"}</h3>
+              <p className="mt-2 text-[13px] text-ink-soft">{confirmar.activo ? "La cuenta no podrá usar funciones protegidas aunque conserve una sesión anterior." : "La cuenta recuperará acceso a las funciones protegidas."}</p>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-[13px] text-ink-soft">Vas a {confirmar.activo ? "inactivar" : "activar"} a <strong className="text-ink">{confirmar.nombre}</strong>.</p>
+              {error && <p className="mt-4 bg-danger-wash px-3 py-2 text-[13px] text-danger">{error}</p>}
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" disabled={procesandoId === confirmar.id_usuario} onClick={() => setConfirmar(null)} className={btnSecondary}>Cancelar</button>
+                <button type="button" disabled={procesandoId === confirmar.id_usuario} onClick={() => void cambiarEstado(confirmar).then(() => setConfirmar(null)).catch(() => undefined)} className={confirmar.activo ? btnDanger : btnPrimary}>{procesandoId === confirmar.id_usuario ? <Loader size={14} className="animate-spin" /> : confirmar.activo ? <UserX size={14} /> : <UserCheck size={14} />}{confirmar.activo ? "Sí, inactivar" : "Sí, activar"}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Page>
   );
 };
