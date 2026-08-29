@@ -87,6 +87,17 @@ export interface AdminUser {
   zona: Pick<Zona, "nombre" | "canton" | "provincia"> | null;
 }
 
+export interface AdminWalker {
+  id_usuario: string;
+  nombre: string;
+  foto_perfil: string | null;
+  zona: string;
+  paseos: number;
+  rating: number;
+  generado: number;
+  estado: "activo" | "inactivo" | "suspendido";
+}
+
 export interface ProfileUpdate {
   nombre: string;
   telefono: string | null;
