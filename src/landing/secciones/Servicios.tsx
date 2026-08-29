@@ -155,27 +155,44 @@ const Servicios = () => (
   >
     <Onda color={AZUL} tapa={HUESO} />
 
-    <img
-      src="/img/juguete-plumas.webp"
-      alt=""
-      aria-hidden
-      loading="lazy"
-      decoding="async"
+    {/* El giro va en el `<img>` y el parallax en la caja de afuera.
+
+        Juntos no funcionan: Tailwind v4 emite `rotate-6` como la
+        propiedad `rotate`, y GSAP —que escribe en `transform`— la pone
+        en `none` al tomar el elemento para no aplicarla dos veces. El
+        giro de reposo desaparecía. Y aunque sobreviviera, CSS aplica
+        `rotate` ANTES que `transform`, así que el desplazamiento del
+        parallax saldría inclinado por ese mismo giro. Separados, cada
+        propiedad queda en su caja. */}
+    <div
       data-par="-38"
       data-par-rot="3.5"
-      className="pointer-events-none absolute top-64 right-[2%] hidden w-[clamp(170px,19vw,290px)] rotate-6 select-none lg:block"
-    />
+      className="pointer-events-none absolute top-64 right-[2%] hidden w-[clamp(170px,19vw,290px)] lg:block"
+    >
+      <img
+        src="/img/juguete-plumas.webp"
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="w-full rotate-6 select-none"
+      />
+    </div>
 
-    <img
-      src="/img/juguete-cuerda.webp"
-      alt=""
-      aria-hidden
-      loading="lazy"
-      decoding="async"
+    <div
       data-par="32"
       data-par-rot="-3"
-      className="pointer-events-none absolute bottom-10 left-[-2%] hidden w-[clamp(170px,19vw,290px)] -rotate-6 select-none lg:block"
-    />
+      className="pointer-events-none absolute bottom-10 left-[-2%] hidden w-[clamp(170px,19vw,290px)] lg:block"
+    >
+      <img
+        src="/img/juguete-cuerda.webp"
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="w-full -rotate-6 select-none"
+      />
+    </div>
 
     <div className="relative z-10 mx-auto max-w-[1000px]">
       <EncabezadoSeccion
@@ -219,10 +236,16 @@ const Servicios = () => (
             <span className="rotulo mt-10 block" style={{ color: TINTA_SUAVE }}>
               {etiqueta}
             </span>
-            <h3 className="display mt-2 text-[20px] leading-tight" style={{ color: TINTA }}>
+            <h3
+              className="display mt-2 text-[20px] leading-tight"
+              style={{ color: TINTA }}
+            >
               {titulo}
             </h3>
-            <p className="mt-2.5 text-[14.5px] leading-relaxed" style={{ color: TINTA_SUAVE }}>
+            <p
+              className="mt-2.5 text-[14.5px] leading-relaxed"
+              style={{ color: TINTA_SUAVE }}
+            >
               {texto}
             </p>
           </li>
