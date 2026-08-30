@@ -417,6 +417,81 @@
   display: inline-block;
 }
 
+/* ── El perro que cambia con el conmutador ────────────────────
+   Los dos recortes viven apilados y el conmutador solo decide cuál
+   se ve. Es la única transición del hero que dispara el usuario, y
+   es rara —se pulsa una o dos veces en toda la visita—, así que
+   aguanta tener algo de gesto en vez de un corte seco.
+
+   El desenfoque no es decoración. El cruce pasa entre dos animales
+   distintos: sin él, durante el fundido se ven dos cabezas
+   superpuestas y el ojo las lee como dos objetos que se pisan, no
+   como uno que se convierte en otro. Difuminado al salir, las dos
+   son la misma mancha clara y la costura desaparece.
+
+   La escala arranca en 0.97 y no en cero: nada en el mundo real
+   aparece desde la nada. Y con origen abajo, que es donde el perro
+   se apoya —crece desde el suelo, no desde su propio centro, que lo
+   haría flotar.
+
+   El que sale dura menos que el que entra, 160 ms contra 260. Lo
+   que tiene que sentirse inmediato es el golpe al botón; el
+   aterrizaje puede tomarse su tiempo.
+
+   `visibility` se apaga al terminar el fundido, no antes: saca al
+   escondido del árbol de pintado y con eso el navegador deja de
+   pagar su desenfoque, que sobre una imagen de 900 px no es
+   gratis. El `aria-hidden` del componente ya lo había sacado del
+   árbol de accesibilidad. */
+.perro-hero {
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.97);
+  transform-origin: 50% 100%;
+  filter: blur(6px);
+  transition:
+    opacity 160ms cubic-bezier(0.4, 0, 1, 1),
+    transform 160ms cubic-bezier(0.4, 0, 1, 1),
+    filter 160ms cubic-bezier(0.4, 0, 1, 1),
+    visibility 0s linear 160ms;
+}
+
+.perro-hero[data-visible] {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+  filter: blur(0);
+  transition:
+    opacity 260ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 260ms cubic-bezier(0.23, 1, 0.32, 1),
+    filter 260ms cubic-bezier(0.23, 1, 0.32, 1),
+    visibility 0s;
+}
+
+/* Con la preferencia puesta se queda el fundido y se van la escala y
+   el desenfoque. Un cambio de opacidad no es movimiento: quitarlo
+   también dejaría el cambio de perro en un salto de cuadro, que es
+   justo lo que la preferencia quiere evitar. */
+@media (prefers-reduced-motion: reduce) {
+  .perro-hero,
+  .perro-hero[data-visible] {
+    transform: none;
+    filter: none;
+  }
+
+  .perro-hero {
+    transition:
+      opacity 120ms linear,
+      visibility 0s linear 120ms;
+  }
+
+  .perro-hero[data-visible] {
+    transition:
+      opacity 120ms linear,
+      visibility 0s;
+  }
+}
+
 /* ── Recortes sobre la banda ──────────────────────────────────
    Las fotos de "Qué resuelve" no llevan marco: se apoyan sobre el
    fondo y se desvanecen abajo, para que el corte de la foto no se
