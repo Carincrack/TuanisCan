@@ -197,6 +197,29 @@
   }
 }
 
+/* La salida del cajón de navegación. Va más rápida que la entrada
+   —220 contra 280 ms— porque lo que tiene que sentirse inmediato es
+   el gesto de cerrar; el de abrir el usuario ya lo dio. Sin estas dos
+   el panel se desmontaba en el mismo cuadro de la pulsación y
+   desaparecía de golpe. */
+@keyframes tsc-cajon-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes tsc-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @layer utilities {
   /* Cifras de ancho fijo para dinero, horas y contadores. */
   .nums {
@@ -236,6 +259,13 @@
     animation: tsc-menu-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
+  .anim-cajon-out {
+    animation: tsc-cajon-out 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  .anim-fade-out {
+    animation: tsc-fade-out 0.22s ease-in both;
+  }
+
   /* Escalonado de listas y rejillas. */
   .d-1 { animation-delay: 40ms; }
   .d-2 { animation-delay: 80ms; }
@@ -247,8 +277,144 @@
   .d-8 { animation-delay: 320ms; }
 }
 
+/* ── El riel ─────────────────────────────────────────────────── */
 
+/* El ancho es lo único que se anima con `width` en toda la interfaz.
+   Aquí no hay versión con `transform`: anclado, el riel tiene que
+   empujar el contenido de verdad, y una barra trasladada seguiría
+   ocupando su sitio en la retícula. Es un elemento con una quincena
+   de hijos y una curva corta, así que el reflujo se paga una vez.
 
+   Las dos cajas llevan la misma curva y la misma duración porque al
+   anclar cambian de ancho a la vez: el hueco que reserva la retícula
+   y el panel que flota encima. Con tiempos distintos se ve al
+   contenido correrse antes o después que la barra. */
+.riel,
+.riel-hueco {
+  transition: width 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* La lista de pantallas se desplaza sin barra a la vista. No es
+   coquetería: la barra del sistema es clara, mide unos 15 px y sobre
+   el riel cerrado se comería una cuarta parte del ancho, dejando la
+   columna de iconos descentrada respecto a la retícula de 64 px que
+   sostiene todo lo demás. Quien navega con teclado o con rueda sigue
+   llegando abajo; para acortar la lista están los grupos plegables. */
+.riel nav {
+  scrollbar-width: none;
+}
+
+.riel nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MUNDO SUAVE (`.suave`)
+
+   La piel nueva del sistema, en prueba dentro de la parte
+   administrativa. La aplicación nació plana y cuadrada —`.plano` le
+   pone `border-radius: 0` a todo lo que tenga adentro— mientras la
+   portada es lo contrario: píldoras, Archivo en versalitas, discos
+   de turquesa y sombras largas y bajas. Con el mismo logo parecían
+   dos productos.
+
+   `.suave` es lo que `.plano` no deja ser. Se monta en su lugar, no
+   encima: una pantalla lleva una clase o la otra, nunca las dos, y
+   por eso no hay que pelear ninguna especificidad. Cuando el resto
+   del sistema cruce, `.plano` se borra y estas reglas se quedan.
+   ───────────────────────────────────────────────────────────── */
+
+/* Las versalitas de la portada, ahora también adentro. Mismos
+   valores que `.portada .rotulo`; se repiten en vez de compartir un
+   selector porque son dos mundos y uno puede cambiar sin el otro. */
+.suave .rotulo {
+  font-family: Archivo, "Instrument Sans", sans-serif;
+  font-variation-settings: "wdth" 100, "wght" 700;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Los titulares del sistema toman la letra de la portada. El cuerpo
+   del texto no: Archivo a 13 px en párrafos se lee apretado, y para
+   eso ya está Instrument Sans. */
+.suave .titular {
+  font-family: Archivo, "Instrument Sans", sans-serif;
+  font-variation-settings: "wdth" 100, "wght" 700;
+  letter-spacing: -0.022em;
+}
+
+/* La tarjeta del riel no está pegada al borde: flota sobre el canvas.
+   La sombra es larga, baja y muy abierta —la misma familia que la de
+   las píldoras de la portada—, no un contorno oscuro pegado al
+   objeto. Es lo que la separa del fondo sin dibujarle un borde. */
+.riel-suave {
+  box-shadow: 0 20px 46px -28px rgb(20 36 46 / 60%);
+}
+
+/* Los controles de la barra superior son blancos y el fondo que los
+   sostiene también es claro: sin nada que los levante, el botón de
+   menú desaparece contra el canvas. La misma sombra del riel, más
+   corta. No es un contorno — la portada no dibuja bordes: es la
+   distancia al fondo lo que separa las cosas. */
+.suave .flota {
+  box-shadow: 0 8px 18px -12px rgb(20 36 46 / 45%);
+}
+
+/* La barra de desplazamiento del sistema es gris, ancha y cuadrada, y
+   se sienta justo al lado de tarjetas redondas. Se hereda a todo lo
+   que se desplace dentro de `.suave`. */
+.suave {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(26 66 87 / 25%) transparent;
+}
+
+/* ── Puente hacia las pantallas ───────────────────────────────
+   Las pantallas de contenido siguen siendo las del mundo plano:
+   `ui.tsx` no escribe ni un radio. Estas dos reglas las redondean
+   desde afuera para que el riel nuevo no quede al lado de tarjetas
+   con esquina viva mientras se decide la piel.
+
+   Son un puente, no diseño: se borran cuando `ui.tsx` se rehaga con
+   sus propios radios. Las tiras de métricas se separan con un píxel
+   de canvas, que con esquinas redondas se ve como un error, así que
+   el hueco crece con ellas. */
+.suave .bg-surface {
+  border-radius: 18px;
+}
+
+.suave .gap-px {
+  gap: 10px;
+}
+
+/* ── Menos movimiento ────────────────────────────────────────── */
+
+/* Con la preferencia puesta no se apaga la animación: se acorta a un
+   milisegundo. Apagarla del todo con `animation: none` también apaga
+   el estado final que deja `both`, y los elementos que entran con
+   `opacity: 0` se quedarían invisibles para siempre. */
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .anim-fade,
+  .anim-fade-out,
+  .anim-slide-left,
+  .anim-cajon-out,
+  .anim-nav-in,
+  .anim-brand-in,
+  .anim-brand-out,
+  .anim-splash-out,
+  .anim-app-in,
+  .anim-bar,
+  .anim-menu-in {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  .riel,
+  .riel-hueco {
+    transition-duration: 1ms !important;
+  }
+}
 
 .tsc-map-marker__pin {
   position: relative;
