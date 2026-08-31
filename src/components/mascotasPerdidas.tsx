@@ -419,6 +419,12 @@ const MascotasPerdidas = () => {
     [reportes]
   );
 
+  const stats = useMemo(() => ({
+    perdidas: reportes.filter((reporte) => reporte.estado === "perdida").length,
+    encontradas: reportes.filter((reporte) => reporte.estado === "encontrada").length,
+    avistamientos: reportes.reduce((total, reporte) => total + reporte.avistamientos.length, 0),
+  }), [reportes]);
+
   const visibles = useMemo(() => {
     const query = busqueda.trim().toLocaleLowerCase("es");
     return reportes.filter((reporte) => {
@@ -448,30 +454,53 @@ const MascotasPerdidas = () => {
     }
   };
 
+  const hasFilters = Boolean(busqueda || especie || zonaId || filtro !== "Todas");
+  const clearFilters = () => {
+    setBusqueda("");
+    setEspecie("");
+    setZonaId("");
+    setFiltro("Todas");
+  };
+
   return (
     <Page>
       <PageHeader
         title="Mascotas perdidas"
-        subtitle={loading ? "Cargando reportes..." : `${visibles.length} ${visibles.length === 1 ? "reporte visible" : "reportes visibles"} de la comunidad.`}
-        action={<button type="button" className={btnPrimary} onClick={() => setReporting(true)}><Siren size={15} strokeWidth={2} />Reportar mascota perdida</button>}
+        subtitle={loading ? "Cargando reportes..." : `${stats.perdidas} activas · ${stats.encontradas} encontradas · ${stats.avistamientos} avistamientos`}
+        action={<button type="button" className={btnPrimary} onClick={() => setReporting(true)} disabled={!pets.length} title={!pets.length ? "Registra primero una mascota" : undefined}><Siren size={15} strokeWidth={2} />Reportar mascota perdida</button>}
       />
 
       <section aria-label="Filtros de mascotas perdidas" className="bg-surface p-4 sm:p-5">
-        <div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,0.45fr)_minmax(180px,0.45fr)_auto] xl:items-center">
-          <div className="relative">
-            <label htmlFor="buscar-reporte" className="sr-only">Buscar reportes</label>
-            <input id="buscar-reporte" type="search" className={`${input} pl-9`} placeholder="Buscar por nombre, zona o senas" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
-            <Search size={15} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[13px] font-semibold text-ink">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</p>
+            <p className="mt-0.5 text-[12px] text-ink-mute">Filtra por estado, zona, especie o texto.</p>
           </div>
-          <select className={input} aria-label="Filtrar por zona" value={zonaId} onChange={(event) => setZonaId(event.target.value)}>
-            <option value="">Todas las zonas</option>
-            {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre} - {zona.canton}</option>)}
-          </select>
-          <select className={input} aria-label="Filtrar por especie" value={especie} onChange={(event) => setEspecie(event.target.value)}>
-            <option value="">Todas las especies</option>
-            {especies.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
           <FilterTabs label="Filtrar reportes" options={filtros} value={filtro} onChange={setFiltro} />
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(260px,1fr)_minmax(190px,0.45fr)_minmax(190px,0.45fr)_auto] lg:items-end">
+          <label className={fieldLabel}>Buscar
+            <span className="relative">
+              <input id="buscar-reporte" type="search" className={`${input} pl-9`} placeholder="Nombre, zona o señas" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
+              <Search size={15} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" />
+            </span>
+          </label>
+          <label className={fieldLabel}>Zona
+            <select className={input} value={zonaId} onChange={(event) => setZonaId(event.target.value)}>
+              <option value="">Todas las zonas</option>
+              {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre} - {zona.canton}</option>)}
+            </select>
+          </label>
+          <label className={fieldLabel}>Especie
+            <select className={input} value={especie} onChange={(event) => setEspecie(event.target.value)}>
+              <option value="">Todas las especies</option>
+              {especies.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+          <button type="button" className={btnSecondary} onClick={clearFilters} disabled={!hasFilters}>
+            Limpiar
+          </button>
         </div>
       </section>
 
@@ -515,26 +544,30 @@ const MascotasPerdidas = () => {
                   <p className="mt-3 text-[12.5px] leading-snug text-ink-soft">{reporte.descripcion}</p>
 
                   <div className="mt-3 bg-sunken px-3 py-2 text-[12px] text-ink-soft">
-                    <p className="font-semibold text-ink">
-                      {reporte.avistamientos.length} {reporte.avistamientos.length === 1 ? "avistamiento" : "avistamientos"}
-                    </p>
-                    {ultimoAvistamiento ? (
-                      <p className="mt-1 line-clamp-2">
-                        Ultimo: {ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona)} · {formatDateTime(ultimoAvistamiento.fecha)}
-                      </p>
-                    ) : <p className="mt-1 text-ink-mute">Sin avistamientos reportados.</p>}
-                    {canClose && reporte.avistamientos.length > 0 && (
-                      <button type="button" className="mt-2 text-[12px] font-semibold text-accent-dark hover:underline" onClick={() => setSightingDetails(reporte)}>
-                        Ver detalles
-                      </button>
-                    )}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-ink">
+                          {reporte.avistamientos.length} {reporte.avistamientos.length === 1 ? "avistamiento" : "avistamientos"}
+                        </p>
+                        {ultimoAvistamiento ? (
+                          <p className="mt-1 line-clamp-2">
+                            Ultimo: {ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona)} · {formatDateTime(ultimoAvistamiento.fecha)}
+                          </p>
+                        ) : <p className="mt-1 text-ink-mute">Sin avistamientos reportados.</p>}
+                      </div>
+                      {canClose && reporte.avistamientos.length > 0 && (
+                        <button type="button" className="shrink-0 text-[12px] font-semibold text-accent-dark hover:underline" onClick={() => setSightingDetails(reporte)}>
+                          Detalles
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${reporte.latitud},${reporte.longitud}`} target="_blank" rel="noreferrer" className="mt-3 text-[12px] font-semibold text-accent-dark hover:underline">
-                    Ver ubicacion en mapa
-                  </a>
-
                   <div className="mt-auto grid gap-2 pt-4">
+                    <a href={`https://www.google.com/maps/search/?api=1&query=${reporte.latitud},${reporte.longitud}`} target="_blank" rel="noreferrer" className={`${btnSecondary} w-full`}>
+                      <MapPin size={14} />
+                      Ver ubicacion
+                    </a>
                     <button type="button" disabled={reporte.estado === "encontrada"} className={`${btnSecondary} w-full disabled:cursor-default disabled:opacity-45 disabled:hover:bg-neutral-wash`} onClick={() => setSighting(reporte)}>
                       <Eye size={14} strokeWidth={1.9} />
                       {reporte.estado === "encontrada" ? "Caso cerrado" : "Vi a esta mascota"}
