@@ -25,7 +25,13 @@ import {
 const filtros = ["Todas", "Perdidas", "Encontradas", "Mi zona"];
 const fieldLabel = "grid gap-1.5 text-[12px] font-medium text-ink-soft";
 const messageFrom = (error: unknown) =>
-  error instanceof Error ? error.message : "No se pudo completar la operacion.";
+  error instanceof Error
+    ? error.message
+    : typeof error === "object" && error && "message" in error
+      ? String(error.message)
+      : "No se pudo completar la operacion.";
+
+const numericValue = (value: string) => Number(value.replace(",", "."));
 
 const formatDateTime = (value: string) =>
   new Intl.DateTimeFormat("es-CR", {
@@ -144,17 +150,33 @@ const ReportForm = ({
       return;
     }
     const payload: LostPetInput = {
-      id_mascota: values.id_mascota || null,
+      id_mascota: values.id_mascota,
       nombre: (selectedPet?.nombre ?? values.nombre).trim(),
       especie: (selectedPet?.especie ?? values.especie).trim(),
-      raza: (selectedPet?.raza ?? values.raza).trim() || null,
+      raza: (selectedPet?.raza ?? values.raza).trim() || "Desconocida",
       zona_id: values.zona_id,
       contacto: values.contacto.trim() || null,
       descripcion: values.descripcion.trim(),
-      latitud: Number(values.latitud),
-      longitud: Number(values.longitud),
-      recompensa: values.recompensa ? Number(values.recompensa) : null,
+      latitud: numericValue(values.latitud),
+      longitud: numericValue(values.longitud),
+      recompensa: values.recompensa ? numericValue(values.recompensa) : null,
     };
+    if (!selectedPet) {
+      setError("Selecciona una mascota registrada de tu cuenta.");
+      return;
+    }
+    if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
+      setError("La latitud debe ser un numero entre -90 y 90.");
+      return;
+    }
+    if (!Number.isFinite(payload.longitud) || payload.longitud < -180 || payload.longitud > 180) {
+      setError("La longitud debe ser un numero entre -180 y 180.");
+      return;
+    }
+    if (payload.recompensa != null && (!Number.isFinite(payload.recompensa) || payload.recompensa < 0)) {
+      setError("La recompensa debe ser un numero positivo.");
+      return;
+    }
     setBusy(true);
     try {
       await reportLostPet(userId, payload, photo);
@@ -170,9 +192,9 @@ const ReportForm = ({
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className={fieldLabel}>Mascota registrada
-          <select className={input} value={values.id_mascota} onChange={(e) => selectPet(e.target.value)}>
-            <option value="">No esta registrada</option>
+        <label className={fieldLabel}>Mascota registrada *
+          <select className={input} required value={values.id_mascota} onChange={(e) => selectPet(e.target.value)}>
+            <option value="">Selecciona tu mascota</option>
             {pets.map((pet) => <option key={pet.id_mascota} value={pet.id_mascota}>{pet.nombre} - {pet.especie}</option>)}
           </select>
         </label>
@@ -182,13 +204,13 @@ const ReportForm = ({
             {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre} - {zona.canton}</option>)}
           </select>
         </label>
-        <label className={fieldLabel}>Nombre *<input className={input} required disabled={Boolean(selectedPet)} maxLength={100} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
-        <label className={fieldLabel}>Especie *<input className={input} required disabled={Boolean(selectedPet)} list="lost-pet-species" maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /><datalist id="lost-pet-species"><option value="Perro" /><option value="Gato" /><option value="Conejo" /><option value="Ave" /></datalist></label>
-        <label className={fieldLabel}>Raza<input className={input} disabled={Boolean(selectedPet)} maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
-        <label className={fieldLabel}>Contacto<input className={input} maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
-        <label className={fieldLabel}>Latitud *<input className={input} required type="number" min="-90" max="90" step="0.000001" value={values.latitud} onChange={(e) => update("latitud", e.target.value)} /></label>
-        <label className={fieldLabel}>Longitud *<input className={input} required type="number" min="-180" max="180" step="0.000001" value={values.longitud} onChange={(e) => update("longitud", e.target.value)} /></label>
-        <label className={fieldLabel}>Recompensa<input className={input} type="number" min="0" step="100" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
+        <label className={fieldLabel}>Nombre *<input className={input} required disabled maxLength={100} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
+        <label className={fieldLabel}>Especie *<input className={input} required disabled maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
+        <label className={fieldLabel}>Raza<input className={input} disabled maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
+        <label className={fieldLabel}>Contacto *<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
+        <label className={fieldLabel}>Latitud *<input className={input} required inputMode="decimal" value={values.latitud} onChange={(e) => update("latitud", e.target.value)} /></label>
+        <label className={fieldLabel}>Longitud *<input className={input} required inputMode="decimal" value={values.longitud} onChange={(e) => update("longitud", e.target.value)} /></label>
+        <label className={fieldLabel}>Recompensa<input className={input} inputMode="numeric" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
         <label className={fieldLabel}><span className="flex items-center gap-2"><Camera size={15} /> Foto *</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
       </div>
       <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar mi ubicacion actual"}</button>
@@ -214,13 +236,24 @@ const SightingForm = ({ report, onClose, onSaved }: { report: LostPetReport; onC
     event.preventDefault();
     setBusy(true);
     setError("");
-    try {
-      await registerSighting({
+    const payload = {
         id_mascota_perdida: report.id_mascota_perdida,
-        latitud: Number(values.latitud),
-        longitud: Number(values.longitud),
+        latitud: numericValue(values.latitud),
+        longitud: numericValue(values.longitud),
         comentario: values.comentario.trim() || null,
-      });
+      };
+    if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
+      setError("La latitud debe ser un numero entre -90 y 90.");
+      setBusy(false);
+      return;
+    }
+    if (!Number.isFinite(payload.longitud) || payload.longitud < -180 || payload.longitud > 180) {
+      setError("La longitud debe ser un numero entre -180 y 180.");
+      setBusy(false);
+      return;
+    }
+    try {
+      await registerSighting(payload);
       await onSaved();
       onClose();
     } catch (cause) {
@@ -234,8 +267,8 @@ const SightingForm = ({ report, onClose, onSaved }: { report: LostPetReport; onC
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="bg-sunken p-4"><p className="text-[14px] font-semibold text-ink">{report.nombre}</p><p className="mt-1 text-[12.5px] text-ink-soft">{zonaLabel(report.zona)}</p></div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className={fieldLabel}>Latitud *<input className={input} required type="number" min="-90" max="90" step="0.000001" value={values.latitud} onChange={(e) => update("latitud", e.target.value)} /></label>
-        <label className={fieldLabel}>Longitud *<input className={input} required type="number" min="-180" max="180" step="0.000001" value={values.longitud} onChange={(e) => update("longitud", e.target.value)} /></label>
+        <label className={fieldLabel}>Latitud *<input className={input} required inputMode="decimal" value={values.latitud} onChange={(e) => update("latitud", e.target.value)} /></label>
+        <label className={fieldLabel}>Longitud *<input className={input} required inputMode="decimal" value={values.longitud} onChange={(e) => update("longitud", e.target.value)} /></label>
       </div>
       <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar mi ubicacion actual"}</button>
       <label className={fieldLabel}>Comentario<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>

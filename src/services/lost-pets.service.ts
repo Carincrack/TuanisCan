@@ -54,18 +54,19 @@ export const uploadLostPetPhoto = async (userId: string, file: File) => {
 
 export const reportLostPet = async (userId: string, values: LostPetInput, photo: File) => {
   const foto = await uploadLostPetPhoto(userId, photo);
-  const { error } = await supabase.rpc("reportar_mascota_perdida", {
-    p_id_mascota: values.id_mascota,
-    p_especie: values.especie,
-    p_zona_id: values.zona_id,
-    p_descripcion: values.descripcion,
-    p_foto: foto,
-    p_latitud: values.latitud,
-    p_longitud: values.longitud,
-    p_recompensa: values.recompensa,
-    p_nombre: values.nombre,
-    p_raza: values.raza,
-    p_contacto: values.contacto,
+  const { error } = await supabase.from("mascotas_perdidas").insert({
+    id_mascota: values.id_mascota,
+    id_usuario_reporta: userId,
+    zona_id: values.zona_id,
+    especie: values.especie,
+    nombre: values.nombre,
+    raza: values.raza || "Desconocida",
+    contacto: values.contacto,
+    descripcion: values.descripcion,
+    foto,
+    latitud: values.latitud,
+    longitud: values.longitud,
+    recompensa: values.recompensa,
   });
   if (error) {
     await supabase.storage.from(PHOTO_BUCKET).remove([foto]);

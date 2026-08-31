@@ -25,7 +25,7 @@ export interface LostPetReport {
 }
 
 export interface LostPetInput {
-  id_mascota: string | null;
+  id_mascota: string;
   especie: string;
   zona_id: string;
   nombre: string;
