@@ -33,6 +33,17 @@ export interface Publico {
   /** Se lee debajo del wordmark. */
   entrada: string;
   cta: string;
+  /** El perro del hero. Cambia con el conmutador porque es la
+      señal más grande de que el botón hizo algo: el párrafo y el
+      CTA también cambian, pero hay que leerlos; al perro se lo ve.
+
+      Los dos recortes se encuadraron para ser intercambiables —
+      mismo lienzo, sujeto a sangre de arriba abajo y su centro en
+      el 48% del ancho—, así que el cambio no salta de tamaño ni
+      se corre de sitio. Si se agrega un tercer público hay que
+      encuadrar el suyo igual. */
+  foto: string;
+  fotoAlt: string;
 }
 
 export const PUBLICOS: Publico[] = [
@@ -43,6 +54,8 @@ export const PUBLICOS: Publico[] = [
     entrada:
       "Paseadores verificados, veterinarias cerca y una comunidad que se activa cuando una mascota se pierde.",
     cta: "Buscar paseador",
+    foto: "/img/hero-dueno.webp",
+    fotoAlt: "Border collie atento, listo para salir a pasear",
   },
   {
     clave: "paseador",
@@ -51,6 +64,8 @@ export const PUBLICOS: Publico[] = [
     entrada:
       "Armá tu perfil, elegí las zonas donde paseás y recibí solicitudes de dueños de tu cantón. El cobro va por la app.",
     cta: "Ofrecer mis paseos",
+    foto: "/img/hero-paseador.webp",
+    fotoAlt: "Husky de ojos azules sentado, esperando a que lo saquen",
   },
 ];
 

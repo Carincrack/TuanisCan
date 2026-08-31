@@ -61,17 +61,39 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
 
       {/* ── Escenario del perro ── */}
       <div className="relative min-h-0 flex-1">
-        {/* Es el elemento más grande de la primera pantalla, así que es
-            el que decide el LCP: se pide con prioridad alta para que el
-            navegador no lo deje detrás de las fuentes. */}
-        <img
-          src="/mock/dog-hero.png"
-          alt="Border collie atento, listo para salir a pasear"
-          fetchPriority="high"
-          decoding="async"
-          data-entra="perro"
-          className="absolute inset-0 z-10 h-full w-full object-contain object-bottom lg:h-[calc(100%+clamp(30px,4vw,62px))]"
-        />
+        {/* Un recorte por público, apilados, y el conmutador funde de uno
+            al otro. Con un solo `<img>` cambiando de `src` el navegador
+            vacía el cuadro mientras descarga y el hero parpadearía en el
+            primer cambio; montados los dos, el segundo ya está listo
+            cuando se pulsa el botón.
+
+            La entrada de GSAP va en la caja de afuera y el fundido en los
+            `<img>` de adentro. No es cosmético: ese tween anima `opacity`
+            y la deja escrita en el estilo en línea, que le gana a
+            cualquier clase — sobre los propios recortes dejaría al
+            escondido visible para siempre.
+
+            El activo es el elemento más grande de la primera pantalla y
+            por lo tanto el que decide el LCP: se pide con prioridad alta.
+            El otro va con prioridad baja para que no le compita por el
+            ancho de banda mientras carga la portada. */}
+        <div data-entra="perro" className="absolute inset-0 z-10">
+          {PUBLICOS.map(({ clave, foto, fotoAlt }) => {
+            const visible = clave === publico;
+            return (
+              <img
+                key={clave}
+                src={foto}
+                alt={visible ? fotoAlt : ""}
+                aria-hidden={!visible || undefined}
+                fetchPriority={clave === "dueno" ? "high" : "low"}
+                decoding="async"
+                data-visible={visible || undefined}
+                className="perro-hero absolute inset-0 h-full w-full object-contain object-bottom lg:h-[calc(100%+clamp(30px,4vw,62px))]"
+              />
+            );
+          })}
+        </div>
 
         <Rayas className="absolute bottom-[34%] left-[6%] z-20 w-[6cqw] max-w-[130px] min-w-[48px] sm:left-[14%] lg:left-[20%]" />
         <Correa className="absolute bottom-[6%] left-[70%] z-20 w-[26cqw] max-w-[420px] min-w-[170px] -translate-x-2/7"/>
