@@ -1,0 +1,2 @@
+-- Placeholder para una migracion que ya existe en el historial remoto.
+-- Mantiene sincronizado el orden local sin modificar el esquema.
