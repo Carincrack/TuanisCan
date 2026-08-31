@@ -334,6 +334,46 @@ const SightingForm = ({
   );
 };
 
+const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: () => void }) => (
+  <div className="grid gap-3 p-5 sm:p-6">
+    {report.avistamientos.length === 0 ? (
+      <EmptyState title="Sin avistamientos" hint="Cuando alguien reporte que vio tu mascota, aparecera aqui." />
+    ) : (
+      report.avistamientos.map((item) => (
+        <article key={item.id_avistamiento} className="bg-sunken p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[13px] font-semibold text-ink">{formatDateTime(item.fecha)}</p>
+              <p className="mt-1 text-[12.5px] text-ink-soft">{item.direccion || zonaLabel(item.zona)}</p>
+            </div>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${item.latitud},${item.longitud}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[12px] font-semibold text-accent-dark hover:underline"
+            >
+              Ver mapa
+            </a>
+          </div>
+          <dl className="mt-3 grid gap-px bg-canvas text-[12.5px] text-ink-soft sm:grid-cols-2">
+            <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Ubicacion</dt><dd className="nums mt-1">{coordsLabel(item)}</dd></div>
+            <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Zona</dt><dd className="mt-1">{zonaLabel(item.zona)}</dd></div>
+            <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Contacto</dt><dd className="nums mt-1">{item.contacto || "No indicado"}</dd></div>
+            <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Usuario</dt><dd className="nums mt-1">{item.id_usuario}</dd></div>
+          </dl>
+          <div className="mt-3 bg-surface p-3">
+            <p className="text-[10px] font-semibold uppercase text-ink-mute">Comentario</p>
+            <p className="mt-1 whitespace-pre-wrap text-[13px] text-ink-soft">{item.comentario || "Sin comentario"}</p>
+          </div>
+        </article>
+      ))
+    )}
+    <div className="flex justify-end">
+      <button type="button" className={btnSecondary} onClick={onClose}>Cerrar</button>
+    </div>
+  </div>
+);
+
 const MascotasPerdidas = () => {
   const { user, getProfile, isAdmin } = useAuth();
   const [filtro, setFiltro] = useState("Todas");
@@ -349,6 +389,7 @@ const MascotasPerdidas = () => {
   const [error, setError] = useState("");
   const [reporting, setReporting] = useState(false);
   const [sighting, setSighting] = useState<LostPetReport | null>(null);
+  const [sightingDetails, setSightingDetails] = useState<LostPetReport | null>(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -482,6 +523,11 @@ const MascotasPerdidas = () => {
                         Ultimo: {ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona)} · {formatDateTime(ultimoAvistamiento.fecha)}
                       </p>
                     ) : <p className="mt-1 text-ink-mute">Sin avistamientos reportados.</p>}
+                    {canClose && reporte.avistamientos.length > 0 && (
+                      <button type="button" className="mt-2 text-[12px] font-semibold text-accent-dark hover:underline" onClick={() => setSightingDetails(reporte)}>
+                        Ver detalles
+                      </button>
+                    )}
                   </div>
 
                   <a href={`https://www.google.com/maps/search/?api=1&query=${reporte.latitud},${reporte.longitud}`} target="_blank" rel="noreferrer" className="mt-3 text-[12px] font-semibold text-accent-dark hover:underline">
@@ -510,6 +556,11 @@ const MascotasPerdidas = () => {
       {sighting && (
         <Dialog title="Registrar avistamiento" onClose={() => setSighting(null)}>
           <SightingForm report={sighting} zonas={zonas} profilePhone={profilePhone} onClose={() => setSighting(null)} onSaved={load} />
+        </Dialog>
+      )}
+      {sightingDetails && (
+        <Dialog title={`Avistamientos de ${sightingDetails.nombre}`} onClose={() => setSightingDetails(null)}>
+          <SightingDetails report={sightingDetails} onClose={() => setSightingDetails(null)} />
         </Dialog>
       )}
     </Page>
