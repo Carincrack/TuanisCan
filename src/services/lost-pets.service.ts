@@ -53,6 +53,17 @@ export const uploadLostPetPhoto = async (userId: string, file: File) => {
 };
 
 export const reportLostPet = async (userId: string, values: LostPetInput, photo: File) => {
+  const activeReport = await supabase
+    .from("mascotas_perdidas")
+    .select("id_mascota_perdida")
+    .eq("id_mascota", values.id_mascota)
+    .eq("estado", "perdida")
+    .maybeSingle();
+  if (activeReport.error) throw activeReport.error;
+  if (activeReport.data) {
+    throw new Error("Esta mascota ya tiene un reporte activo como perdida.");
+  }
+
   const foto = await uploadLostPetPhoto(userId, photo);
   const { error } = await supabase.from("mascotas_perdidas").insert({
     id_mascota: values.id_mascota,
@@ -70,6 +81,9 @@ export const reportLostPet = async (userId: string, values: LostPetInput, photo:
   });
   if (error) {
     await supabase.storage.from(PHOTO_BUCKET).remove([foto]);
+    if (error.code === "23505") {
+      throw new Error("Esta mascota ya tiene un reporte activo como perdida.");
+    }
     throw error;
   }
 };
