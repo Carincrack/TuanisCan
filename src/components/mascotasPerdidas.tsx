@@ -32,6 +32,17 @@ const messageFrom = (error: unknown) =>
       : "No se pudo completar la operacion.";
 
 const numericValue = (value: string) => Number(value.replace(",", "."));
+const parseCoords = (value: string) => {
+  const match = value.trim().match(/^(-?\d+(?:[.,]\d+)?)\s*[,;]\s*(-?\d+(?:[.,]\d+)?)$/);
+  if (!match) return null;
+  return {
+    latitud: numericValue(match[1]),
+    longitud: numericValue(match[2]),
+  };
+};
+
+const coordsLabel = ({ latitud, longitud }: { latitud: number; longitud: number }) =>
+  `${latitud.toFixed(6)}, ${longitud.toFixed(6)}`;
 
 const formatDateTime = (value: string) =>
   new Intl.DateTimeFormat("es-CR", {
@@ -110,8 +121,7 @@ const ReportForm = ({
     zona_id: profileZonaId ?? "",
     contacto: profilePhone ?? "",
     descripcion: "",
-    latitud: "",
-    longitud: "",
+    ubicacion: "",
     recompensa: "",
   });
   const [photo, setPhoto] = useState<File | null>(null);
@@ -123,7 +133,7 @@ const ReportForm = ({
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
   const fillLocation = () =>
     locate(
-      ({ latitud, longitud }) => setValues((current) => ({ ...current, latitud: String(latitud), longitud: String(longitud) })),
+      (coords) => setValues((current) => ({ ...current, ubicacion: coordsLabel(coords) })),
       setError
     );
 
@@ -149,6 +159,11 @@ const ReportForm = ({
       setError("La foto debe ser JPG, PNG o WebP y pesar menos de 5 MB.");
       return;
     }
+    const coords = parseCoords(values.ubicacion);
+    if (!coords) {
+      setError("Escribe la ubicacion como latitud, longitud. Ejemplo: 10.169410, -85.541761");
+      return;
+    }
     const payload: LostPetInput = {
       id_mascota: values.id_mascota,
       nombre: (selectedPet?.nombre ?? values.nombre).trim(),
@@ -157,8 +172,8 @@ const ReportForm = ({
       zona_id: values.zona_id,
       contacto: values.contacto.trim() || null,
       descripcion: values.descripcion.trim(),
-      latitud: numericValue(values.latitud),
-      longitud: numericValue(values.longitud),
+      latitud: coords.latitud,
+      longitud: coords.longitud,
       recompensa: values.recompensa ? numericValue(values.recompensa) : null,
     };
     if (!selectedPet) {
@@ -208,12 +223,13 @@ const ReportForm = ({
         <label className={fieldLabel}>Especie *<input className={input} required disabled maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
         <label className={fieldLabel}>Raza<input className={input} disabled maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
         <label className={fieldLabel}>Contacto *<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
-        <label className={fieldLabel}>Latitud *<input className={input} required inputMode="decimal" value={values.latitud} onChange={(e) => update("latitud", e.target.value)} /></label>
-        <label className={fieldLabel}>Longitud *<input className={input} required inputMode="decimal" value={values.longitud} onChange={(e) => update("longitud", e.target.value)} /></label>
+        <label className={`${fieldLabel} sm:col-span-2`}>Ubicacion *
+          <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
+        </label>
         <label className={fieldLabel}>Recompensa<input className={input} inputMode="numeric" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
         <label className={fieldLabel}><span className="flex items-center gap-2"><Camera size={15} /> Foto *</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
       </div>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar mi ubicacion actual"}</button>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar ubicacion donde estoy"}</button>
       <label className={fieldLabel}>Senas, conducta y ultimo lugar visto *<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
       <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Publicando..." : "Publicar reporte"}</button></div>
@@ -222,24 +238,30 @@ const ReportForm = ({
 };
 
 const SightingForm = ({ report, onClose, onSaved }: { report: LostPetReport; onClose: () => void; onSaved: () => Promise<void> }) => {
-  const [values, setValues] = useState({ latitud: "", longitud: "", comentario: "" });
+  const [values, setValues] = useState({ ubicacion: "", comentario: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { locating, locate } = useBrowserLocation();
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
   const fillLocation = () =>
     locate(
-      ({ latitud, longitud }) => setValues((current) => ({ ...current, latitud: String(latitud), longitud: String(longitud) })),
+      (coords) => setValues((current) => ({ ...current, ubicacion: coordsLabel(coords) })),
       setError
     );
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError("");
+    const coords = parseCoords(values.ubicacion);
+    if (!coords) {
+      setError("Escribe la ubicacion como latitud, longitud. Ejemplo: 10.169410, -85.541761");
+      setBusy(false);
+      return;
+    }
     const payload = {
         id_mascota_perdida: report.id_mascota_perdida,
-        latitud: numericValue(values.latitud),
-        longitud: numericValue(values.longitud),
+        latitud: coords.latitud,
+        longitud: coords.longitud,
         comentario: values.comentario.trim() || null,
       };
     if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
@@ -266,11 +288,10 @@ const SightingForm = ({ report, onClose, onSaved }: { report: LostPetReport; onC
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="bg-sunken p-4"><p className="text-[14px] font-semibold text-ink">{report.nombre}</p><p className="mt-1 text-[12.5px] text-ink-soft">{zonaLabel(report.zona)}</p></div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className={fieldLabel}>Latitud *<input className={input} required inputMode="decimal" value={values.latitud} onChange={(e) => update("latitud", e.target.value)} /></label>
-        <label className={fieldLabel}>Longitud *<input className={input} required inputMode="decimal" value={values.longitud} onChange={(e) => update("longitud", e.target.value)} /></label>
-      </div>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar mi ubicacion actual"}</button>
+      <label className={fieldLabel}>Ubicacion *
+        <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
+      </label>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar ubicacion donde estoy"}</button>
       <label className={fieldLabel}>Comentario<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
       <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Registrando..." : "Registrar avistamiento"}</button></div>
