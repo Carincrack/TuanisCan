@@ -237,8 +237,26 @@ const ReportForm = ({
   );
 };
 
-const SightingForm = ({ report, onClose, onSaved }: { report: LostPetReport; onClose: () => void; onSaved: () => Promise<void> }) => {
-  const [values, setValues] = useState({ ubicacion: "", comentario: "" });
+const SightingForm = ({
+  report,
+  zonas,
+  profilePhone,
+  onClose,
+  onSaved,
+}: {
+  report: LostPetReport;
+  zonas: Zona[];
+  profilePhone?: string | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) => {
+  const [values, setValues] = useState({
+    ubicacion: "",
+    zona_id: report.zona_id,
+    direccion: "",
+    contacto: profilePhone ?? "",
+    comentario: "",
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { locating, locate } = useBrowserLocation();
@@ -263,6 +281,9 @@ const SightingForm = ({ report, onClose, onSaved }: { report: LostPetReport; onC
         latitud: coords.latitud,
         longitud: coords.longitud,
         comentario: values.comentario.trim() || null,
+        zona_id: values.zona_id || null,
+        direccion: values.direccion.trim() || null,
+        contacto: values.contacto.trim() || null,
       };
     if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
       setError("La latitud debe ser un numero entre -90 y 90.");
@@ -292,6 +313,20 @@ const SightingForm = ({ report, onClose, onSaved }: { report: LostPetReport; onC
         <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
       </label>
       <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar ubicacion donde estoy"}</button>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className={fieldLabel}>Zona
+          <select className={input} value={values.zona_id} onChange={(e) => update("zona_id", e.target.value)}>
+            <option value="">Sin zona</option>
+            {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre} - {zona.canton}</option>)}
+          </select>
+        </label>
+        <label className={fieldLabel}>Contacto
+          <input className={input} maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} />
+        </label>
+      </div>
+      <label className={fieldLabel}>Direccion o referencia
+        <input className={input} maxLength={300} value={values.direccion} onChange={(e) => update("direccion", e.target.value)} />
+      </label>
       <label className={fieldLabel}>Comentario<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
       <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Registrando..." : "Registrar avistamiento"}</button></div>
@@ -409,22 +444,50 @@ const MascotasPerdidas = () => {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visibles.map((reporte) => {
             const canClose = reporte.id_usuario_reporta === user?.id || isAdmin;
+            const ultimoAvistamiento = reporte.avistamientos[0];
             return (
               <article key={reporte.id_mascota_perdida} className="flex flex-col bg-surface">
                 <div className="relative">
                   <MockPhoto src={reporte.fotoUrl ?? "/mock/dog-nube.jpg"} alt={`Foto de ${reporte.nombre}`} />
                   <span className="absolute top-0 left-0"><Badge tono={reporte.estado === "perdida" ? "danger" : "ok"}>{reporte.estado === "perdida" ? "Perdida" : "Encontrada"}</Badge></span>
                 </div>
+
                 <div className="flex flex-1 flex-col px-5 py-4">
-                  <div className="flex items-baseline justify-between gap-2"><h3 className="text-[16px] font-semibold text-ink">{reporte.nombre}</h3><span className="text-[11.5px] text-ink-mute">{reporte.especie}</span></div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="text-[16px] font-semibold text-ink">{reporte.nombre}</h3>
+                    <span className="text-[11.5px] text-ink-mute">{reporte.especie}</span>
+                  </div>
                   <p className="mt-0.5 text-[12.5px] text-ink-soft">{reporte.raza || "Raza no indicada"}</p>
-                  {reporte.recompensa != null && <p className="nums mt-3 bg-warn-wash px-3 py-1.5 text-[12px] font-semibold text-warn">Recompensa {colones(reporte.recompensa)}</p>}
+
+                  {reporte.recompensa != null && (
+                    <p className="nums mt-3 bg-warn-wash px-3 py-1.5 text-[12px] font-semibold text-warn">
+                      Recompensa {colones(reporte.recompensa)}
+                    </p>
+                  )}
+
                   <dl className="mt-3 flex flex-col gap-1.5 text-[12.5px] text-ink-soft">
                     <div className="flex items-center gap-2"><MapPin size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" /><dd>Visto en {zonaLabel(reporte.zona)}</dd></div>
                     <div className="flex items-center gap-2"><Clock size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" /><dd className="nums">{formatDateTime(reporte.fecha_reporte)}</dd></div>
                     {reporte.contacto && <div className="flex items-center gap-2"><Phone size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" /><dd className="nums">{reporte.contacto}</dd></div>}
                   </dl>
+
                   <p className="mt-3 text-[12.5px] leading-snug text-ink-soft">{reporte.descripcion}</p>
+
+                  <div className="mt-3 bg-sunken px-3 py-2 text-[12px] text-ink-soft">
+                    <p className="font-semibold text-ink">
+                      {reporte.avistamientos.length} {reporte.avistamientos.length === 1 ? "avistamiento" : "avistamientos"}
+                    </p>
+                    {ultimoAvistamiento ? (
+                      <p className="mt-1 line-clamp-2">
+                        Ultimo: {ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona)} · {formatDateTime(ultimoAvistamiento.fecha)}
+                      </p>
+                    ) : <p className="mt-1 text-ink-mute">Sin avistamientos reportados.</p>}
+                  </div>
+
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${reporte.latitud},${reporte.longitud}`} target="_blank" rel="noreferrer" className="mt-3 text-[12px] font-semibold text-accent-dark hover:underline">
+                    Ver ubicacion en mapa
+                  </a>
+
                   <div className="mt-auto grid gap-2 pt-4">
                     <button type="button" disabled={reporte.estado === "encontrada"} className={`${btnSecondary} w-full disabled:cursor-default disabled:opacity-45 disabled:hover:bg-neutral-wash`} onClick={() => setSighting(reporte)}>
                       <Eye size={14} strokeWidth={1.9} />
@@ -446,7 +509,7 @@ const MascotasPerdidas = () => {
       )}
       {sighting && (
         <Dialog title="Registrar avistamiento" onClose={() => setSighting(null)}>
-          <SightingForm report={sighting} onClose={() => setSighting(null)} onSaved={load} />
+          <SightingForm report={sighting} zonas={zonas} profilePhone={profilePhone} onClose={() => setSighting(null)} onSaved={load} />
         </Dialog>
       )}
     </Page>

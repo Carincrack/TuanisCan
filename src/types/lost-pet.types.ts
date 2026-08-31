@@ -22,6 +22,7 @@ export interface LostPetReport {
   fecha_resuelto: string | null;
   distancia_km?: number | null;
   zona?: Zona | null;
+  avistamientos: Sighting[];
 }
 
 export interface LostPetInput {
@@ -42,4 +43,21 @@ export interface SightingInput {
   latitud: number;
   longitud: number;
   comentario: string | null;
+  zona_id: string | null;
+  direccion: string | null;
+  contacto: string | null;
+}
+
+export interface Sighting {
+  id_avistamiento: string;
+  id_reporte: string;
+  id_usuario: string;
+  latitud: number;
+  longitud: number;
+  comentario: string | null;
+  fecha: string;
+  zona_id: string | null;
+  direccion: string | null;
+  contacto: string | null;
+  zona?: Zona | null;
 }
