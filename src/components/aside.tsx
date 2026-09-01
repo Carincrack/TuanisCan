@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, ArrowRight, Clock, Siren } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, Siren } from "../lib/iconos";
 import { RUTA_ADMIN, type Rol } from "../lib/nav";
 import { Avatar, Badge, colones } from "./ui";
 
@@ -14,7 +14,7 @@ const Bloque = ({
   children: React.ReactNode;
 }) => (
   <section className="bg-surface">
-    <h2 className="px-5 pt-4 pb-3 text-[10px] font-semibold tracking-[0.14em] text-ink-mute uppercase">
+    <h2 className="px-5 pt-4 pb-3 rotulo text-ink-mute">
       {titulo}
     </h2>
     {children}
@@ -56,10 +56,15 @@ const AsideDueno = () => (
         </p>
         <Link
           to="/paseo-en-vivo"
-          className="mt-4 flex items-center gap-1.5 bg-accent px-4 py-2.5 text-[13px] font-semibold text-white transition-colors duration-150 hover:bg-accent-dark"
+          className="group mt-4 flex items-center justify-center gap-2 rounded-full bg-rail px-5 py-2.5 text-[13px] font-semibold text-white transition-[filter,transform] duration-150 ease-out hover:brightness-125 active:scale-[0.97]"
         >
           Ver en vivo
-          <ArrowRight size={14} strokeWidth={2.2} />
+          <ArrowRight
+            size={14}
+            strokeWidth={2.4}
+            aria-hidden
+            className="transition-transform duration-200 ease-out group-hover:translate-x-1"
+          />
         </Link>
       </div>
     </Bloque>
@@ -124,7 +129,7 @@ const AsideDueno = () => (
 const AsidePaseador = () => (
   <>
     <Bloque titulo="Resumen de hoy">
-      <dl className="grid grid-cols-2 gap-px bg-canvas">
+      <dl className="grid grid-cols-2 gap-2.5">
         <div className="bg-surface px-5 py-4">
           <dt className="text-[11px] text-ink-mute">Paseos</dt>
           <dd className="nums mt-1 text-[20px] font-semibold text-ink">3</dd>
@@ -176,7 +181,7 @@ const AsidePaseador = () => (
 const AsideAdmin = () => (
   <>
     <Bloque titulo="Plataforma hoy">
-      <dl className="grid grid-cols-2 gap-px bg-canvas">
+      <dl className="grid grid-cols-2 gap-2.5">
         {[
           { t: "Paseos", v: "148" },
           { t: "Comisión", v: colones(97400) },

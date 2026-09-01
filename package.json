@@ -11,6 +11,7 @@
     "seed": "node scripts/configure-admin.mjs"
   },
   "dependencies": {
+    "@animateicons/react": "^0.4.3",
     "@supabase/supabase-js": "^2.112.3",
     "@tailwindcss/vite": "^4.1.13",
     "@tanstack/react-router": "^1.131.44",

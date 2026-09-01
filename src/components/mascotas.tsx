@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
-import { Camera, IdCard, Pencil, Plus, Syringe, Trash2, X } from "lucide-react";
+import { Camera, IdCard, Pencil, Plus, Syringe, Trash2, X } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { formatDate, petAge } from "../lib/pets";
 import {
@@ -21,11 +21,12 @@ import {
   Table,
   btnPrimary,
   btnQuiet,
+  fieldLabel,
   btnSecondary,
   input,
 } from "./ui";
+import { Combo } from "./Combo";
 
-const fieldLabel = "grid gap-1.5 text-[12px] font-medium text-ink-soft";
 const messageFrom = (error: unknown) =>
   error instanceof Error ? error.message : "No se pudo completar la operación.";
 
@@ -102,7 +103,7 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
         <label className={fieldLabel}>Nombre *<input className={input} required maxLength={100} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
         <label className={fieldLabel}>Especie *<input className={input} required list="pet-species" maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /><datalist id="pet-species"><option value="Perro" /><option value="Gato" /><option value="Conejo" /><option value="Ave" /></datalist></label>
         <label className={fieldLabel}>Raza *<input className={input} required maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
-        <label className={fieldLabel}>Sexo *<select className={input} value={values.sexo} onChange={(e) => update("sexo", e.target.value)}><option value="macho">Macho</option><option value="hembra">Hembra</option></select></label>
+        <label className={fieldLabel}>Sexo *<Combo required value={values.sexo} onChange={(v) => update("sexo", v)} options={[{ value: "macho", label: "Macho" }, { value: "hembra", label: "Hembra" }]} /></label>
         <label className={fieldLabel}>Fecha de nacimiento *<input className={input} required type="date" max={new Date().toISOString().slice(0, 10)} value={values.fecha_nacimiento} onChange={(e) => update("fecha_nacimiento", e.target.value)} /></label>
         <label className={fieldLabel}>Peso (kg) *<input className={input} required type="number" min="0.01" max="9999" step="0.01" value={values.peso} onChange={(e) => update("peso", e.target.value)} /></label>
         <label className={fieldLabel}>Color *<input className={input} required maxLength={100} value={values.color} onChange={(e) => update("color", e.target.value)} /></label>
@@ -244,10 +245,10 @@ const Mascotas = () => {
                 <div className="flex flex-1 flex-col p-5">
                   <div className="flex items-baseline justify-between gap-2"><h3 className="text-[17px] font-semibold text-ink">{pet.nombre}</h3><span className="text-[11.5px] text-ink-mute">{pet.especie}</span></div>
                   <p className="mt-1 text-[12.5px] text-ink-soft">{pet.raza}</p>
-                  <dl className="mt-4 grid grid-cols-3 gap-px bg-canvas">
-                    <div className="bg-sunken p-3"><dt className="text-[10px] uppercase text-ink-mute">Edad</dt><dd className="mt-1 text-[12px] text-ink">{petAge(pet.fecha_nacimiento)}</dd></div>
-                    <div className="bg-sunken p-3"><dt className="text-[10px] uppercase text-ink-mute">Peso</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.peso} kg</dd></div>
-                    <div className="bg-sunken p-3"><dt className="text-[10px] uppercase text-ink-mute">Vacunas</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.vacunas.length}</dd></div>
+                  <dl className="mt-4 grid grid-cols-3 gap-2.5">
+                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">Edad</dt><dd className="mt-1 text-[12px] text-ink">{petAge(pet.fecha_nacimiento)}</dd></div>
+                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">Peso</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.peso} kg</dd></div>
+                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">Vacunas</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.vacunas.length}</dd></div>
                   </dl>
                   <button type="button" className={`${btnSecondary} mt-4 w-full`} onClick={() => setSelectedId(pet.id_mascota)}>Gestionar perfil</button>
                 </div>
@@ -270,10 +271,10 @@ const Mascotas = () => {
               <button type="button" aria-label="Cerrar perfil" className="p-2 text-rail-text hover:bg-rail-hover hover:text-white" onClick={() => setSelectedId(null)}><X size={18} /></button>
             </div>
           </header>
-          <dl className="grid gap-px bg-canvas sm:grid-cols-3">
-            {[["Nacimiento", formatDate(selected.fecha_nacimiento)], ["Sexo", selected.sexo === "macho" ? "Macho" : "Hembra"], ["Color", selected.color], ["Microchip", selected.microchip || "No registrado"], ["Esterilizado", selected.esterilizado ? "Sí" : "No"], ["Veterinaria", selected.veterinaria || "No registrada"]].map(([label, value]) => <div key={label} className="bg-sunken px-5 py-3"><dt className="text-[10px] uppercase tracking-[0.08em] text-ink-mute">{label}</dt><dd className="mt-1 text-[13px] text-ink">{value}</dd></div>)}
+          <dl className="grid gap-2.5 sm:grid-cols-3">
+            {[["Nacimiento", formatDate(selected.fecha_nacimiento)], ["Sexo", selected.sexo === "macho" ? "Macho" : "Hembra"], ["Color", selected.color], ["Microchip", selected.microchip || "No registrado"], ["Esterilizado", selected.esterilizado ? "Sí" : "No"], ["Veterinaria", selected.veterinaria || "No registrada"]].map(([label, value]) => <div key={label} className="bg-sunken px-5 py-3"><dt className="rotulo text-ink-mute">{label}</dt><dd className="mt-1 text-[13px] text-ink">{value}</dd></div>)}
           </dl>
-          {(selected.alergias || selected.notas) && <div className="grid gap-px bg-canvas sm:grid-cols-2"><div className="bg-surface p-5"><h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Alergias y condiciones</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || "Ninguna registrada"}</p></div><div className="bg-surface p-5"><h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Cuidados y notas</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || "Sin notas"}</p></div></div>}
+          {(selected.alergias || selected.notas) && <div className="grid gap-2.5 sm:grid-cols-2"><div className="bg-surface p-5"><h4 className="rotulo text-ink-mute">Alergias y condiciones</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || "Ninguna registrada"}</p></div><div className="bg-surface p-5"><h4 className="rotulo text-ink-mute">Cuidados y notas</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || "Sin notas"}</p></div></div>}
           <div className="flex items-center justify-between gap-3 px-5 py-4"><h4 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-mute"><Syringe size={14} /> Historial de vacunas</h4><button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingVaccine(null)}><Plus size={14} /> Agregar vacuna</button></div>
           {selected.vacunas.length ? (
             <Table caption={`Vacunas de ${selected.nombre}`} columnas={[{ label: "Vacuna" }, { label: "Aplicada" }, { label: "Vence" }, { label: "Estado" }, { label: "Acciones", align: "right" }]}>

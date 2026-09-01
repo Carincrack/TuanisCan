@@ -15,7 +15,7 @@ import {
   Search,
   Stethoscope,
   Store,
-} from "lucide-react";
+} from "../lib/iconos";
 import { getNegocios, getZonas } from "../services/auth.service";
 import type { NegocioProfile, Zona } from "../types/auth.types";
 import {
@@ -28,6 +28,8 @@ import {
   btnSecondary,
   input,
 } from "./ui";
+import { Combo } from "./Combo";
+import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
 
 type TipoNegocio = NegocioProfile["tipo"];
 
@@ -155,7 +157,6 @@ const Directorio = () => {
   const [negocios, setNegocios] = useState<NegocioProfile[]>([]);
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [tipo, setTipo] = useState("Todos");
-  const [zonaId, setZonaId] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -198,6 +199,14 @@ const Directorio = () => {
     () => new Map(zonas.map((zona) => [zona.id_zona, zona])),
     [zonas]
   );
+
+  /* El filtro de zona era un solo desplegable con el catálogo entero
+     —más de quinientas filas, todas rotuladas "Distrito · Cantón,
+     Provincia"—. Para usarlo había que saber ya el nombre del
+     distrito, que es justo lo que uno viene a averiguar. Ahora se
+     baja por la jerarquía, igual que en el catálogo de zonas y en el
+     registro. */
+  const territorio = useZonasEncadenadas(zonas);
   const visibles = useMemo(() => {
     const consulta = busqueda.trim().toLocaleLowerCase("es");
     const tipoSeleccionado = tipoPorFiltro[tipo];
@@ -217,11 +226,23 @@ const Directorio = () => {
 
       return (
         (!tipoSeleccionado || negocio.tipo === tipoSeleccionado) &&
-        (!zonaId || negocio.zona_id === zonaId) &&
+        territorio.cubre(zona) &&
         (!consulta || texto.includes(consulta))
       );
     });
-  }, [busqueda, negocios, tipo, zonaId, zonasPorId]);
+    /* `territorio` se rehace en cada render, así que no puede ir en
+       las dependencias: entraría en bucle. Lo que de verdad cambia
+       el resultado son los tres escalones. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    busqueda,
+    negocios,
+    tipo,
+    zonasPorId,
+    territorio.provincia,
+    territorio.canton,
+    territorio.distrito,
+  ]);
 
   const ubicados = useMemo(() => visibles.filter(tieneUbicacion), [visibles]);
   const seleccionado =
@@ -245,51 +266,93 @@ const Directorio = () => {
       />
 
       <section aria-label="Filtros del directorio" className="bg-surface p-4 sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(190px,0.55fr)_auto] lg:items-center">
-          <div className="relative">
-            <label htmlFor="buscar-negocio" className="sr-only">
-              Buscar por nombre, dirección o zona
-            </label>
-            <input
-              id="buscar-negocio"
-              type="search"
-              value={busqueda}
-              onChange={(event) => setBusqueda(event.target.value)}
-              placeholder="Buscar por nombre, dirección o zona"
-              className={`${input} pl-9`}
-            />
-            <Search
-              size={15}
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute"
+        <div className="grid gap-3">
+          <div className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_auto] lg:items-center">
+            <div className="relative">
+              <label htmlFor="buscar-negocio" className="sr-only">
+                Buscar por nombre, dirección o zona
+              </label>
+              <input
+                id="buscar-negocio"
+                type="search"
+                value={busqueda}
+                onChange={(event) => setBusqueda(event.target.value)}
+                placeholder="Buscar por nombre, dirección o zona"
+                className={`${input} pl-10`}
+              />
+              <Search
+                size={15}
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute"
+              />
+            </div>
+
+            <FilterTabs
+              label="Filtrar por tipo de negocio"
+              options={tipos}
+              value={tipo}
+              onChange={setTipo}
             />
           </div>
 
-          <div>
-            <label htmlFor="zona-directorio" className="sr-only">
-              Filtrar por zona
-            </label>
-            <select
-              id="zona-directorio"
-              value={zonaId}
-              onChange={(event) => setZonaId(event.target.value)}
-              className={input}
-            >
-              <option value="">Todas las zonas</option>
-              {zonas.map((zona) => (
-                <option key={zona.id_zona} value={zona.id_zona}>
-                  {zona.nombre} · {zona.canton}, {zona.provincia}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Los tres escalones. El de abajo se queda apagado hasta
+              que el de arriba elige, y lo dice en el sitio: un cantón
+              apagado que siguiera diciendo "Todos los cantones"
+              parecería roto. */}
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div>
+              <label htmlFor="provincia-directorio" className="sr-only">
+                Filtrar por provincia
+              </label>
+              <Combo
+                id="provincia-directorio"
+                Icon={MapPin}
+                value={territorio.provincia}
+                onChange={territorio.elegirProvincia}
+                aria-label="Provincia"
+                options={territorio.provincias.map((item) => ({
+                  value: item,
+                  label: item === "Todas" ? "Todas las provincias" : item,
+                }))}
+              />
+            </div>
 
-          <FilterTabs
-            label="Filtrar por tipo de negocio"
-            options={tipos}
-            value={tipo}
-            onChange={setTipo}
-          />
+            <div>
+              <label htmlFor="canton-directorio" className="sr-only">
+                Filtrar por cantón
+              </label>
+              <Combo
+                id="canton-directorio"
+                value={territorio.canton}
+                onChange={territorio.elegirCanton}
+                disabled={!territorio.filtrando}
+                textoInactivo="Elegí una provincia"
+                aria-label="Cantón"
+                options={territorio.cantones.map((item) => ({
+                  value: item,
+                  label: item === "Todos" ? "Todos los cantones" : item,
+                }))}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="distrito-directorio" className="sr-only">
+                Filtrar por distrito
+              </label>
+              <Combo
+                id="distrito-directorio"
+                value={territorio.distrito}
+                onChange={territorio.elegirDistrito}
+                disabled={territorio.canton === "Todos"}
+                textoInactivo="Elegí un cantón"
+                aria-label="Distrito"
+                options={territorio.distritos.map((item) => ({
+                  value: item,
+                  label: item === "Todos" ? "Todos los distritos" : item,
+                }))}
+              />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -311,7 +374,22 @@ const Directorio = () => {
       ) : visibles.length === 0 ? (
         <EmptyState
           title="No hay resultados"
-          hint="Prueba con otro nombre, tipo o zona."
+          hint={
+            territorio.filtrando
+              ? "No hay negocios registrados en esa zona todavía."
+              : "Probá con otro nombre o con otro tipo de negocio."
+          }
+          action={
+            territorio.filtrando ? (
+              <button
+                type="button"
+                onClick={territorio.limpiar}
+                className={btnSecondary}
+              >
+                Ver todas las zonas
+              </button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.8fr)]">

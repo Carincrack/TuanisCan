@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays, Repeat } from "lucide-react";
+import { CalendarDays, Repeat } from "../lib/iconos";
 import {
   Badge,
   EmptyState,

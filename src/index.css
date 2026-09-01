@@ -19,10 +19,22 @@
   --color-canvas: #eef2f4;
   --color-surface: #ffffff;
   --color-sunken: #e7edf0;
+  /* El suelo: lo que se ve por detrás del riel y del lienzo. Un paso
+     hondo hacia el azul suave del logo — ni gris sucio ni azul de
+     marca—, lo justo para que las dos piezas se lean flotando y no
+     pegadas a la ventana. Si el suelo fuera canvas, el lienzo no
+     tendría contra qué recortarse y la sombra no diría nada. */
+  --color-suelo: #cedae1;
   /* El azul del logo, no el más oscuro: #0E2733 se leía como negro y
      apagaba el turquesa. Este tono deja respirar el acento y las fotos. */
   --color-rail: #1a4257;
   --color-rail-hover: #245b74;
+  /* Un paso más claro que el riel, tomado del degradado del login
+     (#4C8CB0 → #2E6584 → #163C52): es su tramo medio, o sea el
+     celeste que se ve alrededor de la tarjeta al entrar. Se usa donde
+     una banda tiene que leerse como del mismo mundo que el login sin
+     ser tan honda como el riel. Blanco encima da 6.3:1. */
+  --color-rail-claro: #2e6584;
   --color-rail-mute: #7ea3b4;
   --color-rail-text: #c6dae3;
 
@@ -52,9 +64,9 @@
 }
 
 @layer base {
-  /* Cuadrado dentro de la aplicación: ningún componente hereda esquinas
-     redondeadas. Va acotado a `.plano` a propósito — el login conserva
-     su diseño original con tarjeta y campos redondeados. */
+  /* Cuadrado. Quedó una sola pantalla usándolo: la cortina del arranque
+     (`Splash.tsx`), que va a sangre y no tiene nada que redondear. El
+     sistema entero se mudó a `.suave` — ver más abajo. */
   .plano,
   .plano *,
   .plano *::before,
@@ -220,6 +232,20 @@
   }
 }
 
+/* La lista del combo box. No arranca en `scale(0)`: nada en el mundo
+   real aparece de la nada, y un menú que sale de un punto se ve como
+   un truco. Desde 0.97 ya tiene cuerpo antes de moverse. */
+@keyframes tsc-desplegar {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 @layer utilities {
   /* Cifras de ancho fijo para dinero, horas y contadores. */
   .nums {
@@ -280,17 +306,18 @@
 /* ── El riel ─────────────────────────────────────────────────── */
 
 /* El ancho es lo único que se anima con `width` en toda la interfaz.
-   Aquí no hay versión con `transform`: anclado, el riel tiene que
-   empujar el contenido de verdad, y una barra trasladada seguiría
-   ocupando su sitio en la retícula. Es un elemento con una quincena
-   de hijos y una curva corta, así que el reflujo se paga una vez.
+   Aquí no hay versión con `transform`: el riel tiene que empujar al
+   lienzo de verdad, y una barra trasladada seguiría ocupando su sitio
+   en la fila. El lienzo es `flex-1`, así que sigue este ancho solo,
+   cuadro a cuadro, sin animación propia — y por eso las dos piezas se
+   mueven pegadas y no una detrás de la otra.
 
-   Las dos cajas llevan la misma curva y la misma duración porque al
-   anclar cambian de ancho a la vez: el hueco que reserva la retícula
-   y el panel que flota encima. Con tiempos distintos se ve al
-   contenido correrse antes o después que la barra. */
-.riel,
-.riel-hueco {
+   El reflujo se paga: es una fila flexible con una tabla o un gráfico
+   del otro lado. Por eso la curva es corta y por eso el roce del
+   cursor espera 90 ms antes de disparar (ver `MS_ROCE`): un empujón
+   accidental del contenido molesta bastante más que un panel que se
+   abre encima. */
+.riel {
   transition: width 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -311,17 +338,18 @@
 /* ─────────────────────────────────────────────────────────────
    MUNDO SUAVE (`.suave`)
 
-   La piel nueva del sistema, en prueba dentro de la parte
-   administrativa. La aplicación nació plana y cuadrada —`.plano` le
-   pone `border-radius: 0` a todo lo que tenga adentro— mientras la
-   portada es lo contrario: píldoras, Archivo en versalitas, discos
-   de turquesa y sombras largas y bajas. Con el mismo logo parecían
-   dos productos.
+   La piel del sistema. La aplicación nació plana y cuadrada —`.plano`
+   le pone `border-radius: 0` a todo lo que tenga adentro— mientras la
+   portada es lo contrario: píldoras, Archivo en versalitas, discos de
+   turquesa y sombras largas y bajas. Con el mismo logo parecían dos
+   productos.
 
-   `.suave` es lo que `.plano` no deja ser. Se monta en su lugar, no
-   encima: una pantalla lleva una clase o la otra, nunca las dos, y
-   por eso no hay que pelear ninguna especificidad. Cuando el resto
-   del sistema cruce, `.plano` se borra y estas reglas se quedan.
+   `.suave` es lo que `.plano` no dejaba ser, y lo reemplaza: la clase
+   va en la raíz del armazón, así que la llevan las cuatro
+   aplicaciones —dueño, paseador, negocio y administración— sin una
+   sola condición por rol. Se monta en lugar de `.plano`, no encima:
+   una pantalla lleva una clase o la otra, nunca las dos, y por eso no
+   hay ninguna especificidad que pelear.
    ───────────────────────────────────────────────────────────── */
 
 /* Las versalitas de la portada, ahora también adentro. Mismos
@@ -352,6 +380,142 @@
   box-shadow: 0 20px 46px -28px rgb(20 36 46 / 60%);
 }
 
+/* ── Campos y desplegables ────────────────────────────────────
+
+   La etiqueta ENVUELVE al control: `<label>Zona <select/></label>`.
+   Eso importa mucho más de lo que parece — todo lo que se le ponga a
+   la etiqueta le cae también al texto de adentro del campo y a las
+   opciones del desplegable. Poner versalitas en la etiqueta sin
+   devolver el control a lo suyo deja "SAN JOSÉ" gritando dentro del
+   combo. Por eso el segundo bloque: la etiqueta habla en Archivo y
+   el control vuelve a Instrument Sans. */
+.suave .campo {
+  display: grid;
+  gap: 6px;
+  font-family: Archivo, "Instrument Sans", sans-serif;
+  font-variation-settings: "wdth" 100, "wght" 700;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-mute);
+}
+
+.suave .campo :is(input, select, textarea) {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* La lista que despliega el combo box (`Combo.tsx`).
+
+   Crece desde su borde de arriba porque de ahí sale: un menú escalado
+   desde su centro se lee como algo que apareció, no como algo que se
+   desplegó.
+
+   La sombra es lo único que la despega: la lista es blanca y cae
+   sobre una tarjeta blanca, así que sin ella no hay dónde termina una
+   y empieza la otra. Dos capas — una abierta y lejana que da la
+   altura, y una corta y pegada que dibuja el canto. Una sola sombra
+   grande se ve como una nube; una sola corta, como un borde. */
+.desplegable {
+  transform-origin: top center;
+  box-shadow:
+    0 14px 34px -14px rgb(20 36 46 / 35%),
+    0 2px 8px -4px rgb(20 36 46 / 22%);
+  animation: tsc-desplegar 150ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* El mismo panel, pero abriendo hacia arriba: el menú de perfil vive
+   al pie del riel y ahí abajo no queda sitio. Crece desde su borde
+   inferior, que es de donde sale. */
+.desplegable-arriba {
+  transform-origin: bottom center;
+}
+
+/* Los `<select>` nativos que quedan. Se les puede maquillar la caja
+   cerrada —fondo, radio, flecha propia— pero la lista que abren la
+   dibuja el sistema operativo y no la toca ninguna regla de CSS: para
+   eso está `Combo.tsx`. Esto es lo que se puede hacer mientras tanto.
+
+   Con `appearance: none` se apaga la flecha del sistema y la ponemos
+   nosotros — el mismo `ChevronDown` de Lucide que usa el riel,
+   trazado a mano en el SVG porque un fondo CSS no puede montar un
+   componente.
+
+   El color va escrito, no en `var()`: dentro de una URL de datos las
+   variables no se resuelven. Es `--color-ink-mute` (#85979F); si ese
+   token cambia, hay que cambiarlo acá también. */
+.suave select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2385979F' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 13px;
+}
+
+/* En el riel el fondo es navy y la flecha en tinta suave desaparece.
+   Misma flecha, en `--color-rail-text` (#C6DAE3). */
+.suave .riel select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C6DAE3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* El campo de archivo trae un botón nativo que no se parece a ningún
+   otro botón de la aplicación. Se le da la píldora hundida de los
+   secundarios; el resto del campo queda de fondo, como el resto. */
+.suave input[type="file"] {
+  padding-block: 7px;
+}
+
+.suave input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-neutral-wash);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 150ms ease-out;
+}
+
+.suave input[type="file"]::file-selector-button:hover {
+  filter: brightness(0.96);
+}
+
+/* Todo bloque de contenido del sistema es redondo. Las piezas de
+   `ui.tsx` lo dicen por su cuenta, pero las pantallas escribieron
+   sesenta y pico de bloques a mano con la utilidad suelta, y una
+   esquina viva perdida entre tarjetas redondas no se lee como una
+   variante sino como un descuido.
+
+   La regla va sobre el token y no sobre una clase nueva porque es
+   exactamente lo que el token significa: `bg-surface` es "bloque de
+   contenido".
+
+   Va envuelta en `:where()` para que pese cero. Sin eso el selector
+   valdría dos clases contra la sola de `rounded-2xl`, y le ganaría a
+   cualquier bloque que ya hubiera elegido su propio radio —las
+   tarjetas de `ProfilePage`, por ejemplo—. Con `:where()` esto es
+   solo el valor por defecto: el que diga lo suyo, manda. */
+:where(.suave) :where(.bg-surface) {
+  border-radius: 18px;
+}
+
+/* El lienzo: todo lo que no es el riel —barra superior, contenido y
+   columna de contexto— metido en una sola pieza redonda que flota
+   sobre el suelo. No es decoración: al plegarse el riel, el lienzo se
+   corre con él como un bloque, y eso solo se lee si tiene un borde
+   propio. Antes el contenido llegaba a sangre hasta la ventana y no
+   había nada que se moviera, solo cosas que cambiaban de sitio. */
+.suave .lienzo {
+  box-shadow: 0 18px 42px -30px rgb(20 36 46 / 55%);
+}
+
 /* Los controles de la barra superior son blancos y el fondo que los
    sostiene también es claro: sin nada que los levante, el botón de
    menú desaparece contra el canvas. La misma sombra del riel, más
@@ -367,24 +531,6 @@
 .suave {
   scrollbar-width: thin;
   scrollbar-color: rgb(26 66 87 / 25%) transparent;
-}
-
-/* ── Puente hacia las pantallas ───────────────────────────────
-   Las pantallas de contenido siguen siendo las del mundo plano:
-   `ui.tsx` no escribe ni un radio. Estas dos reglas las redondean
-   desde afuera para que el riel nuevo no quede al lado de tarjetas
-   con esquina viva mientras se decide la piel.
-
-   Son un puente, no diseño: se borran cuando `ui.tsx` se rehaga con
-   sus propios radios. Las tiras de métricas se separan con un píxel
-   de canvas, que con esquinas redondas se ve como un error, así que
-   el hueco crece con ellas. */
-.suave .bg-surface {
-  border-radius: 18px;
-}
-
-.suave .gap-px {
-  gap: 10px;
 }
 
 /* ── Menos movimiento ────────────────────────────────────────── */
@@ -405,13 +551,13 @@
   .anim-splash-out,
   .anim-app-in,
   .anim-bar,
-  .anim-menu-in {
+  .anim-menu-in,
+  .desplegable {
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
   }
 
-  .riel,
-  .riel-hueco {
+  .riel {
     transition-duration: 1ms !important;
   }
 }
@@ -757,45 +903,220 @@
   transition-delay: 90ms;
 }
 
+/* ── Los iconos de dibujo propio ──────────────────────────────
 
+   Dieciséis iconos que el paquete animado no trae. Llevan la
+   geometría exacta de Lucide y el movimiento se lo pone esto.
 
+   El recurso de fondo es el mismo de los garabatos de la portada:
+   cada trazo lleva `pathLength="1"`, que normaliza su largo a 1
+   pase lo que pase con la forma. Así `stroke-dasharray: 1` es
+   siempre "una raya tan larga como todo el trazo" y el desfase va
+   de 1 —invisible— a 0 —dibujado— sin medir nada a mano.
 
-.verified-badge-shape {
-  clip-path: polygon(
-    50% 0%,
-    62% 7%,
-    75% 6%,
-    84% 16%,
-    94% 25%,
-    93% 38%,
-    100% 50%,
-    93% 62%,
-    94% 75%,
-    84% 84%,
-    75% 94%,
-    62% 93%,
-    50% 100%,
-    38% 93%,
-    25% 94%,
-    16% 84%,
-    6% 75%,
-    7% 62%,
-    0% 50%,
-    7% 38%,
-    6% 25%,
-    16% 16%,
-    25% 6%,
-    38% 7%
-  );
+   Cada hijo del SVG trae además un `--i` con su posición, que es
+   lo que permite escalonarlos: el retardo se calcula, no se
+   escribe uno por uno.
 
-  background: linear-gradient(
-    145deg,
-    #2f89a9 0%,
-    #267b99 48%,
-    #1d6884 100%
-  );
+   Los gestos que mueven el icono entero van en el propio SVG; los
+   que escalonan trazos, en los hijos. */
 
-  filter:
-    drop-shadow(0 1px 1px rgb(0 0 0 / 16%))
-    drop-shadow(0 0 1px rgb(29 104 132 / 20%));
+.icono-propio > * {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+/* Redibujado escalonado. El caso general: el icono se traza solo,
+   línea por línea, en el orden en que Lucide las declara. */
+.icono-propio[data-gesto="trazo"][data-roce="si"] > * {
+  animation: tsc-icono-trazo 560ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(var(--i) * 70ms);
+}
+
+@keyframes tsc-icono-trazo {
+  from {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  to {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+/* Las patitas. Caen los tres dedos en cascada y después la
+   almohadilla, que es el orden en que Lucide las dibuja y, por
+   suerte, también el orden en que se posa una pata. Rebota un
+   pelo al aterrizar: la curva pasa de 1 y vuelve. */
+.icono-propio[data-gesto="patitas"][data-roce="si"] > * {
+  animation: tsc-icono-brinco 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--i) * 75ms);
+}
+
+@keyframes tsc-icono-brinco {
+  0% {
+    transform: translateY(-2.6px);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0.8px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Sirena, alerta y escudo de aviso: se sacuden. Es el único gesto
+   que pide atención en vez de explicarse, y son los tres iconos
+   que traen malas noticias. */
+.icono-propio[data-gesto="aviso"][data-roce="si"] {
+  animation: tsc-icono-sacude 540ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes tsc-icono-sacude {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  15% {
+    transform: rotate(-9deg);
+  }
+  35% {
+    transform: rotate(7deg);
+  }
+  55% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
+}
+
+/* Las dos flechas del selector se apartan. Ojo al orden: Lucide
+   declara primero la de abajo. */
+.icono-propio[data-gesto="separar"][data-roce="si"] > *:nth-child(1) {
+  animation: tsc-icono-baja 440ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.icono-propio[data-gesto="separar"][data-roce="si"] > *:nth-child(2) {
+  animation: tsc-icono-sube 440ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes tsc-icono-sube {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-1.8px);
+  }
+}
+
+@keyframes tsc-icono-baja {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(1.8px);
+  }
+}
+
+/* Estetoscopio y apretón de manos: laten. */
+.icono-propio[data-gesto="latido"][data-roce="si"] {
+  animation: tsc-icono-latido 660ms ease-in-out both;
+}
+
+@keyframes tsc-icono-latido {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.12);
+  }
+  45% {
+    transform: scale(0.97);
+  }
+  70% {
+    transform: scale(1.05);
+  }
+}
+
+/* Ampliar y reducir hacen lo que dicen. */
+.icono-propio[data-gesto="crecer"][data-roce="si"] {
+  animation: tsc-icono-crece 460ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.icono-propio[data-gesto="menguar"][data-roce="si"] {
+  animation: tsc-icono-mengua 460ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes tsc-icono-crece {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes tsc-icono-mengua {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.84);
+  }
+}
+
+/* Los dos del riel. Se mueve solo la punta de flecha —el último
+   trazo— y hacia donde el botón dice que va a ir el panel: la
+   dirección llega en `--tsc-dir` desde el componente. El marco se
+   queda quieto, que para eso es el marco. */
+.icono-propio[data-gesto="panel"][data-roce="si"] > *:last-child {
+  animation: tsc-icono-empuja 460ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes tsc-icono-empuja {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(calc(var(--tsc-dir, 1) * 1.8px));
+  }
+}
+
+/* La jeringa avanza en su propia diagonal. */
+.icono-propio[data-gesto="inyectar"][data-roce="si"] {
+  animation: tsc-icono-inyecta 520ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes tsc-icono-inyecta {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  45% {
+    transform: translate(1.6px, -1.6px);
+  }
+}
+
+/* Con el movimiento reducido puesto, los gestos duran lo mínimo en
+   vez de apagarse: `none` mataría también el estado final de
+   `both`, y los trazos que entran desde `opacity: 0` se quedarían
+   invisibles para siempre. El paquete animado hace su propia
+   comprobación y no necesita nada de acá. */
+@media (prefers-reduced-motion: reduce) {
+  .icono-propio,
+  .icono-propio > * {
+    animation-duration: 1ms !important;
+  }
 }

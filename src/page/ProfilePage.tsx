@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
   Building2,
   Camera,
   Check,
   CheckCircle2,
+  CircleCheckBig,
   FileText,
   Footprints,
   Lock,
@@ -19,11 +20,15 @@ import {
   Sparkles,
   Store,
   Trash2,
+  Upload,
   UserPlus,
+  UserRound,
   X,
-} from "lucide-react";
+} from "../lib/iconos";
 
 import ProfileAvatar from "../components/ProfileAvatar";
+import SelloVerificado from "../components/SelloVerificado";
+import Visor from "../components/Visor";
 
 import {
   Badge,
@@ -35,6 +40,7 @@ import {
   btnSecondary,
   input,
 } from "../components/ui";
+import { Combo } from "../components/Combo";
 
 import { useAuth } from "../hooks/useAuth";
 
@@ -206,6 +212,32 @@ const verificationStatusLabels = {
 };
 
 /* =========================================================
+   LAS PESTAÑAS
+
+   El perfil traía seis tarjetas apiladas: identidad, datos
+   personales, verificación, el perfil activo, los perfiles
+   disponibles y el formulario del perfil nuevo. Todas abiertas,
+   todas a la vez, una debajo de la otra. En un teléfono eso son
+   más de seis pantallas de recorrido, y las tres cosas que se
+   vienen a hacer acá —corregir un dato, mandar la cédula, pedir
+   otro perfil— no tienen nada que ver entre sí: nadie hace dos
+   en la misma visita.
+
+   Separarlas en tres pestañas no esconde nada; pone lo que se
+   vino a buscar arriba en vez de a cuatro rodadas de distancia.
+   La identidad —foto, nombre, estado— queda fuera de las
+   pestañas: es de quién es esta pantalla, no una de sus partes.
+   ========================================================= */
+
+const pestanas = [
+  { id: "datos", rotulo: "Mis datos", Icon: UserRound },
+  { id: "verificacion", rotulo: "Verificación", Icon: ShieldCheck },
+  { id: "perfiles", rotulo: "Mis perfiles", Icon: Sparkles },
+] as const;
+
+type Pestana = (typeof pestanas)[number]["id"];
+
+/* =========================================================
    ESTILOS REUTILIZABLES
    ========================================================= */
 
@@ -234,6 +266,33 @@ const messageFrom = (error: unknown) =>
    ========================================================= */
 
 const ProfilePage = () => {
+  /* La pestaña inicial puede venir en el fragmento de la URL: el
+     aviso de "verifica tu perfil" que vive en la cabecera de toda la
+     aplicación enlaza a /perfil#verificacion y tiene que caer en la
+     pestaña correcta, no en la primera. */
+  const [pestana, setPestana] = useState<Pestana>(() =>
+    typeof window !== "undefined" &&
+    window.location.hash === "#verificacion"
+      ? "verificacion"
+      : "datos",
+  );
+
+  const [verFoto, setVerFoto] = useState(false);
+
+  /* Leer el fragmento una sola vez al montar no alcanza. El aviso de
+     "verifica tu perfil" vive en la cabecera de TODA la aplicación,
+     /perfil incluido: desde acá el enlace no remonta nada —el
+     enrutador cambia la dirección con la API de historial, que ni
+     siquiera dispara `hashchange`— y el clic se quedaba sin efecto
+     visible justo en la pantalla donde el usuario ya estaba. */
+  const { hash } = useLocation();
+
+  useEffect(() => {
+    if (hash === "verificacion" || hash === "#verificacion") {
+      setPestana("verificacion");
+    }
+  }, [hash]);
+
   const {
     user,
     role,
@@ -1078,6 +1137,43 @@ const ProfilePage = () => {
         ),
     );
 
+  /* En qué escalón va la verificación. Los tres pasos son subir los
+     documentos, mandarlos y esperar el fallo de administración; el 4
+     no es un paso sino el final, y sirve para que el tercero también
+     se dibuje como cumplido. */
+  const pasoVerificacion =
+    profile.verificacion.estado === "aprobado"
+      ? 4
+      : profile.verificacion.estado === "pendiente"
+        ? 3
+        : missingDocuments.length === 0
+          ? 2
+          : 1;
+
+  const documentosListos =
+    requiredVerificationDocuments.length - missingDocuments.length;
+
+  const pasosVerificacion = [
+    {
+      titulo: "Subir documentos",
+      detalle: `${documentosListos} de ${requiredVerificationDocuments.length} listos`,
+    },
+    {
+      titulo: "Enviar a revisión",
+      detalle:
+        pasoVerificacion >= 3
+          ? "Ya lo enviaste"
+          : "Se habilita con todos los documentos",
+    },
+    {
+      titulo: "Respuesta",
+      detalle:
+        profile.verificacion.estado === "aprobado"
+          ? "Cuenta verificada"
+          : "Administración responde en 1 o 2 días hábiles",
+    },
+  ];
+
   const selectedZone =
     zonas.find(
       (zona) =>
@@ -1188,87 +1284,62 @@ const ProfilePage = () => {
               sm:items-center
             "
           >
-            {/* FOTO */}
+            {/* FOTO
 
-            <div className="group relative self-start">
-              <ProfileAvatar
-                key={
-                  avatarUrl ||
-                  form.nombre
+                Mirar y cambiar son dos gestos distintos. Antes había
+                uno solo: un `<label>` con `inset-0` cubría la foto
+                entera, así que el único clic disponible abría el
+                selector de archivos. Para VER la foto de uno había
+                que estar dispuesto a reemplazarla.
+
+                Y el aviso decía "pasa el cursor sobre la foto", que
+                en un teléfono no significa nada: no hay cursor y no
+                hay hover, de modo que en móvil el botón de cambiar
+                foto era invisible hasta que se tocaba a ciegas. */}
+
+            <div className="relative self-start">
+              <button
+                type="button"
+                onClick={() => setVerFoto(true)}
+                disabled={!avatarUrl}
+                aria-label={
+                  avatarUrl
+                    ? "Ver la foto de perfil en grande"
+                    : "Todavía no hay foto de perfil"
                 }
-                profile={{
-                  ...profile,
+                className="block rounded-full transition-transform duration-200 ease-out focus:outline-2 focus:outline-offset-4 focus:outline-accent enabled:cursor-zoom-in enabled:hover:brightness-[0.97] enabled:active:scale-[0.98]"
+              >
+                <ProfileAvatar
+                  key={avatarUrl || form.nombre}
+                  profile={{
+                    ...profile,
+                    nombre: form.nombre,
+                    foto_perfil: avatarUrl || null,
+                  }}
+                  size="h-24 w-24 sm:h-28 sm:w-28"
+                  /* El sello no va acá: el estado ya está escrito con
+                     todas sus letras en la píldora de al lado, y dos
+                     veces lo mismo a diez píxeles de distancia no
+                     informa, solo ocupa. */
+                  sello={false}
+                />
+              </button>
 
-                  nombre:
-                    form.nombre,
-
-                  foto_perfil:
-                    avatarUrl ||
-                    null,
-                }}
-                size="h-24 w-24 sm:h-28 sm:w-28"
-              />
-
-              {/* 
-                La cámara cubre el avatar pero permanece oculta.
-                Aparece solamente al hacer hover o focus.
-              */}
               <label
                 title="Cambiar foto de perfil"
-                className="
-                  absolute inset-0
-                  z-10
-                  flex cursor-pointer
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-black/0
-                  opacity-0
-                  transition-all
-                  duration-200
-                  group-hover:bg-black/35
-                  group-hover:opacity-100
-                  focus-within:bg-black/35
-                  focus-within:opacity-100
-                "
+                className="flota absolute right-0 bottom-0 grid h-10 w-10 cursor-pointer place-items-center rounded-full bg-surface text-rail transition-[background-color,transform] duration-200 ease-out hover:bg-sunken active:scale-[0.94] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
               >
-                <span
-                  className="
-                    flex h-10 w-10
-                    scale-90
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-white/95
-                    text-ink
-                    shadow-lg
-                    backdrop-blur-sm
-                    transition-transform
-                    duration-200
-                    group-hover:scale-100
-                  "
-                >
-                  <Camera
-                    size={17}
-                    strokeWidth={2}
-                  />
-                </span>
+                <Camera size={17} strokeWidth={2} aria-hidden />
+
+                <span className="sr-only">Cambiar foto de perfil</span>
 
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   className="sr-only"
-                  onChange={(
-                    event,
-                  ) => {
-                    selectPhoto(
-                      event.target
-                        .files?.[0] ??
-                        null,
-                    );
-
-                    event.target.value =
-                      "";
+                  onChange={(event) => {
+                    selectPhoto(event.target.files?.[0] ?? null);
+                    event.target.value = "";
                   }}
                 />
               </label>
@@ -1337,10 +1408,14 @@ const ProfilePage = () => {
                       }
                     `}
                   >
-                    <ShieldCheck
-                      size={13}
-                      strokeWidth={2.2}
-                    />
+                    {profile.verificacion.estado === "aprobado" ? (
+                      <SelloVerificado size={14} aro={false} />
+                    ) : (
+                      <ShieldCheck
+                        size={13}
+                        strokeWidth={2.2}
+                      />
+                    )}
 
                     {
                       verificationStatusLabels[
@@ -1426,19 +1501,70 @@ const ProfilePage = () => {
               )}
 
               <p className="mt-1 text-[10.5px] text-ink-mute">
-                Pasa el cursor sobre
-                la foto para
-                cambiarla · JPG, PNG
-                o WebP · Máximo 5 MB.
+                Tocá la foto para verla en grande · El botón de la
+                cámara la cambia · JPG, PNG o WebP · Máximo 5 MB.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ===================================================
-            INFORMACIÓN PERSONAL
-           =================================================== */}
+      </div>
 
+      {/* =====================================================
+          PESTAÑAS
+         ===================================================== */}
+
+      <div
+        role="tablist"
+        aria-label="Secciones del perfil"
+        className="inline-flex flex-wrap gap-1 rounded-full bg-sunken p-1"
+      >
+        {pestanas
+          .filter(({ id }) => !(id === "verificacion" && profile.isAdmin))
+          .map(({ id, rotulo, Icon }) => {
+            const activa = pestana === id;
+
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={activa}
+                onClick={() => setPestana(id)}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
+                  activa
+                    ? "bg-rail text-white"
+                    : "text-ink-soft hover:bg-white/70 hover:text-ink"
+                }`}
+              >
+                <Icon size={15} strokeWidth={1.9} aria-hidden />
+                {rotulo}
+
+                {/* El punto solo aparece donde hay algo que hacer.
+                    Una insignia permanente deja de significar nada
+                    en dos días. */}
+                {id === "verificacion" &&
+                  !profile.isAdmin &&
+                  verificationEditable && (
+                    <span
+                      aria-label="Tienes pasos pendientes"
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        activa ? "bg-accent" : "bg-warn"
+                      }`}
+                    />
+                  )}
+              </button>
+            );
+          })}
+      </div>
+
+      {/* =====================================================
+          MIS DATOS
+         ===================================================== */}
+
+      {(pestana === "datos" ||
+        (pestana === "verificacion" && profile.isAdmin)) && (
+      <div className={cardClass}>
         <form
           onSubmit={save}
           className="p-5 sm:p-7"
@@ -1554,62 +1680,18 @@ const ProfilePage = () => {
               </label>
 
               <div className="relative">
-                <MapPin
-                  size={15}
-                  className="
-                    pointer-events-none
-                    absolute left-3
-                    top-1/2
-                    -translate-y-1/2
-                    text-ink-mute
-                  "
-                />
-
-                <select
+                <Combo
                   id="perfil-zona"
-                  value={
-                    form.zona_id
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setField(
-                      "zona_id",
-                      event.target
-                        .value,
-                    )
-                  }
-                  className={`${fieldClass} pl-9`}
-                >
-                  <option value="">
-                    Seleccionar zona
-                  </option>
-
-                  {zonas.map(
-                    (zona) => (
-                      <option
-                        key={
-                          zona.id_zona
-                        }
-                        value={
-                          zona.id_zona
-                        }
-                      >
-                        {
-                          zona.nombre
-                        }
-                        ,{" "}
-                        {
-                          zona.canton
-                        }{" "}
-                        ·{" "}
-                        {
-                          zona.provincia
-                        }
-                      </option>
-                    ),
-                  )}
-                </select>
+                  Icon={MapPin}
+                  vacio
+                  placeholder="Seleccionar zona"
+                  value={form.zona_id}
+                  onChange={(v) => setField("zona_id", v)}
+                  options={zonas.map((zona) => ({
+                    value: zona.id_zona,
+                    label: `${zona.nombre}, ${zona.canton} · ${zona.provincia}`,
+                  }))}
+                />
               </div>
             </div>
           </div>
@@ -1629,272 +1711,272 @@ const ProfilePage = () => {
           </div>
         </form>
       </div>
+      )}
 
       {/* =====================================================
           VERIFICACIÓN
          ===================================================== */}
 
-      {!profile.isAdmin && (
+      {/* =====================================================
+          VERIFICACIÓN
+
+          Venía como una lista larga hacia abajo sin decir nunca en
+          qué punto del trámite estaba uno: un párrafo, cuatro cajas
+          de documentos y un botón que a veces se dejaba pulsar y a
+          veces no, sin explicar por qué. Ahora el trámite se declara
+          —tres pasos, cuál está cumplido, cuál toca— y el botón dice
+          en el sitio qué le falta para encenderse.
+
+          Los datos y las funciones son los mismos: los mismos tipos
+          de documento según los perfiles, la misma subida, el mismo
+          envío. Lo que cambia es que se ve dónde estás.
+         ===================================================== */}
+
+      {pestana === "verificacion" && !profile.isAdmin && (
         <div className={cardClass}>
-          <div
-            className="
-              flex flex-col gap-3
-              border-b border-black/[0.05]
-              px-5 py-5
-              sm:flex-row
-              sm:items-center
-              sm:justify-between
-              sm:px-6
-            "
-          >
+          <div className="flex flex-col gap-4 border-b border-black/[0.05] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
             <div className="flex items-start gap-3">
-              <span
-                className="
-                  flex h-10 w-10
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-accent/10
-                  text-accent-dark
-                "
-              >
-                <ShieldCheck
-                  size={19}
-                />
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent-dark">
+                <ShieldCheck size={20} />
               </span>
 
               <div>
                 <h3 className="text-[15px] font-semibold text-ink">
-                  Verificación de
-                  identidad
+                  Verificación de identidad
                 </h3>
 
-                <p className="mt-1 text-[12px] text-ink-mute">
-                  Protege tu cuenta
-                  y genera confianza
-                  dentro de la
-                  comunidad.
+                <p className="mt-1 max-w-md text-[12px] leading-relaxed text-ink-mute">
+                  Con tu identidad confirmada se habilitan las
+                  operaciones: registrar mascotas, solicitar paseos y
+                  recibir pagos.
                 </p>
               </div>
             </div>
 
             <Badge
               tono={
-                profile.verificacion
-                  .estado ===
-                "aprobado"
+                profile.verificacion.estado === "aprobado"
                   ? "ok"
-                  : profile
-                        .verificacion
-                        .estado ===
-                      "rechazado"
+                  : profile.verificacion.estado === "rechazado"
                     ? "danger"
                     : "warn"
               }
             >
-              {
-                verificationStatusLabels[
-                  profile
-                    .verificacion
-                    .estado
-                ]
-              }
+              {verificationStatusLabels[profile.verificacion.estado]}
             </Badge>
           </div>
 
-          <div className="space-y-5 p-5 sm:p-6">
-            {profile.verificacion
-              .estado !==
-              "aprobado" && (
-              <div className="flex gap-3 rounded-xl border border-accent/10 bg-accent/[0.04] px-4 py-3.5">
-                <ShieldCheck
-                  size={18}
-                  className="mt-0.5 shrink-0 text-accent-dark"
-                />
+          <div className="space-y-6 p-5 sm:p-6">
+            {/* ─── El trámite, declarado ─── */}
 
-                <p className="text-[12.5px] leading-relaxed text-ink-soft">
-                  Sube los documentos
-                  requeridos para
-                  confirmar tu
-                  identidad.
-                  Administración los
-                  revisará antes de
-                  aprobar tu cuenta.
+            <ol className="grid gap-2 sm:grid-cols-3">
+              {pasosVerificacion.map((paso, indice) => {
+                const numero = indice + 1;
+                const hecho = pasoVerificacion > numero;
+                const actual = pasoVerificacion === numero;
+
+                return (
+                  <li
+                    key={paso.titulo}
+                    aria-current={actual ? "step" : undefined}
+                    className={`rounded-[18px] px-4 py-3.5 transition-colors duration-200 ${
+                      hecho
+                        ? "bg-ok-wash"
+                        : actual
+                          ? "bg-accent-wash"
+                          : "bg-sunken"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${
+                          hecho
+                            ? "bg-ok text-white"
+                            : actual
+                              ? "bg-rail text-white"
+                              : "bg-surface text-ink-mute"
+                        }`}
+                      >
+                        {hecho ? (
+                          <Check size={13} strokeWidth={3.2} />
+                        ) : (
+                          numero
+                        )}
+                      </span>
+
+                      <p className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink">
+                        {paso.titulo}
+                      </p>
+                    </div>
+
+                    <p className="mt-1.5 text-[11.5px] leading-snug text-ink-soft">
+                      {paso.detalle}
+                    </p>
+                  </li>
+                );
+              })}
+            </ol>
+
+            {/* ─── Lo que administración devolvió ─── */}
+
+            {profile.verificacion.estado === "rechazado" &&
+              profile.verificacion.observacion && (
+                <div
+                  role="alert"
+                  className="flex gap-3 rounded-[18px] bg-danger-wash px-4 py-3.5"
+                >
+                  <X size={17} className="mt-0.5 shrink-0 text-danger" />
+
+                  <p className="text-[12.5px] leading-relaxed text-danger">
+                    <span className="font-semibold">
+                      Hay que corregir algo:
+                    </span>{" "}
+                    {profile.verificacion.observacion}
+                  </p>
+                </div>
+              )}
+
+            {profile.verificacion.estado === "aprobado" && (
+              <div className="flex items-center gap-3 rounded-[18px] bg-ok-wash px-4 py-3.5">
+                <SelloVerificado size={22} aro={false} />
+
+                <p className="text-[12.5px] leading-relaxed text-ok">
+                  Tu identidad está confirmada. El sello aparece junto a
+                  tu nombre en toda la plataforma.
                 </p>
               </div>
             )}
 
-            {profile.verificacion
-              .estado ===
-              "rechazado" &&
-              profile.verificacion
-                .observacion && (
-                <div
-                  role="alert"
-                  className="rounded-xl border border-danger/10 bg-danger-wash px-4 py-3 text-[12.5px] text-danger"
-                >
-                  <span className="font-semibold">
-                    Observación:
-                  </span>{" "}
-                  {
-                    profile
-                      .verificacion
-                      .observacion
-                  }
-                </div>
-              )}
+            {/* ─── Los documentos ─── */}
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {requiredVerificationDocuments.map(
-                (type) => {
-                  const document =
-                    profile.verificacion.documentos.find(
-                      (item) =>
-                        item.tipo_documento ===
-                        type,
-                    );
+            <div>
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h4 className="rotulo text-ink-mute">Documentos</h4>
+
+                <p className="text-[11.5px] text-ink-mute">
+                  {documentosListos} de{" "}
+                  {requiredVerificationDocuments.length} · PDF, JPG, PNG
+                  o WebP · Máximo 10 MB
+                </p>
+              </div>
+
+              {/* La barra dice lo mismo que el "3 de 4" de al lado,
+                  pero sin leer. Es la única pieza de la pantalla que
+                  se puede entender de reojo. */}
+              <div
+                aria-hidden
+                className="mb-4 h-1.5 overflow-hidden rounded-full bg-sunken"
+              >
+                <span
+                  className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
+                  style={{
+                    width: `${Math.round(
+                      (documentosListos /
+                        Math.max(requiredVerificationDocuments.length, 1)) *
+                        100,
+                    )}%`,
+                  }}
+                />
+              </div>
+
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {requiredVerificationDocuments.map((type) => {
+                  const document = profile.verificacion.documentos.find(
+                    (item) => item.tipo_documento === type,
+                  );
 
                   return (
                     <div
                       key={type}
-                      className={`
-                        flex min-h-[132px]
-                        flex-col
-                        rounded-xl border
-                        p-4
-                        transition
-                        ${
-                          document
-                            ? "border-ok/15 bg-ok/[0.025]"
-                            : "border-black/[0.06] bg-sunken/45"
-                        }
-                      `}
+                      className={`flex items-start gap-3 rounded-[18px] p-4 transition-colors duration-200 ${
+                        document ? "bg-ok-wash" : "bg-sunken"
+                      }`}
                     >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className={`
-                            flex h-9 w-9
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-lg
-                            ${
-                              document
-                                ? "bg-ok/10 text-ok"
-                                : "bg-surface text-accent-dark"
-                            }
-                          `}
-                        >
-                          <FileText
-                            size={
-                              16
-                            }
-                          />
-                        </span>
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                          document
+                            ? "bg-ok text-white"
+                            : "bg-surface text-accent-dark"
+                        }`}
+                      >
+                        {document ? (
+                          <CircleCheckBig size={16} strokeWidth={2.2} />
+                        ) : (
+                          <FileText size={16} />
+                        )}
+                      </span>
 
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-semibold text-ink">
-                            {
-                              verificationDocumentLabels[
-                                type
-                              ]
-                            }
-                          </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold text-ink">
+                          {verificationDocumentLabels[type]}
+                        </p>
 
-                          <p className="mt-1 truncate text-[11px] text-ink-mute">
-                            {document?.nombre_archivo ??
-                              "Pendiente de subir"}
-                          </p>
-                        </div>
+                        <p className="mt-0.5 truncate text-[11px] text-ink-mute">
+                          {document?.nombre_archivo ?? "Falta subirlo"}
+                        </p>
 
-                        {document && (
-                          <CheckCircle2
-                            size={
-                              17
-                            }
-                            className="shrink-0 text-ok"
-                          />
+                        {verificationEditable && (
+                          <label
+                            className={`${btnQuiet} mt-2.5 cursor-pointer`}
+                          >
+                            <Upload size={13} />
+
+                            {uploadingDocument === type
+                              ? "Subiendo…"
+                              : document
+                                ? "Reemplazar"
+                                : "Subir"}
+
+                            <input
+                              type="file"
+                              accept="application/pdf,image/jpeg,image/png,image/webp"
+                              className="sr-only"
+                              disabled={uploadingDocument !== null}
+                              onChange={(event) => {
+                                void uploadDocument(
+                                  type,
+                                  event.target.files?.[0] ?? null,
+                                );
+
+                                event.target.value = "";
+                              }}
+                            />
+                          </label>
                         )}
                       </div>
-
-                      {verificationEditable && (
-                        <label
-                          className={`${btnSecondary} mt-auto cursor-pointer self-start`}
-                        >
-                          {uploadingDocument ===
-                          type
-                            ? "Subiendo…"
-                            : document
-                              ? "Reemplazar"
-                              : "Subir documento"}
-
-                          <input
-                            type="file"
-                            accept="application/pdf,image/jpeg,image/png,image/webp"
-                            className="sr-only"
-                            disabled={
-                              uploadingDocument !==
-                              null
-                            }
-                            onChange={(
-                              event,
-                            ) => {
-                              void uploadDocument(
-                                type,
-
-                                event
-                                  .target
-                                  .files?.[0] ??
-                                  null,
-                              );
-
-                              event.target.value =
-                                "";
-                            }}
-                          />
-                        </label>
-                      )}
                     </div>
                   );
-                },
-              )}
+                })}
+              </div>
             </div>
 
+            {/* ─── El envío ─── */}
+
             {verificationEditable && (
-              <div
-                className="
-                  flex flex-col gap-3
-                  border-t border-black/[0.05]
-                  pt-5
-                  sm:flex-row
-                  sm:items-center
-                  sm:justify-between
-                "
-              >
-                <p className="text-[11px] text-ink-mute">
-                  PDF, JPG, PNG o
-                  WebP · Máximo 10 MB
-                  por archivo.
+              <div className="flex flex-col gap-3 border-t border-black/[0.05] pt-5 sm:flex-row sm:items-center sm:justify-between">
+                {/* Un botón apagado sin motivo escrito al lado es una
+                    puerta cerrada sin cartel: se prueba, no pasa nada
+                    y no queda claro si está roto. */}
+                <p className="text-[11.5px] text-ink-mute">
+                  {missingDocuments.length > 0
+                    ? `Falta subir: ${missingDocuments
+                        .map((type) => verificationDocumentLabels[type])
+                        .join(", ")}.`
+                    : "Todo listo. Administración revisa y te avisa por correo."}
                 </p>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    void submitVerification()
-                  }
+                  onClick={() => void submitVerification()}
                   disabled={
                     submittingVerification ||
-                    uploadingDocument !==
-                      null ||
-                    missingDocuments.length >
-                      0
+                    uploadingDocument !== null ||
+                    missingDocuments.length > 0
                   }
-                  className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
+                  className={`${btnPrimary} shrink-0 disabled:cursor-not-allowed disabled:opacity-50`}
                 >
-                  <Send
-                    size={15}
-                  />
+                  <Send size={15} />
 
                   {submittingVerification
                     ? "Enviando…"
@@ -1907,8 +1989,15 @@ const ProfilePage = () => {
       )}
 
       {/* =====================================================
-          PERFIL ACTUAL: DUEÑO
+          MIS PERFILES
+
+          Todo lo que sigue —el perfil activo, los que se pueden
+          activar y el formulario del que se está creando— es una
+          sola conversación: qué soy en esta aplicación. Va junto.
          ===================================================== */}
+
+      {pestana === "perfiles" && (
+        <>
 
       {role === "dueno" && (
         <div className={`${cardClass} p-5 sm:p-6`}>
@@ -2194,36 +2283,16 @@ const ProfilePage = () => {
                   Tipo
                 </label>
 
-                <select
+                <Combo
                   id="negocio-tipo"
-                  value={
-                    form.tipo_negocio
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setField(
-                      "tipo_negocio",
-                      event.target
-                        .value as ProfileForm["tipo_negocio"],
-                    )
-                  }
-                  className={
-                    fieldClass
-                  }
-                >
-                  <option value="veterinaria">
-                    Veterinaria
-                  </option>
-
-                  <option value="tienda">
-                    Tienda
-                  </option>
-
-                  <option value="refugio">
-                    Refugio
-                  </option>
-                </select>
+                  value={form.tipo_negocio}
+                  onChange={(v) => setField("tipo_negocio", v as ProfileForm["tipo_negocio"])}
+                  options={[
+                    { value: "veterinaria", label: "Veterinaria" },
+                    { value: "tienda", label: "Tienda" },
+                    { value: "refugio", label: "Refugio" },
+                  ]}
+                />
               </div>
 
               <div>
@@ -2236,53 +2305,17 @@ const ProfilePage = () => {
                   Zona
                 </label>
 
-                <select
+                <Combo
                   id="negocio-zona"
-                  value={
-                    form.negocio_zona_id
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setField(
-                      "negocio_zona_id",
-                      event.target
-                        .value,
-                    )
-                  }
-                  className={
-                    fieldClass
-                  }
-                >
-                  <option value="">
-                    Seleccionar zona
-                  </option>
-
-                  {zonas.map(
-                    (zona) => (
-                      <option
-                        key={
-                          zona.id_zona
-                        }
-                        value={
-                          zona.id_zona
-                        }
-                      >
-                        {
-                          zona.nombre
-                        }
-                        ,{" "}
-                        {
-                          zona.canton
-                        }{" "}
-                        ·{" "}
-                        {
-                          zona.provincia
-                        }
-                      </option>
-                    ),
-                  )}
-                </select>
+                  vacio
+                  placeholder="Seleccionar zona"
+                  value={form.negocio_zona_id}
+                  onChange={(v) => setField("negocio_zona_id", v)}
+                  options={zonas.map((zona) => ({
+                    value: zona.id_zona,
+                    label: `${zona.nombre}, ${zona.canton} · ${zona.provincia}`,
+                  }))}
+                />
               </div>
 
               <div>
@@ -3090,38 +3123,16 @@ const ProfilePage = () => {
                     *
                   </label>
 
-                  <select
+                  <Combo
                     id="activar-negocio-tipo"
-                    value={
-                      form.tipo_negocio
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setField(
-                        "tipo_negocio",
-
-                        event.target
-                          .value as ProfileForm["tipo_negocio"],
-                      )
-                    }
-                    className={
-                      fieldClass
-                    }
-                  >
-                    <option value="veterinaria">
-                      Veterinaria
-                    </option>
-
-                    <option value="tienda">
-                      Tienda para
-                      mascotas
-                    </option>
-
-                    <option value="refugio">
-                      Refugio
-                    </option>
-                  </select>
+                    value={form.tipo_negocio}
+                    onChange={(v) => setField("tipo_negocio", v as ProfileForm["tipo_negocio"])}
+                    options={[
+                      { value: "veterinaria", label: "Veterinaria" },
+                      { value: "tienda", label: "Tienda para mascotas" },
+                      { value: "refugio", label: "Refugio" },
+                    ]}
+                  />
                 </div>
 
                 <div>
@@ -3230,53 +3241,18 @@ const ProfilePage = () => {
                     Zona *
                   </label>
 
-                  <select
+                  <Combo
                     id="activar-negocio-zona"
-                    value={
-                      form.negocio_zona_id
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setField(
-                        "negocio_zona_id",
-                        event.target
-                          .value,
-                      )
-                    }
-                    className={
-                      fieldClass
-                    }
-                  >
-                    <option value="">
-                      Seleccionar zona
-                    </option>
-
-                    {zonas.map(
-                      (zona) => (
-                        <option
-                          key={
-                            zona.id_zona
-                          }
-                          value={
-                            zona.id_zona
-                          }
-                        >
-                          {
-                            zona.nombre
-                          }
-                          ,{" "}
-                          {
-                            zona.canton
-                          }{" "}
-                          ·{" "}
-                          {
-                            zona.provincia
-                          }
-                        </option>
-                      ),
-                    )}
-                  </select>
+                    required
+                    vacio
+                    placeholder="Seleccionar zona"
+                    value={form.negocio_zona_id}
+                    onChange={(v) => setField("negocio_zona_id", v)}
+                    options={zonas.map((zona) => ({
+                    value: zona.id_zona,
+                    label: `${zona.nombre}, ${zona.canton} · ${zona.provincia}`,
+                  }))}
+                  />
                 </div>
 
                 <div>
@@ -3430,6 +3406,15 @@ const ProfilePage = () => {
           </div>
         </div>
       )}
+        </>
+      )}
+
+      <Visor
+        abierto={verFoto && Boolean(avatarUrl)}
+        src={avatarUrl || ""}
+        alt={`Foto de perfil de ${form.nombre || profile.nombre}`}
+        cerrar={() => setVerFoto(false)}
+      />
     </Page>
   );
 };

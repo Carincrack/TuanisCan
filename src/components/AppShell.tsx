@@ -1,39 +1,40 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Bell, Menu, Search, ShieldAlert } from "lucide-react";
+import { Bell, Menu, Search, ShieldAlert } from "../lib/iconos";
 
 import { tituloDeRuta, type Rol } from "../lib/nav";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
 import { AsideDeRol } from "./aside";
-import { Cajon, Riel } from "./riel";
 import { CajonSuave, RielSuave } from "./rielSuave";
-import { input } from "./ui";
 
 /* ─────────────────────────────────────────────────────────────
-   Estructura de tres columnas:
-     · izquierda  navegación (oscura, fija). Vive en `riel.tsx` o
-                  en `rielSuave.tsx`, que deciden solos si les toca
-                  ser columna de iconos, barra abierta o cajón.
-     · centro     contenido
-     · derecha    contexto del rol (se oculta bajo 1280px)
+   EL ARMAZÓN
 
-   Este archivo se queda con lo que envuelve al contenido: la barra
-   superior, el aviso de verificación y el reparto del ancho.
+   Dos piezas flotando sobre un suelo, y nada más:
 
-   ── Dos pieles a la vez ──
-   El sistema está mudándose del mundo plano —sin esquinas, sin
-   sombras— al de la portada, que es todo píldoras y aire. La mudanza
-   arranca por la parte administrativa para verla puesta antes de
-   arrastrar las diez pantallas restantes.
+     · el riel, a la izquierda, que se pliega y se abre;
+     · el lienzo, que se queda con TODO lo demás — la barra
+       superior, el contenido y la columna de contexto— dentro de
+       una sola caja redonda.
 
-   Mudar otro rol es agregarlo a esta lista; volverse atrás es
-   sacarlo. Cuando estén todos, se borra la lista, se borra
-   `riel.tsx` y `.plano` sale de `index.css`.
+   Que el lienzo sea una pieza y no tres es lo que hace que al
+   plegarse el riel se corra un bloque entero y no un montón de
+   cosas cambiando de sitio cada una por su lado. Es hermano del
+   riel en la misma fila flexible: cuando el riel reserva menos
+   ancho, el lienzo crece contra él, y la transición de ancho del
+   riel arrastra la del lienzo sin una línea más.
+
+   El suelo es un gris azulado un paso más hondo que el canvas. Sin
+   él las dos piezas no tendrían contra qué recortarse y las sombras
+   no dirían nada: se verían dos rectángulos claros sobre un fondo
+   claro. Con él se leen como dos cosas apoyadas encima.
+
+   El aire —el relleno de afuera y el hueco de en medio— lo pone
+   este archivo y no las piezas. Cada una sabe cuánto mide; solo
+   quien las tiene a las dos sabe cuánto tienen que separarse.
    ───────────────────────────────────────────────────────────── */
-
-const MUNDO_SUAVE: Rol[] = ["admin"];
 
 interface AppShellProps {
   rol: Rol;
@@ -51,7 +52,6 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     ...(isAdmin ? (["admin"] as const) : []),
   ];
 
-  const suave = MUNDO_SUAVE.includes(rol);
   const cerrarMenu = useCallback(() => setMenuAbierto(false), []);
 
   // Cerrar el cajón al navegar; si no, queda tapando la pantalla nueva.
@@ -70,65 +70,33 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   };
 
   return (
-    <div
-      className={`${suave ? "suave" : "plano"} flex h-dvh w-full overflow-hidden bg-canvas`}
-    >
-      {suave ? (
-        <>
-          <RielSuave {...navegacion} />
-          <CajonSuave
-            {...navegacion}
-            abierto={menuAbierto}
-            cerrar={cerrarMenu}
-            onNavegar={cerrarMenu}
-          />
-        </>
-      ) : (
-        <>
-          <Riel {...navegacion} />
-          <Cajon
-            {...navegacion}
-            abierto={menuAbierto}
-            cerrar={cerrarMenu}
-            onNavegar={cerrarMenu}
-          />
-        </>
-      )}
+    <div className="suave flex h-dvh w-full gap-2.5 overflow-hidden bg-suelo p-2.5">
+      <RielSuave {...navegacion} />
+      <CajonSuave
+        {...navegacion}
+        abierto={menuAbierto}
+        cerrar={cerrarMenu}
+        onNavegar={cerrarMenu}
+      />
 
-      {/* ── Barra superior + centro + derecha ── */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* En el mundo suave la barra no es una franja blanca pegada
-            arriba: el canvas sube hasta el borde y solo flotan encima
-            el título y los dos controles. Una franja partiría en dos
-            la pantalla justo donde el riel dejó de tener borde. */}
-        <header
-          className={`anim-rise flex shrink-0 items-center gap-2 sm:gap-3 ${
-            suave
-              ? "h-16 px-3 lg:px-4"
-              : "h-14 bg-surface px-2 sm:px-4 lg:px-6"
-          }`}
-        >
+      {/* ── El lienzo ── */}
+      <div className="lienzo flex min-w-0 flex-1 flex-col overflow-hidden rounded-[26px] bg-canvas">
+        {/* La barra superior no es una franja: el canvas del lienzo
+            sube hasta el borde y solo flotan encima el título y los
+            controles. Una franja blanca partiría el lienzo en dos
+            justo debajo de su propia esquina redonda. */}
+        <header className="anim-rise flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 lg:px-4">
           <button
             type="button"
             onClick={() => setMenuAbierto(true)}
             aria-label="Abrir menú"
             aria-expanded={menuAbierto}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center transition-[background-color,color,transform] duration-200 md:hidden ${
-              suave
-                ? "flota rounded-full bg-surface text-rail active:scale-[0.94]"
-                : "text-ink-soft hover:bg-sunken hover:text-ink"
-            }`}
+            className="flota flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94] md:hidden"
           >
             <Menu size={19} />
           </button>
 
-          <h1
-            className={`min-w-0 flex-1 truncate text-ink ${
-              suave
-                ? "titular text-[20px]"
-                : "text-[15px] font-semibold tracking-[-0.01em]"
-            }`}
-          >
+          <h1 className="titular min-w-0 flex-1 truncate text-[20px] text-ink">
             {tituloDeRuta(rol, pathname)}
           </h1>
 
@@ -142,46 +110,32 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
               id="busqueda-global"
               type="search"
               placeholder="Buscar"
-              className={
-                suave
-                  ? "flota h-10 w-full rounded-full bg-surface pr-4 pl-10 text-[13.5px] text-ink outline-none placeholder:text-ink-mute focus:outline-2 focus:outline-offset-2 focus:outline-accent"
-                  : `${input} pl-9`
-              }
+              className="flota h-10 w-full rounded-full bg-surface pr-4 pl-10 text-[13.5px] text-ink outline-none placeholder:text-ink-mute focus:outline-2 focus:outline-offset-2 focus:outline-accent"
             />
             <Search
               size={15}
               strokeWidth={1.9}
               aria-hidden
-              className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-mute ${
-                suave ? "left-4" : "left-3"
-              }`}
+              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute"
             />
           </div>
 
           <button
             type="button"
             aria-label="Notificaciones"
-            className={`relative flex h-10 w-10 shrink-0 items-center justify-center transition-[background-color,color,transform] duration-200 ${
-              suave
-                ? "flota rounded-full bg-surface text-rail active:scale-[0.94]"
-                : "text-ink-soft hover:bg-sunken hover:text-ink"
-            }`}
+            className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
           >
             <Bell size={18} strokeWidth={1.9} />
             <span
               aria-hidden
-              className={`absolute h-2 w-2 bg-accent ${
-                suave ? "top-2 right-2 rounded-full" : "top-2 right-2"
-              }`}
+              className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"
             />
           </button>
         </header>
 
         {rol !== "admin" && profile?.verificacion.estado !== "aprobado" && (
           <div
-            className={`flex flex-wrap items-center gap-2 bg-warn-wash text-[12.5px] text-warn ${
-              suave ? "mx-3 rounded-2xl px-4 py-3 lg:mx-4" : "px-4 py-3 lg:px-6"
-            }`}
+            className="mx-3 flex flex-wrap items-center gap-2 rounded-[18px] bg-warn-wash px-5 py-3 text-[12.5px] text-warn lg:mx-4"
             role="status"
           >
             <ShieldAlert size={16} aria-hidden className="shrink-0" />
@@ -192,8 +146,12 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                   ? `Debes corregir tu verificación: ${profile.verificacion.observacion ?? "revisa los documentos enviados."}`
                   : "Verifica tu perfil para registrar mascotas, solicitar paseos y usar las funciones de la plataforma."}
             </span>
+            {/* El fragmento no es decorativo: el perfil abre por
+                pestañas y sin él este enlace deja al usuario en "Mis
+                datos", que es justo lo que no vino a ver. */}
             <Link
               to="/perfil"
+              hash="verificacion"
               className="font-semibold underline underline-offset-2"
             >
               Ir a verificación
@@ -202,11 +160,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
         )}
 
         <div className="flex min-h-0 flex-1 overflow-y-auto">
-          <main
-            className={
-              suave ? "min-w-0 flex-1 px-3 pt-1 pb-4 lg:px-4" : "min-w-0 flex-1 p-2 sm:p-3 lg:p-4"
-            }
-          >
+          <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-4">
             {/* La clave remonta el contenido en cada ruta: así la entrada
                 se reproduce al navegar, no solo al cargar la página. */}
             <div key={pathname} className="anim-rise mx-auto w-full max-w-[900px]">
@@ -216,9 +170,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
           <aside
             aria-label="Contexto"
-            className={`anim-rise d-3 hidden w-[312px] shrink-0 flex-col gap-3 xl:flex ${
-              suave ? "px-4 pt-1 pb-4 pl-0" : "p-4 pl-0"
-            }`}
+            className="anim-rise d-3 hidden w-[312px] shrink-0 flex-col gap-2.5 px-4 pt-2 pb-4 pl-0 xl:flex"
           >
             <AsideDeRol rol={rol} />
           </aside>

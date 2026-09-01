@@ -9,7 +9,7 @@ import {
   Search,
   Star,
   X,
-} from "lucide-react";
+} from "../lib/iconos";
 import { listPets } from "../services/pets.service";
 import { listActiveWalkers, requestWalk } from "../services/walkers.service";
 import { useAuth } from "../hooks/useAuth";
@@ -27,6 +27,7 @@ import {
   colones,
   input,
 } from "./ui";
+import { Combo } from "./Combo";
 
 interface RequestForm {
   id_mascota: string;
@@ -171,13 +172,13 @@ const Paseadores = () => {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre o zona"
-            className={`${input} pl-9`}
+            className={`${input} pl-10`}
           />
           <Search
             size={15}
             strokeWidth={1.9}
             aria-hidden
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute"
+            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute"
           />
         </div>
 
@@ -254,7 +255,7 @@ const Paseadores = () => {
                 </Badge>
               </div>
 
-              <div className="mt-auto flex gap-px pt-4">
+              <div className="mt-auto flex gap-2 pt-4">
                 <button type="button" onClick={() => setPerfil(w)} className={`${btnSecondary} flex-1`}>
                   Ver perfil
                 </button>
@@ -294,10 +295,10 @@ const Paseadores = () => {
                 <X size={18} />
               </button>
             </div>
-            <div className="grid gap-px bg-canvas sm:grid-cols-3">
-              <div className="bg-surface px-6 py-4"><p className="text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase">Rating</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.calificacion_promedio.toFixed(1)}</p></div>
-              <div className="bg-surface px-6 py-4"><p className="text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase">Reseñas</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.total_resenas}</p></div>
-              <div className="bg-surface px-6 py-4"><p className="text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase">Paseos</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.total_paseos}</p></div>
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              <div className="bg-surface px-6 py-4"><p className="rotulo text-ink-mute">Rating</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.calificacion_promedio.toFixed(1)}</p></div>
+              <div className="bg-surface px-6 py-4"><p className="rotulo text-ink-mute">Reseñas</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.total_resenas}</p></div>
+              <div className="bg-surface px-6 py-4"><p className="rotulo text-ink-mute">Paseos</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.total_paseos}</p></div>
             </div>
             <div className="px-6 py-5">
               <p className="text-[13px] leading-relaxed text-ink-soft">{perfil.descripcion || "Este paseador todavia no agregó una descripción pública."}</p>
@@ -305,7 +306,7 @@ const Paseadores = () => {
                 <span className="nums text-[18px] font-semibold text-ink">{colones(perfil.tarifa_base ?? 0)}</span>
                 <Badge tono="ok">Disponible hoy</Badge>
               </div>
-              <div className="mt-5 flex justify-end gap-px">
+              <div className="mt-5 flex justify-end gap-2">
                 <button type="button" onClick={() => setPerfil(null)} className={btnSecondary}>Cerrar</button>
                 <button type="button" onClick={() => { setPerfil(null); openRequest(perfil); }} disabled={!canOperate || !perfil.tarifa_base} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}>Solicitar paseo</button>
               </div>
@@ -329,34 +330,40 @@ const Paseadores = () => {
 
             <div className="grid gap-4 px-6 pb-6 sm:grid-cols-2">
               <label className="sm:col-span-2">
-                <span className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase">Mascota</span>
-                <select value={form.id_mascota} onChange={(e) => setForm({ ...form, id_mascota: e.target.value })} className={`${input} mt-2`} disabled={!pets.length}>
-                  {pets.length ? pets.map((pet) => <option key={pet.id_mascota} value={pet.id_mascota}>{pet.nombre}</option>) : <option value="">No tienes mascotas registradas</option>}
-                </select>
+                <span className="rotulo text-ink-mute">Mascota</span>
+                <Combo
+                  className="mt-2"
+                  value={form.id_mascota}
+                  onChange={(v) => setForm({ ...form, id_mascota: v })}
+                  disabled={!pets.length}
+                  textoInactivo="No tienes mascotas registradas"
+                  placeholder="Elegí una mascota"
+                  options={pets.map((pet) => ({ value: pet.id_mascota, label: pet.nombre }))}
+                />
               </label>
               <label>
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"><CalendarDays size={13} /> Fecha</span>
+                <span className="flex items-center gap-1.5 rotulo text-ink-mute"><CalendarDays size={13} /> Fecha</span>
                 <input type="date" min={emptyRequest.fecha} value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={`${input} mt-2`} />
               </label>
               <label>
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"><Clock size={13} /> Hora</span>
+                <span className="flex items-center gap-1.5 rotulo text-ink-mute"><Clock size={13} /> Hora</span>
                 <input type="time" value={form.hora_inicio} onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })} className={`${input} mt-2`} />
               </label>
               <label>
-                <span className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase">Duración</span>
-                <select value={form.duracion_min} onChange={(e) => setForm({ ...form, duracion_min: e.target.value })} className={`${input} mt-2`}>
-                  <option value="30">30 minutos</option>
-                  <option value="45">45 minutos</option>
-                  <option value="60">60 minutos</option>
-                  <option value="90">90 minutos</option>
-                </select>
+                <span className="rotulo text-ink-mute">Duración</span>
+                <Combo
+                  className="mt-2"
+                  value={form.duracion_min}
+                  onChange={(v) => setForm({ ...form, duracion_min: v })}
+                  options={[30, 45, 60, 90].map((m) => ({ value: String(m), label: `${m} minutos` }))}
+                />
               </label>
               <div className="bg-sunken px-4 py-3">
-                <p className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase">Total</p>
+                <p className="rotulo text-ink-mute">Total</p>
                 <p className="nums mt-1 text-[20px] font-semibold text-ink">{colones(solicitud.tarifa_base ?? 0)}</p>
               </div>
               <label className="sm:col-span-2">
-                <span className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase">Dirección de encuentro</span>
+                <span className="rotulo text-ink-mute">Dirección de encuentro</span>
                 <textarea rows={3} value={form.direccion_encuentro} onChange={(e) => setForm({ ...form, direccion_encuentro: e.target.value })} className={`${input} mt-2 resize-y`} placeholder="Casa, condominio, parque o punto de referencia" />
               </label>
 

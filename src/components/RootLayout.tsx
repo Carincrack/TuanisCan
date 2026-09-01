@@ -7,7 +7,7 @@ import {
   PawPrint,
   ShieldCheck,
   Store,
-} from "lucide-react";
+} from "../lib/iconos";
 
 import LoginPage from "../page/LoginPage";
 import AppShell from "./AppShell";
@@ -15,6 +15,7 @@ import Landing from "../landing";
 import Splash from "./Splash";
 
 import {
+  MARCA,
   navPorRol,
   RUTA_ADMIN,
   inicioDeRol,
@@ -91,333 +92,113 @@ const RoleChooser = ({
     ...(isAdmin ? (["admin"] as const) : []),
   ];
 
+  /* ── La antesala ──
+     Esta pantalla se ve entre el login y la aplicación, así que se
+     viste como la aplicación: suelo gris azulado, una tarjeta que
+     flota encima, píldoras y Archivo. Antes era otra cosa —manchas
+     difuminadas de fondo, un degradado en la cabecera y un borde
+     alrededor de cada caja—, y ninguno de esos tres recursos existe
+     en el resto del sistema: acá lo que separa las cosas es el color
+     del fondo y la distancia, nunca una línea.
+
+     Los perfiles van en filas y no en tarjetas grandes de dos
+     columnas. Son entre uno y cuatro, se leen de un vistazo, y una
+     lista corta en filas se recorre más rápido que una cuadrícula —
+     que además deja un hueco desparejado cuando el número es impar,
+     que es el caso más común porque casi nadie tiene cuatro. */
   return (
-    <main
-      className="
-        relative
-        flex min-h-dvh
-        items-center
-        justify-center
-        overflow-hidden
-        bg-canvas
-        px-4
-        py-10
-      "
-    >
-      {/* Decoración de fondo */}
-      <div
-        aria-hidden
-        className="
-          pointer-events-none
-          absolute
-          -left-24 -top-20
-          h-72 w-72
-          rounded-full
-          bg-accent/[0.07]
-          blur-3xl
-        "
-      />
+    <main className="suave flex min-h-dvh items-center justify-center bg-suelo px-4 py-8">
+      <section className="lienzo w-full max-w-[540px] overflow-hidden rounded-[26px] bg-surface">
+        {/* El celeste del login: esta pantalla viene justo después de
+            esa, y compartir el color hace que se lea como el mismo
+            trayecto y no como otra aplicación.
 
-      <div
-        aria-hidden
-        className="
-          pointer-events-none
-          absolute
-          -bottom-28 -right-20
-          h-80 w-80
-          rounded-full
-          bg-accent/[0.05]
-          blur-3xl
-        "
-      />
+            El texto vuelve a ser claro. Sobre este celeste el blanco
+            da 6.3:1 y el pálido 5.3:1; la tinta se quedaría en 4.3 y
+            no pasaría AA, que es lo contrario de lo que pasaba con el
+            azul suave de la portada —ahí el claro era el que fallaba.
+            Al cambiar el fondo hay que rehacer la cuenta, no arrastrar
+            los colores de antes. */}
+        <div className="bg-rail-claro px-6 py-7 text-center sm:px-8">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-canvas">
+            <img
+              src={MARCA.logoSimbolo}
+              alt=""
+              aria-hidden
+              className="h-8 w-8 object-contain"
+            />
+          </span>
 
-      <section
-        className="
-          relative
-          w-full
-          max-w-[620px]
-          overflow-hidden
-          rounded-3xl
-          border
-          border-black/[0.06]
-          bg-surface
-          shadow-[0_24px_70px_rgba(15,32,44,0.10)]
-        "
-      >
-        {/* ====================================================
-            CABECERA
-           ==================================================== */}
+          <p className="rotulo mt-4 text-accent-wash">{MARCA.completo}</p>
 
-        <div
-          className="
-            relative
-            overflow-hidden
-            border-b
-            border-black/[0.05]
-            bg-gradient-to-br
-            from-accent/[0.09]
-            via-surface
-            to-accent/[0.025]
-            px-6
-            py-7
-            text-center
-            sm:px-8
-            sm:py-8
-          "
-        >
-          <div
-            aria-hidden
-            className="
-              pointer-events-none
-              absolute
-              left-1/2 top-0
-              h-40 w-40
-              -translate-x-1/2
-              -translate-y-1/2
-              rounded-full
-              bg-accent/[0.08]
-              blur-3xl
-            "
-          />
+          <h1 className="titular mt-2 text-[26px] text-white sm:text-[28px]">
+            ¿Cómo quieres ingresar?
+          </h1>
 
-          <div className="relative">
-            <div
-              className="
-                mx-auto
-                flex h-12 w-12
-                items-center
-                justify-center
-                rounded-2xl
-                bg-accent/10
-                text-accent-dark
-              "
-            >
-              <PawPrint size={22} strokeWidth={1.9} />
-            </div>
-
-            <p
-              className="
-                mt-4
-                text-[10px]
-                font-semibold
-                uppercase
-                tracking-[0.16em]
-                text-accent-dark
-              "
-            >
-              TuanisCan
-            </p>
-
-            <h1
-              className="
-                mt-2
-                text-[25px]
-                font-semibold
-                tracking-[-0.025em]
-                text-ink
-                sm:text-[28px]
-              "
-            >
-              ¿Cómo quieres ingresar?
-            </h1>
-
-            <p
-              className="
-                mx-auto
-                mt-2
-                max-w-md
-                text-[13px]
-                leading-relaxed
-                text-ink-soft
-              "
-            >
-              Selecciona el perfil que deseas utilizar. Podrás cambiarlo
-              posteriormente desde la aplicación.
-            </p>
-          </div>
+          <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-accent-wash">
+            Elegí el perfil que vas a usar. Podés cambiarlo después sin
+            volver a entrar.
+          </p>
         </div>
 
-        {/* ====================================================
-            OPCIONES
-           ==================================================== */}
-
-        <div className="p-5 sm:p-6">
+        <div className="p-4 sm:p-5">
           {disponibles.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {disponibles.map((item) => {
+            <ul className="flex flex-col gap-2">
+              {disponibles.map((item, i) => {
                 const meta = rolMeta[item];
 
                 return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => onChoose(item)}
-                    className="
-                      group
-                      relative
-                      flex min-h-[150px]
-                      overflow-hidden
-                      rounded-2xl
-                      border
-                      border-black/[0.06]
-                      bg-surface
-                      p-5
-                      text-left
-                      transition-all
-                      duration-200
+                  <li key={item}>
+                    <button
+                      type="button"
+                      onClick={() => onChoose(item)}
+                      style={{ animationDelay: `${60 + i * 60}ms` }}
+                      className="anim-rise group flex w-full items-center gap-4 rounded-[18px] px-4 py-4 text-left transition-[background-color,transform] duration-200 ease-out hover:bg-sunken active:scale-[0.985]"
+                    >
+                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep transition-colors duration-200 group-hover:bg-rail group-hover:text-white">
+                        <meta.Icon size={20} strokeWidth={1.9} />
+                      </span>
 
-                      hover:-translate-y-0.5
-                      hover:border-accent/30
-                      hover:bg-accent/[0.025]
-                      hover:shadow-[0_10px_30px_rgba(15,32,44,0.07)]
-
-                      focus-visible:outline-none
-                      focus-visible:ring-2
-                      focus-visible:ring-accent/40
-                    "
-                  >
-                    {/* Decoración al hover */}
-                    <span
-                      aria-hidden
-                      className="
-                        pointer-events-none
-                        absolute
-                        -right-10 -top-10
-                        h-24 w-24
-                        rounded-full
-                        bg-accent/0
-                        transition-all
-                        duration-300
-                        group-hover:bg-accent/[0.06]
-                      "
-                    />
-
-                    <div className="relative flex w-full flex-col">
-                      <div className="flex items-start justify-between gap-4">
-                        <span
-                          className="
-                            flex h-11 w-11
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-xl
-                            bg-accent/10
-                            text-accent-dark
-                            transition-all
-                            duration-200
-
-                            group-hover:bg-accent
-                            group-hover:text-white
-                          "
-                        >
-                          <meta.Icon size={20} strokeWidth={1.9} />
-                        </span>
-
-                        <span
-                          className="
-                            flex h-8 w-8
-                            items-center
-                            justify-center
-                            rounded-full
-                            text-ink-mute
-                            transition-all
-                            duration-200
-
-                            group-hover:translate-x-0.5
-                            group-hover:bg-accent/10
-                            group-hover:text-accent-dark
-                          "
-                        >
-                          <ArrowRight size={16} />
-                        </span>
-                      </div>
-
-                      <div className="mt-4">
-                        <h2
-                          className="
-                            text-[14px]
-                            font-semibold
-                            text-ink
-                          "
-                        >
+                      <span className="min-w-0 flex-1">
+                        <span className="titular block text-[16px] text-ink">
                           {meta.titulo}
-                        </h2>
-
-                        <p
-                          className="
-                            mt-1.5
-                            text-[11.5px]
-                            leading-relaxed
-                            text-ink-soft
-                          "
-                        >
+                        </span>
+                        <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-soft">
                           {meta.descripcion}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
+                        </span>
+                      </span>
+
+                      {/* El disco de turquesa con la flecha navy: el
+                          mismo remate de las píldoras de la portada.
+                          Blanco sobre turquesa daría 3.0:1 y se
+                          ensucia; navy encima se lee limpio. */}
+                      <span
+                        aria-hidden
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sunken text-ink-mute transition-[background-color,color,transform] duration-200 ease-out group-hover:translate-x-0.5 group-hover:bg-accent group-hover:text-rail"
+                      >
+                        <ArrowRight size={17} strokeWidth={2.4} />
+                      </span>
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           ) : (
-            <div
-              className="
-                rounded-2xl
-                border
-                border-danger/10
-                bg-danger-wash
-                px-5
-                py-5
-                text-center
-              "
-            >
-              <p className="text-[13px] font-medium text-danger">
+            <div className="rounded-[18px] bg-danger-wash px-5 py-6 text-center">
+              <p className="text-[13.5px] font-semibold text-danger">
                 Esta cuenta no tiene perfiles activos.
               </p>
-
-              <p className="mt-1 text-[11.5px] text-danger/80">
-                Contacta a administración si consideras que esto es un error.
+              <p className="mt-1.5 text-[12.5px] text-danger/80">
+                Escribile a administración si creés que es un error.
               </p>
             </div>
           )}
 
-          {/* ====================================================
-              CERRAR SESIÓN
-             ==================================================== */}
-
-          <div
-            className="
-              mt-6
-              flex
-              items-center
-              justify-center
-              border-t
-              border-black/[0.05]
-              pt-5
-            "
-          >
+          <div className="mt-4 flex justify-center">
             <button
               type="button"
               onClick={onLogout}
-              className="
-                inline-flex
-                items-center
-                gap-2
-                rounded-xl
-                px-3
-                py-2
-                text-[12px]
-                font-medium
-                text-ink-mute
-                transition
-
-                hover:bg-sunken
-                hover:text-ink
-
-                focus-visible:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-accent/30
-              "
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-medium text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken hover:text-ink active:scale-[0.97]"
             >
               <LogOut size={14} />
               Cerrar sesión

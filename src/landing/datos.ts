@@ -1,4 +1,4 @@
-import { Footprints, PawPrint, type LucideIcon } from "lucide-react";
+import { Footprints, PawPrint, type Icono } from "../lib/iconos";
 
 /* ─────────────────────────────────────────────────────────────
    Contenido de la portada. Separado del maquetado a propósito: el
@@ -27,7 +27,7 @@ export type ClavePublico = "dueno" | "paseador";
 
 export interface Publico {
   clave: ClavePublico;
-  Icon: LucideIcon;
+  Icon: Icono;
   /** Rótulo del conmutador. */
   label: string;
   /** Se lee debajo del wordmark. */
