@@ -59,6 +59,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const [notificaciones, setNotificaciones] = useState<Notification[]>([]);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [notificacionesError, setNotificacionesError] = useState<string | null>(null);
+  const [accionNotificacion, setAccionNotificacion] = useState<string | null>(null);
   const rolesDisponibles: Rol[] = [
     ...roles,
     ...(isAdmin ? (["admin"] as const) : []),
@@ -73,33 +74,39 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     getProfile().then(setProfile).catch(() => setProfile(null));
   }, [getProfile, pathname]);
 
-  useEffect(() => {
-    listNotifications().then(setNotificaciones).catch(() => setNotificaciones([]));
-  }, [pathname]);
-
-  const pendientes = notificaciones.filter((n) => !n.leido).length;
-
-  const abrirNotificaciones = async () => {
-    setNotificacionesAbiertas((abiertas) => !abiertas);
-    setNotificacionesError(null);
+  const cargarNotificaciones = useCallback(async () => {
     try {
       setNotificaciones(await listNotifications());
+      setNotificacionesError(null);
     } catch {
       setNotificaciones([]);
       setNotificacionesError("No se pudieron cargar las notificaciones.");
     }
+  }, []);
+
+  useEffect(() => {
+    void cargarNotificaciones();
+  }, [cargarNotificaciones, pathname]);
+
+  const pendientes = notificaciones.filter((n) => !n.leido).length;
+
+  const abrirNotificaciones = async () => {
+    const seAbre = !notificacionesAbiertas;
+    setNotificacionesAbiertas(seAbre);
+    setNotificacionesError(null);
+    if (seAbre) await cargarNotificaciones();
   };
 
   const leerNotificacion = async (id: string) => {
     setNotificacionesError(null);
-    setNotificaciones((actuales) =>
-      actuales.map((n) => (n.id_notificacion === id ? { ...n, leido: true } : n)),
-    );
+    setAccionNotificacion(id);
     try {
       await markNotificationRead(id);
+      await cargarNotificaciones();
     } catch {
-      setNotificaciones(await listNotifications());
       setNotificacionesError("No se pudo marcar como leida.");
+    } finally {
+      setAccionNotificacion(null);
     }
   };
 
@@ -122,36 +129,40 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
   const leerTodas = async () => {
     setNotificacionesError(null);
-    setNotificaciones((actuales) => actuales.map((n) => ({ ...n, leido: true })));
+    setAccionNotificacion("todas");
     try {
       await markAllNotificationsRead();
+      await cargarNotificaciones();
     } catch {
-      setNotificaciones(await listNotifications());
       setNotificacionesError("No se pudieron marcar como leidas.");
+    } finally {
+      setAccionNotificacion(null);
     }
   };
 
   const eliminarNotificacion = async (id: string) => {
     setNotificacionesError(null);
-    setNotificaciones((actuales) =>
-      actuales.filter((n) => n.id_notificacion !== id),
-    );
+    setAccionNotificacion(id);
     try {
       await deleteNotification(id);
+      await cargarNotificaciones();
     } catch {
-      setNotificaciones(await listNotifications());
       setNotificacionesError("No se pudo eliminar la notificacion.");
+    } finally {
+      setAccionNotificacion(null);
     }
   };
 
   const eliminarTodas = async () => {
     setNotificacionesError(null);
-    setNotificaciones([]);
+    setAccionNotificacion("todas");
     try {
       await deleteAllNotifications();
+      await cargarNotificaciones();
     } catch {
-      setNotificaciones(await listNotifications());
       setNotificacionesError("No se pudieron eliminar las notificaciones.");
+    } finally {
+      setAccionNotificacion(null);
     }
   };
 
@@ -179,7 +190,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             sube hasta el borde y solo flotan encima el título y los
             controles. Una franja blanca partiría el lienzo en dos
             justo debajo de su propia esquina redonda. */}
-        <header className="anim-rise flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 lg:px-4">
+        <header className="anim-rise relative z-[80] flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 lg:px-4">
           <button
             type="button"
             onClick={() => setMenuAbierto(true)}
@@ -232,7 +243,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             </button>
 
             {notificacionesAbiertas && (
-              <div className="flota fixed top-[76px] right-4 z-50 w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl lg:right-8">
+              <div className="flota pointer-events-auto fixed top-[76px] right-4 z-[120] w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl lg:right-8">
                 <div className="flex items-center justify-between gap-3 border-b border-sunken px-4 py-3">
                   <h2 className="rotulo text-ink-mute">Notificaciones</h2>
                   {notificaciones.length > 0 && (
@@ -241,7 +252,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                         <button
                           type="button"
                           onClick={() => void leerTodas()}
-                          className="text-[12px] font-semibold text-accent-dark hover:underline"
+                          disabled={accionNotificacion !== null}
+                          className="text-[12px] font-semibold text-accent-dark hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Marcar leidas
                         </button>
@@ -249,7 +261,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                       <button
                         type="button"
                         onClick={() => void eliminarTodas()}
-                        className="text-[12px] font-semibold text-danger hover:underline"
+                        disabled={accionNotificacion !== null}
+                        className="text-[12px] font-semibold text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Eliminar todas
                       </button>
@@ -283,7 +296,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                         <button
                           type="button"
                           onClick={() => void abrirDesdeNotificacion(n)}
-                          className="min-w-0 flex-1 text-left"
+                          disabled={accionNotificacion !== null}
+                          className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
                         >
                           <span className={`block text-[12.5px] leading-snug ${n.leido ? "" : "font-medium"}`}>
                             {n.mensaje}
@@ -307,7 +321,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                               }}
                               aria-label="Marcar como leída"
                               title="Marcar como leída"
-                              className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-ok-wash hover:text-ok"
+                              disabled={accionNotificacion !== null}
+                              className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-ok-wash hover:text-ok disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Check size={14} />
                               Leida
@@ -321,7 +336,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                             }}
                             aria-label="Eliminar notificación"
                             title="Eliminar notificación"
-                            className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-danger-wash hover:text-danger"
+                            disabled={accionNotificacion !== null}
+                            className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-danger-wash hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2 size={14} />
                             Eliminar
