@@ -76,7 +76,7 @@ export const listSightings = async (reportIds: string[]): Promise<Sighting[]> =>
     .select(`
       id_avistamiento, id_reporte, id_usuario, latitud, longitud, comentario,
       fecha, zona_id, direccion, contacto,
-      zona:zonas(id_zona, nombre, canton, provincia)
+      zona:zonas!avistamientos_zona_id_fkey(id_zona, nombre, canton, provincia)
     `)
     .in("id_reporte", reportIds)
     .order("fecha", { ascending: false });
