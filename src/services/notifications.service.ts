@@ -20,17 +20,25 @@ export const listNotifications = async (): Promise<Notification[]> => {
 };
 
 export const markNotificationRead = async (id: string) => {
-  const { error } = await supabase
-    .from("notificaciones")
-    .update({ leido: true })
-    .eq("id_notificacion", id);
+  const { error } = await supabase.rpc("marcar_notificacion_leida", {
+    p_id_notificacion: id,
+  });
   if (error) throw error;
 };
 
 export const markAllNotificationsRead = async () => {
-  const { error } = await supabase
-    .from("notificaciones")
-    .update({ leido: true })
-    .eq("leido", false);
+  const { error } = await supabase.rpc("marcar_notificaciones_leidas");
+  if (error) throw error;
+};
+
+export const deleteNotification = async (id: string) => {
+  const { error } = await supabase.rpc("eliminar_notificacion", {
+    p_id_notificacion: id,
+  });
+  if (error) throw error;
+};
+
+export const deleteAllNotifications = async () => {
+  const { error } = await supabase.rpc("eliminar_notificaciones");
   if (error) throw error;
 };

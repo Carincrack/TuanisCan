@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Bell, Menu, Search, ShieldAlert } from "../lib/iconos";
+import { Bell, Check, Menu, Search, ShieldAlert, Trash2 } from "../lib/iconos";
 
 import { tituloDeRuta, type Rol } from "../lib/nav";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
 import {
+  deleteAllNotifications,
+  deleteNotification,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -56,6 +58,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [notificaciones, setNotificaciones] = useState<Notification[]>([]);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
+  const [notificacionesError, setNotificacionesError] = useState<string | null>(null);
   const rolesDisponibles: Rol[] = [
     ...roles,
     ...(isAdmin ? (["admin"] as const) : []),
@@ -78,21 +81,25 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
   const abrirNotificaciones = async () => {
     setNotificacionesAbiertas((abiertas) => !abiertas);
+    setNotificacionesError(null);
     try {
       setNotificaciones(await listNotifications());
     } catch {
       setNotificaciones([]);
+      setNotificacionesError("No se pudieron cargar las notificaciones.");
     }
   };
 
   const leerNotificacion = async (id: string) => {
+    setNotificacionesError(null);
+    setNotificaciones((actuales) =>
+      actuales.map((n) => (n.id_notificacion === id ? { ...n, leido: true } : n)),
+    );
     try {
       await markNotificationRead(id);
-      setNotificaciones((actuales) =>
-        actuales.map((n) => (n.id_notificacion === id ? { ...n, leido: true } : n)),
-      );
     } catch {
       setNotificaciones(await listNotifications());
+      setNotificacionesError("No se pudo marcar como leida.");
     }
   };
 
@@ -114,11 +121,37 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   };
 
   const leerTodas = async () => {
+    setNotificacionesError(null);
+    setNotificaciones((actuales) => actuales.map((n) => ({ ...n, leido: true })));
     try {
       await markAllNotificationsRead();
-      setNotificaciones((actuales) => actuales.map((n) => ({ ...n, leido: true })));
     } catch {
       setNotificaciones(await listNotifications());
+      setNotificacionesError("No se pudieron marcar como leidas.");
+    }
+  };
+
+  const eliminarNotificacion = async (id: string) => {
+    setNotificacionesError(null);
+    setNotificaciones((actuales) =>
+      actuales.filter((n) => n.id_notificacion !== id),
+    );
+    try {
+      await deleteNotification(id);
+    } catch {
+      setNotificaciones(await listNotifications());
+      setNotificacionesError("No se pudo eliminar la notificacion.");
+    }
+  };
+
+  const eliminarTodas = async () => {
+    setNotificacionesError(null);
+    setNotificaciones([]);
+    try {
+      await deleteAllNotifications();
+    } catch {
+      setNotificaciones(await listNotifications());
+      setNotificacionesError("No se pudieron eliminar las notificaciones.");
     }
   };
 
@@ -199,44 +232,102 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             </button>
 
             {notificacionesAbiertas && (
-              <div className="flota absolute top-12 right-0 z-50 w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface">
-                <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flota fixed top-[76px] right-4 z-50 w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl lg:right-8">
+                <div className="flex items-center justify-between gap-3 border-b border-sunken px-4 py-3">
                   <h2 className="rotulo text-ink-mute">Notificaciones</h2>
-                  {pendientes > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => void leerTodas()}
-                      className="text-[12px] font-semibold text-accent-dark hover:underline"
-                    >
-                      Marcar leídas
-                    </button>
+                  {notificaciones.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      {pendientes > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => void leerTodas()}
+                          className="text-[12px] font-semibold text-accent-dark hover:underline"
+                        >
+                          Marcar leidas
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void eliminarTodas()}
+                        className="text-[12px] font-semibold text-danger hover:underline"
+                      >
+                        Eliminar todas
+                      </button>
+                    </div>
                   )}
                 </div>
-                <div className="max-h-[360px] overflow-y-auto">
+                <div className="max-h-[420px] overflow-y-auto p-2">
+                  {notificacionesError && (
+                    <p className="mb-2 rounded-[12px] bg-danger-wash px-3 py-2 text-[12px] text-danger">
+                      {notificacionesError}
+                    </p>
+                  )}
                   {notificaciones.length === 0 ? (
                     <p className="px-4 py-6 text-center text-[13px] text-ink-soft">
                       No tienes notificaciones.
                     </p>
                   ) : (
                     notificaciones.map((n) => (
-                      <button
+                      <div
                         key={n.id_notificacion}
-                        type="button"
-                        onClick={() => void abrirDesdeNotificacion(n)}
-                        className={`block w-full px-4 py-3 text-left text-[12.5px] leading-snug hover:bg-sunken ${
-                          n.leido ? "text-ink-soft" : "font-medium text-ink"
+                        className={`flex items-start gap-2 rounded-[14px] px-3 py-3 hover:bg-sunken ${
+                          n.leido ? "text-ink-soft" : "text-ink"
                         }`}
                       >
-                        {n.mensaje}
-                        <span className="nums mt-1 block text-[11px] font-normal text-ink-mute">
-                          {new Intl.DateTimeFormat("es-CR", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }).format(new Date(n.fecha))}
-                        </span>
-                      </button>
+                        {!n.leido && (
+                          <span
+                            aria-hidden
+                            className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-accent"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void abrirDesdeNotificacion(n)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className={`block text-[12.5px] leading-snug ${n.leido ? "" : "font-medium"}`}>
+                            {n.mensaje}
+                          </span>
+                          <span className="nums mt-1 block text-[11px] font-normal text-ink-mute">
+                            {new Intl.DateTimeFormat("es-CR", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }).format(new Date(n.fecha))}
+                          </span>
+                        </button>
+                        <div className="relative z-10 flex flex-shrink-0 flex-col gap-1">
+                          {!n.leido && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void leerNotificacion(n.id_notificacion);
+                              }}
+                              aria-label="Marcar como leída"
+                              title="Marcar como leída"
+                              className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-ok-wash hover:text-ok"
+                            >
+                              <Check size={14} />
+                              Leida
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void eliminarNotificacion(n.id_notificacion);
+                            }}
+                            aria-label="Eliminar notificación"
+                            title="Eliminar notificación"
+                            className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-danger-wash hover:text-danger"
+                          >
+                            <Trash2 size={14} />
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
                     ))
                   )}
                 </div>

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, ArrowRight, Clock, Siren } from "../lib/iconos";
+import { AlertTriangle, Clock } from "../lib/iconos";
 import { RUTA_ADMIN, type Rol } from "../lib/nav";
-import { Avatar, Badge, colones } from "./ui";
+import { Avatar, colones } from "./ui";
 
 /* Columna derecha: contexto que acompaña a cualquier pantalla.
    Cambia según el rol porque lo urgente es distinto de cada lado. */
@@ -42,89 +42,94 @@ const Fila = ({
   </div>
 );
 
-const AsideDueno = () => (
-  <>
-    <Bloque titulo="Próximo paseo">
-      <div className="px-5 pb-5">
-        <div className="flex items-center gap-2">
-          <Badge tono="accent">En curso</Badge>
-          <span className="nums text-[12px] text-ink-soft">16:00 – 16:45</span>
+const AsideDueno = () => {
+  /*
+  return (
+    <>
+      <Bloque titulo="Próximo paseo">
+        <div className="px-5 pb-5">
+          <div className="flex items-center gap-2">
+            <Badge tono="accent">En curso</Badge>
+            <span className="nums text-[12px] text-ink-soft">16:00 – 16:45</span>
+          </div>
+          <p className="mt-3 text-[15px] font-semibold text-ink">Rocky</p>
+          <p className="mt-0.5 text-[12.5px] text-ink-soft">
+            con María Fernández · Curridabat
+          </p>
+          <Link
+            to="/paseo-en-vivo"
+            className="group mt-4 flex items-center justify-center gap-2 rounded-full bg-rail px-5 py-2.5 text-[13px] font-semibold text-white transition-[filter,transform] duration-150 ease-out hover:brightness-125 active:scale-[0.97]"
+          >
+            Ver en vivo
+            <ArrowRight
+              size={14}
+              strokeWidth={2.4}
+              aria-hidden
+              className="transition-transform duration-200 ease-out group-hover:translate-x-1"
+            />
+          </Link>
         </div>
-        <p className="mt-3 text-[15px] font-semibold text-ink">Rocky</p>
-        <p className="mt-0.5 text-[12.5px] text-ink-soft">
-          con María Fernández · Curridabat
-        </p>
-        <Link
-          to="/paseo-en-vivo"
-          className="group mt-4 flex items-center justify-center gap-2 rounded-full bg-rail px-5 py-2.5 text-[13px] font-semibold text-white transition-[filter,transform] duration-150 ease-out hover:brightness-125 active:scale-[0.97]"
-        >
-          Ver en vivo
-          <ArrowRight
-            size={14}
-            strokeWidth={2.4}
-            aria-hidden
-            className="transition-transform duration-200 ease-out group-hover:translate-x-1"
-          />
-        </Link>
-      </div>
-    </Bloque>
+      </Bloque>
 
-    <Bloque titulo="Pendientes">
-      <div className="flex flex-col">
+      <Bloque titulo="Pendientes">
+        <div className="flex flex-col">
+          <div className="flex items-start gap-3 px-5 py-3">
+            <AlertTriangle
+              size={15}
+              strokeWidth={1.9}
+              aria-hidden
+              className="mt-0.5 flex-shrink-0 text-warn"
+            />
+            <p className="text-[12.5px] leading-snug text-ink-soft">
+              Vacuna antirrábica de Michi vence el 28 de agosto.
+            </p>
+          </div>
+          <div className="flex items-start gap-3 px-5 py-3">
+            <Clock
+              size={15}
+              strokeWidth={1.9}
+              aria-hidden
+              className="mt-0.5 flex-shrink-0 text-ink-mute"
+            />
+            <p className="text-[12.5px] leading-snug text-ink-soft">
+              Tienes 2 paseos sin calificar.
+            </p>
+          </div>
+          <div className="px-5 pt-2 pb-5">
+            <p className="nums text-[12.5px] text-ink-soft">
+              Pendiente de cobro:{" "}
+              <span className="font-semibold text-ink">{colones(4500)}</span>
+            </p>
+          </div>
+        </div>
+      </Bloque>
+
+      <Bloque titulo="Alertas de tu zona">
         <div className="flex items-start gap-3 px-5 py-3">
-          <AlertTriangle
+          <Siren
             size={15}
             strokeWidth={1.9}
             aria-hidden
-            className="mt-0.5 flex-shrink-0 text-warn"
+            className="mt-0.5 flex-shrink-0 text-danger"
           />
           <p className="text-[12.5px] leading-snug text-ink-soft">
-            Vacuna antirrábica de Michi vence el 28 de agosto.
+            Nala, golden retriever, perdida hace 3 horas en Curridabat.
           </p>
         </div>
-        <div className="flex items-start gap-3 px-5 py-3">
-          <Clock
-            size={15}
-            strokeWidth={1.9}
-            aria-hidden
-            className="mt-0.5 flex-shrink-0 text-ink-mute"
-          />
-          <p className="text-[12.5px] leading-snug text-ink-soft">
-            Tienes 2 paseos sin calificar.
-          </p>
+        <div className="px-5 pt-1 pb-5">
+          <Link
+            to="/mascotas-perdidas"
+            className="text-[12.5px] font-semibold text-accent-dark hover:underline"
+          >
+            Ver los 3 reportes activos
+          </Link>
         </div>
-        <div className="px-5 pt-2 pb-5">
-          <p className="nums text-[12.5px] text-ink-soft">
-            Pendiente de cobro:{" "}
-            <span className="font-semibold text-ink">{colones(4500)}</span>
-          </p>
-        </div>
-      </div>
-    </Bloque>
-
-    <Bloque titulo="Alertas de tu zona">
-      <div className="flex items-start gap-3 px-5 py-3">
-        <Siren
-          size={15}
-          strokeWidth={1.9}
-          aria-hidden
-          className="mt-0.5 flex-shrink-0 text-danger"
-        />
-        <p className="text-[12.5px] leading-snug text-ink-soft">
-          Nala, golden retriever, perdida hace 3 horas en Curridabat.
-        </p>
-      </div>
-      <div className="px-5 pt-1 pb-5">
-        <Link
-          to="/mascotas-perdidas"
-          className="text-[12.5px] font-semibold text-accent-dark hover:underline"
-        >
-          Ver los 3 reportes activos
-        </Link>
-      </div>
-    </Bloque>
-  </>
-);
+      </Bloque>
+    </>
+  );
+  */
+  return null;
+};
 
 const AsidePaseador = () => {
   /*
