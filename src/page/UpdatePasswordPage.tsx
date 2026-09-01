@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { AlertCircle, ArrowLeft, Eye, EyeOff, Lock, Loader } from "lucide-react";
+import { AlertCircle, ArrowLeft, Eye, EyeOff, Lock, Loader } from "../lib/iconos";
 import { MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
 

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarDays, PawPrint, Siren, Syringe } from "lucide-react";
+import { ArrowRight, CalendarDays, PawPrint, Siren, Syringe } from "../lib/iconos";
 import {
   Badge,
   MockPhoto,

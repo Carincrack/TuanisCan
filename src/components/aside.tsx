@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, ArrowRight, Clock, Siren } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, Siren } from "../lib/iconos";
 import { RUTA_ADMIN, type Rol } from "../lib/nav";
 import { Avatar, Badge, colones } from "./ui";
 
@@ -14,7 +14,7 @@ const Bloque = ({
   children: React.ReactNode;
 }) => (
   <section className="bg-surface">
-    <h2 className="px-5 pt-4 pb-3 text-[10px] font-semibold tracking-[0.14em] text-ink-mute uppercase">
+    <h2 className="px-5 pt-4 pb-3 rotulo text-ink-mute">
       {titulo}
     </h2>
     {children}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Camera, Download, PawPrint, Share2, Syringe } from "lucide-react";
+import { Camera, Download, PawPrint, Share2, Syringe } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { formatDate, petAge } from "../lib/pets";
 import { MARCA } from "../lib/nav";
@@ -15,12 +15,12 @@ import {
   Table,
   btnPrimary,
   btnSecondary,
-  input,
 } from "./ui";
+import { Combo } from "./Combo";
 
 const Dato = ({ etiqueta, valor }: { etiqueta: string; valor: string }) => (
   <div className="bg-sunken px-4 py-3">
-    <dt className="text-[10px] font-semibold tracking-[0.1em] text-ink-mute uppercase">{etiqueta}</dt>
+    <dt className="rotulo text-ink-mute">{etiqueta}</dt>
     <dd className="nums mt-1 text-[13px] text-ink">{valor}</dd>
   </div>
 );
@@ -110,9 +110,14 @@ const CarnetDigital = () => {
         <>
           <div className="flex flex-wrap items-center gap-3 bg-surface px-5 py-4">
             <label htmlFor="card-pet" className="text-[12px] font-semibold text-ink-soft">Elegir mascota</label>
-            <select id="card-pet" className={`${input} max-w-[260px]`} value={selectedId} onChange={(event) => { setSelectedId(event.target.value); sessionStorage.setItem("tuaniscan.carnetPetId", event.target.value); setNotice(""); }}>
-              {pets.map((item) => <option key={item.id_mascota} value={item.id_mascota}>{item.nombre}</option>)}
-            </select>
+            <span className="block w-full max-w-[260px]">
+              <Combo
+                id="card-pet"
+                value={selectedId}
+                onChange={(v) => { setSelectedId(v); sessionStorage.setItem("tuaniscan.carnetPetId", v); setNotice(""); }}
+                options={pets.map((item) => ({ value: item.id_mascota, label: item.nombre }))}
+              />
+            </span>
             {notice && <p role="status" className="ml-auto text-[12px] text-ok">{notice}</p>}
           </div>
 
@@ -120,7 +125,7 @@ const CarnetDigital = () => {
             <header className="flex flex-wrap items-center justify-between gap-4 bg-rail px-6 py-4">
               <div className="flex items-center gap-3">
                 <img src={MARCA.logoSimbolo} alt="" aria-hidden className="h-8 w-8 object-contain" />
-                <div><p className="text-[13px] font-semibold text-white">{MARCA.nombre}<span className="text-accent">{MARCA.acento}</span></p><p className="text-[10px] tracking-[0.14em] text-rail-mute uppercase">Carné de identificación y salud</p></div>
+                <div><p className="text-[13px] font-semibold text-white">{MARCA.nombre}<span className="text-accent">{MARCA.acento}</span></p><p className="rotulo text-rail-mute">Carné de identificación y salud</p></div>
               </div>
               <p className="nums text-[12px] text-rail-text">{cardId(pet)}</p>
             </header>
@@ -155,7 +160,7 @@ const CarnetDigital = () => {
             </div>
 
             <div className="px-6 pb-6">
-              <h4 className="flex items-center gap-2 pb-3 text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase"><Syringe size={13} /> Historial de vacunación</h4>
+              <h4 className="flex items-center gap-2 pb-3 rotulo text-ink-mute"><Syringe size={13} /> Historial de vacunación</h4>
               {pet.vacunas.length ? (
                 <Table caption={`Vacunas registradas de ${pet.nombre}`} columnas={[{ label: "Vacuna" }, { label: "Aplicada" }, { label: "Vence" }, { label: "Estado" }]}>
                   {pet.vacunas.map((vaccine) => <tr key={vaccine.id_vacuna}><td className="px-6 py-3 text-[13px] font-medium text-ink">{vaccine.nombre_vacuna}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_aplicacion)}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_vencimiento)}</td><td className="px-6 py-3"><Badge tono={vaccine.estado === "vigente" ? "ok" : vaccine.estado === "pendiente" ? "warn" : "danger"}>{vaccine.estado === "pendiente" ? "Por vencer" : vaccine.estado}</Badge></td></tr>)}

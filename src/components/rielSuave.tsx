@@ -1,7 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { ElementType, KeyboardEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "@tanstack/react-router";
-import { ChevronDown, LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronsUpDown,
+  Footprints,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PawPrint,
+  ShieldCheck,
+  Store,
+  X,
+} from "../lib/iconos";
 
 import {
   MARCA,
@@ -287,6 +300,250 @@ const etiquetaRol: Record<Rol, string> = {
   admin: "Administración",
 };
 
+const iconoRol: Record<Rol, ElementType> = {
+  dueno: PawPrint,
+  paseador: Footprints,
+  negocio: Store,
+  admin: ShieldCheck,
+};
+
+/* ── El cambio de perfil ─────────────────────────────────────
+
+   Esto era un `<select>` nativo, y en el pie del riel era lo peor
+   que podía ser: la lista que abre la dibuja el sistema operativo
+   —gris, cuadrada, con la letra del sistema— y aparecía justo
+   encima de un riel navy de esquinas blandas. El navy tampoco viaja
+   a la lista: en Windows las opciones salen en negro sobre blanco
+   aunque el botón que las abre sea oscuro.
+
+   El reemplazo abre hacia ARRIBA, porque el control vive pegado al
+   borde inferior de la pantalla y hacia abajo no hay sitio.
+
+   Y va en un portal a `body`: el riel tiene `overflow: hidden`
+   —lo necesita para que el texto no asome mientras la tarjeta se
+   angosta al plegarse— y cualquier panel absoluto de adentro sale
+   recortado por ese mismo recorte. Por eso las coordenadas se miden
+   del disparador y se aplican con `position: fixed`; y por eso
+   también, si la página se mueve debajo, el menú se cierra en vez
+   de quedarse flotando donde ya no está su botón. */
+const MenuRol = ({
+  rol,
+  roles,
+  onCambiar,
+}: {
+  rol: Rol;
+  roles: Rol[];
+  onCambiar: (rol: Rol) => void;
+}) => {
+  const [abierto, setAbierto] = useState(false);
+  const [activo, setActivo] = useState(0);
+  const [caja, setCaja] = useState({ izquierda: 0, abajo: 0, ancho: 0 });
+
+  const disparador = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLUListElement>(null);
+
+  const idLista = `menu-rol-${useId().replace(/:/g, "")}`;
+  const Icono = iconoRol[rol];
+
+  const abrir = () => {
+    const marco = disparador.current?.getBoundingClientRect();
+    if (!marco) return;
+    setCaja({
+      izquierda: marco.left,
+      abajo: window.innerHeight - marco.top + 8,
+      ancho: Math.max(marco.width, 200),
+    });
+    setActivo(Math.max(0, roles.indexOf(rol)));
+    setAbierto(true);
+  };
+
+  const cerrar = useCallback(() => {
+    setAbierto(false);
+    disparador.current?.focus();
+  }, []);
+
+  const elegir = (indice: number) => {
+    const elegido = roles[indice];
+    setAbierto(false);
+    disparador.current?.focus();
+    if (elegido && elegido !== rol) onCambiar(elegido);
+  };
+
+  useEffect(() => {
+    if (!abierto) return;
+
+    const afuera = (evento: PointerEvent) => {
+      const destino = evento.target as Node;
+      if (panel.current?.contains(destino)) return;
+      if (disparador.current?.contains(destino)) return;
+      setAbierto(false);
+    };
+
+    const irse = () => setAbierto(false);
+
+    document.addEventListener("pointerdown", afuera);
+    window.addEventListener("resize", irse);
+    window.addEventListener("scroll", irse, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", afuera);
+      window.removeEventListener("resize", irse);
+      window.removeEventListener("scroll", irse, true);
+    };
+  }, [abierto]);
+
+  /* El foco se queda siempre en el botón y `aria-activedescendant`
+     dice qué fila está resaltada. Es el patrón del combobox: mover el
+     foco de verdad fila por fila hace que el lector de pantalla cante
+     "botón" en cada flecha. */
+  const alTeclear = (evento: KeyboardEvent) => {
+    if (!abierto) {
+      if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(evento.key)) {
+        evento.preventDefault();
+        abrir();
+      }
+      return;
+    }
+
+    switch (evento.key) {
+      case "Escape":
+        evento.preventDefault();
+        cerrar();
+        break;
+      case "Tab":
+        setAbierto(false);
+        break;
+      case "Enter":
+      case " ":
+        evento.preventDefault();
+        elegir(activo);
+        break;
+      case "ArrowDown":
+        evento.preventDefault();
+        setActivo((i) => (i + 1) % roles.length);
+        break;
+      case "ArrowUp":
+        evento.preventDefault();
+        setActivo((i) => (i - 1 + roles.length) % roles.length);
+        break;
+      case "Home":
+        evento.preventDefault();
+        setActivo(0);
+        break;
+      case "End":
+        evento.preventDefault();
+        setActivo(roles.length - 1);
+        break;
+    }
+  };
+
+  return (
+    <div className="px-2.5 pt-1 pb-2">
+      <span className="rotulo mb-1.5 block px-1 text-rail-mute">
+        Perfil activo
+      </span>
+
+      <button
+        ref={disparador}
+        type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={abierto}
+        aria-controls={abierto ? idLista : undefined}
+        aria-activedescendant={abierto ? `${idLista}-${activo}` : undefined}
+        aria-label="Cambiar de perfil"
+        onClick={() => (abierto ? cerrar() : abrir())}
+        onKeyDown={alTeclear}
+        className={`flex h-10 w-full items-center gap-2.5 rounded-full px-3 text-[12.5px] font-medium text-white transition-[background-color,transform] duration-200 ease-out focus:outline-2 focus:outline-offset-2 focus:outline-accent active:scale-[0.98] ${
+          abierto ? "bg-white/20" : "bg-white/10 hover:bg-white/16"
+        }`}
+      >
+        <Icono
+          size={15}
+          strokeWidth={2}
+          aria-hidden
+          className="shrink-0 text-accent"
+        />
+        <span className="min-w-0 flex-1 truncate text-left">
+          {etiquetaRol[rol]}
+        </span>
+        <ChevronsUpDown
+          size={14}
+          strokeWidth={2.2}
+          aria-hidden
+          className="shrink-0 text-rail-mute"
+        />
+      </button>
+
+      {abierto &&
+        createPortal(
+          <ul
+            ref={panel}
+            id={idLista}
+            role="listbox"
+            aria-label="Cambiar de perfil"
+            tabIndex={-1}
+            style={{
+              position: "fixed",
+              left: caja.izquierda,
+              bottom: caja.abajo,
+              width: caja.ancho,
+            }}
+            className="desplegable desplegable-arriba z-[70] rounded-[18px] bg-surface p-1.5"
+          >
+            {roles.map((item, i) => {
+              const Marca = iconoRol[item];
+              const elegido = item === rol;
+
+              return (
+                <li
+                  key={item}
+                  id={`${idLista}-${i}`}
+                  role="option"
+                  aria-selected={elegido}
+                  /* `pointerdown` y no `click`: el cierre por clic
+                     afuera desmonta la fila antes de que llegue el
+                     clic, y la elección se pierde. */
+                  onPointerDown={(evento) => {
+                    evento.preventDefault();
+                    elegir(i);
+                  }}
+                  onPointerEnter={() => setActivo(i)}
+                  className={`flex cursor-pointer items-center gap-2.5 rounded-[12px] px-3 py-2.5 text-[13.5px] ${
+                    elegido
+                      ? "bg-accent-wash font-semibold text-accent-deep"
+                      : i === activo
+                        ? "bg-sunken text-ink"
+                        : "text-ink-soft"
+                  }`}
+                >
+                  <Marca
+                    size={16}
+                    strokeWidth={1.9}
+                    aria-hidden
+                    className="shrink-0"
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {etiquetaRol[item]}
+                  </span>
+                  {elegido && (
+                    <Check
+                      size={14}
+                      strokeWidth={2.6}
+                      aria-hidden
+                      className="shrink-0"
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ul>,
+          document.body,
+        )}
+    </div>
+  );
+};
+
 const PiePerfil = ({
   profile,
   rol,
@@ -314,7 +571,7 @@ const PiePerfil = ({
       >
         <span className={CAJA_ICONO}>
           {profile ? (
-            <ProfileAvatar profile={profile} size="h-8 w-8" />
+            <ProfileAvatar profile={profile} size="h-8 w-8" tamanoSello={13} />
           ) : (
             <span className="h-8 w-8 rounded-full bg-accent" />
           )}
@@ -334,23 +591,7 @@ const PiePerfil = ({
       {/* El cambio de perfil solo aparece con el riel abierto: es un
           menú de texto, cerrado no habría nada que leer. */}
       {rolesDisponibles.length > 1 && expandido && (
-        <div className="px-2.5 pt-1 pb-2">
-          <label htmlFor="active-role" className="sr-only">
-            Cambiar perfil
-          </label>
-          <select
-            id="active-role"
-            value={rol}
-            onChange={(evento) => onRoleChange(evento.target.value as Rol)}
-            className="w-full appearance-none rounded-full bg-white/10 px-4 py-2 text-[12.5px] font-medium text-white outline-none transition-colors duration-200 hover:bg-white/16"
-          >
-            {rolesDisponibles.map((item) => (
-              <option key={item} value={item} className="text-ink">
-                {etiquetaRol[item]}
-              </option>
-            ))}
-          </select>
-        </div>
+        <MenuRol rol={rol} roles={rolesDisponibles} onCambiar={onRoleChange} />
       )}
 
       {onLogout && (

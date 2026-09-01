@@ -16,7 +16,7 @@ import {
   UserCircle,
   Users,
   Wallet,
-} from "lucide-react";
+} from "./iconos";
 import type { ElementType } from "react";
 
 /* ─────────────────────────────────────────────────────────────

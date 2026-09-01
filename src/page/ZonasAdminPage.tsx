@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Plus, Trash2, X } from "lucide-react";
+import { MapPin, Plus, Trash2, X } from "../lib/iconos";
 import { createZona, deleteZona, getZonas } from "../services/auth.service";
 import type { Zona } from "../types/auth.types";
 import {
@@ -12,6 +12,7 @@ import {
   btnPrimary,
   input,
 } from "../components/ui";
+import { Combo } from "../components/Combo";
 
 const ubicacionesCostaRica: Record<string, string[]> = {
   "San José": [
@@ -115,6 +116,16 @@ const ubicacionesCostaRica: Record<string, string[]> = {
 };
 
 const provinciasBase = Object.keys(ubicacionesCostaRica);
+
+/* El distrito de una fila.
+
+   El catálogo trae una fila por distrito, y el nombre del distrito
+   está en `nombre`: `provincia` → `canton` → `nombre` es la jerarquía
+   completa. La columna `distrito` existe en la tabla pero llega vacía
+   en la mayoría de las filas, así que se usa si trae algo y si no se
+   cae a `nombre`. Sin esta caída, el tercer filtro salía siempre con
+   una sola opción y la columna "Distrito" en blanco. */
+const distritoDe = (zona: Zona) => zona.distrito?.trim() || zona.nombre;
 const normalizar = (valor: string) =>
   valor
     .trim()
@@ -151,9 +162,9 @@ const ZonasAdminPage = () => {
           normalizar(zona.provincia) === normalizar(provincia) &&
           normalizar(zona.canton) === normalizar(canton),
       )
-      .map((zona) => zona.distrito || "")
+      .map(distritoDe)
       .filter((item, index, items) => item && items.indexOf(item) === index)
-      .sort();
+      .sort((a, b) => a.localeCompare(b, "es"));
   }, [zonas, provincia, canton]);
 
   const cargar = async () => {
@@ -203,37 +214,49 @@ const ZonasAdminPage = () => {
     const provincias = zonas
       .map((zona) => zona.provincia)
       .filter((item, index, items) => item && items.indexOf(item) === index)
-      .sort();
+      /* Con `localeCompare` en español: el `sort` por defecto ordena
+         por código de carácter y manda "Ávila" o "Ñañez" al final de
+         la lista, detrás de la Z. */
+      .sort((a, b) => a.localeCompare(b, "es"));
 
     return ["Todas", ...provincias];
   }, [zonas]);
 
+  /* El catálogo entero vive en la tabla: una fila por distrito, con
+     su cantón y su provincia repetidos. Así que los tres filtros se
+     encadenan, y cada uno solo se abre cuando el de arriba ya eligió.
+
+     Sin encadenar, el desplegable de cantón listaba los 82 del país y
+     el de distrito los cientos que hay, sin decir a cuál provincia
+     pertenece cada uno. Eso no es filtrar: es la misma tabla otra
+     vez, en vertical y sin contexto. Se busca una zona bajando por la
+     jerarquía —provincia, cantón, distrito—, que es como está armada
+     la división territorial y como la tiene en la cabeza quien
+     busca. */
   const cantonesFiltro = useMemo(() => {
+    if (provinciaFiltro === "Todas") return ["Todos"];
+
     const cantones = zonas
-      .filter(
-        (zona) =>
-          provinciaFiltro === "Todas" ||
-          normalizar(zona.provincia) === normalizar(provinciaFiltro),
-      )
+      .filter((zona) => normalizar(zona.provincia) === normalizar(provinciaFiltro))
       .map((zona) => zona.canton)
       .filter((item, index, items) => item && items.indexOf(item) === index)
-      .sort();
+      .sort((a, b) => a.localeCompare(b, "es"));
 
     return ["Todos", ...cantones];
   }, [zonas, provinciaFiltro]);
 
   const distritosFiltro = useMemo(() => {
+    if (provinciaFiltro === "Todas" || cantonFiltro === "Todos") return ["Todos"];
+
     const distritos = zonas
       .filter(
         (zona) =>
-          (provinciaFiltro === "Todas" ||
-            normalizar(zona.provincia) === normalizar(provinciaFiltro)) &&
-          (cantonFiltro === "Todos" ||
-            normalizar(zona.canton) === normalizar(cantonFiltro)),
+          normalizar(zona.provincia) === normalizar(provinciaFiltro) &&
+          normalizar(zona.canton) === normalizar(cantonFiltro),
       )
-      .map((zona) => zona.distrito || "")
+      .map(distritoDe)
       .filter((item, index, items) => item && items.indexOf(item) === index)
-      .sort();
+      .sort((a, b) => a.localeCompare(b, "es"));
 
     return ["Todos", ...distritos];
   }, [zonas, provinciaFiltro, cantonFiltro]);
@@ -247,7 +270,7 @@ const ZonasAdminPage = () => {
       normalizar(zona.canton) === normalizar(cantonFiltro);
     const coincideDistrito =
       distritoFiltro === "Todos" ||
-      normalizar(zona.distrito || "") === normalizar(distritoFiltro);
+      normalizar(distritoDe(zona)) === normalizar(distritoFiltro);
     const contenidoZona = normalizar(
       `${zona.nombre} ${zona.canton} ${zona.provincia} ${zona.distrito || ""}`,
     );
@@ -384,7 +407,13 @@ const ZonasAdminPage = () => {
         }
         bodyClass="px-4 py-4 sm:px-6"
       >
-        <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_180px_180px_180px]">
+        {/* Las tres columnas de filtro eran de 180 px fijos y ahí no
+            entra "Todas las provincias" ni "Vázquez de Coronado" a
+            13.5 px: sobra el texto y salían recortadas siempre, aun
+            con sitio de sobra al lado. Ahora crecen con lo que haya
+            (`1fr`) y no bajan de 190. En tableta van de dos en dos
+            antes que apretarse a cuatro. */}
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(230px,1.15fr)_repeat(3,minmax(190px,1fr))]">
           <input
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
@@ -393,44 +422,39 @@ const ZonasAdminPage = () => {
             aria-label="Buscar zonas"
           />
 
-          <select
+          <Combo
             value={provinciaFiltro}
-            onChange={(event) => cambiarProvinciaFiltro(event.target.value)}
-            className={input}
+            onChange={cambiarProvinciaFiltro}
             aria-label="Filtrar por provincia"
-          >
-            {provinciasFiltro.map((item) => (
-              <option key={item} value={item}>
-                {item === "Todas" ? "Todas las provincias" : item}
-              </option>
-            ))}
-          </select>
+            options={provinciasFiltro.map((item) => ({
+              value: item,
+              label: item === "Todas" ? "Todas las provincias" : item,
+            }))}
+          />
 
-          <select
+          <Combo
             value={cantonFiltro}
-            onChange={(event) => cambiarCantonFiltro(event.target.value)}
-            className={input}
-            aria-label="Filtrar por canton"
-          >
-            {cantonesFiltro.map((item) => (
-              <option key={item} value={item}>
-                {item === "Todos" ? "Todos los cantones" : item}
-              </option>
-            ))}
-          </select>
+            onChange={cambiarCantonFiltro}
+            aria-label="Filtrar por cantón"
+            disabled={provinciaFiltro === "Todas"}
+            textoInactivo="Elegí una provincia"
+            options={cantonesFiltro.map((item) => ({
+              value: item,
+              label: item === "Todos" ? "Todos los cantones" : item,
+            }))}
+          />
 
-          <select
+          <Combo
             value={distritoFiltro}
-            onChange={(event) => setDistritoFiltro(event.target.value)}
-            className={input}
+            onChange={setDistritoFiltro}
             aria-label="Filtrar por distrito"
-          >
-            {distritosFiltro.map((item) => (
-              <option key={item} value={item}>
-                {item === "Todos" ? "Todos los distritos" : item}
-              </option>
-            ))}
-          </select>
+            disabled={cantonFiltro === "Todos"}
+            textoInactivo="Elegí un cantón"
+            options={distritosFiltro.map((item) => ({
+              value: item,
+              label: item === "Todos" ? "Todos los distritos" : item,
+            }))}
+          />
         </div>
 
         <div aria-live="polite" className="min-h-5 py-3 text-[13px]">
@@ -469,7 +493,7 @@ const ZonasAdminPage = () => {
                           {zona.nombre}
                         </p>
                         <p className="mt-0.5 text-[12px] text-ink-mute">
-                          {zona.distrito}, {zona.canton}
+                          {distritoDe(zona)}, {zona.canton}
                         </p>
                       </div>
                     </div>
@@ -484,7 +508,7 @@ const ZonasAdminPage = () => {
                   </td>
 
                   <td className="px-6 py-4 text-[13px] text-ink-soft">
-                    {zona.distrito}
+                    {distritoDe(zona)}
                   </td>
 
                   <td className="px-6 py-4 text-right">
@@ -582,76 +606,70 @@ const ZonasAdminPage = () => {
               <div>
                 <label
                   htmlFor="zona-provincia"
-                  className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"
+                  className="rotulo text-ink-mute"
                 >
                   Provincia
                 </label>
-                <select
+                <Combo
                   id="zona-provincia"
-                  value={provincia}
-                  onChange={(event) => cambiarProvincia(event.target.value)}
-                  className={`${input} mt-2`}
                   required
-                >
-                  <option value="">Seleccionar...</option>
-                  {provinciasBase.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+                  value={provincia}
+                  onChange={cambiarProvincia}
+                  placeholder="Seleccionar…"
+                  className="mt-2"
+                  options={provinciasBase.map((item) => ({
+                    value: item,
+                    label: item,
+                  }))}
+                />
               </div>
 
               <div>
                 <label
                   htmlFor="zona-canton"
-                  className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"
+                  className="rotulo text-ink-mute"
                 >
                   Cantón
                 </label>
-                <select
+                <Combo
                   id="zona-canton"
-                  value={canton}
-                  onChange={(event) => cambiarCanton(event.target.value)}
-                  className={`${input} mt-2`}
                   required
-                >
-                  <option value="">Seleccionar...</option>
-                  {cantonesDisponibles.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+                  value={canton}
+                  onChange={cambiarCanton}
+                  placeholder="Seleccionar…"
+                  className="mt-2"
+                  options={cantonesDisponibles.map((item) => ({
+                    value: item,
+                    label: item,
+                  }))}
+                />
               </div>
 
               <div>
                 <label
                   htmlFor="zona-distrito"
-                  className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"
+                  className="rotulo text-ink-mute"
                 >
                   Distrito
                 </label>
-                <select
+                <Combo
                   id="zona-distrito"
-                  value={distrito}
-                  onChange={(event) => setDistrito(event.target.value)}
-                  className={`${input} mt-2`}
                   required
-                >
-                  <option value="">Seleccionar...</option>
-                  {distritosDisponibles.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+                  value={distrito}
+                  onChange={setDistrito}
+                  placeholder="Seleccionar…"
+                  className="mt-2"
+                  options={distritosDisponibles.map((item) => ({
+                    value: item,
+                    label: item,
+                  }))}
+                />
               </div>
 
               <div>
                 <label
                   htmlFor="zona-nombre"
-                  className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"
+                  className="rotulo text-ink-mute"
                 >
                   Nombre de la zona
                 </label>

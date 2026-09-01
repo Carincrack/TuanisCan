@@ -8,7 +8,7 @@ import {
   Star,
   Wallet,
   X,
-} from "lucide-react";
+} from "../lib/iconos";
 import {
   Avatar,
   Badge,
@@ -245,19 +245,19 @@ export const SolicitudesPaseador = () => {
 
               <dl className="nums mt-4 flex flex-wrap gap-x-8 gap-y-2 text-[12.5px]">
                 <div>
-                  <dt className="text-[11px] tracking-[0.06em] text-ink-mute uppercase">
+                  <dt className="rotulo text-ink-mute">
                     Cuándo
                   </dt>
                   <dd className="mt-0.5 text-ink">{s.cuando}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] tracking-[0.06em] text-ink-mute uppercase">
+                  <dt className="rotulo text-ink-mute">
                     Duración
                   </dt>
                   <dd className="mt-0.5 text-ink">{s.duracion}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] tracking-[0.06em] text-ink-mute uppercase">
+                  <dt className="rotulo text-ink-mute">
                     Zona
                   </dt>
                   <dd className="mt-0.5 text-ink">
@@ -273,7 +273,7 @@ export const SolicitudesPaseador = () => {
 
             <div className="flex w-full flex-col justify-between gap-4 sm:w-[200px]">
               <div className="bg-sunken px-4 py-3 text-right">
-                <p className="text-[11px] tracking-[0.06em] text-ink-mute uppercase">
+                <p className="rotulo text-ink-mute">
                   Pago
                 </p>
                 <p className="nums mt-1 text-[22px] font-semibold text-ink">
@@ -487,7 +487,7 @@ export const PaseoActivoPaseador = () => (
               { t: "Ritmo", v: "4.5 km/h" },
             ].map((m) => (
               <div key={m.t} className="bg-surface px-5 py-4 text-center">
-                <dt className="text-[11px] tracking-[0.06em] text-ink-mute uppercase">
+                <dt className="rotulo text-ink-mute">
                   {m.t}
                 </dt>
                 <dd className="nums mt-1.5 text-[20px] font-semibold text-ink">
@@ -687,7 +687,7 @@ export const PerfilPaseador = () => {
     );
 
   const etiqueta =
-    "block text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase";
+    "block rotulo text-ink-mute";
 
   return (
     <Page>
@@ -721,7 +721,7 @@ export const PerfilPaseador = () => {
             </p>
           </div>
           <div className="bg-surface px-5 py-4 text-right">
-            <p className="text-[11px] tracking-[0.06em] text-ink-mute uppercase">
+            <p className="rotulo text-ink-mute">
               Tarifa base
             </p>
             <p className="nums mt-1 text-[22px] font-semibold text-ink">

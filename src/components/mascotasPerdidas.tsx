@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Camera, CheckCircle2, Clock, Eye, MapPin, Phone, Search, Siren, X } from "lucide-react";
+import { Camera, CheckCircle2, Clock, Eye, MapPin, Phone, Search, Siren, X } from "../lib/iconos";
 import { getZonas } from "../services/auth.service";
 import { listPets } from "../services/pets.service";
 import { listLostPetReports, markLostPetFound, registerSighting, reportLostPet } from "../services/lost-pets.service";
@@ -19,11 +19,12 @@ import {
   btnPrimary,
   btnSecondary,
   colones,
+  fieldLabel,
   input,
 } from "./ui";
+import { Combo } from "./Combo";
 
 const filtros = ["Todas", "Perdidas", "Encontradas", "Mi zona"];
-const fieldLabel = "grid gap-1.5 text-[12px] font-medium text-ink-soft";
 const messageFrom = (error: unknown) =>
   error instanceof Error
     ? error.message
@@ -74,7 +75,7 @@ const useBrowserLocation = () => {
   const [locating, setLocating] = useState(false);
   const locate = (onLocation: (coords: { latitud: number; longitud: number }) => void, onError: (message: string) => void) => {
     if (!navigator.geolocation) {
-      onError("Tu navegador no permite detectar ubicacion.");
+      onError("Tu navegador no permite detectar tu ubicación.");
       return;
     }
     setLocating(true);
@@ -87,7 +88,7 @@ const useBrowserLocation = () => {
         setLocating(false);
       },
       () => {
-        onError("No se pudo obtener tu ubicacion. Puedes escribir las coordenadas.");
+        onError("No se pudo obtener tu ubicación. Puedes escribir las coordenadas.");
         setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 9000 }
@@ -151,6 +152,20 @@ const ReportForm = ({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
+    /* La mascota y la zona se comprueban acá y no con `required`. El
+       combo box de `Combo.tsx` no es un `<select>` —la lista de uno
+       nativo la dibuja el sistema operativo y no hay CSS que la
+       toque—, así que la validación del navegador no le llega. Estas
+       dos líneas la reemplazan, en el mismo sitio donde ya se
+       comprueban la foto y las coordenadas. */
+    if (!values.id_mascota) {
+      setError("Elige cuál de tus mascotas se perdió.");
+      return;
+    }
+    if (!values.zona_id) {
+      setError("Elige la zona donde se perdió.");
+      return;
+    }
     if (!photo) {
       setError("Agrega una foto clara de la mascota.");
       return;
@@ -161,7 +176,7 @@ const ReportForm = ({
     }
     const coords = parseCoords(values.ubicacion);
     if (!coords) {
-      setError("Escribe la ubicacion como latitud, longitud. Ejemplo: 10.169410, -85.541761");
+      setError("Escribe la ubicación como latitud, longitud. Ejemplo: 10.169410, -85.541761");
       return;
     }
     const payload: LostPetInput = {
@@ -181,15 +196,15 @@ const ReportForm = ({
       return;
     }
     if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
-      setError("La latitud debe ser un numero entre -90 y 90.");
+      setError("La latitud debe ser un número entre -90 y 90.");
       return;
     }
     if (!Number.isFinite(payload.longitud) || payload.longitud < -180 || payload.longitud > 180) {
-      setError("La longitud debe ser un numero entre -180 y 180.");
+      setError("La longitud debe ser un número entre -180 y 180.");
       return;
     }
     if (payload.recompensa != null && (!Number.isFinite(payload.recompensa) || payload.recompensa < 0)) {
-      setError("La recompensa debe ser un numero positivo.");
+      setError("La recompensa debe ser un número positivo.");
       return;
     }
     setBusy(true);
@@ -208,29 +223,41 @@ const ReportForm = ({
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={fieldLabel}>Mascota registrada *
-          <select className={input} required value={values.id_mascota} onChange={(e) => selectPet(e.target.value)}>
-            <option value="">Selecciona tu mascota</option>
-            {pets.map((pet) => <option key={pet.id_mascota} value={pet.id_mascota}>{pet.nombre} - {pet.especie}</option>)}
-          </select>
+          <Combo
+            required
+            value={values.id_mascota}
+            onChange={selectPet}
+            placeholder="Selecciona tu mascota"
+            options={pets.map((pet) => ({
+              value: pet.id_mascota,
+              label: `${pet.nombre} · ${pet.especie}`,
+            }))}
+          />
         </label>
         <label className={fieldLabel}>Zona *
-          <select className={input} required value={values.zona_id} onChange={(e) => update("zona_id", e.target.value)}>
-            <option value="">Selecciona una zona</option>
-            {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre} - {zona.canton}</option>)}
-          </select>
+          <Combo
+            required
+            value={values.zona_id}
+            onChange={(v) => update("zona_id", v)}
+            placeholder="Selecciona una zona"
+            options={zonas.map((zona) => ({
+              value: zona.id_zona,
+              label: `${zona.nombre} · ${zona.canton}`,
+            }))}
+          />
         </label>
         <label className={fieldLabel}>Nombre *<input className={input} required disabled maxLength={100} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
         <label className={fieldLabel}>Especie *<input className={input} required disabled maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
         <label className={fieldLabel}>Raza<input className={input} disabled maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
         <label className={fieldLabel}>Contacto *<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
-        <label className={`${fieldLabel} sm:col-span-2`}>Ubicacion *
+        <label className={`${fieldLabel} sm:col-span-2`}>Ubicación *
           <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
         </label>
         <label className={fieldLabel}>Recompensa<input className={input} inputMode="numeric" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
         <label className={fieldLabel}><span className="flex items-center gap-2"><Camera size={15} /> Foto *</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
       </div>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar ubicacion donde estoy"}</button>
-      <label className={fieldLabel}>Senas, conducta y ultimo lugar visto *<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar la ubicación donde estoy"}</button>
+      <label className={fieldLabel}>Señas, conducta y último lugar visto *<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
       <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Publicando..." : "Publicar reporte"}</button></div>
     </form>
@@ -272,7 +299,7 @@ const SightingForm = ({
     setError("");
     const coords = parseCoords(values.ubicacion);
     if (!coords) {
-      setError("Escribe la ubicacion como latitud, longitud. Ejemplo: 10.169410, -85.541761");
+      setError("Escribe la ubicación como latitud, longitud. Ejemplo: 10.169410, -85.541761");
       setBusy(false);
       return;
     }
@@ -286,12 +313,12 @@ const SightingForm = ({
         contacto: values.contacto.trim() || null,
       };
     if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
-      setError("La latitud debe ser un numero entre -90 y 90.");
+      setError("La latitud debe ser un número entre -90 y 90.");
       setBusy(false);
       return;
     }
     if (!Number.isFinite(payload.longitud) || payload.longitud < -180 || payload.longitud > 180) {
-      setError("La longitud debe ser un numero entre -180 y 180.");
+      setError("La longitud debe ser un número entre -180 y 180.");
       setBusy(false);
       return;
     }
@@ -309,22 +336,28 @@ const SightingForm = ({
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="bg-sunken p-4"><p className="text-[14px] font-semibold text-ink">{report.nombre}</p><p className="mt-1 text-[12.5px] text-ink-soft">{zonaLabel(report.zona)}</p></div>
-      <label className={fieldLabel}>Ubicacion *
+      <label className={fieldLabel}>Ubicación *
         <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
       </label>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar ubicacion donde estoy"}</button>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar la ubicación donde estoy"}</button>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={fieldLabel}>Zona
-          <select className={input} value={values.zona_id} onChange={(e) => update("zona_id", e.target.value)}>
-            <option value="">Sin zona</option>
-            {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre} - {zona.canton}</option>)}
-          </select>
+          <Combo
+            value={values.zona_id}
+            onChange={(v) => update("zona_id", v)}
+            vacio
+            placeholder="Sin zona"
+            options={zonas.map((zona) => ({
+              value: zona.id_zona,
+              label: `${zona.nombre} · ${zona.canton}`,
+            }))}
+          />
         </label>
         <label className={fieldLabel}>Contacto
           <input className={input} maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} />
         </label>
       </div>
-      <label className={fieldLabel}>Direccion o referencia
+      <label className={fieldLabel}>Dirección o referencia
         <input className={input} maxLength={300} value={values.direccion} onChange={(e) => update("direccion", e.target.value)} />
       </label>
       <label className={fieldLabel}>Comentario<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>
@@ -356,13 +389,13 @@ const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: 
             </a>
           </div>
           <dl className="mt-3 grid gap-2.5 text-[12.5px] text-ink-soft sm:grid-cols-2">
-            <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Ubicacion</dt><dd className="nums mt-1">{coordsLabel(item)}</dd></div>
-            <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Zona</dt><dd className="mt-1">{zonaLabel(item.zona)}</dd></div>
-            <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Contacto</dt><dd className="nums mt-1">{item.contacto || "No indicado"}</dd></div>
-            <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Usuario</dt><dd className="nums mt-1">{item.id_usuario}</dd></div>
+            <div className="bg-surface p-3"><dt className="rotulo text-ink-mute">Ubicación</dt><dd className="nums mt-1">{coordsLabel(item)}</dd></div>
+            <div className="bg-surface p-3"><dt className="rotulo text-ink-mute">Zona</dt><dd className="mt-1">{zonaLabel(item.zona)}</dd></div>
+            <div className="bg-surface p-3"><dt className="rotulo text-ink-mute">Contacto</dt><dd className="nums mt-1">{item.contacto || "No indicado"}</dd></div>
+            <div className="bg-surface p-3"><dt className="rotulo text-ink-mute">Usuario</dt><dd className="nums mt-1">{item.id_usuario}</dd></div>
           </dl>
           <div className="mt-3 bg-surface p-3">
-            <p className="text-[10px] font-semibold uppercase text-ink-mute">Comentario</p>
+            <p className="rotulo text-ink-mute">Comentario</p>
             <p className="mt-1 whitespace-pre-wrap text-[13px] text-ink-soft">{item.comentario || "Sin comentario"}</p>
           </div>
         </article>
@@ -479,24 +512,36 @@ const MascotasPerdidas = () => {
           <FilterTabs label="Filtrar reportes" options={filtros} value={filtro} onChange={setFiltro} />
         </div>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(260px,1fr)_minmax(190px,0.45fr)_minmax(190px,0.45fr)_auto] lg:items-end">
+        {/* Las zonas se rotulan "Curridabat · Curridabat" y en 190 px
+            no caben. Los filtros suben a 220 y crecen con lo que
+            sobre; en tableta van de dos en dos antes que apretarse. */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1fr)_minmax(220px,0.55fr)_minmax(220px,0.55fr)_auto] lg:items-end">
           <label className={fieldLabel}>Buscar
             <span className="relative">
-              <input id="buscar-reporte" type="search" className={`${input} pl-9`} placeholder="Nombre, zona o señas" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
-              <Search size={15} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" />
+              <input id="buscar-reporte" type="search" className={`${input} pl-10`} placeholder="Nombre, zona o señas" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
+              <Search size={15} aria-hidden className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute" />
             </span>
           </label>
           <label className={fieldLabel}>Zona
-            <select className={input} value={zonaId} onChange={(event) => setZonaId(event.target.value)}>
-              <option value="">Todas las zonas</option>
-              {zonas.map((zona) => <option key={zona.id_zona} value={zona.id_zona}>{zona.nombre} - {zona.canton}</option>)}
-            </select>
+            <Combo
+              value={zonaId}
+              onChange={setZonaId}
+              vacio
+              placeholder="Todas las zonas"
+              options={zonas.map((zona) => ({
+                value: zona.id_zona,
+                label: `${zona.nombre} · ${zona.canton}`,
+              }))}
+            />
           </label>
           <label className={fieldLabel}>Especie
-            <select className={input} value={especie} onChange={(event) => setEspecie(event.target.value)}>
-              <option value="">Todas las especies</option>
-              {especies.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
+            <Combo
+              value={especie}
+              onChange={setEspecie}
+              vacio
+              placeholder="Todas las especies"
+              options={especies.map((item) => ({ value: item, label: item }))}
+            />
           </label>
           <button type="button" className={btnSecondary} onClick={clearFilters} disabled={!hasFilters}>
             Limpiar

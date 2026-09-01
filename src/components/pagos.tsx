@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CreditCard, Download, Plus, Wallet } from "lucide-react";
+import { CreditCard, Download, Plus, Wallet } from "../lib/iconos";
 import {
   Badge,
   EmptyState,

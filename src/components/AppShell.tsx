@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Bell, Menu, Search, ShieldAlert } from "lucide-react";
+import { Bell, Menu, Search, ShieldAlert } from "../lib/iconos";
 
 import { tituloDeRuta, type Rol } from "../lib/nav";
 import type { UserProfile } from "../types/auth.types";
@@ -146,8 +146,12 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                   ? `Debes corregir tu verificación: ${profile.verificacion.observacion ?? "revisa los documentos enviados."}`
                   : "Verifica tu perfil para registrar mascotas, solicitar paseos y usar las funciones de la plataforma."}
             </span>
+            {/* El fragmento no es decorativo: el perfil abre por
+                pestañas y sin él este enlace deja al usuario en "Mis
+                datos", que es justo lo que no vino a ver. */}
             <Link
               to="/perfil"
+              hash="verificacion"
               className="font-semibold underline underline-offset-2"
             >
               Ir a verificación

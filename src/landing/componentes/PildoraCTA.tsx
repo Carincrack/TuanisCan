@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "../../lib/iconos";
 import { CANVAS, HUESO, NAVY, TURQUESA } from "../tokens";
 
 /* La píldora flotante de la referencia: fondo plano, texto en

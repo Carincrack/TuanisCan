@@ -15,7 +15,7 @@ import {
   Search,
   Stethoscope,
   Store,
-} from "lucide-react";
+} from "../lib/iconos";
 import { getNegocios, getZonas } from "../services/auth.service";
 import type { NegocioProfile, Zona } from "../types/auth.types";
 import {
@@ -28,6 +28,7 @@ import {
   btnSecondary,
   input,
 } from "./ui";
+import { Combo } from "./Combo";
 
 type TipoNegocio = NegocioProfile["tipo"];
 
@@ -256,12 +257,12 @@ const Directorio = () => {
               value={busqueda}
               onChange={(event) => setBusqueda(event.target.value)}
               placeholder="Buscar por nombre, dirección o zona"
-              className={`${input} pl-9`}
+              className={`${input} pl-10`}
             />
             <Search
               size={15}
               aria-hidden
-              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute"
+              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute"
             />
           </div>
 
@@ -269,19 +270,17 @@ const Directorio = () => {
             <label htmlFor="zona-directorio" className="sr-only">
               Filtrar por zona
             </label>
-            <select
+            <Combo
               id="zona-directorio"
+              vacio
+              placeholder="Todas las zonas"
               value={zonaId}
-              onChange={(event) => setZonaId(event.target.value)}
-              className={input}
-            >
-              <option value="">Todas las zonas</option>
-              {zonas.map((zona) => (
-                <option key={zona.id_zona} value={zona.id_zona}>
-                  {zona.nombre} · {zona.canton}, {zona.provincia}
-                </option>
-              ))}
-            </select>
+              onChange={setZonaId}
+              options={zonas.map((zona) => ({
+                value: zona.id_zona,
+                label: `${zona.nombre} · ${zona.canton}, ${zona.provincia}`,
+              }))}
+            />
           </div>
 
           <FilterTabs

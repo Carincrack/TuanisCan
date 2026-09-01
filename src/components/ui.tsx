@@ -53,6 +53,17 @@ export const btnDanger = `${pulsable} bg-danger-wash px-5 py-2.5 text-[13px] tex
 export const input =
   "w-full rounded-[14px] bg-sunken px-4 py-2.5 text-[13.5px] text-ink transition-colors duration-150 placeholder:text-ink-mute focus:bg-white focus:outline-2 focus:-outline-offset-2 focus:outline-accent";
 
+/** Etiqueta de campo. Envuelve al control:
+
+      <label className={fieldLabel}>Zona <Combo … /></label>
+
+    Toda la pinta la pone `.campo` en `index.css` y no una ristra de
+    utilidades, porque hay que hacer dos cosas a la vez que Tailwind no
+    puede desde una sola clase: dar versalitas de Archivo a la etiqueta
+    y devolverle al control su propia letra. Sin lo segundo, las
+    opciones del desplegable salen en mayúsculas. */
+export const fieldLabel = "campo";
+
 export const colones = (n: number) => `₡${n.toLocaleString("es-CR")}`;
 
 /* ── Estructura de página ────────────────────────────────────── */

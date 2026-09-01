@@ -13,7 +13,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { BookOpen, Users, TrendingUp, Calendar } from "lucide-react";
+import { BookOpen, Users, TrendingUp, Calendar } from "../lib/iconos";
 
 // Interfaces para TypeScript
 interface StatData {

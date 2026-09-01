@@ -1,4 +1,4 @@
-import { Camera, MapPin, MessageCircle, Navigation, Phone, Siren, Timer } from "lucide-react";
+import { Camera, MapPin, MessageCircle, Navigation, Phone, Siren, Timer } from "../lib/iconos";
 import {
   Avatar,
   Badge,
@@ -45,7 +45,7 @@ const PaseoEnVivo = () => (
           <dl className="grid grid-cols-3 gap-2.5">
             {metricas.map((m) => (
               <div key={m.etiqueta} className="bg-surface px-5 py-4 text-center">
-                <dt className="text-[11px] tracking-[0.06em] text-ink-mute uppercase">
+                <dt className="rotulo text-ink-mute">
                   {m.etiqueta}
                 </dt>
                 <dd className="nums mt-1.5 text-[20px] font-semibold text-ink">
