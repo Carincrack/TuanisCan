@@ -467,7 +467,7 @@ begin
         select 1
         from unnest(v_roles) as roles(nombre)
         where roles.nombre is null
-           or roles.nombre not in ('dueno', 'paseador', 'negocio')
+           or roles.nombre not in ('dueno', 'paseador', 'negocio', 'admin')
     ) then
         raise exception 'Rol no permitido';
     end if;
@@ -503,7 +503,8 @@ begin
         zona_id = excluded.zona_id;
 
     foreach v_rol in array v_roles loop
-        if v_rol <> 'paseador' then
+        -- Admin es privilegio de Auth, no perfil funcional.
+        if v_rol in ('dueno', 'negocio') then
             insert into public.usuario_rol (id_usuario, id_rol)
             select new.id, r.id_rol
             from public.rol r
