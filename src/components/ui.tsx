@@ -193,10 +193,22 @@ export const Stat = ({
   </div>
 );
 
-export const EmptyState = ({ title, hint }: { title: string; hint: string }) => (
+/** El vacío. `action` es opcional y sirve para el vacío que tiene
+    salida: cuando lo que no hay resultados es por un filtro, la forma
+    de arreglarlo va acá, no en la frase. */
+export const EmptyState = ({
+  title,
+  hint,
+  action,
+}: {
+  title: string;
+  hint: string;
+  action?: ReactNode;
+}) => (
   <div className="rounded-[14px] bg-sunken px-6 py-12 text-center">
     <p className="text-[14px] font-semibold text-ink">{title}</p>
     <p className="mt-1 text-[13px] text-ink-soft">{hint}</p>
+    {action && <div className="mt-4 flex justify-center">{action}</div>}
   </div>
 );
 

@@ -13,6 +13,7 @@ import {
   input,
 } from "../components/ui";
 import { Combo } from "../components/Combo";
+import { distritoDe, normalizar } from "../lib/zonas";
 
 const ubicacionesCostaRica: Record<string, string[]> = {
   "San José": [
@@ -117,21 +118,6 @@ const ubicacionesCostaRica: Record<string, string[]> = {
 
 const provinciasBase = Object.keys(ubicacionesCostaRica);
 
-/* El distrito de una fila.
-
-   El catálogo trae una fila por distrito, y el nombre del distrito
-   está en `nombre`: `provincia` → `canton` → `nombre` es la jerarquía
-   completa. La columna `distrito` existe en la tabla pero llega vacía
-   en la mayoría de las filas, así que se usa si trae algo y si no se
-   cae a `nombre`. Sin esta caída, el tercer filtro salía siempre con
-   una sola opción y la columna "Distrito" en blanco. */
-const distritoDe = (zona: Zona) => zona.distrito?.trim() || zona.nombre;
-const normalizar = (valor: string) =>
-  valor
-    .trim()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("es");
 
 const ZonasAdminPage = () => {
   const [zonas, setZonas] = useState<Zona[]>([]);
