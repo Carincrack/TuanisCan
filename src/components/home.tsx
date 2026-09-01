@@ -44,7 +44,7 @@ const EmployeeHome = () => (
       }
     />
 
-    <div className="grid gap-px bg-canvas sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
       <Stat etiqueta="Mascotas" valor="3" nota="1 con vacuna pendiente" />
       <Stat etiqueta="Paseos del mes" valor="9" nota="2 esta semana" />
       <Stat etiqueta="Gasto del mes" valor={colones(19400)} nota="5 paseos pagados" />
@@ -168,7 +168,7 @@ const EmployeeHome = () => (
         </Section>
 
         <Section title="Accesos rápidos" bodyClass="px-6 pt-4 pb-5">
-          <ul className="flex flex-col gap-px">
+          <ul className="flex flex-col gap-2">
             {accesos.map((a) => (
               <li key={a.to}>
                 <Link to={a.to} className={`${btnSecondary} w-full justify-start`}>

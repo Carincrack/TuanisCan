@@ -254,7 +254,7 @@ const Paseadores = () => {
                 </Badge>
               </div>
 
-              <div className="mt-auto flex gap-px pt-4">
+              <div className="mt-auto flex gap-2 pt-4">
                 <button type="button" onClick={() => setPerfil(w)} className={`${btnSecondary} flex-1`}>
                   Ver perfil
                 </button>
@@ -294,7 +294,7 @@ const Paseadores = () => {
                 <X size={18} />
               </button>
             </div>
-            <div className="grid gap-px bg-canvas sm:grid-cols-3">
+            <div className="grid gap-2.5 sm:grid-cols-3">
               <div className="bg-surface px-6 py-4"><p className="text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase">Rating</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.calificacion_promedio.toFixed(1)}</p></div>
               <div className="bg-surface px-6 py-4"><p className="text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase">Reseñas</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.total_resenas}</p></div>
               <div className="bg-surface px-6 py-4"><p className="text-[11px] font-semibold tracking-[0.1em] text-ink-mute uppercase">Paseos</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.total_paseos}</p></div>
@@ -305,7 +305,7 @@ const Paseadores = () => {
                 <span className="nums text-[18px] font-semibold text-ink">{colones(perfil.tarifa_base ?? 0)}</span>
                 <Badge tono="ok">Disponible hoy</Badge>
               </div>
-              <div className="mt-5 flex justify-end gap-px">
+              <div className="mt-5 flex justify-end gap-2">
                 <button type="button" onClick={() => setPerfil(null)} className={btnSecondary}>Cerrar</button>
                 <button type="button" onClick={() => { setPerfil(null); openRequest(perfil); }} disabled={!canOperate || !perfil.tarifa_base} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}>Solicitar paseo</button>
               </div>

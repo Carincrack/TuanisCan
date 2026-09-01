@@ -42,7 +42,7 @@ const PaseoEnVivo = () => (
           <p className="bg-sunken px-6 py-3 text-[12.5px] text-ink-soft">
             Parque de Curridabat · a 900 m de casa
           </p>
-          <dl className="grid grid-cols-3 gap-px bg-canvas">
+          <dl className="grid grid-cols-3 gap-2.5">
             {metricas.map((m) => (
               <div key={m.etiqueta} className="bg-surface px-5 py-4 text-center">
                 <dt className="text-[11px] tracking-[0.06em] text-ink-mute uppercase">
@@ -70,7 +70,7 @@ const PaseoEnVivo = () => (
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-px">
+          <div className="mt-5 flex flex-col gap-2">
             <button type="button" className={`${btnSecondary} w-full`}>
               <MessageCircle size={14} strokeWidth={1.9} />
               Enviar mensaje

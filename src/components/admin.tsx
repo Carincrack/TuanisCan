@@ -57,7 +57,7 @@ export const PanelAdmin = () => (
       }
     />
 
-    <div className="grid gap-px bg-canvas sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
       <Stat etiqueta="Comisión del mes" valor={colones(552000)} nota="15% de 3.68 M" />
       <Stat etiqueta="Paseos del mes" valor="1 284" nota="+13.6% vs julio" />
       <Stat etiqueta="Paseadores activos" valor="62" nota="de 78 registrados" />
@@ -179,7 +179,7 @@ export const FinanzasAdmin = () => {
         }
       />
 
-      <div className="grid gap-px bg-canvas sm:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Comisión acumulada" valor={colones(2841000)} nota="año en curso" />
         <Stat etiqueta="Por liquidar" valor={colones(355300)} nota="62 paseadores" />
         <Stat etiqueta="Ticket promedio" valor={colones(4520)} nota="por paseo" />
@@ -475,7 +475,7 @@ export const VerificacionesAdmin = () => {
               )}
             </div>
 
-            <div className="flex flex-wrap gap-px">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => void review(v, "aprobado")}
@@ -578,7 +578,7 @@ export const UsuariosAdmin = () => {
   return (
     <Page>
       <PageHeader title="Usuarios" subtitle="Directorio general de las personas y negocios registrados." action={<button type="button" onClick={exportar} className={btnSecondary}><Download size={14} strokeWidth={1.9} /> Exportar vista</button>} />
-      <div className="grid gap-px bg-canvas sm:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas públicas" />
         <Stat etiqueta="Cuentas activas" valor={String(activos)} nota={`${usuarios.length ? Math.round((activos / usuarios.length) * 100) : 0}% del total`} />
         <Stat etiqueta="Dueños de mascotas" valor={String(duenos)} nota="Segmento principal" />
@@ -600,7 +600,7 @@ export const UsuariosAdmin = () => {
       {!loading && visibles.length > PAGE_SIZE && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-surface px-6 py-4">
           <span className="text-[12px] text-ink-mute">Página {paginaActual} de {totalPaginas}</span>
-          <div className="flex gap-px">
+          <div className="flex gap-2">
             <button type="button" disabled={paginaActual === 1} onClick={() => setPagina((actual) => Math.max(1, actual - 1))} className={btnSecondary}>Anterior</button>
             <button type="button" disabled={paginaActual === totalPaginas} onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))} className={btnSecondary}>Siguiente</button>
           </div>

@@ -17,10 +17,10 @@ import { useCajon } from "../hooks/useCajon";
 import ProfileAvatar from "./ProfileAvatar";
 
 /* ─────────────────────────────────────────────────────────────
-   EL RIEL DEL MUNDO SUAVE
+   EL RIEL
 
-   Prueba de piel para el sistema entero, montada primero en la
-   parte administrativa. La aplicación venía siendo plana y cuadrada
+   La navegación de las cuatro aplicaciones —dueño, paseador, negocio
+   y administración—. La aplicación venía siendo plana y cuadrada
    —sin una esquina viva, sin sombras— mientras la portada es lo
    contrario: todo píldora, Archivo en versalitas, discos de
    turquesa y sombras largas. Dos productos con el mismo logo.
@@ -40,15 +40,14 @@ import ProfileAvatar from "./ProfileAvatar";
        CIELO y tinta navy, que da 9.1:1. El turquesa queda para
        discos y filetes, como en `tokens.ts`.
 
-   La mecánica —tres anchos, grupos plegables, cajón con trampa de
-   foco— es la misma que la del riel plano y sale de los mismos
-   ganchos. Lo único distinto acá es la piel. Cuando esta gane, el
-   riel plano se borra.
+   Los efectos de documento del cajón —bloquear el scroll, atrapar el
+   foco, devolverlo al cerrar— viven en `useCajon`, aparte: son
+   obligaciones de un diálogo, no maquetado.
    ───────────────────────────────────────────────────────────── */
 
-/* La tarjeta flota: el ancho reservado en la retícula es el de la
-   tarjeta más su margen a cada lado. */
-const MARGEN = 10;
+/* El aire alrededor de la tarjeta no lo pone el riel: lo ponen el
+   relleno y el hueco del armazón, que es quien sabe cuánto espacio
+   hay entre las dos piezas que flotan. Acá solo va el ancho. */
 const TARJETA_ICONOS = 72;
 const TARJETA_ABIERTA = 252;
 
@@ -486,48 +485,43 @@ export const RielSuave = (props: RielProps) => {
 
   if (!hayEspacio) return null;
 
-  const fijoAbierto = esAncha && anclado;
-  const expandido = fijoAbierto || roce || foco;
+  const expandido = (esAncha && anclado) || roce || foco;
 
   return (
-    /* La caja de afuera solo reserva sitio en la retícula. Cuando el
-       riel se abre al pasar el cursor esta no cambia de ancho: por eso
-       la tarjeta flota sobre el contenido en vez de empujarlo. */
+    /* Una sola caja, y es la que ocupa sitio: el riel no flota sobre
+       el contenido, lo empuja. Antes había dos —un hueco fijo en la
+       retícula y una tarjeta suelta encima— y al abrirse al pasar el
+       cursor la tarjeta tapaba el lienzo, que se quedaba quieto
+       debajo. Ahora el ancho que se anima es el del propio elemento
+       de la fila, así que el lienzo, que es `flex-1`, se corre con él
+       sin una línea más: plegar, anclar y rozar mueven lo mismo.
+
+       `z-10` es para la sombra, no para el orden: sin él, el lienzo
+       —hermano posterior— se pinta encima y le come el borde blando
+       al riel justo en el hueco que los separa. */
     <div
-      className="riel-hueco relative hidden shrink-0 md:block"
-      style={{
-        width: (fijoAbierto ? TARJETA_ABIERTA : TARJETA_ICONOS) + MARGEN * 2,
+      onPointerEnter={(evento) => {
+        // El táctil no tiene "pasar por encima": abriría el riel al
+        // tocar cualquier icono, y ese toque ya es una navegación.
+        if (evento.pointerType !== "mouse") return;
+        alEntrar();
       }}
+      onPointerLeave={alSalir}
+      onFocus={() => setFoco(true)}
+      onBlur={(evento) => {
+        if (!evento.currentTarget.contains(evento.relatedTarget as Node)) {
+          setFoco(false);
+        }
+      }}
+      style={{ width: expandido ? TARJETA_ABIERTA : TARJETA_ICONOS }}
+      className="riel riel-suave relative z-10 hidden shrink-0 flex-col overflow-hidden rounded-[26px] bg-rail p-2.5 md:flex"
     >
-      <div
-        onPointerEnter={(evento) => {
-          // El táctil no tiene "pasar por encima": abriría el riel al
-          // tocar cualquier icono, y ese toque ya es una navegación.
-          if (evento.pointerType !== "mouse") return;
-          alEntrar();
-        }}
-        onPointerLeave={alSalir}
-        onFocus={() => setFoco(true)}
-        onBlur={(evento) => {
-          if (!evento.currentTarget.contains(evento.relatedTarget as Node)) {
-            setFoco(false);
-          }
-        }}
-        style={{
-          width: expandido ? TARJETA_ABIERTA : TARJETA_ICONOS,
-          top: MARGEN,
-          bottom: MARGEN,
-          left: MARGEN,
-        }}
-        className="riel riel-suave absolute z-40 flex flex-col overflow-hidden rounded-[26px] bg-rail p-2.5"
-      >
-        <Panel
-          {...props}
-          expandido={expandido}
-          anclado={esAncha ? anclado : undefined}
-          onAnclar={esAncha ? () => setAnclado((previo) => !previo) : undefined}
-        />
-      </div>
+      <Panel
+        {...props}
+        expandido={expandido}
+        anclado={esAncha ? anclado : undefined}
+        onAnclar={esAncha ? () => setAnclado((previo) => !previo) : undefined}
+      />
     </div>
   );
 };

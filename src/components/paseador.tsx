@@ -134,7 +134,7 @@ export const PanelPaseador = () => {
         </div>
       </div>
 
-      <div className="grid gap-px bg-canvas sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         <Stat etiqueta="Paseos hoy" valor="3" nota="1 en curso" />
         <Stat etiqueta="Ganado hoy" valor={colones(13700)} nota="antes de comisión" />
         <Stat etiqueta="Esta semana" valor={colones(38400)} nota="9 paseos" />
@@ -164,7 +164,7 @@ export const PanelPaseador = () => {
               </span>
             </p>
           </div>
-          <div className="flex gap-px">
+          <div className="flex gap-2">
             <button type="button" className={btnSecondary}>
               Enviar foto
             </button>
@@ -281,7 +281,7 @@ export const SolicitudesPaseador = () => {
                 </p>
               </div>
 
-              <div className="flex flex-col gap-px">
+              <div className="flex flex-col gap-2">
                 <button
                   type="button"
                   onClick={() => setResueltas({ ...resueltas, [s.id]: "si" })}
@@ -480,7 +480,7 @@ export const PaseoActivoPaseador = () => (
             alt="Recorrido del paseo por el Parque de Curridabat"
             className="h-[300px] w-full object-cover sm:h-[380px]"
           />
-          <dl className="grid grid-cols-3 gap-px bg-canvas">
+          <dl className="grid grid-cols-3 gap-2.5">
             {[
               { t: "Tiempo", v: "28 min" },
               { t: "Distancia", v: "2.1 km" },
@@ -520,7 +520,7 @@ export const PaseoActivoPaseador = () => (
         </Section>
 
         <Section title="Acciones" bodyClass="px-6 pb-5">
-          <div className="flex flex-col gap-px">
+          <div className="flex flex-col gap-2">
             <button type="button" className={`${btnSecondary} w-full`}>
               Enviar foto al dueño
             </button>
@@ -601,7 +601,7 @@ export const GananciasPaseador = () => {
         }
       />
 
-      <div className="grid gap-px bg-canvas sm:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Por liquidar" valor={colones(11730)} nota="3 paseos" />
         <Stat etiqueta="Liquidado en agosto" valor={colones(38400)} nota="9 paseos" />
         <Stat etiqueta="Próximo depósito" valor="21 ago" nota="viernes" />
@@ -771,16 +771,16 @@ export const PerfilPaseador = () => {
       </Section>
 
       <Section title="Zonas que cubro" bodyClass="px-6 pb-6">
-        <div className="flex flex-wrap gap-px">
+        <div className="flex flex-wrap gap-2">
           {zonasDisponibles.map((z) => (
             <button
               key={z}
               type="button"
               aria-pressed={zonas.includes(z)}
               onClick={() => alternar(zonas, setZonas, z)}
-              className={`px-4 py-2.5 text-[13px] font-medium transition-colors duration-150 ${
+              className={`rounded-full px-4 py-2.5 text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
                 zonas.includes(z)
-                  ? "bg-accent text-white"
+                  ? "bg-rail text-white"
                   : "bg-sunken text-ink-soft hover:bg-neutral-wash hover:text-ink"
               }`}
             >
@@ -791,16 +791,16 @@ export const PerfilPaseador = () => {
       </Section>
 
       <Section title="Días disponibles" bodyClass="px-6 pb-6">
-        <div className="flex flex-wrap gap-px">
+        <div className="flex flex-wrap gap-2">
           {diasSemana.map((d) => (
             <button
               key={d}
               type="button"
               aria-pressed={dias.includes(d)}
               onClick={() => alternar(dias, setDias, d)}
-              className={`w-14 py-2.5 text-[13px] font-medium transition-colors duration-150 ${
+              className={`w-14 rounded-full py-2.5 text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
                 dias.includes(d)
-                  ? "bg-accent text-white"
+                  ? "bg-rail text-white"
                   : "bg-sunken text-ink-soft hover:bg-neutral-wash hover:text-ink"
               }`}
             >

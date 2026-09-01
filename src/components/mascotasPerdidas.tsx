@@ -355,7 +355,7 @@ const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: 
               Ver mapa
             </a>
           </div>
-          <dl className="mt-3 grid gap-px bg-canvas text-[12.5px] text-ink-soft sm:grid-cols-2">
+          <dl className="mt-3 grid gap-2.5 text-[12.5px] text-ink-soft sm:grid-cols-2">
             <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Ubicacion</dt><dd className="nums mt-1">{coordsLabel(item)}</dd></div>
             <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Zona</dt><dd className="mt-1">{zonaLabel(item.zona)}</dd></div>
             <div className="bg-surface p-3"><dt className="text-[10px] uppercase text-ink-mute">Contacto</dt><dd className="nums mt-1">{item.contacto || "No indicado"}</dd></div>

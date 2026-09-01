@@ -134,7 +134,7 @@ const CarnetDigital = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-3"><h3 className="text-[26px] font-semibold tracking-[-0.02em] text-ink">{pet.nombre}</h3><Badge tono={alert ? "warn" : pet.vacunas.length ? "ok" : "neutral"}>{alert ? "Requiere atención" : pet.vacunas.length ? "Al día" : "Sin vacunas"}</Badge></div>
                 <p className="mt-1 text-[13px] text-ink-soft">{pet.especie} · {pet.raza}</p>
-                <dl className="mt-5 grid grid-cols-2 gap-px bg-canvas sm:grid-cols-3">
+                <dl className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                   <Dato etiqueta="Sexo" valor={pet.sexo === "macho" ? "Macho" : "Hembra"} />
                   <Dato etiqueta="Nacimiento" valor={formatDate(pet.fecha_nacimiento)} />
                   <Dato etiqueta="Edad" valor={petAge(pet.fecha_nacimiento)} />
@@ -142,7 +142,7 @@ const CarnetDigital = () => {
                   <Dato etiqueta="Color" valor={pet.color} />
                   <Dato etiqueta="Esterilizado" valor={pet.esterilizado ? "Sí" : "No"} />
                 </dl>
-                <dl className="mt-px grid grid-cols-1 gap-px bg-canvas sm:grid-cols-2">
+                <dl className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   <Dato etiqueta="Microchip" valor={pet.microchip || "No registrado"} />
                   <Dato etiqueta="Zona" valor={zone} />
                   <Dato etiqueta="Responsable" valor={profile?.nombre || "No registrado"} />

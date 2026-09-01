@@ -244,7 +244,7 @@ const Mascotas = () => {
                 <div className="flex flex-1 flex-col p-5">
                   <div className="flex items-baseline justify-between gap-2"><h3 className="text-[17px] font-semibold text-ink">{pet.nombre}</h3><span className="text-[11.5px] text-ink-mute">{pet.especie}</span></div>
                   <p className="mt-1 text-[12.5px] text-ink-soft">{pet.raza}</p>
-                  <dl className="mt-4 grid grid-cols-3 gap-px bg-canvas">
+                  <dl className="mt-4 grid grid-cols-3 gap-2.5">
                     <div className="bg-sunken p-3"><dt className="text-[10px] uppercase text-ink-mute">Edad</dt><dd className="mt-1 text-[12px] text-ink">{petAge(pet.fecha_nacimiento)}</dd></div>
                     <div className="bg-sunken p-3"><dt className="text-[10px] uppercase text-ink-mute">Peso</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.peso} kg</dd></div>
                     <div className="bg-sunken p-3"><dt className="text-[10px] uppercase text-ink-mute">Vacunas</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.vacunas.length}</dd></div>
@@ -270,10 +270,10 @@ const Mascotas = () => {
               <button type="button" aria-label="Cerrar perfil" className="p-2 text-rail-text hover:bg-rail-hover hover:text-white" onClick={() => setSelectedId(null)}><X size={18} /></button>
             </div>
           </header>
-          <dl className="grid gap-px bg-canvas sm:grid-cols-3">
+          <dl className="grid gap-2.5 sm:grid-cols-3">
             {[["Nacimiento", formatDate(selected.fecha_nacimiento)], ["Sexo", selected.sexo === "macho" ? "Macho" : "Hembra"], ["Color", selected.color], ["Microchip", selected.microchip || "No registrado"], ["Esterilizado", selected.esterilizado ? "Sí" : "No"], ["Veterinaria", selected.veterinaria || "No registrada"]].map(([label, value]) => <div key={label} className="bg-sunken px-5 py-3"><dt className="text-[10px] uppercase tracking-[0.08em] text-ink-mute">{label}</dt><dd className="mt-1 text-[13px] text-ink">{value}</dd></div>)}
           </dl>
-          {(selected.alergias || selected.notas) && <div className="grid gap-px bg-canvas sm:grid-cols-2"><div className="bg-surface p-5"><h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Alergias y condiciones</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || "Ninguna registrada"}</p></div><div className="bg-surface p-5"><h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Cuidados y notas</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || "Sin notas"}</p></div></div>}
+          {(selected.alergias || selected.notas) && <div className="grid gap-2.5 sm:grid-cols-2"><div className="bg-surface p-5"><h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Alergias y condiciones</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || "Ninguna registrada"}</p></div><div className="bg-surface p-5"><h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Cuidados y notas</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || "Sin notas"}</p></div></div>}
           <div className="flex items-center justify-between gap-3 px-5 py-4"><h4 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-mute"><Syringe size={14} /> Historial de vacunas</h4><button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingVaccine(null)}><Plus size={14} /> Agregar vacuna</button></div>
           {selected.vacunas.length ? (
             <Table caption={`Vacunas de ${selected.nombre}`} columnas={[{ label: "Vacuna" }, { label: "Aplicada" }, { label: "Vence" }, { label: "Estado" }, { label: "Acciones", align: "right" }]}>
