@@ -31,6 +31,7 @@ import {
   respondWalkRequest,
   type WalkerRequest,
 } from "../services/walk-requests.service";
+import { useAuth } from "../hooks/useAuth";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -219,19 +220,30 @@ export const PanelPaseador = () => {
 /* ── Solicitudes ─────────────────────────────────────────────── */
 
 export const SolicitudesPaseador = () => {
+  const { getProfile, isAdmin } = useAuth();
   const [pendientes, setPendientes] = useState<WalkerRequest[]>([]);
   const [comentarios, setComentarios] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  /* Entrar al panel y poder ejercer son dos cosas distintas: la cuenta
+     abre apenas se crea el perfil, pero aceptar paseos espera la
+     aprobación. La base ya lo impide; acá se dice antes de que el
+     usuario lo descubra con un error rojo. */
+  const [habilitado, setHabilitado] = useState(false);
 
   useEffect(() => {
     const cargar = async () => {
       setLoading(true);
       setError(null);
       try {
-        setPendientes(await listWalkerRequests());
+        const [solicitudes, perfil] = await Promise.all([
+          listWalkerRequests(),
+          getProfile(),
+        ]);
+        setPendientes(solicitudes);
+        setHabilitado(isAdmin || perfil?.verificacion.estado === "aprobado");
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "No se pudieron cargar las solicitudes.");
       } finally {
@@ -240,9 +252,13 @@ export const SolicitudesPaseador = () => {
     };
 
     void cargar();
-  }, []);
+  }, [getProfile, isAdmin]);
 
   const responder = async (solicitud: WalkerRequest, aprobada: boolean) => {
+    if (!habilitado) {
+      setError("Tenés que verificar tu perfil antes de responder solicitudes.");
+      return;
+    }
     setSavingId(solicitud.id_paseo);
     setError(null);
     setMessage(null);
@@ -396,8 +412,16 @@ export const SolicitudesPaseador = () => {
 
       {!loading && pendientes.length === 0 && (
         <EmptyState
-          title="No tienes solicitudes pendientes"
-          hint="Cuando un dueño de tu zona te elija, la solicitud aparece aquí."
+          title={
+            habilitado
+              ? "No tienes solicitudes pendientes"
+              : "Todavía no aparecés en las búsquedas"
+          }
+          hint={
+            habilitado
+              ? "Cuando un dueño de tu zona te elija, la solicitud aparece aquí."
+              : "Los dueños solo ven paseadores con la verificación aprobada. Completá tus documentos y esperá la revisión."
+          }
         />
       )}
     </Page>

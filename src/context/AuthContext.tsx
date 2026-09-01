@@ -26,12 +26,40 @@ const adminFromUser = (user: Session["user"] | null): boolean => {
   return role === "admin";
 };
 
+/* Los perfiles con los que la cuenta puede ENTRAR.
+
+   No es lo mismo que `usuario_rol` en la base. Ahí el rol de paseador
+   no se inserta al registrarse: aparece recién cuando administración
+   aprueba la verificación. O sea que esa tabla está sirviendo de sello
+   de aprobación, y de paso quedó siendo la llave de la puerta. Efecto:
+   quien se registraba como paseador entraba con `roles: []`, no había
+   panel que montar y caía en "Esta cuenta no tiene perfiles activos" —
+   fuera del sistema antes de poder subir un solo documento.
+
+   Tener perfil de paseador ya alcanza para abrir el panel, que es lo
+   único que se decide acá. `profile.paseador` llega siempre: la
+   política `paseadores_select_own` es `auth.uid() = id_usuario`, sin
+   rol de por medio.
+
+   Ejercer sigue dependiendo de la aprobación, y eso no lo decide esta
+   función ni ninguna otra del frontend: `buscar_paseadores` y
+   `solicitar_paseo` exigen `estado_verificacion = 'aprobado'`, y el
+   trigger `exigir_usuario_verificado` frena las escrituras en doce
+   tablas. Un paseador sin aprobar entra al panel y no aparece en
+   ninguna búsqueda: nadie puede reservarle. */
+const perfilesDeCuenta = (profile: UserProfile | null): RolPublico[] => {
+  const roles = profile?.roles ?? [];
+  return profile?.paseador && !roles.includes("paseador")
+    ? [...roles, "paseador"]
+    : roles;
+};
+
 const resolveActiveRole = (
   profile: UserProfile | null,
   session: Session | null,
   preferredRole?: Rol
 ): Rol | null => {
-  const roles = profile?.roles ?? [];
+  const roles = perfilesDeCuenta(profile);
   const isAdmin = Boolean(profile?.isAdmin || adminFromUser(session?.user ?? null));
   const allowed: Rol[] = [...roles, ...(isAdmin ? (["admin"] as const) : [])];
   const stored = sessionStorage.getItem(ACTIVE_ROLE_KEY) as Rol | null;
@@ -115,7 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       session,
       user: session.user,
       role: resolveActiveRole(profile, session, preferredRole),
-      roles: profile?.roles ?? [],
+      roles: perfilesDeCuenta(profile),
       isAdmin,
       loading: false,
       accessError: null,
