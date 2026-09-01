@@ -126,57 +126,62 @@ const AsideDueno = () => (
   </>
 );
 
-const AsidePaseador = () => (
-  <>
-    <Bloque titulo="Resumen de hoy">
-      <dl className="grid grid-cols-2 gap-2.5">
-        <div className="bg-surface px-5 py-4">
-          <dt className="text-[11px] text-ink-mute">Paseos</dt>
-          <dd className="nums mt-1 text-[20px] font-semibold text-ink">3</dd>
-        </div>
-        <div className="bg-surface px-5 py-4">
-          <dt className="text-[11px] text-ink-mute">Ganado</dt>
-          <dd className="nums mt-1 text-[20px] font-semibold text-ink">
-            {colones(13700)}
-          </dd>
-        </div>
-        <div className="bg-surface px-5 py-4">
-          <dt className="text-[11px] text-ink-mute">Horas</dt>
-          <dd className="nums mt-1 text-[20px] font-semibold text-ink">2.5</dd>
-        </div>
-        <div className="bg-surface px-5 py-4">
-          <dt className="text-[11px] text-ink-mute">Rating</dt>
-          <dd className="nums mt-1 text-[20px] font-semibold text-ink">4.9</dd>
-        </div>
-      </dl>
-    </Bloque>
+const AsidePaseador = () => {
+  /*
+  return (
+    <>
+      <Bloque titulo="Resumen de hoy">
+        <dl className="grid grid-cols-2 gap-2.5">
+          <div className="bg-surface px-5 py-4">
+            <dt className="text-[11px] text-ink-mute">Paseos</dt>
+            <dd className="nums mt-1 text-[20px] font-semibold text-ink">3</dd>
+          </div>
+          <div className="bg-surface px-5 py-4">
+            <dt className="text-[11px] text-ink-mute">Ganado</dt>
+            <dd className="nums mt-1 text-[20px] font-semibold text-ink">
+              {colones(13700)}
+            </dd>
+          </div>
+          <div className="bg-surface px-5 py-4">
+            <dt className="text-[11px] text-ink-mute">Horas</dt>
+            <dd className="nums mt-1 text-[20px] font-semibold text-ink">2.5</dd>
+          </div>
+          <div className="bg-surface px-5 py-4">
+            <dt className="text-[11px] text-ink-mute">Rating</dt>
+            <dd className="nums mt-1 text-[20px] font-semibold text-ink">4.9</dd>
+          </div>
+        </dl>
+      </Bloque>
 
-    <Bloque titulo="Solicitudes nuevas">
-      <div className="flex flex-col">
-        <Fila nombre="Ana Corrales" detalle="Rocky · 45 min · hoy" dato={colones(4500)} />
-        <Fila nombre="Diego Solís" detalle="Kira · 60 min · mañana" dato={colones(5200)} />
-        <Fila nombre="Laura Vega" detalle="Nube · 30 min · 22 ago" dato={colones(3800)} />
-      </div>
-      <div className="px-5 pt-2 pb-5">
-        <Link
-          to="/p/solicitudes"
-          className="text-[12.5px] font-semibold text-accent-dark hover:underline"
-        >
-          Revisar las 3 solicitudes
-        </Link>
-      </div>
-    </Bloque>
+      <Bloque titulo="Solicitudes nuevas">
+        <div className="flex flex-col">
+          <Fila nombre="Ana Corrales" detalle="Rocky · 45 min · hoy" dato={colones(4500)} />
+          <Fila nombre="Diego Solís" detalle="Kira · 60 min · mañana" dato={colones(5200)} />
+          <Fila nombre="Laura Vega" detalle="Nube · 30 min · 22 ago" dato={colones(3800)} />
+        </div>
+        <div className="px-5 pt-2 pb-5">
+          <Link
+            to="/p/solicitudes"
+            className="text-[12.5px] font-semibold text-accent-dark hover:underline"
+          >
+            Revisar las 3 solicitudes
+          </Link>
+        </div>
+      </Bloque>
 
-    <Bloque titulo="Próxima liquidación">
-      <div className="px-5 pb-5">
-        <p className="nums text-[22px] font-semibold text-ink">{colones(38400)}</p>
-        <p className="mt-1 text-[12.5px] text-ink-soft">
-          Se deposita el viernes 21 de agosto.
-        </p>
-      </div>
-    </Bloque>
-  </>
-);
+      <Bloque titulo="Próxima liquidación">
+        <div className="px-5 pb-5">
+          <p className="nums text-[22px] font-semibold text-ink">{colones(38400)}</p>
+          <p className="mt-1 text-[12.5px] text-ink-soft">
+            Se deposita el viernes 21 de agosto.
+          </p>
+        </div>
+      </Bloque>
+    </>
+  );
+  */
+  return null;
+};
 
 const AsideAdmin = () => (
   <>

@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, Menu, Search, ShieldAlert } from "../lib/iconos";
 
 import { tituloDeRuta, type Rol } from "../lib/nav";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type Notification,
+} from "../services/notifications.service";
 import { AsideDeRol } from "./aside";
 import { CajonSuave, RielSuave } from "./rielSuave";
 
@@ -44,9 +50,12 @@ interface AppShellProps {
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [notificaciones, setNotificaciones] = useState<Notification[]>([]);
+  const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const rolesDisponibles: Rol[] = [
     ...roles,
     ...(isAdmin ? (["admin"] as const) : []),
@@ -60,6 +69,58 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   useEffect(() => {
     getProfile().then(setProfile).catch(() => setProfile(null));
   }, [getProfile, pathname]);
+
+  useEffect(() => {
+    listNotifications().then(setNotificaciones).catch(() => setNotificaciones([]));
+  }, [pathname]);
+
+  const pendientes = notificaciones.filter((n) => !n.leido).length;
+
+  const abrirNotificaciones = async () => {
+    setNotificacionesAbiertas((abiertas) => !abiertas);
+    try {
+      setNotificaciones(await listNotifications());
+    } catch {
+      setNotificaciones([]);
+    }
+  };
+
+  const leerNotificacion = async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      setNotificaciones((actuales) =>
+        actuales.map((n) => (n.id_notificacion === id ? { ...n, leido: true } : n)),
+      );
+    } catch {
+      setNotificaciones(await listNotifications());
+    }
+  };
+
+  const rutaNotificacion = (notificacion: Notification) => {
+    if (notificacion.tipo === "paseo") {
+      return rol === "paseador" ? "/p/solicitudes" : "/paseos";
+    }
+    if (notificacion.tipo === "mascota_perdida") return "/mascotas-perdidas";
+    if (notificacion.tipo === "verificacion") return "/perfil";
+    if (notificacion.tipo === "pago") return "/pagos";
+    if (notificacion.tipo === "resena") return rol === "paseador" ? "/p/resenas" : "/resenas";
+    return "/";
+  };
+
+  const abrirDesdeNotificacion = async (notificacion: Notification) => {
+    await leerNotificacion(notificacion.id_notificacion);
+    setNotificacionesAbiertas(false);
+    await navigate({ to: rutaNotificacion(notificacion) });
+  };
+
+  const leerTodas = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotificaciones((actuales) => actuales.map((n) => ({ ...n, leido: true })));
+    } catch {
+      setNotificaciones(await listNotifications());
+    }
+  };
 
   const navegacion = {
     rol,
@@ -120,17 +181,68 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             />
           </div>
 
-          <button
-            type="button"
-            aria-label="Notificaciones"
-            className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
-          >
-            <Bell size={18} strokeWidth={1.9} />
-            <span
-              aria-hidden
-              className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"
-            />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Notificaciones"
+              aria-expanded={notificacionesAbiertas}
+              onClick={() => void abrirNotificaciones()}
+              className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
+            >
+              <Bell size={18} strokeWidth={1.9} />
+              {pendientes > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"
+                />
+              )}
+            </button>
+
+            {notificacionesAbiertas && (
+              <div className="flota absolute top-12 right-0 z-50 w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <h2 className="rotulo text-ink-mute">Notificaciones</h2>
+                  {pendientes > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void leerTodas()}
+                      className="text-[12px] font-semibold text-accent-dark hover:underline"
+                    >
+                      Marcar leídas
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-[360px] overflow-y-auto">
+                  {notificaciones.length === 0 ? (
+                    <p className="px-4 py-6 text-center text-[13px] text-ink-soft">
+                      No tienes notificaciones.
+                    </p>
+                  ) : (
+                    notificaciones.map((n) => (
+                      <button
+                        key={n.id_notificacion}
+                        type="button"
+                        onClick={() => void abrirDesdeNotificacion(n)}
+                        className={`block w-full px-4 py-3 text-left text-[12.5px] leading-snug hover:bg-sunken ${
+                          n.leido ? "text-ink-soft" : "font-medium text-ink"
+                        }`}
+                      >
+                        {n.mensaje}
+                        <span className="nums mt-1 block text-[11px] font-normal text-ink-mute">
+                          {new Intl.DateTimeFormat("es-CR", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }).format(new Date(n.fecha))}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </header>
 
         {rol !== "admin" && profile?.verificacion.estado !== "aprobado" && (
