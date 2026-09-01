@@ -224,18 +224,18 @@ const Paseadores = () => {
                     />
                   </div>
 
-                  <p className="nums mt-1.5 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
+                  <div className="nums mt-1.5 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
                     <Star size={13} className="fill-warn text-warn" aria-hidden />
                     <span className="font-semibold text-ink">
                       {w.calificacion_promedio.toFixed(1)}
                     </span>
                     <span className="text-ink-mute">({w.total_resenas} reseñas)</span>
-                  </p>
+                  </div>
 
-                  <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
+                  <div className="mt-1 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
                     <MapPin size={13} strokeWidth={1.9} aria-hidden className="text-ink-mute" />
                     {w.zona}
-                  </p>
+                  </div>
                 </div>
               </div>
 

@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Link, useLocation } from "@tanstack/react-router";
-import { Bell, Menu, Search, ShieldAlert } from "../lib/iconos";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Bell, Check, Menu, Search, ShieldAlert, Trash2 } from "../lib/iconos";
 
 import { tituloDeRuta, type Rol } from "../lib/nav";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
+import {
+  deleteAllNotifications,
+  deleteNotification,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type Notification,
+} from "../services/notifications.service";
 import { AsideDeRol } from "./aside";
 import { CajonSuave, RielSuave } from "./rielSuave";
 
@@ -44,9 +52,14 @@ interface AppShellProps {
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [notificaciones, setNotificaciones] = useState<Notification[]>([]);
+  const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
+  const [notificacionesError, setNotificacionesError] = useState<string | null>(null);
+  const [accionNotificacion, setAccionNotificacion] = useState<string | null>(null);
   const rolesDisponibles: Rol[] = [
     ...roles,
     ...(isAdmin ? (["admin"] as const) : []),
@@ -60,6 +73,98 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   useEffect(() => {
     getProfile().then(setProfile).catch(() => setProfile(null));
   }, [getProfile, pathname]);
+
+  const cargarNotificaciones = useCallback(async () => {
+    try {
+      setNotificaciones(await listNotifications());
+      setNotificacionesError(null);
+    } catch {
+      setNotificaciones([]);
+      setNotificacionesError("No se pudieron cargar las notificaciones.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void cargarNotificaciones();
+  }, [cargarNotificaciones, pathname]);
+
+  const pendientes = notificaciones.filter((n) => !n.leido).length;
+
+  const abrirNotificaciones = async () => {
+    const seAbre = !notificacionesAbiertas;
+    setNotificacionesAbiertas(seAbre);
+    setNotificacionesError(null);
+    if (seAbre) await cargarNotificaciones();
+  };
+
+  const leerNotificacion = async (id: string) => {
+    setNotificacionesError(null);
+    setAccionNotificacion(id);
+    try {
+      await markNotificationRead(id);
+      await cargarNotificaciones();
+    } catch {
+      setNotificacionesError("No se pudo marcar como leida.");
+    } finally {
+      setAccionNotificacion(null);
+    }
+  };
+
+  const rutaNotificacion = (notificacion: Notification) => {
+    if (notificacion.tipo === "paseo") {
+      return rol === "paseador" ? "/p/solicitudes" : "/paseos";
+    }
+    if (notificacion.tipo === "mascota_perdida") return "/mascotas-perdidas";
+    if (notificacion.tipo === "verificacion") return "/perfil";
+    if (notificacion.tipo === "pago") return "/pagos";
+    if (notificacion.tipo === "resena") return rol === "paseador" ? "/p/resenas" : "/resenas";
+    return "/";
+  };
+
+  const abrirDesdeNotificacion = async (notificacion: Notification) => {
+    await leerNotificacion(notificacion.id_notificacion);
+    setNotificacionesAbiertas(false);
+    await navigate({ to: rutaNotificacion(notificacion) });
+  };
+
+  const leerTodas = async () => {
+    setNotificacionesError(null);
+    setAccionNotificacion("todas");
+    try {
+      await markAllNotificationsRead();
+      await cargarNotificaciones();
+    } catch {
+      setNotificacionesError("No se pudieron marcar como leidas.");
+    } finally {
+      setAccionNotificacion(null);
+    }
+  };
+
+  const eliminarNotificacion = async (id: string) => {
+    setNotificacionesError(null);
+    setAccionNotificacion(id);
+    try {
+      await deleteNotification(id);
+      await cargarNotificaciones();
+    } catch {
+      setNotificacionesError("No se pudo eliminar la notificacion.");
+    } finally {
+      setAccionNotificacion(null);
+    }
+  };
+
+  const eliminarTodas = async () => {
+    setNotificacionesError(null);
+    setAccionNotificacion("todas");
+    try {
+      await deleteAllNotifications();
+      await cargarNotificaciones();
+    } catch {
+      setNotificacionesError("No se pudieron eliminar las notificaciones.");
+    } finally {
+      setAccionNotificacion(null);
+    }
+  };
 
   const navegacion = {
     rol,
@@ -85,7 +190,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             sube hasta el borde y solo flotan encima el título y los
             controles. Una franja blanca partiría el lienzo en dos
             justo debajo de su propia esquina redonda. */}
-        <header className="anim-rise flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 lg:px-4">
+        <header className="anim-rise relative z-[80] flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 lg:px-4">
           <button
             type="button"
             onClick={() => setMenuAbierto(true)}
@@ -120,17 +225,131 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             />
           </div>
 
-          <button
-            type="button"
-            aria-label="Notificaciones"
-            className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
-          >
-            <Bell size={18} strokeWidth={1.9} />
-            <span
-              aria-hidden
-              className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"
-            />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Notificaciones"
+              aria-expanded={notificacionesAbiertas}
+              onClick={() => void abrirNotificaciones()}
+              className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
+            >
+              <Bell size={18} strokeWidth={1.9} />
+              {pendientes > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"
+                />
+              )}
+            </button>
+
+            {notificacionesAbiertas && (
+              <div className="flota pointer-events-auto fixed top-[76px] right-4 z-[120] w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl lg:right-8">
+                <div className="flex items-center justify-between gap-3 border-b border-sunken px-4 py-3">
+                  <h2 className="rotulo text-ink-mute">Notificaciones</h2>
+                  {notificaciones.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      {pendientes > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => void leerTodas()}
+                          disabled={accionNotificacion !== null}
+                          className="text-[12px] font-semibold text-accent-dark hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Marcar leidas
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void eliminarTodas()}
+                        disabled={accionNotificacion !== null}
+                        className="text-[12px] font-semibold text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Eliminar todas
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="max-h-[420px] overflow-y-auto p-2">
+                  {notificacionesError && (
+                    <p className="mb-2 rounded-[12px] bg-danger-wash px-3 py-2 text-[12px] text-danger">
+                      {notificacionesError}
+                    </p>
+                  )}
+                  {notificaciones.length === 0 ? (
+                    <p className="px-4 py-6 text-center text-[13px] text-ink-soft">
+                      No tienes notificaciones.
+                    </p>
+                  ) : (
+                    notificaciones.map((n) => (
+                      <div
+                        key={n.id_notificacion}
+                        className={`flex items-start gap-2 rounded-[14px] px-3 py-3 hover:bg-sunken ${
+                          n.leido ? "text-ink-soft" : "text-ink"
+                        }`}
+                      >
+                        {!n.leido && (
+                          <span
+                            aria-hidden
+                            className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-accent"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void abrirDesdeNotificacion(n)}
+                          disabled={accionNotificacion !== null}
+                          className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
+                        >
+                          <span className={`block text-[12.5px] leading-snug ${n.leido ? "" : "font-medium"}`}>
+                            {n.mensaje}
+                          </span>
+                          <span className="nums mt-1 block text-[11px] font-normal text-ink-mute">
+                            {new Intl.DateTimeFormat("es-CR", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }).format(new Date(n.fecha))}
+                          </span>
+                        </button>
+                        <div className="relative z-10 flex flex-shrink-0 flex-col gap-1">
+                          {!n.leido && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void leerNotificacion(n.id_notificacion);
+                              }}
+                              aria-label="Marcar como leída"
+                              title="Marcar como leída"
+                              disabled={accionNotificacion !== null}
+                              className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-ok-wash hover:text-ok disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Check size={14} />
+                              Leida
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void eliminarNotificacion(n.id_notificacion);
+                            }}
+                            aria-label="Eliminar notificación"
+                            title="Eliminar notificación"
+                            disabled={accionNotificacion !== null}
+                            className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-danger-wash hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 size={14} />
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </header>
 
         {rol !== "admin" && profile?.verificacion.estado !== "aprobado" && (

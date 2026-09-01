@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Check,
   Clock,
@@ -26,6 +26,11 @@ import {
   colones,
   input,
 } from "./ui";
+import {
+  listWalkerRequests,
+  respondWalkRequest,
+  type WalkerRequest,
+} from "../services/walk-requests.service";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -153,7 +158,7 @@ export const PanelPaseador = () => {
             <p className="mt-1 text-[12.5px] text-ink-soft">
               Ana Corrales · Labrador Retriever
             </p>
-            <p className="nums mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] text-ink-soft">
+            <div className="nums mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] text-ink-soft">
               <span className="flex items-center gap-1.5">
                 <Clock size={13} strokeWidth={1.9} aria-hidden />
                 28 de 45 min
@@ -162,7 +167,7 @@ export const PanelPaseador = () => {
                 <MapPin size={13} strokeWidth={1.9} aria-hidden />
                 Parque de Curridabat
               </span>
-            </p>
+            </div>
           </div>
           <div className="flex gap-2">
             <button type="button" className={btnSecondary}>
@@ -214,9 +219,59 @@ export const PanelPaseador = () => {
 /* ── Solicitudes ─────────────────────────────────────────────── */
 
 export const SolicitudesPaseador = () => {
-  const [resueltas, setResueltas] = useState<Record<string, "si" | "no">>({});
+  const [pendientes, setPendientes] = useState<WalkerRequest[]>([]);
+  const [comentarios, setComentarios] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const pendientes = solicitudes.filter((s) => !resueltas[s.id]);
+  useEffect(() => {
+    const cargar = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        setPendientes(await listWalkerRequests());
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "No se pudieron cargar las solicitudes.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void cargar();
+  }, []);
+
+  const responder = async (solicitud: WalkerRequest, aprobada: boolean) => {
+    setSavingId(solicitud.id_paseo);
+    setError(null);
+    setMessage(null);
+    try {
+      await respondWalkRequest(
+        solicitud.id_paseo,
+        aprobada,
+        comentarios[solicitud.id_paseo] ?? "",
+      );
+      setPendientes((actuales) =>
+        actuales.filter((item) => item.id_paseo !== solicitud.id_paseo),
+      );
+      setMessage(
+        aprobada
+          ? `Solicitud de ${solicitud.mascota} aprobada.`
+          : `Solicitud de ${solicitud.mascota} rechazada.`,
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo responder la solicitud.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const formatoFecha = (fecha: string, hora: string) =>
+    `${new Intl.DateTimeFormat("es-CR", {
+      day: "numeric",
+      month: "short",
+    }).format(new Date(`${fecha}T00:00:00`))} · ${hora.slice(0, 5)}`;
 
   return (
     <Page>
@@ -225,14 +280,30 @@ export const SolicitudesPaseador = () => {
         subtitle="Paseos que te ofrecieron los dueños de tu zona. Responde antes de 30 minutos."
       />
 
-      {pendientes.map((s) => (
-        <article key={s.id} className="bg-surface">
+      {(error || message) && (
+        <div aria-live="polite" className={`px-6 py-3 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>
+          {error ?? message}
+        </div>
+      )}
+
+      {loading && (
+        <p className="bg-surface px-6 py-8 text-[13px] text-ink-soft">
+          Cargando solicitudes...
+        </p>
+      )}
+
+      {!loading && pendientes.map((s) => (
+        <article key={s.id_paseo} className="bg-surface">
           <div className="flex flex-wrap gap-5 px-6 py-5">
-            <MockPhoto
-              src={s.foto}
-              alt={`Foto de ${s.mascota}`}
-              className="h-28 w-28 flex-shrink-0"
-            />
+            {s.fotoUrl ? (
+              <MockPhoto
+                src={s.fotoUrl}
+                alt={`Foto de ${s.mascota}`}
+                className="h-28 w-28 flex-shrink-0"
+              />
+            ) : (
+              <Avatar nombre={s.mascota} size={112} />
+            )}
 
             <div className="min-w-[220px] flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -248,27 +319,44 @@ export const SolicitudesPaseador = () => {
                   <dt className="rotulo text-ink-mute">
                     Cuándo
                   </dt>
-                  <dd className="mt-0.5 text-ink">{s.cuando}</dd>
+                  <dd className="mt-0.5 text-ink">{formatoFecha(s.fecha, s.hora_inicio)}</dd>
                 </div>
                 <div>
                   <dt className="rotulo text-ink-mute">
                     Duración
                   </dt>
-                  <dd className="mt-0.5 text-ink">{s.duracion}</dd>
+                  <dd className="mt-0.5 text-ink">{s.duracion_min} min</dd>
                 </div>
                 <div>
                   <dt className="rotulo text-ink-mute">
                     Zona
                   </dt>
                   <dd className="mt-0.5 text-ink">
-                    {s.zona} · {s.distancia}
+                    {s.zona}
                   </dd>
                 </div>
               </dl>
 
               <p className="mt-4 bg-sunken px-4 py-3 text-[12.5px] leading-snug text-ink-soft">
-                {s.nota}
+                {s.direccion_encuentro}
               </p>
+
+              <label className="mt-4 block">
+                <span className="rotulo text-ink-mute">Comentario para el dueño</span>
+                <textarea
+                  rows={2}
+                  maxLength={500}
+                  value={comentarios[s.id_paseo] ?? ""}
+                  onChange={(e) =>
+                    setComentarios({
+                      ...comentarios,
+                      [s.id_paseo]: e.target.value,
+                    })
+                  }
+                  className={`${input} mt-2 resize-y`}
+                  placeholder="Opcional al aprobar o rechazar"
+                />
+              </label>
             </div>
 
             <div className="flex w-full flex-col justify-between gap-4 sm:w-[200px]">
@@ -277,22 +365,24 @@ export const SolicitudesPaseador = () => {
                   Pago
                 </p>
                 <p className="nums mt-1 text-[22px] font-semibold text-ink">
-                  {colones(s.pago)}
+                  {colones(s.precio)}
                 </p>
               </div>
 
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
-                  onClick={() => setResueltas({ ...resueltas, [s.id]: "si" })}
+                  disabled={savingId === s.id_paseo}
+                  onClick={() => void responder(s, true)}
                   className={`${btnPrimary} w-full`}
                 >
                   <Check size={15} strokeWidth={2.2} />
-                  Aceptar
+                  {savingId === s.id_paseo ? "Guardando..." : "Aceptar"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setResueltas({ ...resueltas, [s.id]: "no" })}
+                  disabled={savingId === s.id_paseo}
+                  onClick={() => void responder(s, false)}
                   className={`${btnDanger} w-full`}
                 >
                   <X size={15} strokeWidth={2.2} />
@@ -304,7 +394,7 @@ export const SolicitudesPaseador = () => {
         </article>
       ))}
 
-      {pendientes.length === 0 && (
+      {!loading && pendientes.length === 0 && (
         <EmptyState
           title="No tienes solicitudes pendientes"
           hint="Cuando un dueño de tu zona te elija, la solicitud aparece aquí."
@@ -711,10 +801,10 @@ export const PerfilPaseador = () => {
               </h3>
               <Badge tono="ok">Verificada</Badge>
             </div>
-            <p className="nums mt-1.5 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
+            <div className="nums mt-1.5 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
               <Star size={13} className="fill-warn text-warn" aria-hidden />
               4.9 · 214 reseñas · 312 paseos
-            </p>
+            </div>
             <p className="mt-3 text-[12.5px] leading-snug text-ink-soft">
               Paseos largos y reportes con foto al terminar. Especialista en
               razas grandes.
