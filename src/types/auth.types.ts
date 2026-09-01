@@ -33,6 +33,7 @@ export interface Zona {
   nombre: string;
   canton: string;
   provincia: string;
+  distrito?: string;
 }
 
 export type ZonaInput = Omit<Zona, "id_zona">;

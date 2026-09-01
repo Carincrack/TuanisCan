@@ -44,9 +44,10 @@ export const updatePassword = async (password: string) => {
 export const getZonas = async (): Promise<Zona[]> => {
   const { data, error } = await supabase
     .from("zonas")
-    .select("id_zona, nombre, canton, provincia")
+    .select("id_zona, nombre, canton, provincia, distrito")
     .order("provincia")
     .order("canton")
+    .order("distrito")
     .order("nombre");
   if (error) throw error;
   return (data ?? []) as Zona[];
