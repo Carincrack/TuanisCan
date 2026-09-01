@@ -1,5 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { X } from "../lib/iconos";
 
 /* ─────────────────────────────────────────────────────────────
    Piezas compartidas del sistema.
@@ -248,6 +251,109 @@ export const Table = ({
     </table>
   </div>
 );
+
+/* ── Diálogos ────────────────────────────────────────────────── */
+
+/** Ventana modal.
+
+    Estaba copiada palabra por palabra en `mascotas` y en
+    `mascotasPerdidas`, y `paseadores` se había armado la suya a mano
+    —sin Escape, sin cerrar al tocar el fondo, sin frenar el scroll de
+    atrás—. Acá vive una sola, y las otras dos pueden cambiar el
+    `const Dialog = …` local por este import cuando toque.
+
+    Tres detalles que no se ven pero se sienten:
+
+      · El fondo es un `<button>` de verdad, no un `<div onClick>`.
+        Así queda en el orden de tabulación y lo alcanza el teclado.
+      · El scroll del documento se bloquea mientras está abierta. Sin
+        eso, rodar la rueda sobre el fondo mueve la página de atrás y
+        la ventana parece despegarse.
+      · Al cerrar, el foco vuelve a donde estaba. Quien abrió con el
+        teclado no queda tirado al principio del documento.
+
+    `onClose` entra por referencia y no como dependencia del efecto:
+    casi siempre llega como flecha en línea, y usarla directo
+    reengancharía el listener y volvería a tocar el scroll en cada
+    render. */
+export const Dialog = ({
+  title,
+  onClose,
+  children,
+  ancho = "max-w-[560px]",
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  /** Ancho máximo del panel, en clases. Un formulario de dos columnas
+      pide más aire que una confirmación de una línea. */
+  ancho?: string;
+}) => {
+  const titleId = useId();
+  const cerrar = useRef(onClose);
+
+  useEffect(() => {
+    cerrar.current = onClose;
+  });
+
+  useEffect(() => {
+    const devolver = document.activeElement as HTMLElement | null;
+    const previo = document.body.style.overflow;
+    const alTeclear = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") cerrar.current();
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", alTeclear);
+
+    return () => {
+      document.body.style.overflow = previo;
+      document.removeEventListener("keydown", alTeclear);
+      devolver?.focus?.();
+    };
+  }, []);
+
+  /* La clase `suave` en la envoltura no es decorativa. El portal
+     cuelga de `document.body`, o sea FUERA del `<div class="suave">`
+     de `AppShell`, y ahí dentro se pierden las reglas del mundo: el
+     radio por defecto de `bg-surface`, la barra de desplazamiento
+     fina, las versalitas de `rotulo`. Sin esto la ventana sale
+     cuadrada y con el scroll gris del sistema. */
+  return createPortal(
+    <div className="suave fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+      <button
+        type="button"
+        aria-label="Cerrar"
+        onClick={() => cerrar.current()}
+        className="anim-fade absolute inset-0 bg-rail/70 backdrop-blur-[2px]"
+      />
+
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={`anim-rise relative max-h-[92dvh] w-full ${ancho} overflow-hidden overflow-y-auto rounded-[18px] bg-surface`}
+      >
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-rail px-5 py-4">
+          <h2 id={titleId} className="titular text-[16px] text-white">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={() => cerrar.current()}
+            aria-label="Cerrar"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-150 ease-out hover:bg-rail-hover hover:text-white active:scale-[0.94]"
+          >
+            <X size={17} />
+          </button>
+        </header>
+
+        {children}
+      </section>
+    </div>,
+    document.body,
+  );
+};
 
 /* ── Imágenes ficticias ──────────────────────────────────────── */
 

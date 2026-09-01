@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  BadgeCheck,
   CalendarDays,
   Clock,
   Loader,
@@ -8,7 +7,6 @@ import {
   PawPrint,
   Search,
   Star,
-  X,
 } from "../lib/iconos";
 import { listPets } from "../services/pets.service";
 import { listActiveWalkers, requestWalk } from "../services/walkers.service";
@@ -17,7 +15,7 @@ import type { PublicWalker, WalkRequestInput } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import {
   Avatar,
-  Badge,
+  Dialog,
   EmptyState,
   FilterTabs,
   Page,
@@ -28,6 +26,7 @@ import {
   input,
 } from "./ui";
 import { Combo } from "./Combo";
+import SelloVerificado from "./SelloVerificado";
 
 interface RequestForm {
   id_mascota: string;
@@ -58,6 +57,118 @@ const normalizar = (value: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+
+/* ─────────────────────────────────────────────────────────────
+   PIEZAS DE LA TARJETA
+
+   Esta pantalla se había quedado fuera del pase de `.suave`: fotos
+   cuadradas al lado de avatares redondos, el verificado dibujado con
+   un ícono distinto al del resto del sistema, y dos ventanas modales
+   armadas a mano. Lo de abajo es lo que faltaba, no adorno nuevo.
+   ───────────────────────────────────────────────────────────── */
+
+/** La foto con el sello en la esquina.
+
+    `ProfileAvatar` no sirve acá: pide un `UserProfile` entero y esto
+    es un `PublicWalker`. Lo que sí se conserva es el sello —el mismo
+    de la barra, el riel y el perfil— en lugar del `BadgeCheck` suelto
+    que había, que era la única marca de verificado distinta en todo
+    el sistema.
+
+    Va sello siempre y sin condición: `buscar_paseadores` solo
+    devuelve paseadores con `estado_verificacion = 'aprobado'`, así
+    que todo lo que llega a esta lista está verificado. */
+const FotoPaseador = ({
+  walker,
+  medida,
+}: {
+  walker: PublicWalker;
+  medida: number;
+}) => {
+  const [rota, setRota] = useState(false);
+
+  return (
+    <span
+      className="relative flex-shrink-0"
+      style={{ width: medida, height: medida }}
+    >
+      {walker.foto_perfil && !rota ? (
+        <img
+          src={walker.foto_perfil}
+          alt=""
+          aria-hidden
+          onError={() => setRota(true)}
+          style={{ width: medida, height: medida }}
+          className="rounded-full bg-sunken object-cover"
+        />
+      ) : (
+        <Avatar nombre={walker.nombre} size={medida} />
+      )}
+
+      <SelloVerificado
+        size={Math.round(medida * 0.34)}
+        title={`${walker.nombre} tiene la verificación aprobada`}
+        className="pointer-events-none absolute right-0 bottom-0 translate-x-[12%] translate-y-[12%]"
+      />
+    </span>
+  );
+};
+
+/** Disponible o no.
+
+    Antes era una `Badge` en versalitas. Tres por fila en la rejilla
+    gritaban más que el nombre de la persona. Un punto y una palabra
+    dicen lo mismo y dejan que el precio mande.
+
+    El turquesa acá está bien: es un disco, que es donde vive en la
+    portada. Como texto sobre blanco no pasaría AA. */
+const Disponibilidad = ({ disponible }: { disponible: boolean }) => (
+  <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-medium">
+    <span
+      aria-hidden
+      className={`h-2 w-2 rounded-full ${
+        disponible ? "bg-accent" : "bg-ink-mute"
+      }`}
+    />
+    <span className={disponible ? "text-ink" : "text-ink-mute"}>
+      {disponible ? "Disponible" : "No disponible"}
+    </span>
+  </span>
+);
+
+const PildoraZona = ({ zona }: { zona: string }) => (
+  <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-sunken px-2.5 py-1 text-[11.5px] font-medium text-ink-soft">
+    <MapPin size={12} strokeWidth={2} aria-hidden className="shrink-0" />
+    <span className="truncate">{zona}</span>
+  </span>
+);
+
+/** El esqueleto de carga.
+
+    Reemplaza al "Cargando paseadores..." suelto. No es cosmético: la
+    rejilla ya ocupa su sitio antes de que lleguen los datos, así que
+    el contenido no salta cuando aparecen. */
+const Esqueleto = () => (
+  <div
+    aria-hidden
+    className="flex animate-pulse flex-col bg-surface px-5 py-5 motion-reduce:animate-none"
+  >
+    <div className="flex items-start gap-3.5">
+      <span className="h-[52px] w-[52px] shrink-0 rounded-full bg-sunken" />
+      <div className="min-w-0 flex-1">
+        <span className="block h-[14px] w-2/3 rounded-full bg-sunken" />
+        <span className="mt-2.5 block h-[12px] w-1/2 rounded-full bg-sunken" />
+        <span className="mt-2.5 block h-[22px] w-24 rounded-full bg-sunken" />
+      </div>
+    </div>
+    <span className="mt-4 block h-[34px] rounded-[8px] bg-sunken" />
+    <span className="mt-4 block h-[58px] rounded-[14px] bg-sunken" />
+    <div className="mt-4 flex gap-2">
+      <span className="h-[42px] flex-1 rounded-full bg-sunken" />
+      <span className="h-[42px] flex-1 rounded-full bg-sunken" />
+    </div>
+  </div>
+);
 
 const Paseadores = () => {
   const { getProfile, isAdmin } = useAuth();
@@ -106,6 +217,13 @@ const Paseadores = () => {
           normalizar(w.zona).includes(q))
     );
   }, [busqueda, walkers, zona]);
+
+  const filtrando = zona !== "Todas" || busqueda.trim() !== "";
+
+  const limpiarFiltros = () => {
+    setZona("Todas");
+    setBusqueda("");
+  };
 
   const openRequest = (walker: PublicWalker) => {
     if (!canOperate) {
@@ -159,10 +277,18 @@ const Paseadores = () => {
       <PageHeader
         title="Buscar paseadores"
         subtitle="Perfiles verificados cerca de tu zona, con calificación de la comunidad."
+        action={
+          loading ? null : (
+            <p className="nums rounded-full bg-sunken px-3.5 py-1.5 text-[12.5px] font-medium text-ink-soft">
+              {visibles.length}{" "}
+              {visibles.length === 1 ? "paseador" : "paseadores"}
+            </p>
+          )
+        }
       />
 
       <div className="flex flex-col gap-3 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-[300px]">
+        <div className="relative w-full sm:max-w-[300px]">
           <label htmlFor="buscar-paseador" className="sr-only">
             Buscar paseador por nombre o zona
           </label>
@@ -182,85 +308,110 @@ const Paseadores = () => {
           />
         </div>
 
-        <FilterTabs label="Filtrar por zona" options={zonas} value={zona} onChange={setZona} />
+        <FilterTabs
+          label="Filtrar por zona"
+          options={zonas}
+          value={zona}
+          onChange={setZona}
+        />
       </div>
 
       {(error || message) && !solicitud && (
-        <div aria-live="polite" className={`px-6 py-3 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>
+        <div
+          aria-live="polite"
+          className={`rounded-[14px] px-5 py-3 text-[13px] ${
+            error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"
+          }`}
+        >
           {error ?? message}
         </div>
       )}
 
       {loading ? (
-        <p className="bg-surface px-6 py-8 text-[13px] text-ink-soft">
-          Cargando paseadores...
-        </p>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }, (_, i) => (
+            <Esqueleto key={i} />
+          ))}
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibles.map((w) => (
-            <article key={w.id_usuario} className="flex flex-col bg-surface px-5 py-5">
-              <div className="flex items-start gap-4">
-                {w.foto_perfil ? (
-                  <img
-                    src={w.foto_perfil}
-                    alt=""
-                    aria-hidden
-                    className="h-12 w-12 flex-shrink-0 bg-sunken object-cover"
-                  />
-                ) : (
-                  <Avatar nombre={w.nombre} size={48} />
-                )}
+          {visibles.map((w, i) => (
+            <article
+              key={w.id_usuario}
+              /* La entrada escalonada llega hasta la novena tarjeta y
+                 ahí se planta. Con cincuenta paseadores, un retraso
+                 proporcional dejaría la última entrando tres segundos
+                 tarde. */
+              style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
+              className="anim-rise flex flex-col bg-surface px-5 py-5"
+            >
+              <div className="flex items-start gap-3.5">
+                <FotoPaseador walker={w} medida={52} />
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="truncate text-[15px] font-semibold text-ink">
-                      {w.nombre}
-                    </h3>
-                    <BadgeCheck
-                      size={15}
-                      strokeWidth={2}
-                      className="flex-shrink-0 text-accent"
-                      aria-label="Paseador verificado"
-                    />
-                  </div>
+                  <h3 className="truncate text-[15px] font-semibold text-ink">
+                    {w.nombre}
+                  </h3>
 
-                  <div className="nums mt-1.5 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
-                    <Star size={13} className="fill-warn text-warn" aria-hidden />
-                    <span className="font-semibold text-ink">
-                      {w.calificacion_promedio.toFixed(1)}
+                  <div className="nums mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-ink-soft">
+                    <span className="flex items-center gap-1">
+                      <Star
+                        size={13}
+                        className="fill-warn text-warn"
+                        aria-hidden
+                      />
+                      <span className="font-semibold text-ink">
+                        {w.calificacion_promedio.toFixed(1)}
+                      </span>
+                      <span className="text-ink-mute">
+                        ({w.total_resenas})
+                      </span>
                     </span>
-                    <span className="text-ink-mute">({w.total_resenas} reseñas)</span>
+                    <span aria-hidden className="text-ink-mute">
+                      ·
+                    </span>
+                    <span>{w.total_paseos} paseos</span>
                   </div>
 
-                  <div className="mt-1 flex items-center gap-1.5 text-[12.5px] text-ink-soft">
-                    <MapPin size={13} strokeWidth={1.9} aria-hidden className="text-ink-mute" />
-                    {w.zona}
-                  </div>
+                  <span className="mt-2 flex">
+                    <PildoraZona zona={w.zona} />
+                  </span>
                 </div>
               </div>
 
-              <p className="mt-4 min-h-[34px] text-[12.5px] leading-snug text-ink-soft">
+              {/* El `min-h` mantiene alineadas las tarjetas de la fila
+                  cuando una descripción ocupa una línea y la de al lado
+                  dos; el `line-clamp` impide que una tercera las
+                  desalinee al revés. */}
+              <p className="mt-4 line-clamp-2 min-h-[34px] text-[12.5px] leading-snug text-ink-soft">
                 {w.descripcion || "Paseador verificado por TuanisCan."}
               </p>
 
-              <div className="mt-4 flex items-end justify-between gap-3 bg-sunken px-4 py-3">
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-[14px] bg-sunken px-4 py-3">
                 <div>
-                  <p className="nums text-[17px] font-semibold text-ink">
+                  <p className="nums text-[17px] leading-none font-semibold text-ink">
                     {colones(w.tarifa_base ?? 0)}
                   </p>
-                  <p className="text-[11px] text-ink-mute">por paseo</p>
+                  <p className="mt-1 text-[11px] text-ink-mute">por paseo</p>
                 </div>
-                <Badge tono={w.disponible ? "ok" : "neutral"}>
-                  {w.disponible ? "Disponible hoy" : "No disponible"}
-                </Badge>
+                <Disponibilidad disponible={w.disponible} />
               </div>
 
               <div className="mt-auto flex gap-2 pt-4">
-                <button type="button" onClick={() => setPerfil(w)} className={`${btnSecondary} flex-1`}>
+                <button
+                  type="button"
+                  onClick={() => setPerfil(w)}
+                  className={`${btnSecondary} flex-1`}
+                >
                   Ver perfil
                 </button>
-                <button type="button" onClick={() => openRequest(w)} disabled={!canOperate || !w.disponible || !w.tarifa_base} className={`${btnPrimary} flex-1 disabled:cursor-not-allowed disabled:opacity-50`}>
-                  Solicitar paseo
+                <button
+                  type="button"
+                  onClick={() => openRequest(w)}
+                  disabled={!canOperate || !w.disponible || !w.tarifa_base}
+                  className={`${btnPrimary} flex-1 disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  Solicitar
                 </button>
               </div>
             </article>
@@ -270,65 +421,134 @@ const Paseadores = () => {
 
       {!loading && visibles.length === 0 && (
         <EmptyState
-          title="No hay paseadores con ese criterio"
-          hint="Prueba con otra zona o quita el filtro de búsqueda."
+          title={
+            filtrando
+              ? "No hay paseadores con ese criterio"
+              : "Todavía no hay paseadores disponibles"
+          }
+          hint={
+            filtrando
+              ? "Probá con otra zona o quitá el texto de búsqueda."
+              : "En cuanto administración apruebe los primeros perfiles, aparecen acá."
+          }
+          action={
+            filtrando ? (
+              <button
+                type="button"
+                onClick={limpiarFiltros}
+                className={btnSecondary}
+              >
+                Ver todos
+              </button>
+            ) : undefined
+          }
         />
       )}
 
       {perfil && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b2331]/60 px-4" role="dialog" aria-modal="true" aria-labelledby="perfil-paseador-title">
-          <div className="w-full max-w-[520px] bg-surface">
-            <div className="flex items-start gap-4 px-6 py-5">
-              {perfil.foto_perfil ? (
-                <img src={perfil.foto_perfil} alt="" aria-hidden className="h-16 w-16 flex-shrink-0 bg-sunken object-cover" />
-              ) : (
-                <Avatar nombre={perfil.nombre} size={64} />
-              )}
+        <Dialog title="Perfil del paseador" onClose={() => setPerfil(null)}>
+          <div className="px-6 py-5">
+            <div className="flex items-center gap-4">
+              <FotoPaseador walker={perfil} medida={64} />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 id="perfil-paseador-title" className="truncate text-[19px] font-semibold text-ink">{perfil.nombre}</h3>
-                  <BadgeCheck size={16} className="text-accent" aria-label="Paseador verificado" />
-                </div>
-                <p className="mt-1 text-[13px] text-ink-soft">{perfil.zona}</p>
+                <h3 className="truncate text-[19px] font-semibold text-ink">
+                  {perfil.nombre}
+                </h3>
+                <span className="mt-1.5 flex">
+                  <PildoraZona zona={perfil.zona} />
+                </span>
               </div>
-              <button type="button" onClick={() => setPerfil(null)} aria-label="Cerrar perfil" className="p-2 text-ink-soft hover:bg-sunken hover:text-ink">
-                <X size={18} />
+            </div>
+
+            <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
+              {[
+                {
+                  rotulo: "Calificación",
+                  valor: perfil.calificacion_promedio.toFixed(1),
+                },
+                { rotulo: "Reseñas", valor: String(perfil.total_resenas) },
+                { rotulo: "Paseos", valor: String(perfil.total_paseos) },
+              ].map((dato) => (
+                /* Antes estos tres eran `bg-surface` dentro de un panel
+                   que también es `bg-surface`: cajas blancas invisibles
+                   sobre blanco. */
+                <div
+                  key={dato.rotulo}
+                  className="rounded-[14px] bg-sunken px-4 py-3.5"
+                >
+                  <p className="rotulo text-ink-mute">{dato.rotulo}</p>
+                  <p className="nums mt-1.5 text-[20px] leading-none font-semibold text-ink">
+                    {dato.valor}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-5 text-[13px] leading-relaxed text-ink-soft">
+              {perfil.descripcion ||
+                "Este paseador todavía no agregó una descripción pública."}
+            </p>
+
+            <div className="mt-5 flex items-center justify-between gap-3 rounded-[14px] bg-sunken px-4 py-3">
+              <div>
+                <p className="nums text-[18px] leading-none font-semibold text-ink">
+                  {colones(perfil.tarifa_base ?? 0)}
+                </p>
+                <p className="mt-1 text-[11px] text-ink-mute">por paseo</p>
+              </div>
+              {/* Acá decía "Disponible hoy" a secas, escrito a mano y
+                  sin mirar el dato: un paseador no disponible se
+                  anunciaba como disponible. */}
+              <Disponibilidad disponible={perfil.disponible} />
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPerfil(null)}
+                className={btnSecondary}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPerfil(null);
+                  openRequest(perfil);
+                }}
+                disabled={
+                  !canOperate || !perfil.disponible || !perfil.tarifa_base
+                }
+                className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                Solicitar paseo
               </button>
             </div>
-            <div className="grid gap-2.5 sm:grid-cols-3">
-              <div className="bg-surface px-6 py-4"><p className="rotulo text-ink-mute">Rating</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.calificacion_promedio.toFixed(1)}</p></div>
-              <div className="bg-surface px-6 py-4"><p className="rotulo text-ink-mute">Reseñas</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.total_resenas}</p></div>
-              <div className="bg-surface px-6 py-4"><p className="rotulo text-ink-mute">Paseos</p><p className="nums mt-1 text-[20px] font-semibold text-ink">{perfil.total_paseos}</p></div>
-            </div>
-            <div className="px-6 py-5">
-              <p className="text-[13px] leading-relaxed text-ink-soft">{perfil.descripcion || "Este paseador todavia no agregó una descripción pública."}</p>
-              <div className="mt-5 flex items-center justify-between bg-sunken px-4 py-3">
-                <span className="nums text-[18px] font-semibold text-ink">{colones(perfil.tarifa_base ?? 0)}</span>
-                <Badge tono="ok">Disponible hoy</Badge>
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button type="button" onClick={() => setPerfil(null)} className={btnSecondary}>Cerrar</button>
-                <button type="button" onClick={() => { setPerfil(null); openRequest(perfil); }} disabled={!canOperate || !perfil.tarifa_base} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}>Solicitar paseo</button>
-              </div>
-            </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {solicitud && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b2331]/60 px-4" role="dialog" aria-modal="true" aria-labelledby="solicitar-paseo-title">
-          <div className="w-full max-w-[520px] bg-surface">
-            <div className="flex items-start justify-between gap-4 px-6 py-5">
-              <div>
-                <h3 id="solicitar-paseo-title" className="text-[19px] font-semibold text-ink">Solicitar paseo</h3>
-                <p className="mt-1 text-[13px] text-ink-soft">Con {solicitud.nombre} · {colones(solicitud.tarifa_base ?? 0)}</p>
+        <Dialog title="Solicitar paseo" onClose={() => setSolicitud(null)}>
+          <div className="px-6 py-5">
+            {/* Con quién es el paseo va acá arriba y no en un subtítulo
+                de la cabecera: es un dato, no el nombre de la ventana,
+                y con la foto delante se confirma de un vistazo que se
+                abrió la tarjeta que se quería. */}
+            <div className="flex items-center gap-3 rounded-[14px] bg-sunken px-4 py-3">
+              <FotoPaseador walker={solicitud} medida={40} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-semibold text-ink">
+                  {solicitud.nombre}
+                </p>
+                <p className="truncate text-[12px] text-ink-soft">
+                  {solicitud.zona}
+                </p>
               </div>
-              <button type="button" onClick={() => setSolicitud(null)} aria-label="Cerrar solicitud" className="p-2 text-ink-soft hover:bg-sunken hover:text-ink">
-                <X size={18} />
-              </button>
+              <Disponibilidad disponible={solicitud.disponible} />
             </div>
 
-            <div className="grid gap-4 px-6 pb-6 sm:grid-cols-2">
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="sm:col-span-2">
                 <span className="rotulo text-ink-mute">Mascota</span>
                 <Combo
@@ -338,47 +558,117 @@ const Paseadores = () => {
                   disabled={!pets.length}
                   textoInactivo="No tienes mascotas registradas"
                   placeholder="Elegí una mascota"
-                  options={pets.map((pet) => ({ value: pet.id_mascota, label: pet.nombre }))}
+                  options={pets.map((pet) => ({
+                    value: pet.id_mascota,
+                    label: pet.nombre,
+                  }))}
                 />
               </label>
+
               <label>
-                <span className="flex items-center gap-1.5 rotulo text-ink-mute"><CalendarDays size={13} /> Fecha</span>
-                <input type="date" min={emptyRequest.fecha} value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={`${input} mt-2`} />
+                <span className="rotulo flex items-center gap-1.5 text-ink-mute">
+                  <CalendarDays size={13} /> Fecha
+                </span>
+                <input
+                  type="date"
+                  min={emptyRequest.fecha}
+                  value={form.fecha}
+                  onChange={(e) => setForm({ ...form, fecha: e.target.value })}
+                  className={`${input} mt-2`}
+                />
               </label>
+
               <label>
-                <span className="flex items-center gap-1.5 rotulo text-ink-mute"><Clock size={13} /> Hora</span>
-                <input type="time" value={form.hora_inicio} onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })} className={`${input} mt-2`} />
+                <span className="rotulo flex items-center gap-1.5 text-ink-mute">
+                  <Clock size={13} /> Hora
+                </span>
+                <input
+                  type="time"
+                  value={form.hora_inicio}
+                  onChange={(e) =>
+                    setForm({ ...form, hora_inicio: e.target.value })
+                  }
+                  className={`${input} mt-2`}
+                />
               </label>
+
               <label>
                 <span className="rotulo text-ink-mute">Duración</span>
                 <Combo
                   className="mt-2"
                   value={form.duracion_min}
                   onChange={(v) => setForm({ ...form, duracion_min: v })}
-                  options={[30, 45, 60, 90].map((m) => ({ value: String(m), label: `${m} minutos` }))}
+                  options={[30, 45, 60, 90].map((m) => ({
+                    value: String(m),
+                    label: `${m} minutos`,
+                  }))}
                 />
               </label>
-              <div className="bg-sunken px-4 py-3">
+
+              <div className="rounded-[14px] bg-sunken px-4 py-3">
                 <p className="rotulo text-ink-mute">Total</p>
-                <p className="nums mt-1 text-[20px] font-semibold text-ink">{colones(solicitud.tarifa_base ?? 0)}</p>
+                <p className="nums mt-1.5 text-[20px] leading-none font-semibold text-ink">
+                  {colones(solicitud.tarifa_base ?? 0)}
+                </p>
+                {/* Dicho explícito porque el campo de al lado invita a
+                    pensar lo contrario: `solicitar_paseo` copia el
+                    precio de `paseadores.tarifa_base` sin mirar
+                    `duracion_min`. */}
+                <p className="mt-1.5 text-[11px] leading-snug text-ink-mute">
+                  Tarifa única del paseador. No cambia con la duración.
+                </p>
               </div>
+
               <label className="sm:col-span-2">
-                <span className="rotulo text-ink-mute">Dirección de encuentro</span>
-                <textarea rows={3} value={form.direccion_encuentro} onChange={(e) => setForm({ ...form, direccion_encuentro: e.target.value })} className={`${input} mt-2 resize-y`} placeholder="Casa, condominio, parque o punto de referencia" />
+                <span className="rotulo text-ink-mute">
+                  Dirección de encuentro
+                </span>
+                <textarea
+                  rows={3}
+                  value={form.direccion_encuentro}
+                  onChange={(e) =>
+                    setForm({ ...form, direccion_encuentro: e.target.value })
+                  }
+                  className={`${input} mt-2 resize-y`}
+                  placeholder="Casa, condominio, parque o punto de referencia"
+                />
               </label>
 
-              {error && <p className="bg-danger-wash px-3 py-2 text-[13px] text-danger sm:col-span-2">{error}</p>}
+              {error && (
+                <p
+                  aria-live="polite"
+                  className="rounded-[14px] bg-danger-wash px-4 py-2.5 text-[13px] text-danger sm:col-span-2"
+                >
+                  {error}
+                </p>
+              )}
 
               <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
-                <button type="button" disabled={saving} onClick={() => setSolicitud(null)} className={btnSecondary}>Cancelar</button>
-                <button type="button" disabled={saving || !pets.length} onClick={() => void submitRequest()} className={btnPrimary}>
-                  {saving ? <Loader size={14} className="animate-spin" /> : <PawPrint size={14} />}
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setSolicitud(null)}
+                  className={btnSecondary}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={saving || !pets.length}
+                  onClick={() => void submitRequest()}
+                  className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {saving ? (
+                    <Loader size={14} className="animate-spin" />
+                  ) : (
+                    <PawPrint size={14} />
+                  )}
                   {saving ? "Enviando..." : "Confirmar solicitud"}
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </Page>
   );
