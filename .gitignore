@@ -25,3 +25,7 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Navegador de Playwright para boneyard. Se baja aparte con
+# `npm run bones`; C: no tiene sitio para el, va a F: dentro del repo.
+.cache/

@@ -27,6 +27,8 @@ import {
 } from "./ui";
 import { Combo } from "./Combo";
 import SelloVerificado from "./SelloVerificado";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
 
 interface RequestForm {
   id_mascota: string;
@@ -143,33 +145,6 @@ const PildoraZona = ({ zona }: { zona: string }) => (
   </span>
 );
 
-/** El esqueleto de carga.
-
-    Reemplaza al "Cargando paseadores..." suelto. No es cosmético: la
-    rejilla ya ocupa su sitio antes de que lleguen los datos, así que
-    el contenido no salta cuando aparecen. */
-const Esqueleto = () => (
-  <div
-    aria-hidden
-    className="flex animate-pulse flex-col bg-surface px-5 py-5 motion-reduce:animate-none"
-  >
-    <div className="flex items-start gap-3.5">
-      <span className="h-[52px] w-[52px] shrink-0 rounded-full bg-sunken" />
-      <div className="min-w-0 flex-1">
-        <span className="block h-[14px] w-2/3 rounded-full bg-sunken" />
-        <span className="mt-2.5 block h-[12px] w-1/2 rounded-full bg-sunken" />
-        <span className="mt-2.5 block h-[22px] w-24 rounded-full bg-sunken" />
-      </div>
-    </div>
-    <span className="mt-4 block h-[34px] rounded-[8px] bg-sunken" />
-    <span className="mt-4 block h-[58px] rounded-[14px] bg-sunken" />
-    <div className="mt-4 flex gap-2">
-      <span className="h-[42px] flex-1 rounded-full bg-sunken" />
-      <span className="h-[42px] flex-1 rounded-full bg-sunken" />
-    </div>
-  </div>
-);
-
 const Paseadores = () => {
   const { getProfile, isAdmin } = useAuth();
   const [walkers, setWalkers] = useState<PublicWalker[]>([]);
@@ -227,7 +202,10 @@ const Paseadores = () => {
 
   const openRequest = (walker: PublicWalker) => {
     if (!canOperate) {
-      setError("Debes verificar tu perfil antes de solicitar un paseo.");
+      aviso.ojo("Verificá tu perfil primero", {
+        detalle: "Sin la verificación aprobada no podés solicitar paseos.",
+        accion: { label: "Ir a verificación", onClick: () => { window.location.href = "/perfil#verificacion"; } },
+      });
       return;
     }
     setSolicitud(walker);
@@ -264,9 +242,12 @@ const Paseadores = () => {
     try {
       await requestWalk(payload);
       setSolicitud(null);
-      setMessage(`Solicitud enviada a ${solicitud.nombre}.`);
+      aviso.ok(`Solicitud enviada a ${solicitud.nombre}`, {
+        detalle: "Tiene treinta minutos para responder. Te avisamos apenas conteste.",
+      });
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo enviar la solicitud." });
     } finally {
       setSaving(false);
     }
@@ -327,13 +308,11 @@ const Paseadores = () => {
         </div>
       )}
 
-      {loading ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }, (_, i) => (
-            <Esqueleto key={i} />
-          ))}
-        </div>
-      ) : (
+      {/* El esqueleto ya no se dibuja a mano: sale de la foto que
+          boneyard le tomó a la maqueta de `src/esqueletos`, así que
+          los huecos caen exactamente donde van a caer las tarjetas.
+          El de antes era una aproximación mía a ojo. */}
+      <Skeleton name="paseadores-rejilla" loading={loading}>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visibles.map((w, i) => (
             <article
@@ -417,7 +396,7 @@ const Paseadores = () => {
             </article>
           ))}
         </div>
-      )}
+      </Skeleton>
 
       {!loading && visibles.length === 0 && (
         <EmptyState

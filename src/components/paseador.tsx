@@ -32,6 +32,8 @@ import {
   type WalkerRequest,
 } from "../services/walk-requests.service";
 import { useAuth } from "../hooks/useAuth";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -256,7 +258,9 @@ export const SolicitudesPaseador = () => {
 
   const responder = async (solicitud: WalkerRequest, aprobada: boolean) => {
     if (!habilitado) {
-      setError("Tenés que verificar tu perfil antes de responder solicitudes.");
+      aviso.ojo("Verificá tu perfil primero", {
+        detalle: "Sin la verificación aprobada no podés aceptar paseos.",
+      });
       return;
     }
     setSavingId(solicitud.id_paseo);
@@ -271,13 +275,18 @@ export const SolicitudesPaseador = () => {
       setPendientes((actuales) =>
         actuales.filter((item) => item.id_paseo !== solicitud.id_paseo),
       );
-      setMessage(
-        aprobada
-          ? `Solicitud de ${solicitud.mascota} aprobada.`
-          : `Solicitud de ${solicitud.mascota} rechazada.`,
-      );
+      if (aprobada) {
+        aviso.ok(`Paseo con ${solicitud.mascota} confirmado`, {
+          detalle: `${formatoFecha(solicitud.fecha, solicitud.hora_inicio)} · ${solicitud.direccion_encuentro}`,
+        });
+      } else {
+        aviso.dato(`Solicitud de ${solicitud.mascota} rechazada`, {
+          detalle: "Le avisamos al dueño para que busque otro paseador.",
+        });
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo responder la solicitud.");
+      aviso.error(cause, { respaldo: "No se pudo responder la solicitud." });
     } finally {
       setSavingId(null);
     }
@@ -303,9 +312,9 @@ export const SolicitudesPaseador = () => {
       )}
 
       {loading && (
-        <p className="bg-surface px-6 py-8 text-[13px] text-ink-soft">
-          Cargando solicitudes...
-        </p>
+        <Skeleton name="paseador-solicitudes" loading>
+          <div />
+        </Skeleton>
       )}
 
       {!loading && pendientes.map((s) => (

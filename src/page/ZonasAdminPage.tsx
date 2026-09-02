@@ -3,6 +3,7 @@ import { MapPin, Plus, Trash2, X } from "../lib/iconos";
 import { createZona, deleteZona, getZonas } from "../services/auth.service";
 import type { Zona } from "../types/auth.types";
 import {
+  Confirmar,
   EmptyState,
   Page,
   PageHeader,
@@ -13,6 +14,8 @@ import {
   input,
 } from "../components/ui";
 import { Combo } from "../components/Combo";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
 import { distritoDe, normalizar } from "../lib/zonas";
 
 const ubicacionesCostaRica: Record<string, string[]> = {
@@ -132,6 +135,8 @@ const ZonasAdminPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [porEliminar, setPorEliminar] = useState<Zona | null>(null);
+  const [eliminando, setEliminando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [paginaActual, setPaginaActual] = useState(1);
@@ -340,28 +345,38 @@ const ZonasAdminPage = () => {
       await cargar();
       limpiarFormulario();
       setModalAbierto(false);
-      setMessage("Zona agregada correctamente al catálogo");
-    } catch {
+      aviso.ok(`${nombre.trim()} agregada al catálogo`, {
+        detalle: `${canton}, ${provincia}`,
+      });
+    } catch (cause) {
       setError("No se pudo agregar la zona. Revisa que no exista un duplicado.");
+      aviso.error(cause, {
+        respaldo: "No se pudo agregar la zona. Puede que ya exista.",
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  const eliminar = async (zona: Zona) => {
-    const confirmar = window.confirm(`Eliminar ${zona.nombre}, ${zona.canton}?`);
-
-    if (!confirmar) return;
+  const eliminar = async () => {
+    if (!porEliminar) return;
 
     setError(null);
     setMessage(null);
+    setEliminando(true);
 
     try {
-      await deleteZona(zona.id_zona);
+      await deleteZona(porEliminar.id_zona);
+      setPorEliminar(null);
       await cargar();
-      setMessage("Zona eliminada correctamente");
-    } catch {
+      aviso.ok("Zona eliminada");
+    } catch (cause) {
       setError("No se puede eliminar porque la zona está en uso");
+      aviso.error(cause, {
+        respaldo: "No se puede eliminar: hay cuentas o negocios en esa zona.",
+      });
+    } finally {
+      setEliminando(false);
     }
   };
 
@@ -449,7 +464,9 @@ const ZonasAdminPage = () => {
         </div>
 
         {loading ? (
-          <p className="py-8 text-[13px] text-ink-soft">Cargando zonas...</p>
+          <Skeleton name="admin-tabla" loading>
+            <div />
+          </Skeleton>
         ) : visibles.length === 0 ? (
           <EmptyState
             title="No hay coincidencias"
@@ -500,7 +517,7 @@ const ZonasAdminPage = () => {
                   <td className="px-6 py-4 text-right">
                     <button
                       type="button"
-                      onClick={() => eliminar(zona)}
+                      onClick={() => setPorEliminar(zona)}
                       className={btnDanger}
                       aria-label={`Eliminar ${zona.nombre}`}
                     >
@@ -690,6 +707,27 @@ const ZonasAdminPage = () => {
             </form>
           </section>
         </div>
+      )}
+
+      {/* Antes era un `window.confirm` con "Eliminar Carrizal,
+          Alajuela?" y nada más. La consecuencia real —que puede haber
+          gente y negocios apuntando a esa zona— no cabía ahí. */}
+      {porEliminar && (
+        <Confirmar
+          tono="peligro"
+          titulo="Eliminar zona"
+          cuerpo={
+            <>
+              Se quita <strong className="font-semibold text-ink">{porEliminar.nombre}</strong>, {porEliminar.canton} del
+              catálogo. Si hay personas o negocios registrados en esa zona, la
+              base no va a permitir borrarla.
+            </>
+          }
+          confirmar="Eliminar zona"
+          ocupado={eliminando}
+          onConfirmar={() => void eliminar()}
+          onCancelar={() => setPorEliminar(null)}
+        />
       )}
     </Page>
   );

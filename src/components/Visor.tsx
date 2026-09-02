@@ -90,7 +90,12 @@ const Visor = ({
         src={src}
         alt={alt}
         onClick={(evento) => evento.stopPropagation()}
-        className="anim-rise max-h-[86vh] max-w-full rounded-[26px] object-contain shadow-[0_40px_90px_rgb(0_0_0/0.45)]"
+        /* El tope de ancho importa tanto como el de alto. Con
+           `max-w-full` una foto apaisada en un monitor de 1920 se
+           estiraba a 1800 px: eso ya no es "verla completa", es
+           ocupar la pantalla. Con el tope queda una ventana centrada,
+           que es lo que se vino a mirar. */
+        className="anim-rise max-h-[86vh] max-w-[min(92vw,860px)] rounded-[26px] object-contain shadow-[0_40px_90px_rgb(0_0_0/0.45)]"
       />
     </div>,
     document.body,
