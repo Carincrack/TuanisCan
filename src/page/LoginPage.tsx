@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   User,
@@ -18,10 +18,11 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
-} from "lucide-react";
+} from "../lib/iconos";
 import { inicioDeRol, MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
 import { getZonas } from "../services/auth.service";
+import { Combo } from "../components/Combo";
 import type { RolPublico, Zona } from "../types/auth.types";
 import { isValidProfilePhotoUrl } from "../lib/profile";
 
@@ -170,6 +171,22 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regPasswordConfirmation, setRegPasswordConfirmation] = useState("");
   const [regTelefono, setRegTelefono] = useState("");
   const [regFotoPerfil, setRegFotoPerfil] = useState("");
+
+  /* La foto de perfil se pide como enlace, no como archivo, y hasta
+     ahora no había forma de saber si el enlace servía: se escribía a
+     ciegas y el error, si lo había, aparecía al enviar el formulario
+     entero. Esto la mira antes.
+
+     `urlMirada` va con retardo a propósito. Ligar la vista previa
+     directamente a lo que se teclea dispara una petición por letra
+     —y por cada trozo de dirección a medio escribir, que además
+     siempre falla— así que se espera medio segundo de quietud antes
+     de pedir nada. */
+  const [urlMirada, setUrlMirada] = useState("");
+  const [estadoFoto, setEstadoFoto] = useState<
+    "vacio" | "cargando" | "lista" | "rota"
+  >("vacio");
+  const [medidaFoto, setMedidaFoto] = useState("");
   const [regZonaId, setRegZonaId] = useState("");
   const [regDescripcion, setRegDescripcion] = useState("");
   const [regTarifa, setRegTarifa] = useState("");
@@ -183,11 +200,16 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [registrationStep, setRegistrationStep] = useState(1);
   const [zonas, setZonas] = useState<Zona[]>([]);
-const [zonasLoading, setZonasLoading] = useState(true);
-const [regZonaBusqueda, setRegZonaBusqueda] = useState("");
-const [zonaDropdownOpen, setZonaDropdownOpen] = useState(false);
+  const [zonasLoading, setZonasLoading] = useState(true);
 
-const zonaSelectorRef = useRef<HTMLDivElement>(null);
+  /* La zona se elige bajando por la división territorial: provincia,
+     luego sus cantones, luego sus distritos. Los dos primeros pasos
+     son estado local de la pantalla y no viajan al registro; lo que
+     se guarda es `regZonaId`, que es la fila de la tabla `zonas` —o
+     sea el distrito, porque el catálogo trae una fila por distrito
+     con su cantón y su provincia repetidos al lado. */
+  const [regProvincia, setRegProvincia] = useState("");
+  const [regCanton, setRegCanton] = useState("");
 
 
 
@@ -202,43 +224,90 @@ const zonaSelectorRef = useRef<HTMLDivElement>(null);
   }, []);
 
 
-  const zonasFiltradas = useMemo(() => {
-  const termino = normalizarTexto(regZonaBusqueda);
+  useEffect(() => {
+    const limpia = regFotoPerfil.trim();
 
-  /*
-   * Si el campo está vacío mostramos todas.
-   */
-  if (!termino) {
-    return zonas;
-  }
-
-  return zonas.filter((zona) => {
-    const contenido = normalizarTexto(
-      `${zona.nombre} ${zona.canton} ${zona.provincia}`,
-    );
-
-    return contenido.includes(termino);
-  });
-}, [zonas, regZonaBusqueda]);
-
-
-
-useEffect(() => {
-  const cerrarSelectorZona = (event: MouseEvent) => {
-    if (
-      zonaSelectorRef.current &&
-      !zonaSelectorRef.current.contains(event.target as Node)
-    ) {
-      setZonaDropdownOpen(false);
+    if (!limpia) {
+      setUrlMirada("");
+      setEstadoFoto("vacio");
+      return;
     }
+
+    /* Base64 ni se intenta: el perfil solo acepta http o https, así
+       que pedirla sería gastar el intento para acabar en el mismo
+       error. Se dice de una vez y con la razón. */
+    if (!isValidProfilePhotoUrl(limpia)) {
+      setUrlMirada("");
+      setEstadoFoto("rota");
+      return;
+    }
+
+    const reloj = setTimeout(() => {
+      /* Si la dirección es la misma de antes no hay nada que volver a
+         pedir, y sobre todo no hay que ponerse en "cargando": la clave
+         del `<img>` no cambiaría, el elemento no se volvería a montar,
+         no llegaría ningún `onLoad` y el aviso se quedaría girando
+         para siempre. Pasa con solo añadir un espacio al final. */
+      if (limpia === urlMirada) return;
+
+      setEstadoFoto("cargando");
+      setMedidaFoto("");
+      setUrlMirada(limpia);
+    }, 500);
+
+    return () => clearTimeout(reloj);
+  }, [regFotoPerfil, urlMirada]);
+
+  /* Antes esto era un solo campo de texto contra el catálogo entero.
+     Buscar así exige saber ya cómo se llama la zona, y el catálogo
+     repite nombres —hay un "San Isidro" en cuatro provincias—, así
+     que la lista devolvía cuatro filas idénticas salvo por la letra
+     chica. Bajando por la jerarquía cada paso es corto y no hay dos
+     respuestas iguales. */
+  const provinciasReg = useMemo(
+    () =>
+      [...new Set(zonas.map((z) => z.provincia).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "es"),
+      ),
+    [zonas],
+  );
+
+  const cantonesReg = useMemo(() => {
+    if (!regProvincia) return [];
+    return [
+      ...new Set(
+        zonas
+          .filter((z) => normalizarTexto(z.provincia) === normalizarTexto(regProvincia))
+          .map((z) => z.canton)
+          .filter(Boolean),
+      ),
+    ].sort((a, b) => a.localeCompare(b, "es"));
+  }, [zonas, regProvincia]);
+
+  const distritosReg = useMemo(() => {
+    if (!regProvincia || !regCanton) return [];
+    return zonas
+      .filter(
+        (z) =>
+          normalizarTexto(z.provincia) === normalizarTexto(regProvincia) &&
+          normalizarTexto(z.canton) === normalizarTexto(regCanton),
+      )
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [zonas, regProvincia, regCanton]);
+
+  /* Cambiar un escalón invalida los de abajo: la zona guardada ya no
+     pertenece a lo que se está mirando, y dejarla puesta manda al
+     registro un distrito de otra provincia. */
+  const elegirProvincia = (valor: string) => {
+    setRegProvincia(valor);
+    setRegCanton("");
+    setRegZonaId("");
   };
 
-  document.addEventListener("mousedown", cerrarSelectorZona);
-
-  return () => {
-    document.removeEventListener("mousedown", cerrarSelectorZona);
+  const elegirCanton = (valor: string) => {
+    setRegCanton(valor);
+    setRegZonaId("");
   };
-}, []);
 
   useEffect(() => {
     const mq = window.matchMedia(MEDIA_ANCHO);
@@ -826,165 +895,150 @@ useEffect(() => {
 
                   {registrationStep === 3 && (
                     <div className="space-y-4">
-                      <div
-  ref={zonaSelectorRef}
-  className="relative"
->
-  <MapPin
-    className={iconBase}
-    size={18}
-  />
+                      <div className="space-y-3">
+                        <Combo
+                          tono="login"
+                          Icon={MapPin}
+                          value={regProvincia}
+                          onChange={elegirProvincia}
+                          disabled={zonasLoading}
+                          textoInactivo="Cargando zonas…"
+                          placeholder="Provincia *"
+                          aria-label="Provincia"
+                          options={provinciasReg.map((item) => ({
+                            value: item,
+                            label: item,
+                          }))}
+                        />
 
-  <input
-    type="text"
-    value={regZonaBusqueda}
-    disabled={zonasLoading}
-    placeholder={
-      zonasLoading
-        ? "Cargando zonas..."
-        : "Busca y selecciona tu zona *"
-    }
-    autoComplete="off"
-    className={`${inputBase} pr-12`}
-    onFocus={() => {
-      if (!zonasLoading) {
-        setZonaDropdownOpen(true);
-      }
-    }}
-    onChange={(e) => {
-      /*
-       * Cuando el usuario vuelve a escribir,
-       * eliminamos la selección anterior.
-       *
-       * Así evitamos enviar un id_zona que ya
-       * no corresponde al texto visible.
-       */
-      setRegZonaBusqueda(e.target.value);
-      setRegZonaId("");
-      setZonaDropdownOpen(true);
-    }}
-    aria-label="Buscar zona"
-    aria-expanded={zonaDropdownOpen}
-    aria-autocomplete="list"
-    role="combobox"
-  />
+                        <Combo
+                          tono="login"
+                          value={regCanton}
+                          onChange={elegirCanton}
+                          disabled={!regProvincia}
+                          textoInactivo="Elegí una provincia"
+                          placeholder="Cantón *"
+                          aria-label="Cantón"
+                          options={cantonesReg.map((item) => ({
+                            value: item,
+                            label: item,
+                          }))}
+                        />
 
-  {/* Lista desplegable */}
-  {zonaDropdownOpen && !zonasLoading && (
-    <div
-      role="listbox"
-      className="
-        absolute
-        left-0
-        right-0
-        top-[calc(100%+8px)]
-        z-50
-        max-h-64
-        overflow-y-auto
-        rounded-2xl
-        border
-        border-slate-200
-        bg-white
-        py-2
-        shadow-[0_18px_45px_rgba(15,32,44,0.18)]
-      "
-    >
-      {zonasFiltradas.length > 0 ? (
-        zonasFiltradas.map((zona) => {
-          const seleccionada =
-            regZonaId === zona.id_zona;
+                        <Combo
+                          tono="login"
+                          value={regZonaId}
+                          onChange={(v) => {
+                            setRegZonaId(v);
+                            setError(null);
+                            setShowError(false);
+                          }}
+                          disabled={!regCanton}
+                          textoInactivo="Elegí un cantón"
+                          placeholder="Distrito *"
+                          aria-label="Distrito"
+                          options={distritosReg.map((zona) => ({
+                            value: zona.id_zona,
+                            label: zona.nombre,
+                          }))}
+                        />
+                      </div>
+                      <div>
+                        <div className="relative">
+                          <Image className={iconBase} size={18} />
+                          <input
+                            type="url"
+                            placeholder="URL https de foto (opcional, no Base64)"
+                            value={regFotoPerfil}
+                            onChange={(e) => setRegFotoPerfil(e.target.value)}
+                            className={inputBase}
+                            maxLength={2048}
+                          />
+                        </div>
 
-          return (
-            <button
-              key={zona.id_zona}
-              type="button"
-              role="option"
-              aria-selected={seleccionada}
-              onMouseDown={(e) => {
-                /*
-                 * Evita que el input pierda el foco
-                 * antes de procesar la selección.
-                 */
-                e.preventDefault();
-              }}
-              onClick={() => {
-                setRegZonaId(zona.id_zona);
+                        {/* La vista previa. Redonda y del tamaño en el
+                            que la foto se va a ver de verdad —el avatar
+                            del riel mide 32 px—, no un cuadro grande:
+                            lo que hay que comprobar acá no es la foto,
+                            es si el enlace trae una. */}
+                        {estadoFoto !== "vacio" && (
+                          <div
+                            aria-live="polite"
+                            className="mt-3 flex items-center gap-3 pl-2"
+                          >
+                            <span
+                              className={`grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full ${
+                                estadoFoto === "rota"
+                                  ? "bg-red-50 text-red-400"
+                                  : "bg-slate-100 text-slate-400"
+                              }`}
+                            >
+                              {estadoFoto === "rota" ? (
+                                <AlertCircle size={18} aria-hidden />
+                              ) : (
+                                urlMirada && (
+                                  /* La clave fuerza un elemento nuevo
+                                     por dirección. Sin ella el
+                                     navegador reaprovecha el mismo
+                                     `<img>` y no vuelve a avisar de
+                                     que cargó cuando la dirección
+                                     nueva ya estaba en la caché. */
+                                  <img
+                                    key={urlMirada}
+                                    src={urlMirada}
+                                    alt=""
+                                    onLoad={(evento) => {
+                                      setMedidaFoto(
+                                        `${evento.currentTarget.naturalWidth} × ${evento.currentTarget.naturalHeight}`,
+                                      );
+                                      setEstadoFoto("lista");
+                                    }}
+                                    onError={() => setEstadoFoto("rota")}
+                                    className={`h-full w-full object-cover transition-opacity duration-200 ${
+                                      estadoFoto === "lista"
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    }`}
+                                  />
+                                )
+                              )}
+                            </span>
 
-                setRegZonaBusqueda(
-                  `${zona.nombre}, ${zona.canton} · ${zona.provincia}`,
-                );
+                            <p className="min-w-0 text-[11.5px] leading-snug">
+                              {estadoFoto === "cargando" && (
+                                <span className="text-slate-500">
+                                  Buscando la imagen…
+                                </span>
+                              )}
 
-                setZonaDropdownOpen(false);
+                              {estadoFoto === "lista" && (
+                                <>
+                                  <span className="font-semibold text-[#14A3B8]">
+                                    La imagen carga
+                                  </span>
+                                  <span className="block text-slate-400">
+                                    {medidaFoto} px · así se va a ver
+                                  </span>
+                                </>
+                              )}
 
-                /*
-                 * Limpiamos un posible error anterior
-                 * relacionado con no seleccionar zona.
-                 */
-                setError(null);
-                setShowError(false);
-              }}
-              className={`
-                flex
-                w-full
-                items-start
-                gap-3
-                px-5
-                py-3
-                text-left
-                transition-colors
-                ${
-                  seleccionada
-                    ? "bg-[#14A3B8]/10"
-                    : "hover:bg-slate-50"
-                }
-              `}
-            >
-              <MapPin
-                size={16}
-                className="mt-0.5 flex-shrink-0 text-[#14A3B8]"
-              />
-
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[#1E2A33]">
-                  {zona.nombre}
-                </span>
-
-                <span className="mt-0.5 block text-xs text-slate-500">
-                  {zona.canton} · {zona.provincia}
-                </span>
-              </span>
-            </button>
-          );
-        })
-      ) : (
-        <div className="px-5 py-5 text-center">
-          <MapPin
-            size={22}
-            className="mx-auto mb-2 text-slate-300"
-          />
-
-          <p className="text-sm font-medium text-slate-500">
-            No encontramos esa zona
-          </p>
-
-          <p className="mt-1 text-xs text-slate-400">
-            Intenta buscar por zona, cantón o provincia.
-          </p>
-        </div>
-      )}
-    </div>
-  )}
-
-  {/* Indicador de selección correcta */}
-  {regZonaId && (
-    <p className="mt-2 pl-5 text-[11px] font-medium text-[#14A3B8]">
-      Zona seleccionada
-    </p>
-  )}
-</div>
-                      <div className="relative">
-                        <Image className={iconBase} size={18} />
-                        <input type="url" placeholder="URL https de foto (opcional, no Base64)" value={regFotoPerfil} onChange={(e) => setRegFotoPerfil(e.target.value)} className={inputBase} maxLength={2048} />
+                              {estadoFoto === "rota" && (
+                                <>
+                                  <span className="font-semibold text-red-500">
+                                    {regFotoPerfil.trim().startsWith("data:")
+                                      ? "Base64 no sirve acá"
+                                      : "No se pudo cargar"}
+                                  </span>
+                                  <span className="block text-slate-400">
+                                    {regFotoPerfil.trim().startsWith("data:")
+                                      ? "Hace falta un enlace https a la imagen."
+                                      : "El enlace tiene que llevar directo a la imagen, no a la página que la muestra."}
+                                  </span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       {rol === "paseador" && (
@@ -1008,7 +1062,7 @@ useEffect(() => {
                         <>
                           <div className="grid gap-3 @sm:grid-cols-2">
                             <div className="relative"><Store className={iconBase} size={18} /><input type="text" placeholder="Nombre del negocio *" value={regNombreNegocio} onChange={(e) => setRegNombreNegocio(e.target.value)} className={inputBase} maxLength={150} required /></div>
-                            <select value={regTipoNegocio} onChange={(e) => setRegTipoNegocio(e.target.value as typeof regTipoNegocio)} className={`${inputBase} pl-5`} aria-label="Tipo de negocio"><option value="veterinaria">Veterinaria</option><option value="tienda">Tienda</option><option value="refugio">Refugio</option></select>
+                            <Combo tono="login" value={regTipoNegocio} onChange={(v) => setRegTipoNegocio(v as typeof regTipoNegocio)} aria-label="Tipo de negocio" options={[{ value: "veterinaria", label: "Veterinaria" }, { value: "tienda", label: "Tienda" }, { value: "refugio", label: "Refugio" }]} />
                           </div>
                           <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder="Dirección exacta *" value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
                           <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder="Horario de atención *" value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>

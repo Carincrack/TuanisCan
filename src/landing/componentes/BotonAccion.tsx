@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "../../lib/iconos";
 import type { CSSProperties, ReactNode } from "react";
 import { CANVAS, HUESO, NAVY, TINTA } from "../tokens";
 

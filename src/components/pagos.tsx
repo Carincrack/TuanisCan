@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CreditCard, Download, Plus, Wallet } from "lucide-react";
+import { CreditCard, Download, Plus, Wallet } from "../lib/iconos";
 import {
   Badge,
   EmptyState,
@@ -66,14 +66,14 @@ const Pagos = () => {
         }
       />
 
-      <div className="grid gap-px bg-canvas sm:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Gasto del mes" valor={colones(19400)} nota="5 paseos" />
         <Stat etiqueta="Pendiente de cobro" valor={colones(4500)} nota="1 movimiento" />
         <Stat etiqueta="Reembolsado" valor={colones(3800)} nota="en agosto" />
       </div>
 
       <Section title="Métodos de pago" bodyClass="px-6 pb-5">
-        <ul className="flex flex-col gap-px bg-canvas">
+        <ul className="flex flex-col gap-2.5">
           {metodos.map((m) => (
             <li key={m.etiqueta} className="flex items-center gap-4 bg-sunken px-5 py-4">
               <m.Icon

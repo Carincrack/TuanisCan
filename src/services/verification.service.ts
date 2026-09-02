@@ -7,7 +7,16 @@ import type {
 
 const BUCKET = "usuarios-verificacion";
 
-const throwVerificationError = (error: { code?: string; message?: string }) => {
+/* Declarada como `function` y con retorno `never` a propósito.
+
+   Siempre lanza, pero escrita como `const` flecha TypeScript no lo
+   deduce, y entonces tampoco estrecha nada después de llamarla: en
+   `getVerificationDocumentUrl` seguía viendo `data` como
+   posiblemente nulo, y en `downloadVerificationDocument` pasaba
+   `Blob | null` a `URL.createObjectURL`. Dos errores de compilación
+   que venían de arrastre —y el segundo no era un tipo mal puesto: si
+   la descarga fallaba, reventaba justo acá. */
+function throwVerificationError(error: { code?: string; message?: string }): never {
   if (error.code === "42P01" || error.code === "PGRST205" || /bucket not found/i.test(error.message ?? "")) {
     throw new Error("Falta aplicar la migración de verificación en Supabase antes de cargar documentos.");
   }

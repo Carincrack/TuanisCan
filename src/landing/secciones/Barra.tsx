@@ -1,4 +1,4 @@
-import { Menu } from "lucide-react";
+import { Menu } from "../../lib/iconos";
 import BotonAccion from "../componentes/BotonAccion";
 import { MARCA } from "../../lib/nav";
 import { ENLACES } from "../datos";

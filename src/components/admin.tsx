@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Download, Eye, Loader, Search, ShieldCheck, UserCheck, UserX, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
+import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, RefreshCw, Search, ShieldCheck, UserCheck, UserX, X } from "../lib/iconos";
 import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
@@ -9,7 +11,7 @@ import {
   getVerificationDocumentUrl,
   reviewVerificationRequest,
 } from "../services/verification.service";
-import type { AdminUser, AdminVerificationRequest, AdminWalker, RolPublico, VerificationDocument, VerificationDocumentType } from "../types/auth.types";
+import type { AdminUser, AdminVerificationRequest, AdminWalker, RolPublico, VerificationDocumentType } from "../types/auth.types";
 import {
   Avatar,
   Badge,
@@ -22,10 +24,12 @@ import {
   Table,
   btnDanger,
   btnPrimary,
+  btnQuiet,
   btnSecondary,
   colones,
   input,
 } from "./ui";
+import { Combo } from "./Combo";
 
 /* ─────────────────────────────────────────────────────────────
    Panel de la plataforma. Solo para el equipo de TuanisCan:
@@ -57,7 +61,7 @@ export const PanelAdmin = () => (
       }
     />
 
-    <div className="grid gap-px bg-canvas sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
       <Stat etiqueta="Comisión del mes" valor={colones(552000)} nota="15% de 3.68 M" />
       <Stat etiqueta="Paseos del mes" valor="1 284" nota="+13.6% vs julio" />
       <Stat etiqueta="Paseadores activos" valor="62" nota="de 78 registrados" />
@@ -179,7 +183,7 @@ export const FinanzasAdmin = () => {
         }
       />
 
-      <div className="grid gap-px bg-canvas sm:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Comisión acumulada" valor={colones(2841000)} nota="año en curso" />
         <Stat etiqueta="Por liquidar" valor={colones(355300)} nota="62 paseadores" />
         <Stat etiqueta="Ticket promedio" valor={colones(4520)} nota="por paseo" />
@@ -368,6 +372,666 @@ const verificationDate = new Intl.DateTimeFormat("es-CR", {
 const errorMessage = (cause: unknown) =>
   cause instanceof Error ? cause.message : "No se pudo completar la revisión.";
 
+/* ─────────────────────────────────────────────────────────────
+   EL VISOR DE DOCUMENTOS
+
+   Lo que había mostraba UN documento por vez: para comparar la cédula
+   por delante con la de atrás —que es literalmente el trabajo— había
+   que cerrar, volver a la tarjeta, abrir el otro, cerrar otra vez. Y
+   la imagen entraba escalada a la caja, sin acercar y sin girar, así
+   que una cédula fotografiada de lado con el teléfono no se podía
+   leer. No era un problema de estilo: no se podía hacer la tarea.
+
+   Ahora la ventana es de la PERSONA y no del archivo. Los documentos
+   quedan en una tira al costado y se cambia sin cerrar nada.
+   ───────────────────────────────────────────────────────────── */
+
+const iconoDocumento: Record<VerificationDocumentType, typeof IdCard> = {
+  cedula_frente: IdCard,
+  cedula_reverso: IdCard,
+  hoja_delincuencia: FileText,
+  permiso_funcionamiento: Building2,
+};
+
+const esPdf = (nombre: string) => /\.pdf$/i.test(nombre);
+
+/* El encuadre es 1. Se puede bajar hasta un tercio para ver una hoja
+   larga entera —una hoja de delincuencia no se lee, se comprueba que
+   esté completa y a nombre de quien dice— y subir hasta seis veces
+   para el número de cédula.
+
+   Los pasos son multiplicativos, no de suma fija: pasar de 0.5 a 0.75
+   es un salto enorme y de 5 a 5.25 no se nota. Multiplicar mantiene
+   el mismo salto percibido en todo el recorrido. */
+const ESCALA_MIN = 0.33;
+const ESCALA_MAX = 6;
+const PASO_ESCALA = 1.25;
+const acotar = (valor: number) =>
+  Math.min(ESCALA_MAX, Math.max(ESCALA_MIN, Number(valor.toFixed(2))));
+
+const VisorDocumentos = ({
+  solicitud,
+  inicial,
+  onClose,
+  onRevisar,
+}: {
+  solicitud: AdminVerificationRequest;
+  inicial: string;
+  onClose: () => void;
+  /* Lanza si la revisión falla; el visor muestra el motivo y se queda
+     abierto. Si resuelve, la solicitud ya salió de la lista y el visor
+     se cierra solo. */
+  onRevisar: (
+    estado: "aprobado" | "rechazado",
+    observacion?: string,
+  ) => Promise<void>;
+}) => {
+  const [activo, setActivo] = useState(inicial);
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [cargando, setCargando] = useState(false);
+  const [fallo, setFallo] = useState<string | null>(null);
+  const [descargando, setDescargando] = useState(false);
+  const [veredicto, setVeredicto] = useState<"aprobado" | "rechazado" | null>(
+    null,
+  );
+  const [observacion, setObservacion] = useState("");
+  const [rechazando, setRechazando] = useState(false);
+
+  const [escala, setEscala] = useState(1);
+  const [giro, setGiro] = useState(0);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [arrastrando, setArrastrando] = useState(false);
+  const arranque = useRef<{ x: number; y: number } | null>(null);
+
+  /* La imagen girada un cuarto de vuelta ya no cabe en el mismo hueco:
+     lo que era su ancho pasa a medirse contra el alto. Sin medir la
+     caja no hay forma de calcularlo, y el recorte se come justo el
+     número de cédula. */
+  const caja = useRef<HTMLDivElement>(null);
+  const [medida, setMedida] = useState({ ancho: 0, alto: 0 });
+
+  const documentos = solicitud.documentos;
+  const documento =
+    documentos.find((d) => d.id_documento === activo) ?? documentos[0];
+  const indice = documentos.findIndex(
+    (d) => d.id_documento === documento?.id_documento,
+  );
+  const url = documento ? urls[documento.id_documento] : undefined;
+  const pdf = documento ? esPdf(documento.nombre_archivo) : false;
+  const vertical = giro % 180 !== 0;
+
+  const mover = useCallback(
+    (paso: number) => {
+      if (documentos.length < 2) return;
+      const siguiente =
+        (indice + paso + documentos.length) % documentos.length;
+      setActivo(documentos[siguiente].id_documento);
+    },
+    [documentos, indice],
+  );
+
+  const ajustar = useCallback(() => {
+    setEscala(1);
+    setGiro(0);
+    setOffset({ x: 0, y: 0 });
+  }, []);
+
+  const acercar = useCallback((factor: number) => {
+    setEscala((actual) => {
+      const nueva = acotar(actual * factor);
+      if (nueva <= 1) setOffset({ x: 0, y: 0 });
+      return nueva;
+    });
+  }, []);
+
+  /* Volver al encuadre en cada documento. Heredar el zoom del anterior
+     deja el siguiente abierto en una esquina cualquiera. */
+  useEffect(() => {
+    ajustar();
+  }, [activo, ajustar]);
+
+  useEffect(() => {
+    const elemento = caja.current;
+    if (!elemento) return;
+    const observador = new ResizeObserver(([entrada]) =>
+      setMedida({
+        ancho: entrada.contentRect.width,
+        alto: entrada.contentRect.height,
+      }),
+    );
+    observador.observe(elemento);
+    return () => observador.disconnect();
+  }, []);
+
+  /* El enlace firmado vive cinco minutos. Se pide al abrir cada
+     documento y se guarda: volver al anterior no vuelve a pedirlo. */
+  useEffect(() => {
+    if (!documento || urls[documento.id_documento]) return;
+    let vivo = true;
+    setCargando(true);
+    setFallo(null);
+    getVerificationDocumentUrl(documento)
+      .then((firmada) => {
+        if (vivo) {
+          setUrls((actuales) => ({
+            ...actuales,
+            [documento.id_documento]: firmada,
+          }));
+        }
+      })
+      .catch((cause) => {
+        if (vivo) setFallo(errorMessage(cause));
+      })
+      .finally(() => {
+        if (vivo) setCargando(false);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [documento, urls]);
+
+  const acciones = useRef({ onClose, mover, acercar, ajustar });
+  useEffect(() => {
+    acciones.current = { onClose, mover, acercar, ajustar };
+  });
+
+  useEffect(() => {
+    const devolver = document.activeElement as HTMLElement | null;
+    const previo = document.body.style.overflow;
+
+    const alTeclear = (evento: KeyboardEvent) => {
+      const teclas: Record<string, () => void> = {
+        Escape: () => acciones.current.onClose(),
+        ArrowRight: () => acciones.current.mover(1),
+        ArrowLeft: () => acciones.current.mover(-1),
+        "+": () => acciones.current.acercar(PASO_ESCALA),
+        "=": () => acciones.current.acercar(PASO_ESCALA),
+        "-": () => acciones.current.acercar(1 / PASO_ESCALA),
+        "0": () => acciones.current.ajustar(),
+      };
+      const accion = teclas[evento.key];
+      if (accion) {
+        evento.preventDefault();
+        accion();
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", alTeclear);
+    return () => {
+      document.body.style.overflow = previo;
+      document.removeEventListener("keydown", alTeclear);
+      devolver?.focus?.();
+    };
+  }, []);
+
+  const descargar = async () => {
+    if (!documento) return;
+    setDescargando(true);
+    setFallo(null);
+    try {
+      await downloadVerificationDocument(documento);
+    } catch (cause) {
+      setFallo(errorMessage(cause));
+    } finally {
+      setDescargando(false);
+    }
+  };
+
+  const resolver = async (estado: "aprobado" | "rechazado") => {
+    if (estado === "rechazado" && observacion.trim().length < 5) {
+      setFallo("Escribí una observación de al menos 5 caracteres para rechazar.");
+      return;
+    }
+    setVeredicto(estado);
+    setFallo(null);
+    try {
+      await onRevisar(
+        estado,
+        estado === "rechazado" ? observacion.trim() : undefined,
+      );
+      onClose();
+    } catch (cause) {
+      setFallo(errorMessage(cause));
+      setVeredicto(null);
+    }
+  };
+
+/* En un teléfono no hay rueda ni teclado: los botones de acercar
+     serían el único camino, y sobre una cédula eso es inservible. Con
+     dos dedos se pellizca; con uno se arrastra cuando ya está
+     acercada.
+
+     Los punteros se llevan en un `Map` y no en estado porque cambian
+     en cada movimiento del dedo: pintar en cada uno tiraría el gesto
+     al suelo. Solo la escala y el desplazamiento —lo que sí se ve—
+     pasan por `setState`. */
+  const punteros = useRef(new Map<number, { x: number; y: number }>());
+  const pellizco = useRef<{ distancia: number; escala: number } | null>(null);
+
+  const separacion = () => {
+    const [a, b] = [...punteros.current.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  };
+
+  const tomar = (evento: ReactPointerEvent<HTMLImageElement>) => {
+    evento.currentTarget.setPointerCapture(evento.pointerId);
+    punteros.current.set(evento.pointerId, {
+      x: evento.clientX,
+      y: evento.clientY,
+    });
+
+    if (punteros.current.size === 2) {
+      pellizco.current = { distancia: separacion(), escala };
+      arranque.current = null;
+      setArrastrando(false);
+      return;
+    }
+
+    /* Por debajo del encuadre la imagen es más chica que su hueco: no
+       hay nada fuera de vista que valga la pena arrastrar. */
+    if (escala <= 1) return;
+    arranque.current = {
+      x: evento.clientX - offset.x,
+      y: evento.clientY - offset.y,
+    };
+    setArrastrando(true);
+  };
+
+  const llevar = (evento: ReactPointerEvent<HTMLImageElement>) => {
+    if (!punteros.current.has(evento.pointerId)) return;
+    punteros.current.set(evento.pointerId, {
+      x: evento.clientX,
+      y: evento.clientY,
+    });
+
+    if (punteros.current.size === 2 && pellizco.current) {
+      const ahora = separacion();
+      if (pellizco.current.distancia > 0) {
+        setEscala(
+          acotar(pellizco.current.escala * (ahora / pellizco.current.distancia)),
+        );
+      }
+      return;
+    }
+
+    if (!arranque.current) return;
+    setOffset({
+      x: evento.clientX - arranque.current.x,
+      y: evento.clientY - arranque.current.y,
+    });
+  };
+
+  const soltar = (evento: ReactPointerEvent<HTMLImageElement>) => {
+    punteros.current.delete(evento.pointerId);
+    if (punteros.current.size < 2) pellizco.current = null;
+    if (punteros.current.size === 0) {
+      arranque.current = null;
+      setArrastrando(false);
+    }
+  };
+
+  const botonHerramienta =
+    "grid h-8 w-8 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-150 ease-out hover:bg-rail-hover hover:text-white active:scale-[0.94] disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-rail-text";
+
+  /* `suave` en la envoltura: el portal cuelga de `document.body` y
+     queda fuera del `<div class="suave">` de `AppShell`, así que sin
+     esto se pierden el radio por defecto y la barra de desplazamiento
+     fina. Fue lo que dejó la ventana cuadrada al portalizarla. */
+  return createPortal(
+    <div className="suave fixed inset-0 z-[100] flex p-2.5 sm:p-6">
+      <button
+        type="button"
+        aria-label="Cerrar visor"
+        onClick={onClose}
+        className="anim-fade absolute inset-0 bg-rail/80 backdrop-blur-[2px]"
+      />
+
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="visor-documentos-title"
+        className="anim-rise relative m-auto flex h-[calc(100dvh-1.25rem)] max-h-[920px] w-full max-w-[1080px] min-w-0 flex-col overflow-hidden rounded-[20px] bg-surface sm:h-[90dvh]"
+      >
+        <header className="flex items-center gap-3 bg-rail px-4 py-3 sm:px-5">
+          {solicitud.foto_perfil ? (
+            <img
+              src={solicitud.foto_perfil}
+              alt=""
+              aria-hidden
+              className="h-9 w-9 shrink-0 rounded-full bg-rail-hover object-cover"
+            />
+          ) : (
+            <Avatar nombre={solicitud.nombre} size={36} />
+          )}
+
+          <div className="min-w-0 flex-1">
+            <h3
+              id="visor-documentos-title"
+              className="titular truncate text-[15px] text-white"
+            >
+              {solicitud.nombre}
+            </h3>
+            <p className="truncate text-[11.5px] text-rail-text">
+              {solicitud.correo} · {solicitud.zona}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void descargar()}
+            disabled={descargando || !documento}
+            className={`${btnSecondary} shrink-0 disabled:cursor-wait disabled:opacity-60`}
+          >
+            {descargando ? (
+              <Loader size={14} className="animate-spin" />
+            ) : (
+              <Download size={14} />
+            )}
+            <span className="hidden sm:inline">Descargar</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar visor"
+            className={botonHerramienta}
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+          {/* La tira de documentos. En horizontal arriba cuando la
+              pantalla es angosta, en columna al costado cuando hay
+              sitio: en un teléfono una columna de 190 px se come la
+              mitad del ancho útil. */}
+          <nav
+            aria-label="Documentos de la solicitud"
+            className="flex shrink-0 gap-1.5 overflow-x-auto bg-sunken p-2 sm:w-[212px] sm:flex-col sm:overflow-x-visible sm:overflow-y-auto sm:p-2.5"
+          >
+            {documentos.map((doc) => {
+              const Icono = iconoDocumento[doc.tipo_documento];
+              const seleccionado = doc.id_documento === documento?.id_documento;
+
+              return (
+                <button
+                  key={doc.id_documento}
+                  type="button"
+                  onClick={() => setActivo(doc.id_documento)}
+                  aria-current={seleccionado ? "true" : undefined}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-left transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] sm:w-full ${
+                    seleccionado
+                      ? "bg-rail text-white"
+                      : "text-ink-soft hover:bg-white/70 hover:text-ink"
+                  }`}
+                >
+                  <span
+                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
+                      seleccionado
+                        ? "bg-accent text-rail"
+                        : "bg-white text-ink-mute"
+                    }`}
+                  >
+                    <Icono size={14} aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[12.5px] font-medium whitespace-nowrap sm:whitespace-normal">
+                      {documentLabel[doc.tipo_documento]}
+                    </span>
+                    <span
+                      className={`hidden truncate text-[10.5px] sm:block ${
+                        seleccionado ? "text-rail-text" : "text-ink-mute"
+                      }`}
+                    >
+                      {doc.nombre_archivo}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {/* Barra de herramientas. Los controles de acercar sobran
+                en un PDF: el lector del navegador trae los suyos. */}
+            <div className="flex shrink-0 items-center gap-1 overflow-x-auto bg-sunken px-2 py-1.5">
+              <button
+                type="button"
+                onClick={() => mover(-1)}
+                disabled={documentos.length < 2}
+                aria-label="Documento anterior"
+                className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
+              >
+                <ChevronLeft size={17} />
+              </button>
+              <span className="nums min-w-[3.5rem] text-center text-[11.5px] font-medium text-ink-mute">
+                {indice + 1} de {documentos.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => mover(1)}
+                disabled={documentos.length < 2}
+                aria-label="Documento siguiente"
+                className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
+              >
+                <ChevronRight size={17} />
+              </button>
+
+              {!pdf && (
+                <>
+                  <span aria-hidden className="mx-1.5 h-5 w-px bg-suelo" />
+
+                  <button
+                    type="button"
+                    onClick={() => acercar(-0.5)}
+                    disabled={escala <= ESCALA_MIN}
+                    aria-label="Alejar"
+                    className={`${botonHerramienta} text-[17px] leading-none font-semibold text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    onClick={ajustar}
+                    className="nums min-w-[3.5rem] rounded-full py-1 text-center text-[11.5px] font-medium text-ink-soft transition-colors duration-150 hover:bg-white hover:text-ink"
+                  >
+                    {Math.round(escala * 100)}%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => acercar(0.5)}
+                    disabled={escala >= ESCALA_MAX}
+                    aria-label="Acercar"
+                    className={`${botonHerramienta} text-[17px] leading-none font-semibold text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
+                  >
+                    +
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGiro((actual) => (actual + 90) % 360)}
+                    aria-label="Girar un cuarto de vuelta"
+                    className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink`}
+                  >
+                    <RefreshCw size={15} />
+                  </button>
+                </>
+              )}
+
+              <span className="ml-auto hidden shrink-0 pr-1 text-[11px] whitespace-nowrap text-ink-mute lg:block">
+                ← → cambian de documento · rueda o pellizco acercan · 0
+                encuadra
+              </span>
+            </div>
+
+            <div
+              ref={caja}
+              /* La rueda acerca y aleja. No se llama `preventDefault`
+                 a propósito: React engancha `wheel` en modo pasivo y
+                 avisaría por consola. No hace falta — acá dentro no
+                 hay nada que se desplace, y el scroll del documento
+                 está bloqueado mientras la ventana está abierta. */
+              onWheel={(evento) => {
+                if (pdf) return;
+                acercar(evento.deltaY < 0 ? PASO_ESCALA : 1 / PASO_ESCALA);
+              }}
+              className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-sunken"
+            >
+              {cargando && (
+                <p className="flex items-center gap-2 text-[13px] text-ink-soft">
+                  <Loader size={16} className="animate-spin" /> Abriendo
+                  documento…
+                </p>
+              )}
+
+              {!cargando && fallo && (
+                <div className="max-w-[320px] px-6 text-center">
+                  <AlertCircle
+                    size={22}
+                    aria-hidden
+                    className="mx-auto text-danger"
+                  />
+                  <p className="mt-2 text-[13px] font-semibold text-ink">
+                    No se pudo abrir el documento
+                  </p>
+                  <p className="mt-1 text-[12.5px] text-ink-soft">{fallo}</p>
+                </div>
+              )}
+
+              {!cargando && !fallo && url && documento && (
+                pdf ? (
+                  <iframe
+                    src={url}
+                    title={documentLabel[documento.tipo_documento]}
+                    className="h-full w-full bg-white"
+                  />
+                ) : (
+                  <img
+                    src={url}
+                    alt={documentLabel[documento.tipo_documento]}
+                    draggable={false}
+                    onPointerDown={tomar}
+                    onPointerMove={llevar}
+                    onPointerUp={soltar}
+                    onPointerCancel={soltar}
+                    style={{
+                      maxWidth: vertical ? medida.alto : medida.ancho,
+                      maxHeight: vertical ? medida.ancho : medida.alto,
+                      transform: `translate(${offset.x}px, ${offset.y}px) scale(${escala}) rotate(${giro}deg)`,
+                      cursor:
+                        escala > 1
+                          ? arrastrando
+                            ? "grabbing"
+                            : "grab"
+                          : "default",
+                      transition: arrastrando
+                        ? "none"
+                        : "transform 180ms cubic-bezier(0.23, 1, 0.32, 1)",
+                      /* Sin esto el navegador se queda con el gesto y
+                         desplaza o hace su propio zoom antes de que
+                         lleguen los eventos de puntero. */
+                      touchAction: "none",
+                    }}
+                    className="block origin-center object-contain select-none"
+                  />
+                )
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Aprobar o rechazar sin salir.
+
+            Antes había que cerrar el visor, buscar otra vez la tarjeta
+            en la lista y recién ahí decidir — con los documentos ya
+            fuera de la vista, que es justo cuando hay que acordarse de
+            lo que decían. La decisión va donde está la evidencia.
+
+            En pantalla angosta los botones se apilan y ocupan todo el
+            ancho: son la acción principal y no deben quedar como dos
+            píldoras chiquitas en una esquina. */}
+        <footer className="shrink-0 bg-surface px-4 py-3 sm:px-5">
+          {veredicto === null && rechazando && (
+            <div className="mb-3">
+              <label
+                htmlFor="visor-observacion"
+                className="rotulo text-ink-mute"
+              >
+                Qué debe corregir *
+              </label>
+              <textarea
+                id="visor-observacion"
+                autoFocus
+                rows={2}
+                maxLength={500}
+                value={observacion}
+                onChange={(evento) => setObservacion(evento.target.value)}
+                placeholder="Indicá qué documento está mal y por qué. Lo va a leer la persona."
+                className={`${input} mt-1.5 resize-y`}
+              />
+            </div>
+          )}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {rechazando && (
+              <button
+                type="button"
+                disabled={veredicto !== null}
+                onClick={() => {
+                  setRechazando(false);
+                  setObservacion("");
+                  setFallo(null);
+                }}
+                className={`${btnQuiet} w-full sm:w-auto`}
+              >
+                Cancelar
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={veredicto !== null}
+              onClick={() => {
+                if (rechazando) void resolver("rechazado");
+                else {
+                  setRechazando(true);
+                  setFallo(null);
+                }
+              }}
+              className={`${btnDanger} w-full disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto`}
+            >
+              {veredicto === "rechazado" ? (
+                <Loader size={15} className="animate-spin" />
+              ) : (
+                <X size={15} strokeWidth={2.2} />
+              )}
+              {rechazando ? "Confirmar rechazo" : "Rechazar"}
+            </button>
+
+            {!rechazando && (
+              <button
+                type="button"
+                disabled={veredicto !== null}
+                onClick={() => void resolver("aprobado")}
+                className={`${btnPrimary} w-full disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto`}
+              >
+                {veredicto === "aprobado" ? (
+                  <Loader size={15} className="animate-spin" />
+                ) : (
+                  <Check size={15} strokeWidth={2.2} />
+                )}
+                Aprobar perfil
+              </button>
+            )}
+          </div>
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
+};
+
 export const VerificacionesAdmin = () => {
   const [pendientes, setPendientes] = useState<AdminVerificationRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -375,9 +1039,11 @@ export const VerificacionesAdmin = () => {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [observation, setObservation] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
-  const [downloadLoading, setDownloadLoading] = useState(false);
-  const [preview, setPreview] = useState<{ document: VerificationDocument; url: string } | null>(null);
+  /* La ventana se abre para una PERSONA, con el documento que se tocó
+     como primero. Antes el estado guardaba un archivo suelto y su
+     enlace, y por eso no había forma de pasar al siguiente sin
+     cerrarla. */
+  const [revision, setRevision] = useState<{ solicitud: AdminVerificationRequest; inicial: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -393,6 +1059,20 @@ export const VerificacionesAdmin = () => {
 
   useEffect(() => { void load(); }, [load]);
 
+  /* La llamada desnuda, sin atrapar nada: la usan los dos caminos —la
+     tarjeta de la lista y el pie del visor— y cada uno enseña el error
+     donde corresponde. */
+  const revisar = async (
+    request: AdminVerificationRequest,
+    status: "aprobado" | "rechazado",
+    observacion?: string,
+  ) => {
+    await reviewVerificationRequest(request.id_usuario, status, observacion);
+    setPendientes((current) =>
+      current.filter((item) => item.id_usuario !== request.id_usuario),
+    );
+  };
+
   const review = async (request: AdminVerificationRequest, status: "aprobado" | "rechazado") => {
     if (status === "rechazado" && observation.trim().length < 5) {
       setError("Escribe una observación de al menos 5 caracteres para rechazar.");
@@ -401,39 +1081,13 @@ export const VerificacionesAdmin = () => {
     setProcessingId(request.id_usuario);
     setError(null);
     try {
-      await reviewVerificationRequest(request.id_usuario, status, status === "rechazado" ? observation.trim() : undefined);
-      setPendientes((current) => current.filter((item) => item.id_usuario !== request.id_usuario));
+      await revisar(request, status, status === "rechazado" ? observation.trim() : undefined);
       setRejectingId(null);
       setObservation("");
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
       setProcessingId(null);
-    }
-  };
-
-  const viewDocument = async (document: VerificationDocument) => {
-    setPreviewLoading(document.id_documento);
-    setError(null);
-    try {
-      setPreview({ document, url: await getVerificationDocumentUrl(document) });
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setPreviewLoading(null);
-    }
-  };
-
-  const downloadDocument = async () => {
-    if (!preview) return;
-    setDownloadLoading(true);
-    setError(null);
-    try {
-      await downloadVerificationDocument(preview.document);
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setDownloadLoading(false);
     }
   };
 
@@ -452,7 +1106,7 @@ export const VerificacionesAdmin = () => {
       {pendientes.map((v) => (
         <article key={v.id_usuario} className="anim-rise bg-surface px-6 py-5">
           <div className="flex flex-wrap items-start gap-5">
-            {v.foto_perfil ? <img src={v.foto_perfil} alt={`Foto de ${v.nombre}`} className="h-16 w-16 flex-shrink-0 bg-sunken object-cover" /> : <Avatar nombre={v.nombre} size={64} />}
+            {v.foto_perfil ? <img src={v.foto_perfil} alt={`Foto de ${v.nombre}`} className="h-16 w-16 flex-shrink-0 rounded-full bg-sunken object-cover" /> : <Avatar nombre={v.nombre} size={64} />}
 
             <div className="min-w-[200px] flex-1">
               <h3 className="text-[15px] font-semibold text-ink">{v.nombre}</h3>
@@ -461,21 +1115,32 @@ export const VerificacionesAdmin = () => {
               </p>
               <p className="mt-1 text-[11.5px] text-ink-mute">{v.roles.map((role) => verificationRoleLabel[role]).join(" + ") || "Perfil de paseador solicitado"} · enviado {verificationDate.format(new Date(v.fecha_solicitud))}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {v.documentos.map((document) => (
-                  <button key={document.id_documento} type="button" onClick={() => void viewDocument(document)} disabled={previewLoading !== null} className={`${btnSecondary} disabled:cursor-wait disabled:opacity-60`}>
-                    {previewLoading === document.id_documento ? <Loader size={14} className="animate-spin" /> : <Eye size={14} />} Ver {documentLabel[document.tipo_documento]}
-                  </button>
-                ))}
+                {v.documentos.length === 0 ? (
+                  <p className="text-[12.5px] text-ink-mute">Sin documentos adjuntos.</p>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => setRevision({ solicitud: v, inicial: v.documentos[0].id_documento })} className={btnPrimary}>
+                      <Eye size={14} /> Revisar {v.documentos.length} documento{v.documentos.length === 1 ? "" : "s"}
+                    </button>
+                    {/* Cada documento sigue teniendo su propia entrada:
+                        abren la misma ventana, ya puesta en ese. */}
+                    {v.documentos.map((documento) => (
+                      <button key={documento.id_documento} type="button" onClick={() => setRevision({ solicitud: v, inicial: documento.id_documento })} className={btnSecondary}>
+                        {documentLabel[documento.tipo_documento]}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
               {rejectingId === v.id_usuario && (
                 <div className="mt-4">
-                  <label htmlFor={`observation-${v.id_usuario}`} className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-mute">Observación para el usuario *</label>
+                  <label htmlFor={`observation-${v.id_usuario}`} className="rotulo text-ink-mute">Observación para el usuario *</label>
                   <textarea id={`observation-${v.id_usuario}`} value={observation} onChange={(event) => setObservation(event.target.value)} rows={3} maxLength={500} className={`${input} mt-2 resize-y`} placeholder="Indica qué documento debe corregir y por qué." />
                 </div>
               )}
             </div>
 
-            <div className="flex flex-wrap gap-px">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => void review(v, "aprobado")}
@@ -509,31 +1174,17 @@ export const VerificacionesAdmin = () => {
         />
       )}
 
-      {preview && (
-        <div className="fixed inset-0 z-[100] flex overflow-y-auto bg-[#0b2331]/75 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="document-preview-title">
-          <button type="button" aria-label="Cerrar vista previa" onClick={() => setPreview(null)} className="absolute inset-0" />
-          <section className="relative m-auto flex h-[calc(100dvh-1.5rem)] max-h-[900px] w-full max-w-[1000px] min-w-0 flex-col overflow-hidden bg-surface sm:h-[90dvh]">
-            <header className="flex flex-wrap items-center gap-2 bg-rail px-4 py-3 sm:flex-nowrap sm:px-5 sm:py-4">
-              <div className="min-w-0 flex-1">
-                <h3 id="document-preview-title" className="truncate text-[15px] font-semibold text-white">{documentLabel[preview.document.tipo_documento]}</h3>
-                <p className="truncate text-[11.5px] text-rail-text">{preview.document.nombre_archivo}</p>
-              </div>
-              <button type="button" onClick={() => void downloadDocument()} disabled={downloadLoading} className={`${btnSecondary} flex-shrink-0 disabled:cursor-wait disabled:opacity-60`}>
-                {downloadLoading ? <Loader size={14} className="animate-spin" /> : <Download size={14} />}
-                <span className="hidden sm:inline">Descargar</span>
-              </button>
-              <button type="button" onClick={() => setPreview(null)} aria-label="Cerrar vista previa" className="p-2 text-rail-text hover:bg-rail-hover hover:text-white"><X size={19} /></button>
-            </header>
-            <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-auto bg-sunken p-2 sm:p-4">
-              {/\.pdf$/i.test(preview.document.nombre_archivo) ? (
-                <iframe src={preview.url} title={documentLabel[preview.document.tipo_documento]} className="h-full min-h-[480px] w-full min-w-0 bg-white" />
-              ) : (
-                <img src={preview.url} alt={documentLabel[preview.document.tipo_documento]} className="block max-h-full max-w-full object-contain" />
-              )}
-            </div>
-          </section>
-        </div>
+      {revision && (
+        <VisorDocumentos
+          solicitud={revision.solicitud}
+          inicial={revision.inicial}
+          onClose={() => setRevision(null)}
+          onRevisar={(estado, observacion) =>
+            revisar(revision.solicitud, estado, observacion)
+          }
+        />
       )}
+
     </Page>
   );
 };
@@ -578,16 +1229,16 @@ export const UsuariosAdmin = () => {
   return (
     <Page>
       <PageHeader title="Usuarios" subtitle="Directorio general de las personas y negocios registrados." action={<button type="button" onClick={exportar} className={btnSecondary}><Download size={14} strokeWidth={1.9} /> Exportar vista</button>} />
-      <div className="grid gap-px bg-canvas sm:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas públicas" />
         <Stat etiqueta="Cuentas activas" valor={String(activos)} nota={`${usuarios.length ? Math.round((activos / usuarios.length) * 100) : 0}% del total`} />
         <Stat etiqueta="Dueños de mascotas" valor={String(duenos)} nota="Segmento principal" />
       </div>
       <Section title="Directorio" aside={<span className="text-[12px] text-ink-mute">{visibles.length} resultados</span>} bodyClass="px-4 py-4 sm:px-6">
         <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_160px_160px]">
-          <label className="relative block"><Search size={15} className="absolute top-3 left-3 text-ink-mute" aria-hidden /><span className="sr-only">Buscar usuarios</span><input value={busqueda} onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }} className={`${input} pl-9`} placeholder="Buscar por nombre, teléfono o zona" /></label>
-          <select value={filtroRol} onChange={(event) => cambiarFiltroRol(event.target.value as typeof filtroRol)} className={input} aria-label="Filtrar por rol"><option value="todos">Todos los roles</option><option value="dueno">Dueños</option><option value="paseador">Paseadores</option><option value="negocio">Negocios</option></select>
-          <select value={filtroEstado} onChange={(event) => cambiarFiltroEstado(event.target.value as typeof filtroEstado)} className={input} aria-label="Filtrar por estado"><option value="todos">Todos los estados</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option></select>
+          <label className="relative block"><Search size={15} className="absolute top-3 left-3 text-ink-mute" aria-hidden /><span className="sr-only">Buscar usuarios</span><input value={busqueda} onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }} className={`${input} pl-10`} placeholder="Buscar por nombre, teléfono o zona" /></label>
+          <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label="Filtrar por rol" options={[{ value: "todos", label: "Todos los roles" }, { value: "dueno", label: "Dueños" }, { value: "paseador", label: "Paseadores" }, { value: "negocio", label: "Negocios" }]} />
+          <Combo value={filtroEstado} onChange={(v) => cambiarFiltroEstado(v as typeof filtroEstado)} aria-label="Filtrar por estado" options={[{ value: "todos", label: "Todos los estados" }, { value: "activos", label: "Activos" }, { value: "inactivos", label: "Inactivos" }]} />
         </div>
       </Section>
       {(error || mensaje) && <div aria-live="polite" className={`px-6 py-3 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>{error ?? mensaje}</div>}
@@ -600,7 +1251,7 @@ export const UsuariosAdmin = () => {
       {!loading && visibles.length > PAGE_SIZE && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-surface px-6 py-4">
           <span className="text-[12px] text-ink-mute">Página {paginaActual} de {totalPaginas}</span>
-          <div className="flex gap-px">
+          <div className="flex gap-2">
             <button type="button" disabled={paginaActual === 1} onClick={() => setPagina((actual) => Math.max(1, actual - 1))} className={btnSecondary}>Anterior</button>
             <button type="button" disabled={paginaActual === totalPaginas} onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))} className={btnSecondary}>Siguiente</button>
           </div>

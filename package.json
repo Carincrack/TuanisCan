@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed": "node scripts/configure-admin.mjs"
   },
   "dependencies": {
+    "@animateicons/react": "^0.4.3",
     "@supabase/supabase-js": "^2.112.3",
     "@tailwindcss/vite": "^4.1.13",
     "@tanstack/react-router": "^1.131.44",
@@ -36,6 +38,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "supabase": "^2.116.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2"

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star } from "lucide-react";
+import { Star } from "../lib/iconos";
 import {
   Avatar,
   EmptyState,

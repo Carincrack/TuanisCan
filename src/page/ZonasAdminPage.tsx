@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Plus, Trash2 } from "lucide-react";
-import {
-  createZona,
-  deleteZona,
-  getZonas,
-} from "../services/auth.service";
+import { MapPin, Plus, Trash2, X } from "../lib/iconos";
+import { createZona, deleteZona, getZonas } from "../services/auth.service";
 import type { Zona } from "../types/auth.types";
 import {
   EmptyState,
@@ -16,18 +12,9 @@ import {
   btnPrimary,
   input,
 } from "../components/ui";
+import { Combo } from "../components/Combo";
+import { distritoDe, normalizar } from "../lib/zonas";
 
-/*
- * Catálogo de provincias y cantones de Costa Rica.
- *
- * La provincia y el cantón no se escriben manualmente.
- * El administrador únicamente selecciona ambos valores.
- *
- * Esto evita inconsistencias como:
- * - San Jose
- * - San José
- * - san jose
- */
 const ubicacionesCostaRica: Record<string, string[]> = {
   "San José": [
     "San José",
@@ -51,7 +38,6 @@ const ubicacionesCostaRica: Record<string, string[]> = {
     "Pérez Zeledón",
     "León Cortés Castro",
   ],
-
   Alajuela: [
     "Alajuela",
     "San Ramón",
@@ -70,7 +56,6 @@ const ubicacionesCostaRica: Record<string, string[]> = {
     "Guatuso",
     "Río Cuarto",
   ],
-
   Cartago: [
     "Cartago",
     "Paraíso",
@@ -81,7 +66,6 @@ const ubicacionesCostaRica: Record<string, string[]> = {
     "Oreamuno",
     "El Guarco",
   ],
-
   Heredia: [
     "Heredia",
     "Barva",
@@ -94,7 +78,6 @@ const ubicacionesCostaRica: Record<string, string[]> = {
     "San Pablo",
     "Sarapiquí",
   ],
-
   Guanacaste: [
     "Liberia",
     "Nicoya",
@@ -108,7 +91,6 @@ const ubicacionesCostaRica: Record<string, string[]> = {
     "La Cruz",
     "Hojancha",
   ],
-
   Puntarenas: [
     "Puntarenas",
     "Esparza",
@@ -124,7 +106,6 @@ const ubicacionesCostaRica: Record<string, string[]> = {
     "Monteverde",
     "Puerto Jiménez",
   ],
-
   Limón: [
     "Limón",
     "Pococí",
@@ -137,207 +118,212 @@ const ubicacionesCostaRica: Record<string, string[]> = {
 
 const provinciasBase = Object.keys(ubicacionesCostaRica);
 
-const normalizar = (valor: string) =>
-  valor.trim().toLocaleLowerCase("es");
 
 const ZonasAdminPage = () => {
   const [zonas, setZonas] = useState<Zona[]>([]);
-
-  /*
-   * Único dato que escribe el administrador.
-   *
-   * Ejemplos:
-   * - Tamarindo
-   * - San Pedro
-   * - Guiones
-   * - Playa Pelada
-   */
   const [nombre, setNombre] = useState("");
-
-  /*
-   * Provincia seleccionada.
-   */
-  const [provincia, setProvincia] = useState(provinciasBase[0]);
-
-  /*
-   * Al iniciar seleccionamos automáticamente
-   * el primer cantón de la primera provincia.
-   */
-  const [canton, setCanton] = useState(
-    ubicacionesCostaRica[provinciasBase[0]][0],
-  );
-
+  const [provincia, setProvincia] = useState("");
+  const [canton, setCanton] = useState("");
+  const [distrito, setDistrito] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [provinciaFiltro, setProvinciaFiltro] = useState("Todas");
-
+  const [cantonFiltro, setCantonFiltro] = useState("Todos");
+  const [distritoFiltro, setDistritoFiltro] = useState("Todos");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
+  const [modalAbierto, setModalAbierto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-
-  /*
-   * Estado de paginación.
-   */
   const [paginaActual, setPaginaActual] = useState(1);
 
-  /*
-   * Cantidad de filas visibles por página.
-   */
   const registrosPorPagina = 10;
+  const cantonesDisponibles = ubicacionesCostaRica[provincia] ?? [];
 
-  /*
-   * Cantones disponibles según la provincia seleccionada.
-   */
-  const cantonesDisponibles =
-    ubicacionesCostaRica[provincia] ?? [];
+  const distritosDisponibles = useMemo(() => {
+    if (!provincia || !canton) return [];
 
-  /*
-   * Carga todas las zonas desde el backend.
-   */
+    return zonas
+      .filter(
+        (zona) =>
+          normalizar(zona.provincia) === normalizar(provincia) &&
+          normalizar(zona.canton) === normalizar(canton),
+      )
+      .map(distritoDe)
+      .filter((item, index, items) => item && items.indexOf(item) === index)
+      .sort((a, b) => a.localeCompare(b, "es"));
+  }, [zonas, provincia, canton]);
+
   const cargar = async () => {
     const data = await getZonas();
     setZonas(data);
   };
 
-  /*
-   * Carga inicial.
-   */
   useEffect(() => {
     cargar()
-      .catch(() =>
-        setError("No se pudo cargar el catálogo de zonas"),
-      )
+      .catch(() => setError("No se pudo cargar el catálogo de zonas"))
       .finally(() => setLoading(false));
   }, []);
 
-  /*
-   * Cuando cambia la provincia:
-   *
-   * 1. actualizamos la provincia,
-   * 2. buscamos los cantones correspondientes,
-   * 3. seleccionamos automáticamente el primero.
-   */
   const cambiarProvincia = (nuevaProvincia: string) => {
     setProvincia(nuevaProvincia);
-
-    const cantones =
-      ubicacionesCostaRica[nuevaProvincia] ?? [];
-
-    setCanton(cantones[0] ?? "");
+    setCanton("");
+    setDistrito("");
   };
 
-  /*
-   * Provincias disponibles para el filtro de búsqueda.
-   */
-  const provinciasFiltro = useMemo(
-    () => ["Todas", ...provinciasBase],
-    [],
-  );
+  const cambiarCanton = (nuevoCanton: string) => {
+    setCanton(nuevoCanton);
+    setDistrito("");
+  };
 
-  /*
-   * Primero aplicamos filtros.
-   *
-   * La paginación se hace después de filtrar.
-   */
+  const limpiarFormulario = () => {
+    setNombre("");
+    setProvincia("");
+    setCanton("");
+    setDistrito("");
+  };
+
+  const abrirModalAgregar = () => {
+    setError(null);
+    setMessage(null);
+    setModalAbierto(true);
+  };
+
+  const cerrarModalAgregar = () => {
+    if (saving) return;
+
+    setModalAbierto(false);
+    setError(null);
+    limpiarFormulario();
+  };
+
+  const provinciasFiltro = useMemo(() => {
+    const provincias = zonas
+      .map((zona) => zona.provincia)
+      .filter((item, index, items) => item && items.indexOf(item) === index)
+      /* Con `localeCompare` en español: el `sort` por defecto ordena
+         por código de carácter y manda "Ávila" o "Ñañez" al final de
+         la lista, detrás de la Z. */
+      .sort((a, b) => a.localeCompare(b, "es"));
+
+    return ["Todas", ...provincias];
+  }, [zonas]);
+
+  /* El catálogo entero vive en la tabla: una fila por distrito, con
+     su cantón y su provincia repetidos. Así que los tres filtros se
+     encadenan, y cada uno solo se abre cuando el de arriba ya eligió.
+
+     Sin encadenar, el desplegable de cantón listaba los 82 del país y
+     el de distrito los cientos que hay, sin decir a cuál provincia
+     pertenece cada uno. Eso no es filtrar: es la misma tabla otra
+     vez, en vertical y sin contexto. Se busca una zona bajando por la
+     jerarquía —provincia, cantón, distrito—, que es como está armada
+     la división territorial y como la tiene en la cabeza quien
+     busca. */
+  const cantonesFiltro = useMemo(() => {
+    if (provinciaFiltro === "Todas") return ["Todos"];
+
+    const cantones = zonas
+      .filter((zona) => normalizar(zona.provincia) === normalizar(provinciaFiltro))
+      .map((zona) => zona.canton)
+      .filter((item, index, items) => item && items.indexOf(item) === index)
+      .sort((a, b) => a.localeCompare(b, "es"));
+
+    return ["Todos", ...cantones];
+  }, [zonas, provinciaFiltro]);
+
+  const distritosFiltro = useMemo(() => {
+    if (provinciaFiltro === "Todas" || cantonFiltro === "Todos") return ["Todos"];
+
+    const distritos = zonas
+      .filter(
+        (zona) =>
+          normalizar(zona.provincia) === normalizar(provinciaFiltro) &&
+          normalizar(zona.canton) === normalizar(cantonFiltro),
+      )
+      .map(distritoDe)
+      .filter((item, index, items) => item && items.indexOf(item) === index)
+      .sort((a, b) => a.localeCompare(b, "es"));
+
+    return ["Todos", ...distritos];
+  }, [zonas, provinciaFiltro, cantonFiltro]);
+
   const visibles = zonas.filter((zona) => {
     const coincideProvincia =
       provinciaFiltro === "Todas" ||
-      zona.provincia === provinciaFiltro;
-
+      normalizar(zona.provincia) === normalizar(provinciaFiltro);
+    const coincideCanton =
+      cantonFiltro === "Todos" ||
+      normalizar(zona.canton) === normalizar(cantonFiltro);
+    const coincideDistrito =
+      distritoFiltro === "Todos" ||
+      normalizar(distritoDe(zona)) === normalizar(distritoFiltro);
     const contenidoZona = normalizar(
-      `${zona.nombre} ${zona.canton} ${zona.provincia}`,
+      `${zona.nombre} ${zona.canton} ${zona.provincia} ${zona.distrito || ""}`,
     );
 
-    const coincideBusqueda = contenidoZona.includes(
-      normalizar(busqueda),
+    return (
+      coincideProvincia &&
+      coincideCanton &&
+      coincideDistrito &&
+      contenidoZona.includes(normalizar(busqueda))
     );
-
-    return coincideProvincia && coincideBusqueda;
   });
 
-  /*
-   * Reiniciamos a página 1 cuando cambia:
-   * - la búsqueda,
-   * - el filtro de provincia.
-   *
-   * Esto evita quedar, por ejemplo, en página 5 cuando
-   * el filtro solamente devuelve 1 página.
-   */
   useEffect(() => {
     setPaginaActual(1);
-  }, [busqueda, provinciaFiltro]);
+  }, [busqueda, provinciaFiltro, cantonFiltro, distritoFiltro]);
 
-  /*
-   * Cálculos de paginación.
-   */
-  const totalPaginas = Math.ceil(
-    visibles.length / registrosPorPagina,
-  );
+  const cambiarProvinciaFiltro = (nuevaProvincia: string) => {
+    setProvinciaFiltro(nuevaProvincia);
+    setCantonFiltro("Todos");
+    setDistritoFiltro("Todos");
+  };
 
-  const inicio =
-    (paginaActual - 1) * registrosPorPagina;
+  const cambiarCantonFiltro = (nuevoCanton: string) => {
+    setCantonFiltro(nuevoCanton);
+    setDistritoFiltro("Todos");
+  };
 
-  const fin =
-    inicio + registrosPorPagina;
+  const totalPaginas = Math.ceil(visibles.length / registrosPorPagina);
+  const inicio = (paginaActual - 1) * registrosPorPagina;
+  const fin = inicio + registrosPorPagina;
+  const zonasPaginadas = visibles.slice(inicio, fin);
 
-  /*
-   * Solamente las zonas que corresponden
-   * a la página actualmente seleccionada.
-   */
-  const zonasPaginadas = visibles.slice(
-    inicio,
-    fin,
-  );
-
-  /*
-   * Agrega una nueva zona.
-   */
-  const agregar = async (
-    event: React.FormEvent,
-  ) => {
+  const agregar = async (event: React.FormEvent) => {
     event.preventDefault();
-
     setError(null);
     setMessage(null);
 
-    /*
-     * Provincia y cantón vienen de los select,
-     * por lo que solamente necesitamos validar
-     * realmente el nombre ingresado.
-     */
     if (!nombre.trim()) {
       setError("Ingresa el nombre de la zona");
       return;
     }
 
-    /*
-     * Permitimos varias zonas dentro del mismo cantón.
-     *
-     * Por ejemplo:
-     *
-     * Guanacaste
-     * └── Santa Cruz
-     *     ├── Tamarindo
-     *     ├── Huacas
-     *     └── Brasilito
-     *
-     * Por eso verificamos:
-     *
-     * nombre + cantón + provincia
-     */
+    if (!provincia) {
+      setError("Selecciona la provincia");
+      return;
+    }
+
+    if (!canton) {
+      setError("Selecciona el cantón");
+      return;
+    }
+
+    if (!distrito) {
+      setError("Selecciona el distrito");
+      return;
+    }
+
     const existe = zonas.some(
       (zona) =>
         normalizar(zona.nombre) === normalizar(nombre) &&
+        normalizar(zona.distrito || "") === normalizar(distrito) &&
         normalizar(zona.canton) === normalizar(canton) &&
-        normalizar(zona.provincia) ===
-          normalizar(provincia),
+        normalizar(zona.provincia) === normalizar(provincia),
     );
 
     if (existe) {
-      setError(
-        "Esa zona ya está registrada en ese cantón",
-      );
+      setError("Esa zona ya está registrada en ese distrito");
       return;
     }
 
@@ -348,235 +334,56 @@ const ZonasAdminPage = () => {
         nombre: nombre.trim(),
         canton,
         provincia,
+        distrito,
       });
 
       await cargar();
-
-      /*
-       * Solamente limpiamos el nombre.
-       *
-       * Provincia y cantón se mantienen para que sea
-       * cómodo agregar varias zonas del mismo lugar.
-       */
-      setNombre("");
-
-      setMessage(
-        "Zona agregada correctamente al catálogo",
-      );
+      limpiarFormulario();
+      setModalAbierto(false);
+      setMessage("Zona agregada correctamente al catálogo");
     } catch {
-      setError(
-        "No se pudo agregar la zona. Revisa que no exista un duplicado.",
-      );
+      setError("No se pudo agregar la zona. Revisa que no exista un duplicado.");
     } finally {
       setSaving(false);
     }
   };
 
-  /*
-   * Elimina una zona.
-   */
   const eliminar = async (zona: Zona) => {
-    const confirmar = window.confirm(
-      `¿Eliminar ${zona.nombre}, ${zona.canton}?`,
-    );
+    const confirmar = window.confirm(`Eliminar ${zona.nombre}, ${zona.canton}?`);
 
-    if (!confirmar) {
-      return;
-    }
+    if (!confirmar) return;
 
     setError(null);
     setMessage(null);
 
     try {
       await deleteZona(zona.id_zona);
-
       await cargar();
-
       setMessage("Zona eliminada correctamente");
     } catch {
-      setError(
-        "No se puede eliminar porque la zona está en uso",
-      );
+      setError("No se puede eliminar porque la zona está en uso");
     }
   };
 
   return (
     <Page>
-      {/* ENCABEZADO */}
       <PageHeader
         title="Zonas"
         subtitle="Catálogo de zonas disponibles para perfiles y servicios."
         action={
-          <span className="flex items-center gap-2 bg-accent-wash px-4 py-2.5 text-[13px] font-semibold text-accent-dark">
-            <MapPin size={15} />
-            {zonas.length} zonas
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-2 bg-accent-wash px-4 py-2.5 text-[13px] font-semibold text-accent-dark">
+              <MapPin size={15} />
+              {zonas.length} zonas
+            </span>
+            <button type="button" onClick={abrirModalAgregar} className={btnPrimary}>
+              <Plus size={15} />
+              Agregar zona
+            </button>
+          </div>
         }
       />
 
-      {/* AGREGAR ZONA */}
-      <Section
-        title="Agregar zona"
-        bodyClass="px-4 pb-6 sm:px-6"
-      >
-        <form
-          onSubmit={agregar}
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {/* PROVINCIA */}
-          <div>
-            <label
-              htmlFor="zona-provincia"
-              className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"
-            >
-              Provincia
-            </label>
-
-            <select
-              id="zona-provincia"
-              value={provincia}
-              onChange={(event) =>
-                cambiarProvincia(event.target.value)
-              }
-              className={`${input} mt-2`}
-              required
-            >
-              {provinciasBase.map((item) => (
-                <option
-                  key={item}
-                  value={item}
-                >
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* CANTÓN */}
-          <div>
-            <label
-              htmlFor="zona-canton"
-              className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"
-            >
-              Cantón
-            </label>
-
-            <select
-              id="zona-canton"
-              value={canton}
-              onChange={(event) =>
-                setCanton(event.target.value)
-              }
-              className={`${input} mt-2`}
-              required
-            >
-              {cantonesDisponibles.map((item) => (
-                <option
-                  key={item}
-                  value={item}
-                >
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* NOMBRE */}
-          <div>
-            <label
-              htmlFor="zona-nombre"
-              className="text-[11px] font-semibold tracking-[0.08em] text-ink-mute uppercase"
-            >
-              Nombre de la zona
-            </label>
-
-            <input
-              id="zona-nombre"
-              value={nombre}
-              onChange={(event) =>
-                setNombre(event.target.value)
-              }
-              className={`${input} mt-2`}
-              placeholder="Ej. Tamarindo"
-              maxLength={100}
-              required
-            />
-          </div>
-
-          {/* BOTÓN */}
-          <button
-            type="submit"
-            disabled={saving}
-            className={`${btnPrimary} self-end`}
-          >
-            <Plus size={15} />
-
-            {saving
-              ? "Agregando..."
-              : "Agregar zona"}
-          </button>
-        </form>
-
-        <p className="mt-3 text-[12px] text-ink-mute">
-          Selecciona la provincia y el cantón.
-          Solamente debes escribir el nombre de la zona.
-        </p>
-
-        <div
-          aria-live="polite"
-          className="mt-3 min-h-5 text-[13px]"
-        >
-          {error && (
-            <p className="text-danger">
-              {error}
-            </p>
-          )}
-
-          {message && (
-            <p className="text-ok">
-              {message}
-            </p>
-          )}
-        </div>
-      </Section>
-
-      {/* BUSCAR Y FILTRAR */}
-      <Section
-        title="Buscar zonas"
-        bodyClass="px-4 py-4 sm:px-6"
-      >
-        <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_220px]">
-          <input
-            value={busqueda}
-            onChange={(event) =>
-              setBusqueda(event.target.value)
-            }
-            className={input}
-            placeholder="Buscar zona, cantón o provincia"
-            aria-label="Buscar zonas"
-          />
-
-          <select
-            value={provinciaFiltro}
-            onChange={(event) =>
-              setProvinciaFiltro(event.target.value)
-            }
-            className={input}
-            aria-label="Filtrar por provincia"
-          >
-            {provinciasFiltro.map((item) => (
-              <option
-                key={item}
-                value={item}
-              >
-                {item}
-              </option>
-            ))}
-          </select>
-        </div>
-      </Section>
-
-      {/* TABLA */}
       <Section
         title="Zonas registradas"
         aside={
@@ -584,12 +391,65 @@ const ZonasAdminPage = () => {
             {visibles.length} resultados
           </span>
         }
-        bodyClass=""
+        bodyClass="px-4 py-4 sm:px-6"
       >
+        {/* Las tres columnas de filtro eran de 180 px fijos y ahí no
+            entra "Todas las provincias" ni "Vázquez de Coronado" a
+            13.5 px: sobra el texto y salían recortadas siempre, aun
+            con sitio de sobra al lado. Ahora crecen con lo que haya
+            (`1fr`) y no bajan de 190. En tableta van de dos en dos
+            antes que apretarse a cuatro. */}
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(230px,1.15fr)_repeat(3,minmax(190px,1fr))]">
+          <input
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+            className={input}
+            placeholder="Buscar zona, cantón o provincia"
+            aria-label="Buscar zonas"
+          />
+
+          <Combo
+            value={provinciaFiltro}
+            onChange={cambiarProvinciaFiltro}
+            aria-label="Filtrar por provincia"
+            options={provinciasFiltro.map((item) => ({
+              value: item,
+              label: item === "Todas" ? "Todas las provincias" : item,
+            }))}
+          />
+
+          <Combo
+            value={cantonFiltro}
+            onChange={cambiarCantonFiltro}
+            aria-label="Filtrar por cantón"
+            disabled={provinciaFiltro === "Todas"}
+            textoInactivo="Elegí una provincia"
+            options={cantonesFiltro.map((item) => ({
+              value: item,
+              label: item === "Todos" ? "Todos los cantones" : item,
+            }))}
+          />
+
+          <Combo
+            value={distritoFiltro}
+            onChange={setDistritoFiltro}
+            aria-label="Filtrar por distrito"
+            disabled={cantonFiltro === "Todos"}
+            textoInactivo="Elegí un cantón"
+            options={distritosFiltro.map((item) => ({
+              value: item,
+              label: item === "Todos" ? "Todos los distritos" : item,
+            }))}
+          />
+        </div>
+
+        <div aria-live="polite" className="min-h-5 py-3 text-[13px]">
+          {message && <p className="text-ok">{message}</p>}
+          {error && !modalAbierto && <p className="text-danger">{error}</p>}
+        </div>
+
         {loading ? (
-          <p className="px-6 py-8 text-[13px] text-ink-soft">
-            Cargando zonas...
-          </p>
+          <p className="py-8 text-[13px] text-ink-soft">Cargando zonas...</p>
         ) : visibles.length === 0 ? (
           <EmptyState
             title="No hay coincidencias"
@@ -601,34 +461,46 @@ const ZonasAdminPage = () => {
               caption="Zonas registradas"
               columnas={[
                 { label: "Zona" },
-                { label: "Cantón" },
                 { label: "Provincia" },
-                {
-                  label: "",
-                  align: "right",
-                },
+                { label: "Cantón" },
+                { label: "Distrito" },
+                { label: "", align: "right" },
               ]}
             >
               {zonasPaginadas.map((zona) => (
                 <tr key={zona.id_zona}>
-                  <td className="px-6 py-3.5 text-[13px] font-medium text-ink">
-                    {zona.nombre}
+                  <td className="px-6 py-4">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center bg-accent-wash text-accent-dark">
+                        <MapPin size={15} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-[13.5px] font-semibold text-ink">
+                          {zona.nombre}
+                        </p>
+                        <p className="mt-0.5 text-[12px] text-ink-mute">
+                          {distritoDe(zona)}, {zona.canton}
+                        </p>
+                      </div>
+                    </div>
                   </td>
 
-                  <td className="px-6 py-3.5 text-[13px] text-ink-soft">
-                    {zona.canton}
-                  </td>
-
-                  <td className="px-6 py-3.5 text-[13px] text-ink-soft">
+                  <td className="px-6 py-4 text-[13px] font-medium text-ink-soft">
                     {zona.provincia}
                   </td>
 
-                  <td className="px-6 py-3 text-right">
+                  <td className="px-6 py-4 text-[13px] text-ink-soft">
+                    {zona.canton}
+                  </td>
+
+                  <td className="px-6 py-4 text-[13px] text-ink-soft">
+                    {distritoDe(zona)}
+                  </td>
+
+                  <td className="px-6 py-4 text-right">
                     <button
                       type="button"
-                      onClick={() =>
-                        eliminar(zona)
-                      }
+                      onClick={() => eliminar(zona)}
                       className={btnDanger}
                       aria-label={`Eliminar ${zona.nombre}`}
                     >
@@ -640,33 +512,18 @@ const ZonasAdminPage = () => {
               ))}
             </Table>
 
-            {/* PAGINACIÓN */}
             <div className="flex flex-col gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-              {/* INFORMACIÓN */}
               <p className="text-[12px] text-ink-mute">
-                Mostrando{" "}
-                {inicio + 1}
-                {" - "}
-                {Math.min(
-                  fin,
-                  visibles.length,
-                )}{" "}
-                de {visibles.length} zonas
+                Mostrando {inicio + 1} - {Math.min(fin, visibles.length)} de{" "}
+                {visibles.length} zonas
               </p>
 
-              {/* CONTROLES */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={paginaActual === 1}
                   onClick={() =>
-                    setPaginaActual(
-                      (pagina) =>
-                        Math.max(
-                          1,
-                          pagina - 1,
-                        ),
-                    )
+                    setPaginaActual((pagina) => Math.max(1, pagina - 1))
                   }
                   className={`${input} w-auto px-3 disabled:cursor-not-allowed disabled:opacity-50`}
                 >
@@ -674,27 +531,15 @@ const ZonasAdminPage = () => {
                 </button>
 
                 <span className="px-2 text-[13px] text-ink-soft">
-                  Página {paginaActual} de{" "}
-                  {Math.max(
-                    totalPaginas,
-                    1,
-                  )}
+                  Página {paginaActual} de {Math.max(totalPaginas, 1)}
                 </span>
 
                 <button
                   type="button"
-                  disabled={
-                    paginaActual >=
-                      totalPaginas ||
-                    totalPaginas === 0
-                  }
+                  disabled={paginaActual >= totalPaginas || totalPaginas === 0}
                   onClick={() =>
-                    setPaginaActual(
-                      (pagina) =>
-                        Math.min(
-                          totalPaginas,
-                          pagina + 1,
-                        ),
+                    setPaginaActual((pagina) =>
+                      Math.min(totalPaginas, pagina + 1),
                     )
                   }
                   className={`${input} w-auto px-3 disabled:cursor-not-allowed disabled:opacity-50`}
@@ -706,6 +551,146 @@ const ZonasAdminPage = () => {
           </>
         )}
       </Section>
+
+      {modalAbierto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) cerrarModalAgregar();
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-zona-title"
+            className="w-full max-w-2xl bg-surface"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+              <div>
+                <h3
+                  id="modal-zona-title"
+                  className="text-[17px] font-semibold text-ink"
+                >
+                  Agregar zona
+                </h3>
+                <p className="mt-1 text-[13px] text-ink-soft">
+                  Selecciona la ubicación y escribe el nombre visible.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={cerrarModalAgregar}
+                className="inline-flex h-9 w-9 items-center justify-center bg-sunken text-ink-soft hover:bg-neutral-wash hover:text-ink"
+                aria-label="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={agregar} className="grid gap-4 px-6 py-5 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="zona-provincia"
+                  className="rotulo text-ink-mute"
+                >
+                  Provincia
+                </label>
+                <Combo
+                  id="zona-provincia"
+                  required
+                  value={provincia}
+                  onChange={cambiarProvincia}
+                  placeholder="Seleccionar…"
+                  className="mt-2"
+                  options={provinciasBase.map((item) => ({
+                    value: item,
+                    label: item,
+                  }))}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="zona-canton"
+                  className="rotulo text-ink-mute"
+                >
+                  Cantón
+                </label>
+                <Combo
+                  id="zona-canton"
+                  required
+                  value={canton}
+                  onChange={cambiarCanton}
+                  placeholder="Seleccionar…"
+                  className="mt-2"
+                  options={cantonesDisponibles.map((item) => ({
+                    value: item,
+                    label: item,
+                  }))}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="zona-distrito"
+                  className="rotulo text-ink-mute"
+                >
+                  Distrito
+                </label>
+                <Combo
+                  id="zona-distrito"
+                  required
+                  value={distrito}
+                  onChange={setDistrito}
+                  placeholder="Seleccionar…"
+                  className="mt-2"
+                  options={distritosDisponibles.map((item) => ({
+                    value: item,
+                    label: item,
+                  }))}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="zona-nombre"
+                  className="rotulo text-ink-mute"
+                >
+                  Nombre de la zona
+                </label>
+                <input
+                  id="zona-nombre"
+                  value={nombre}
+                  onChange={(event) => setNombre(event.target.value)}
+                  className={`${input} mt-2`}
+                  placeholder="Ej. Tamarindo"
+                  maxLength={100}
+                  required
+                />
+              </div>
+
+              <div aria-live="polite" className="min-h-5 text-[13px] sm:col-span-2">
+                {error && <p className="text-danger">{error}</p>}
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={cerrarModalAgregar}
+                  className="inline-flex items-center justify-center bg-neutral-wash px-4 py-2.5 text-[13px] font-medium text-ink hover:bg-[#dcdfe2]"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" disabled={saving} className={btnPrimary}>
+                  <Plus size={15} />
+                  {saving ? "Agregando..." : "Crear zona"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </Page>
   );
 };
