@@ -44,6 +44,7 @@ export interface WalkWithDetails extends Walk {
     nombre: string;
     canton: string;
     provincia: string;
+    distrito: string | null;
   } | null;
   resena?: {
     calificacion: number;

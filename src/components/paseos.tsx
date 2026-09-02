@@ -3,8 +3,10 @@ import { CalendarDays } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { listPets } from "../services/pets.service";
 import { listWalksWithRelations, getWalkStats, isUpcoming } from "../services/walks.service";
+import { getZonas } from "../services/auth.service";
 import type { WalkWithRelations } from "../services/walks.service";
 import type { Pet } from "../types/pet.types";
+import type { Zona } from "../types/auth.types";
 import {
   Avatar,
   Badge,
@@ -76,7 +78,9 @@ const Paseos = () => {
   const { user } = useAuth();
   const [walks, setWalks] = useState<WalkWithRelations[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
+  const [zonas, setZonas] = useState<Zona[]>([]);
   const [selectedPetId, setSelectedPetId] = useState<string>("");
+  const [selectedZonaId, setSelectedZonaId] = useState<string>("");
   const [filtro, setFiltro] = useState("Próximos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -86,18 +90,20 @@ const Paseos = () => {
     setError("");
     setLoading(true);
     try {
-      const [walksData, petsData] = await Promise.all([
-        listWalksWithRelations(user.id),
+      const [walksData, petsData, zonasData] = await Promise.all([
+        listWalksWithRelations(user.id, { zonaId: selectedZonaId || null }),
         listPets(),
+        getZonas(),
       ]);
       setWalks(walksData);
       setPets(petsData);
+      setZonas(zonasData);
     } catch (cause) {
       setError(messageFrom(cause));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, selectedZonaId]);
 
   useEffect(() => {
     void load();
@@ -109,6 +115,21 @@ const Paseos = () => {
       ...pets.map((p) => ({ value: p.id_mascota, label: p.nombre })),
     ],
     [pets]
+  );
+
+  const zonaOptions = useMemo(
+    () => [
+      { value: "", label: "Todas las zonas" },
+      ...zonas.map((z) => ({
+        value: z.id_zona,
+        label: z.distrito
+          ? `${z.provincia}, ${z.canton}, ${z.distrito}`
+          : z.nombre
+            ? `${z.provincia}, ${z.canton}, ${z.nombre}`
+            : `${z.provincia}, ${z.canton}`,
+      })),
+    ],
+    [zonas]
   );
 
   const filteredWalks = useMemo(() => {
@@ -141,6 +162,18 @@ const Paseos = () => {
     ? pets.find((p) => p.id_mascota === selectedPetId) ?? null
     : null;
 
+  const selectedZona = selectedZonaId
+    ? zonas.find((z) => z.id_zona === selectedZonaId) ?? null
+    : null;
+
+  const hasFilters = Boolean(selectedPetId || selectedZonaId || filtro !== "Próximos");
+
+  const clearFilters = () => {
+    setSelectedPetId("");
+    setSelectedZonaId("");
+    setFiltro("Próximos");
+  };
+
   return (
     <Page>
       <PageHeader
@@ -150,7 +183,9 @@ const Paseos = () => {
             ? "Cargando..."
             : selectedPet
               ? `Paseos de ${selectedPet.nombre}`
-              : "Agenda, seguimiento e historial de los paseos de tus mascotas."
+              : selectedZona
+                ? `Paseos en ${selectedZona.nombre}`
+                : "Agenda, seguimiento e historial de los paseos de tus mascotas."
         }
         action={
           <button type="button" className={btnPrimary}>
@@ -161,14 +196,23 @@ const Paseos = () => {
       />
 
       <section className="bg-surface p-4 sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
           <label className={fieldLabel}>
             Mascota
             <Combo
               value={selectedPetId}
               onChange={setSelectedPetId}
               options={petOptions}
-              placeholder="Todas mis mascotas"
+              placeholder="Todas"
+            />
+          </label>
+          <label className={fieldLabel}>
+            Zona
+            <Combo
+              value={selectedZonaId}
+              onChange={setSelectedZonaId}
+              options={zonaOptions}
+              placeholder="Filtrar por zona"
             />
           </label>
           <FilterTabs
@@ -177,6 +221,15 @@ const Paseos = () => {
             value={filtro}
             onChange={setFiltro}
           />
+          {hasFilters && (
+            <button
+              type="button"
+              className={btnSecondary}
+              onClick={clearFilters}
+            >
+              Limpiar
+            </button>
+          )}
         </div>
       </section>
 
@@ -280,7 +333,13 @@ const Paseos = () => {
                         </span>
                       </td>
                       <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">
-                        {p.zona?.nombre ?? "Sin zona"}
+                        {p.zona
+                          ? p.zona.distrito
+                            ? `${p.zona.provincia}, ${p.zona.canton}, ${p.zona.distrito}`
+                            : p.zona.nombre
+                              ? `${p.zona.provincia}, ${p.zona.canton}, ${p.zona.nombre}`
+                              : `${p.zona.provincia}, ${p.zona.canton}`
+                          : "Sin zona"}
                       </td>
                       <td className="px-6 py-3.5">
                         <Badge tono={tonoEstado(p.estado)}>

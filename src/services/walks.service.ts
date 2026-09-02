@@ -63,6 +63,7 @@ export interface WalkWithRelations extends Walk {
     nombre: string;
     canton: string;
     provincia: string;
+    distrito: string | null;
   } | null;
 }
 
@@ -96,19 +97,49 @@ interface ZonaRow {
   nombre: string;
   canton: string;
   provincia: string;
+  distrito: string | null;
 }
 
-export const listWalksWithRelations = async (userId: string): Promise<WalkWithRelations[]> => {
-  const [walksResult, mascotasResult, paseadoresResult, zonasResult] = await Promise.all([
-    supabase
-      .from("paseos")
-      .select("*")
-      .eq("id_dueno", userId)
-      .order("fecha", { ascending: false })
-      .order("hora_inicio", { ascending: false }),
+interface PerfilRow {
+  id_usuario: string;
+  nombre: string | null;
+  foto_perfil: string | null;
+}
+
+export interface ListWalksFilters {
+  zonaId?: string | null;
+  estado?: string | null;
+}
+
+export const listWalksWithRelations = async (
+  userId: string,
+  filters?: ListWalksFilters
+): Promise<WalkWithRelations[]> => {
+  let query = supabase
+    .from("paseos")
+    .select("*")
+    .eq("id_dueno", userId)
+    .order("fecha", { ascending: false })
+    .order("hora_inicio", { ascending: false });
+
+  if (filters?.zonaId) {
+    query = query.eq("zona_id", filters.zonaId);
+  }
+
+  if (filters?.estado) {
+    query = query.eq("estado", filters.estado);
+  }
+
+  const [
+    walksResult,
+    mascotasResult,
+    paseadoresResult,
+    zonasResult,
+  ] = await Promise.all([
+    query,
     supabase.from("mascotas").select("id_mascota, nombre, foto"),
     supabase.from("paseadores").select("id_usuario"),
-    supabase.from("zonas").select("id_zona, nombre, canton, provincia"),
+    supabase.from("zonas").select("id_zona, nombre, canton, provincia, distrito"),
   ]);
 
   if (walksResult.error) throw walksResult.error;
@@ -122,16 +153,16 @@ export const listWalksWithRelations = async (userId: string): Promise<WalkWithRe
   const zonasMap = new Map<string, ZonaRow>();
   (zonasResult.data ?? []).forEach((z: ZonaRow) => zonasMap.set(z.id_zona, z));
 
-  const perfilUsuarioIds = [...paseadoresMap.keys()];
-  const perfilUsuarioMap = new Map<string, { nombre: string | null; foto_perfil: string | null }>();
+  const paseadorIds = [...paseadoresMap.keys()];
+  const perfilUsuarioMap = new Map<string, PerfilRow>();
 
-  if (perfilUsuarioIds.length > 0) {
+  if (paseadorIds.length > 0) {
     const { data: perfiles } = await supabase
       .from("perfil_usuario")
       .select("id_usuario, nombre, foto_perfil")
-      .in("id_usuario", perfilUsuarioIds);
-    (perfiles ?? []).forEach((p: { id_usuario: string; nombre: string | null; foto_perfil: string | null }) => {
-      perfilUsuarioMap.set(p.id_usuario, { nombre: p.nombre, foto_perfil: p.foto_perfil });
+      .in("id_usuario", paseadorIds);
+    (perfiles ?? []).forEach((p: PerfilRow) => {
+      perfilUsuarioMap.set(p.id_usuario, p);
     });
   }
 
@@ -180,8 +211,11 @@ export const listWalksWithRelations = async (userId: string): Promise<WalkWithRe
   );
 };
 
-export const listWalksByPet = async (userId: string): Promise<Record<string, WalkWithRelations[]>> => {
-  const walks = await listWalksWithRelations(userId);
+export const listWalksByPet = async (
+  userId: string,
+  filters?: ListWalksFilters
+): Promise<Record<string, WalkWithRelations[]>> => {
+  const walks = await listWalksWithRelations(userId, filters);
   const byPet: Record<string, WalkWithRelations[]> = {};
   for (const walk of walks) {
     const petId = walk.id_mascota;
