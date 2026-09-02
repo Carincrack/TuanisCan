@@ -6,6 +6,7 @@ import { getZonas } from "../services/auth.service";
 import { listPets } from "../services/pets.service";
 import { listLostPetReports, markLostPetFound, registerSighting, reportLostPet } from "../services/lost-pets.service";
 import { useAuth } from "../hooks/useAuth";
+import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
 import type { Zona } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import type { LostPetInput, LostPetReport } from "../types/lost-pet.types";
@@ -54,7 +55,9 @@ const formatDateTime = (value: string) =>
   }).format(new Date(value));
 
 const zonaLabel = (zona?: Zona | null) =>
-  zona ? `${zona.nombre}, ${zona.canton}` : "Zona no indicada";
+  zona
+    ? `${zona.distrito?.trim() || zona.nombre}, ${zona.canton}, ${zona.provincia}`
+    : "Zona no indicada";
 
 const Dialog = ({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) =>
   createPortal(
@@ -411,8 +414,6 @@ const MascotasPerdidas = () => {
   const { user, getProfile, isAdmin } = useAuth();
   const [filtro, setFiltro] = useState("Todas");
   const [busqueda, setBusqueda] = useState("");
-  const [especie, setEspecie] = useState("");
-  const [zonaId, setZonaId] = useState("");
   const [reportes, setReportes] = useState<LostPetReport[]>([]);
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
@@ -447,10 +448,7 @@ const MascotasPerdidas = () => {
 
   useEffect(() => { void load(); }, [load]);
 
-  const especies = useMemo(
-    () => Array.from(new Set(reportes.map((reporte) => reporte.especie).filter(Boolean))).sort(),
-    [reportes]
-  );
+  const territorio = useZonasEncadenadas(zonas);
 
   const stats = useMemo(() => ({
     perdidas: reportes.filter((reporte) => reporte.estado === "perdida").length,
@@ -461,7 +459,16 @@ const MascotasPerdidas = () => {
   const visibles = useMemo(() => {
     const query = busqueda.trim().toLocaleLowerCase("es");
     return reportes.filter((reporte) => {
-      const text = [reporte.nombre, reporte.especie, reporte.raza, reporte.descripcion, zonaLabel(reporte.zona)]
+      const text = [
+        reporte.nombre,
+        reporte.especie,
+        reporte.raza,
+        reporte.descripcion,
+        reporte.zona?.nombre,
+        reporte.zona?.canton,
+        reporte.zona?.provincia,
+        reporte.zona?.distrito,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLocaleLowerCase("es");
@@ -470,12 +477,21 @@ const MascotasPerdidas = () => {
           (filtro === "Perdidas" && reporte.estado === "perdida") ||
           (filtro === "Encontradas" && reporte.estado === "encontrada") ||
           (filtro === "Mi zona" && Boolean(profileZonaId) && reporte.zona_id === profileZonaId)) &&
-        (!zonaId || reporte.zona_id === zonaId) &&
-        (!especie || reporte.especie.toLocaleLowerCase("es") === especie.toLocaleLowerCase("es")) &&
+        territorio.cubre(reporte.zona) &&
         (!query || text.includes(query))
       );
     });
-  }, [busqueda, especie, filtro, profileZonaId, reportes, zonaId]);
+  // `territorio` is recreated on render; its primitive selections are the real dependencies.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    busqueda,
+    filtro,
+    profileZonaId,
+    reportes,
+    territorio.provincia,
+    territorio.canton,
+    territorio.distrito,
+  ]);
 
   const closeReport = async (report: LostPetReport) => {
     if (!window.confirm(`Marcar a ${report.nombre} como encontrada?`)) return;
@@ -487,12 +503,17 @@ const MascotasPerdidas = () => {
     }
   };
 
-  const hasFilters = Boolean(busqueda || especie || zonaId || filtro !== "Todas");
+  const hasFilters = Boolean(
+    busqueda ||
+      filtro !== "Todas" ||
+      territorio.provincia !== "Todas" ||
+      territorio.canton !== "Todos" ||
+      territorio.distrito !== "Todos"
+  );
   const clearFilters = () => {
     setBusqueda("");
-    setEspecie("");
-    setZonaId("");
     setFiltro("Todas");
+    territorio.limpiar();
   };
 
   return (
@@ -507,40 +528,53 @@ const MascotasPerdidas = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[13px] font-semibold text-ink">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</p>
-            <p className="mt-0.5 text-[12px] text-ink-mute">Filtra por estado, zona, especie o texto.</p>
+            <p className="mt-0.5 text-[12px] text-ink-mute">Filtra por estado, provincia, cantón, distrito o texto.</p>
           </div>
           <FilterTabs label="Filtrar reportes" options={filtros} value={filtro} onChange={setFiltro} />
         </div>
 
-        {/* Las zonas se rotulan "Curridabat · Curridabat" y en 190 px
-            no caben. Los filtros suben a 220 y crecen con lo que
-            sobre; en tableta van de dos en dos antes que apretarse. */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1fr)_minmax(220px,0.55fr)_minmax(220px,0.55fr)_auto] lg:items-end">
+        {/* Los filtros territoriales se encadenan para evitar una lista plana
+            de distritos donde se repiten nombres entre cantones. */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1fr)_minmax(180px,0.55fr)_minmax(180px,0.55fr)_minmax(180px,0.55fr)_auto] lg:items-end">
           <label className={fieldLabel}>Buscar
             <span className="relative">
               <input id="buscar-reporte" type="search" className={`${input} pl-10`} placeholder="Nombre, zona o señas" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
               <Search size={15} aria-hidden className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute" />
             </span>
           </label>
-          <label className={fieldLabel}>Zona
+          <label className={fieldLabel}>Provincia
             <Combo
-              value={zonaId}
-              onChange={setZonaId}
-              vacio
-              placeholder="Todas las zonas"
-              options={zonas.map((zona) => ({
-                value: zona.id_zona,
-                label: `${zona.nombre} · ${zona.canton}`,
+              value={territorio.provincia}
+              onChange={territorio.elegirProvincia}
+              placeholder="Todas las provincias"
+              options={territorio.provincias.map((item) => ({
+                value: item,
+                label: item === "Todas" ? "Todas las provincias" : item,
               }))}
             />
           </label>
-          <label className={fieldLabel}>Especie
+          <label className={fieldLabel}>Cantón
             <Combo
-              value={especie}
-              onChange={setEspecie}
-              vacio
-              placeholder="Todas las especies"
-              options={especies.map((item) => ({ value: item, label: item }))}
+              value={territorio.canton}
+              onChange={territorio.elegirCanton}
+              disabled={!territorio.filtrando}
+              placeholder="Todos los cantones"
+              options={territorio.cantones.map((item) => ({
+                value: item,
+                label: item === "Todos" ? "Todos los cantones" : item,
+              }))}
+            />
+          </label>
+          <label className={fieldLabel}>Distrito
+            <Combo
+              value={territorio.distrito}
+              onChange={territorio.elegirDistrito}
+              disabled={territorio.canton === "Todos"}
+              placeholder="Todos los distritos"
+              options={territorio.distritos.map((item) => ({
+                value: item,
+                label: item === "Todos" ? "Todos los distritos" : item,
+              }))}
             />
           </label>
           <button type="button" className={btnSecondary} onClick={clearFilters} disabled={!hasFilters}>

@@ -46,7 +46,7 @@ export const listLostPetReports = async (): Promise<LostPetReport[]> => {
       id_mascota_perdida, id_mascota, id_usuario_reporta, zona_id, estado, nombre,
       especie, raza, contacto, descripcion, foto, latitud, longitud,
       recompensa, fecha_reporte, fecha_resuelto,
-      zona:zonas!mascotas_perdidas_zona_id_fkey(id_zona, nombre, canton, provincia)
+      zona:zonas!mascotas_perdidas_zona_id_fkey(id_zona, nombre, canton, provincia, distrito)
     `)
     .order("fecha_reporte", { ascending: false });
 
@@ -76,7 +76,7 @@ export const listSightings = async (reportIds: string[]): Promise<Sighting[]> =>
     .select(`
       id_avistamiento, id_reporte, id_usuario, latitud, longitud, comentario,
       fecha, zona_id, direccion, contacto,
-      zona:zonas!avistamientos_zona_id_fkey(id_zona, nombre, canton, provincia)
+      zona:zonas!avistamientos_zona_id_fkey(id_zona, nombre, canton, provincia, distrito)
     `)
     .in("id_reporte", reportIds)
     .order("fecha", { ascending: false });
