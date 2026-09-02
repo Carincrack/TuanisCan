@@ -30,6 +30,8 @@ import {
   input,
 } from "./ui";
 import { Combo } from "./Combo";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
 
 /* ─────────────────────────────────────────────────────────────
    Panel de la plataforma. Solo para el equipo de TuanisCan:
@@ -571,8 +573,10 @@ const VisorDocumentos = ({
     setFallo(null);
     try {
       await downloadVerificationDocument(documento);
+      aviso.ok("Documento descargado", { detalle: documento.nombre_archivo });
     } catch (cause) {
       setFallo(errorMessage(cause));
+      aviso.error(cause, { respaldo: "No se pudo descargar el documento." });
     } finally {
       setDescargando(false);
     }
@@ -591,6 +595,15 @@ const VisorDocumentos = ({
         estado === "rechazado" ? observacion.trim() : undefined,
       );
       onClose();
+      if (estado === "aprobado") {
+        aviso.ok(`${solicitud.nombre} quedó verificado`, {
+          detalle: "Ya puede operar en la plataforma con todos sus perfiles.",
+        });
+      } else {
+        aviso.dato(`Verificación de ${solicitud.nombre} rechazada`, {
+          detalle: "Recibió tu observación y puede volver a enviarla.",
+        });
+      }
     } catch (cause) {
       setFallo(errorMessage(cause));
       setVeredicto(null);
@@ -1084,8 +1097,18 @@ export const VerificacionesAdmin = () => {
       await revisar(request, status, status === "rechazado" ? observation.trim() : undefined);
       setRejectingId(null);
       setObservation("");
+      if (status === "aprobado") {
+        aviso.ok(`${request.nombre} quedó verificado`, {
+          detalle: "Ya puede operar en la plataforma con todos sus perfiles.",
+        });
+      } else {
+        aviso.dato(`Verificación de ${request.nombre} rechazada`, {
+          detalle: "Recibió tu observación y puede volver a enviarla.",
+        });
+      }
     } catch (cause) {
       setError(errorMessage(cause));
+      aviso.error(cause, { respaldo: "No se pudo registrar la revisión." });
     } finally {
       setProcessingId(null);
     }
@@ -1101,7 +1124,11 @@ export const VerificacionesAdmin = () => {
 
       {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
 
-      {loading && <div className="flex items-center gap-2 bg-surface px-6 py-8 text-[13px] text-ink-soft"><Loader size={16} className="animate-spin" /> Cargando solicitudes…</div>}
+      {loading && (
+        <Skeleton name="admin-verificaciones" loading>
+          <div />
+        </Skeleton>
+      )}
 
       {pendientes.map((v) => (
         <article key={v.id_usuario} className="anim-rise bg-surface px-6 py-5">
@@ -1224,6 +1251,9 @@ export const UsuariosAdmin = () => {
     enlace.download = "usuarios-tuaniscan.csv";
     enlace.click();
     URL.revokeObjectURL(enlace.href);
+    aviso.ok("Directorio exportado", {
+      detalle: `${visibles.length} ${visibles.length === 1 ? "fila" : "filas"} en usuarios-tuaniscan.csv`,
+    });
   };
 
   return (
@@ -1243,7 +1273,7 @@ export const UsuariosAdmin = () => {
       </Section>
       {(error || mensaje) && <div aria-live="polite" className={`px-6 py-3 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>{error ?? mensaje}</div>}
       <Section bodyClass="">
-        {loading ? <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando directorio...</p> : visibles.length === 0 ? <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} /> : <Table caption="Directorio de usuarios" columnas={[{ label: "Usuario" }, { label: "Roles" }, { label: "Contacto" }, { label: "Zona" }, { label: "Registro" }, { label: "Estado" }, { label: "Acciones" }]}>{paginaUsuarios.map((usuario) => {
+        {loading ? <Skeleton name="admin-tabla" loading><div /></Skeleton> : visibles.length === 0 ? <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} /> : <Table caption="Directorio de usuarios" columnas={[{ label: "Usuario" }, { label: "Roles" }, { label: "Contacto" }, { label: "Zona" }, { label: "Registro" }, { label: "Estado" }, { label: "Acciones" }]}>{paginaUsuarios.map((usuario) => {
           const esCuentaActual = usuario.id_usuario === user?.id;
           return <tr key={usuario.id_usuario}><td className="px-6 py-3"><div className="flex items-center gap-3">{usuario.foto_perfil ? <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 object-cover" /> : <Avatar nombre={usuario.nombre} size={36} />}<div className="min-w-0"><p className="truncate text-[13px] font-medium text-ink">{usuario.nombre}</p><p className="text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p></div></div></td><td className="px-6 py-3"><Badge tono={rolTono(usuario.roles[0] ?? null)}>{rolesLabel(usuario.roles)}</Badge></td><td className="px-6 py-3 text-[12.5px] text-ink-soft"><span className="block">{usuario.correo || "Sin correo"}</span><span className="block text-[11px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span></td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td><td className="px-6 py-3"><Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge></td><td className="px-6 py-3">{esCuentaActual ? <span className="text-[12px] font-medium text-ink-mute">Tu cuenta</span> : <button type="button" disabled={procesandoId === usuario.id_usuario} onClick={() => { clearMessage(); setConfirmar(usuario); }} className={usuario.activo ? btnDanger : btnPrimary}>{procesandoId === usuario.id_usuario ? <Loader size={14} className="animate-spin" /> : usuario.activo ? <UserX size={14} /> : <UserCheck size={14} />}{usuario.activo ? "Inactivar" : "Activar"}</button>}</td></tr>;
         })}</Table>}

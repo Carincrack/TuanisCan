@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X } from "../lib/iconos";
+import { Loader, X } from "../lib/iconos";
 
 /* ─────────────────────────────────────────────────────────────
    Piezas compartidas del sistema.
@@ -46,6 +46,12 @@ const pulsable =
 export const btnPrimary = `${pulsable} bg-rail px-5 py-2.5 text-[13px] text-white hover:brightness-125`;
 
 export const btnSecondary = `${pulsable} bg-sunken px-5 py-2.5 text-[13px] font-medium text-ink hover:brightness-[0.97]`;
+
+/** Secundario compacto. Para las acciones que ACOMPAÑAN a una
+    principal dentro de una tarjeta: a tamaño completo pesan lo mismo
+    que ella, compiten por la mirada y estiran el pie de la tarjeta
+    diez píxeles por fila. */
+export const btnSecondaryCompacto = `${pulsable} bg-sunken px-3 py-2 text-[12px] font-medium text-ink hover:brightness-[0.97]`;
 
 export const btnQuiet = `${pulsable} px-4 py-2 text-[13px] font-medium text-ink-soft hover:bg-sunken hover:text-ink`;
 
@@ -354,6 +360,75 @@ export const Dialog = ({
     document.body,
   );
 };
+
+/** Confirmación de una acción.
+
+    Sustituye a `window.confirm`, que el navegador dibuja a su manera:
+    letra del sistema, botones cuadrados, pegado al borde de arriba de
+    la ventana. Encima bloquea el hilo —nada se puede pintar mientras
+    está abierto, ni un indicador de espera— y en el móvil aparece con
+    el nombre del dominio encima, que en una aplicación instalada se
+    lee como un aviso del navegador y no del producto.
+
+    Lo importante no es que sea más lindo: es que acá se puede decir
+    QUÉ va a pasar. `confirm` da una línea y dos botones que dicen
+    "Aceptar" y "Cancelar"; esto tiene cuerpo para explicar la
+    consecuencia y un botón que la nombra.
+
+    Mientras `ocupado` está puesto no se cierra ni por Escape ni
+    tocando el fondo: la petición ya salió. */
+export const Confirmar = ({
+  titulo,
+  cuerpo,
+  confirmar = "Confirmar",
+  cancelar = "Cancelar",
+  tono = "normal",
+  ocupado = false,
+  onConfirmar,
+  onCancelar,
+}: {
+  titulo: string;
+  cuerpo: ReactNode;
+  confirmar?: string;
+  cancelar?: string;
+  /** `peligro` para lo que borra o no se puede deshacer. */
+  tono?: "normal" | "peligro";
+  ocupado?: boolean;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) => (
+  <Dialog
+    title={titulo}
+    ancho="max-w-[440px]"
+    onClose={() => {
+      if (!ocupado) onCancelar();
+    }}
+  >
+    <div className="px-6 py-5">
+      <p className="text-[13.5px] leading-relaxed text-ink-soft">{cuerpo}</p>
+
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          disabled={ocupado}
+          onClick={onCancelar}
+          className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}
+        >
+          {cancelar}
+        </button>
+        <button
+          type="button"
+          disabled={ocupado}
+          onClick={onConfirmar}
+          className={`${tono === "peligro" ? btnDanger : btnPrimary} w-full disabled:cursor-wait disabled:opacity-60 sm:w-auto`}
+        >
+          {ocupado && <Loader size={14} className="animate-spin" />}
+          {confirmar}
+        </button>
+      </div>
+    </div>
+  </Dialog>
+);
 
 /* ── Imágenes ficticias ──────────────────────────────────────── */
 

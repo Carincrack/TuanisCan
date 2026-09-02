@@ -29,6 +29,8 @@ import {
   input,
 } from "./ui";
 import { Combo } from "./Combo";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
 import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
 
 type TipoNegocio = NegocioProfile["tipo"];
@@ -176,8 +178,10 @@ const Directorio = () => {
         setNegocios(negociosData);
         setZonas(zonasData);
       })
-      .catch(() => {
-        if (vigente) setError("No se pudo cargar el directorio desde Supabase.");
+      .catch((causa) => {
+        if (!vigente) return;
+        setError("No se pudo cargar el directorio desde Supabase.");
+        aviso.error(causa, { respaldo: "No se pudo cargar el directorio." });
       })
       .finally(() => {
         if (vigente) setCargando(false);
@@ -357,9 +361,9 @@ const Directorio = () => {
       </section>
 
       {cargando ? (
-        <div className="bg-surface px-6 py-16 text-center text-[13px] text-ink-soft">
-          Cargando negocios…
-        </div>
+        <Skeleton name="directorio-rejilla" loading>
+          <div />
+        </Skeleton>
       ) : error ? (
         <div className="bg-surface px-6 py-12 text-center">
           <p className="text-[14px] font-semibold text-danger">{error}</p>

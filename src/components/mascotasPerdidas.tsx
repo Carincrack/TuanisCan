@@ -1,29 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { Camera, CheckCircle2, Clock, Eye, MapPin, Phone, Search, Siren, X } from "../lib/iconos";
+import type { FormEvent } from "react";
+import { Camera, CheckCircle2, Clock, Eye, Maximize2, MapPin, Phone, Search, Siren } from "../lib/iconos";
 import { getZonas } from "../services/auth.service";
 import { listPets } from "../services/pets.service";
 import { listLostPetReports, markLostPetFound, registerSighting, reportLostPet } from "../services/lost-pets.service";
 import { useAuth } from "../hooks/useAuth";
 import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
+import { distritoDe, normalizar as normalizarZona } from "../lib/zonas";
 import type { Zona } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import type { LostPetInput, LostPetReport } from "../types/lost-pet.types";
 import {
   Badge,
+  Confirmar,
+  Dialog,
   EmptyState,
   FilterTabs,
-  MockPhoto,
   Page,
   PageHeader,
   btnPrimary,
+  btnQuiet,
   btnSecondary,
+  btnSecondaryCompacto,
   colones,
   fieldLabel,
   input,
 } from "./ui";
 import { Combo } from "./Combo";
+import Visor from "./Visor";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
 
 const filtros = ["Todas", "Perdidas", "Encontradas", "Mi zona"];
 const messageFrom = (error: unknown) =>
@@ -48,31 +54,37 @@ const coordsLabel = ({ latitud, longitud }: { latitud: number; longitud: number 
 
 const formatDateTime = (value: string) =>
   new Intl.DateTimeFormat("es-CR", {
-    day: "2-digit",
+    day: "numeric",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
 
-const zonaLabel = (zona?: Zona | null) =>
-  zona
-    ? `${zona.distrito?.trim() || zona.nombre}, ${zona.canton}, ${zona.provincia}`
-    : "Zona no indicada";
+/* Nicoya distrito está en Nicoya cantón, y así media Costa Rica:
+   Alajuela, Cartago, Heredia, Puntarenas, Liberia, Quepos… Encadenar
+   los tres niveles a secas escribía "Nicoya, Nicoya, Guanacaste". Se
+   quitan las repeticiones seguidas y queda "Nicoya, Guanacaste". */
+const zonaLabel = (zona?: Zona | null) => {
+  if (!zona) return "Zona no indicada";
 
-const Dialog = ({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) =>
-  createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
-      <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-[#0b2331]/75" />
-      <section role="dialog" aria-modal="true" aria-labelledby="lost-pet-dialog-title" className="anim-rise relative max-h-[92dvh] w-full max-w-[760px] overflow-y-auto bg-surface">
-        <header className="sticky top-0 z-10 flex items-center justify-between bg-rail px-5 py-4">
-          <h2 id="lost-pet-dialog-title" className="text-[16px] font-semibold text-white">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-rail-text hover:bg-rail-hover hover:text-white"><X size={18} /></button>
-        </header>
-        {children}
-      </section>
-    </div>,
-    document.body
-  );
+  const partes = [distritoDe(zona), zona.canton, zona.provincia]
+    .map((parte) => parte?.trim())
+    .filter((parte): parte is string => Boolean(parte));
+
+  return partes
+    .filter((parte, i) => i === 0 || normalizarZona(parte) !== normalizarZona(partes[i - 1]))
+    .join(", ");
+};
+
+/* Los teléfonos se guardan tal como se escriban. Cuando la forma es
+   la de Costa Rica se separa para poder leerla de un vistazo —un
+   "+50688888888" seguido no se lee, se descifra—; cualquier otra cosa
+   se deja intacta, que puede ser un número de otro país. */
+const telefonoLegible = (valor: string) => {
+  const limpio = valor.replace(/[\s.-]/g, "");
+  const cr = /^(?:\+?506)?(\d{4})(\d{4})$/.exec(limpio);
+  return cr ? `+506 ${cr[1]} ${cr[2]}` : valor;
+};
 
 const useBrowserLocation = () => {
   const [locating, setLocating] = useState(false);
@@ -215,8 +227,14 @@ const ReportForm = ({
       await reportLostPet(userId, payload, photo);
       await onSaved();
       onClose();
+      /* El aviso va DESPUÉS de cerrar la ventana. Al revés queda
+         tapado por el modal que se está yendo. */
+      aviso.ok(`${values.nombre} quedó publicada`, {
+        detalle: "Ya aparece en el listado. Te avisamos de cada avistamiento.",
+      });
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo publicar el reporte." });
     } finally {
       setBusy(false);
     }
@@ -259,10 +277,10 @@ const ReportForm = ({
         <label className={fieldLabel}>Recompensa<input className={input} inputMode="numeric" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
         <label className={fieldLabel}><span className="flex items-center gap-2"><Camera size={15} /> Foto *</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
       </div>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar la ubicación donde estoy"}</button>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando…" : "Usar la ubicación donde estoy"}</button>
       <label className={fieldLabel}>Señas, conducta y último lugar visto *<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
-      {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Publicando..." : "Publicar reporte"}</button></div>
+      {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Publicando…" : "Publicar reporte"}</button></div>
     </form>
   );
 };
@@ -329,8 +347,12 @@ const SightingForm = ({
       await registerSighting(payload);
       await onSaved();
       onClose();
+      aviso.ok("Avistamiento registrado", {
+        detalle: `Le avisamos a quien reportó a ${report.nombre}.`,
+      });
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo registrar el avistamiento." });
     } finally {
       setBusy(false);
     }
@@ -338,11 +360,11 @@ const SightingForm = ({
 
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
-      <div className="bg-sunken p-4"><p className="text-[14px] font-semibold text-ink">{report.nombre}</p><p className="mt-1 text-[12.5px] text-ink-soft">{zonaLabel(report.zona)}</p></div>
+      <div className="rounded-[14px] bg-sunken p-4"><p className="text-[14px] font-semibold text-ink">{report.nombre}</p><p className="mt-1 text-[12.5px] text-ink-soft">{zonaLabel(report.zona)}</p></div>
       <label className={fieldLabel}>Ubicación *
         <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
       </label>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando..." : "Usar la ubicación donde estoy"}</button>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando…" : "Usar la ubicación donde estoy"}</button>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={fieldLabel}>Zona
           <Combo
@@ -364,8 +386,8 @@ const SightingForm = ({
         <input className={input} maxLength={300} value={values.direccion} onChange={(e) => update("direccion", e.target.value)} />
       </label>
       <label className={fieldLabel}>Comentario<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>
-      {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Registrando..." : "Registrar avistamiento"}</button></div>
+      {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Registrando…" : "Registrar avistamiento"}</button></div>
     </form>
   );
 };
@@ -373,10 +395,10 @@ const SightingForm = ({
 const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: () => void }) => (
   <div className="grid gap-3 p-5 sm:p-6">
     {report.avistamientos.length === 0 ? (
-      <EmptyState title="Sin avistamientos" hint="Cuando alguien reporte que vio tu mascota, aparecera aqui." />
+      <EmptyState title="Sin avistamientos" hint="Cuando alguien reporte que vio tu mascota, aparecerá acá." />
     ) : (
       report.avistamientos.map((item) => (
-        <article key={item.id_avistamiento} className="bg-sunken p-4">
+        <article key={item.id_avistamiento} className="rounded-[18px] bg-sunken p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[13px] font-semibold text-ink">{formatDateTime(item.fecha)}</p>
@@ -391,13 +413,15 @@ const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: 
               Ver mapa
             </a>
           </div>
-          <dl className="mt-3 grid gap-2.5 text-[12.5px] text-ink-soft sm:grid-cols-2">
-            <div className="bg-surface p-3"><dt className="rotulo text-ink-mute">Ubicación</dt><dd className="nums mt-1">{coordsLabel(item)}</dd></div>
-            <div className="bg-surface p-3"><dt className="rotulo text-ink-mute">Zona</dt><dd className="mt-1">{zonaLabel(item.zona)}</dd></div>
-            <div className="bg-surface p-3"><dt className="rotulo text-ink-mute">Contacto</dt><dd className="nums mt-1">{item.contacto || "No indicado"}</dd></div>
-            <div className="bg-surface p-3"><dt className="rotulo text-ink-mute">Usuario</dt><dd className="nums mt-1">{item.id_usuario}</dd></div>
+          {/* Había una cuarta ficha, "Usuario", con el UUID crudo de
+              quien reportó. A quien busca a su mascota no le dice nada y
+              ocupa el mismo sitio que el contacto, que sí sirve. */}
+          <dl className="mt-3 grid gap-2.5 text-[12.5px] text-ink-soft sm:grid-cols-3">
+            <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">Ubicación</dt><dd className="nums mt-1 break-all">{coordsLabel(item)}</dd></div>
+            <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">Zona</dt><dd className="mt-1">{zonaLabel(item.zona)}</dd></div>
+            <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">Contacto</dt><dd className="nums mt-1 break-all">{item.contacto || "No indicado"}</dd></div>
           </dl>
-          <div className="mt-3 bg-surface p-3">
+          <div className="mt-3 rounded-[14px] bg-surface p-3">
             <p className="rotulo text-ink-mute">Comentario</p>
             <p className="mt-1 whitespace-pre-wrap text-[13px] text-ink-soft">{item.comentario || "Sin comentario"}</p>
           </div>
@@ -424,6 +448,9 @@ const MascotasPerdidas = () => {
   const [reporting, setReporting] = useState(false);
   const [sighting, setSighting] = useState<LostPetReport | null>(null);
   const [sightingDetails, setSightingDetails] = useState<LostPetReport | null>(null);
+  const [fotoAbierta, setFotoAbierta] = useState<LostPetReport | null>(null);
+  const [cerrandoCaso, setCerrandoCaso] = useState<LostPetReport | null>(null);
+  const [cerrandoOcupado, setCerrandoOcupado] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -494,12 +521,19 @@ const MascotasPerdidas = () => {
   ]);
 
   const closeReport = async (report: LostPetReport) => {
-    if (!window.confirm(`Marcar a ${report.nombre} como encontrada?`)) return;
+    setCerrandoOcupado(true);
     try {
       await markLostPetFound(report.id_mascota_perdida);
+      setCerrandoCaso(null);
       await load();
+      aviso.ok(`${report.nombre} apareció`, {
+        detalle: "El reporte se cerró y sale del listado.",
+      });
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo cerrar el reporte." });
+    } finally {
+      setCerrandoOcupado(false);
     }
   };
 
@@ -520,7 +554,7 @@ const MascotasPerdidas = () => {
     <Page>
       <PageHeader
         title="Mascotas perdidas"
-        subtitle={loading ? "Cargando reportes..." : `${stats.perdidas} activas · ${stats.encontradas} encontradas · ${stats.avistamientos} avistamientos`}
+        subtitle={loading ? "Cargando reportes…" : `${stats.perdidas} activas · ${stats.encontradas} encontradas · ${stats.avistamientos} avistamientos`}
         action={<button type="button" className={btnPrimary} onClick={() => setReporting(true)} disabled={!pets.length} title={!pets.length ? "Registra primero una mascota" : undefined}><Siren size={15} strokeWidth={2} />Reportar mascota perdida</button>}
       />
 
@@ -528,20 +562,36 @@ const MascotasPerdidas = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[13px] font-semibold text-ink">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</p>
-            <p className="mt-0.5 text-[12px] text-ink-mute">Filtra por estado, provincia, cantón, distrito o texto.</p>
+            <p className="mt-0.5 text-[12px] text-ink-mute">Filtrá por estado, provincia, cantón, distrito o texto.</p>
           </div>
-          <FilterTabs label="Filtrar reportes" options={filtros} value={filtro} onChange={setFiltro} />
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterTabs label="Filtrar reportes" options={filtros} value={filtro} onChange={setFiltro} />
+            {/* Limpiar es una acción sobre el conjunto de filtros, así que
+                va con el resumen y no como quinta columna de la rejilla.
+                Y aparece solo cuando hay algo que limpiar: un botón
+                permanentemente apagado es ruido. */}
+            {hasFilters && (
+              <button type="button" className={btnQuiet} onClick={clearFilters}>
+                Limpiar
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Los filtros territoriales se encadenan para evitar una lista plana
-            de distritos donde se repiten nombres entre cantones. */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1fr)_minmax(180px,0.55fr)_minmax(180px,0.55fr)_minmax(180px,0.55fr)_auto] lg:items-end">
-          <label className={fieldLabel}>Buscar
-            <span className="relative">
-              <input id="buscar-reporte" type="search" className={`${input} pl-10`} placeholder="Nombre, zona o señas" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
-              <Search size={15} aria-hidden className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute" />
-            </span>
-          </label>
+        {/* Antes esto era una sola fila de cinco columnas con mínimos de
+            240 + 180×3 + auto. Sumado a las separaciones pide unos 918 px,
+            y el contenido de la aplicación mide 900 (`AppShell`): se salía
+            justo en el ancho en el que se usa. La búsqueda va sola arriba
+            —es la que necesita sitio para escribir— y los tres escalones
+            territoriales debajo, a tercios. */}
+        <label className={`${fieldLabel} mt-4 block`}>Buscar
+          <span className="relative block">
+            <input id="buscar-reporte" type="search" className={`${input} pl-10`} placeholder="Nombre, zona o señas" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
+            <Search size={15} aria-hidden className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute" />
+          </span>
+        </label>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <label className={fieldLabel}>Provincia
             <Combo
               value={territorio.provincia}
@@ -577,64 +627,177 @@ const MascotasPerdidas = () => {
               }))}
             />
           </label>
-          <button type="button" className={btnSecondary} onClick={clearFilters} disabled={!hasFilters}>
-            Limpiar
-          </button>
         </div>
       </section>
 
-      {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
+      {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
 
       {loading ? (
-        <div className="bg-surface px-6 py-16 text-center text-[13px] text-ink-soft">Cargando reportes...</div>
+        <Skeleton name="perdidas-rejilla" loading>
+          <div />
+        </Skeleton>
       ) : visibles.length === 0 ? (
-        <EmptyState title="Sin reportes en este filtro" hint="Prueba con otro filtro para ver el resto." />
+        <EmptyState
+          title={hasFilters ? "Sin reportes en este filtro" : "Todavía no hay reportes"}
+          hint={hasFilters ? "Probá con otra zona o quitá el texto de búsqueda." : "Cuando alguien reporte una mascota perdida, aparece acá."}
+          action={hasFilters ? <button type="button" className={btnSecondary} onClick={clearFilters}>Limpiar filtros</button> : undefined}
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visibles.map((reporte) => {
             const canClose = reporte.id_usuario_reporta === user?.id || isAdmin;
+            const puedeCerrar = canClose && reporte.estado === "perdida";
             const ultimoAvistamiento = reporte.avistamientos[0];
             return (
-              <article key={reporte.id_mascota_perdida} className="flex flex-col bg-surface">
-                <div className="relative">
-                  <MockPhoto src={reporte.fotoUrl ?? "/mock/dog-nube.jpg"} alt={`Foto de ${reporte.nombre}`} />
-                  <span className="absolute top-0 left-0"><Badge tono={reporte.estado === "perdida" ? "danger" : "ok"}>{reporte.estado === "perdida" ? "Perdida" : "Encontrada"}</Badge></span>
+              /* `overflow-hidden`: la foto va pegada al borde de arriba y
+                 sin esto asoma en cuadrado por fuera del radio de la
+                 tarjeta. Y por eso mismo no se usa `MockPhoto`, que trae
+                 su propio radio de 14 y dejaba una doble esquina. */
+              <article key={reporte.id_mascota_perdida} className="flex flex-col overflow-hidden bg-surface">
+                {/* El nombre va SOBRE la foto, no debajo.
+
+                    La tarjeta medía cerca de 520 px de alto por 280 de
+                    ancho: una columna, no una tarjeta. La foto 4:3 se
+                    llevaba 210 y la cabecera de texto otros 46 más,
+                    y las dos decían lo mismo —quién es— una encima de
+                    la otra. Encimando el rótulo y pasando la foto a
+                    16:10 se recuperan unos 80 px sin quitar un dato.
+
+                    El degradado no es adorno: la foto la sube
+                    cualquiera y puede venir clara, oscura o con un
+                    cielo blanco detrás. Sin él, el nombre en blanco
+                    desaparece la mitad de las veces. */}
+                <div className="group relative">
+                  {/* La foto abre en grande.
+
+                      En un reporte de mascota perdida la foto ES el
+                      dato: quien cree haberla visto necesita comparar
+                      manchas, orejas y cola, y en una tarjeta de 280 px
+                      recortada a 16:10 eso no se puede.
+
+                      Las capas de encima llevan `pointer-events-none`
+                      para dejar pasar el clic. Sin eso, la mitad de
+                      abajo —justo donde está el nombre— no abriría
+                      nada, que es donde el ojo va primero. */}
+                  {/* El degradado y el icono van DENTRO del botón, no
+                      al lado.
+
+                      Los iconos propios de `lib/iconos` no se animan
+                      solos: `useRoce` sube por el DOM con `closest`
+                      buscando el elemento interactivo que los contiene
+                      —un `button`, un `a[href]`, una `label`— y engancha
+                      la animación al hover DE ESE. Es lo que hace que
+                      el dibujo reaccione al pasar por la píldora
+                      entera y no solo por sus dieciséis píxeles.
+
+                      Puesto como hermano del botón, `closest` no
+                      encontraba anfitrión y el icono se quedaba quieto.
+                      Adentro también resuelve el apilado: el degradado
+                      tiene que pintar sobre la foto pero por debajo del
+                      icono, y siendo hermanos posteriores tapaban. */}
+                  <button
+                    type="button"
+                    onClick={() => setFotoAbierta(reporte)}
+                    aria-label={`Ver la foto de ${reporte.nombre} en grande`}
+                    className="relative block w-full cursor-zoom-in overflow-hidden focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
+                  >
+                    <img
+                      src={reporte.fotoUrl ?? "/mock/dog-nube.jpg"}
+                      alt={`Foto de ${reporte.nombre}`}
+                      loading="lazy"
+                      className="aspect-[16/10] w-full bg-sunken object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                    />
+
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[rgb(20_36_46/88%)] via-[rgb(20_36_46/38%)] to-transparent"
+                    />
+
+                    {/* Tenue siempre y no solo al pasar el cursor: en un
+                        teléfono no hay cursor que pasar. */}
+                    <span
+                      aria-hidden
+                      className="absolute right-3 bottom-3 grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white opacity-70 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100"
+                    >
+                      <Maximize2 size={14} strokeWidth={2.2} />
+                    </span>
+                  </button>
+
+                  <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+                    <Badge tono={reporte.estado === "perdida" ? "danger" : "ok"}>{reporte.estado === "perdida" ? "Perdida" : "Encontrada"}</Badge>
+                    {reporte.recompensa != null && (
+                      /* Con la cifra sola quedaba un número amarillo
+                         suelto sobre la foto: podía leerse como el peso
+                         o la edad. La palabra es la que lo convierte en
+                         un motivo para llamar. */
+                      <span className="nums shrink-0 rounded-full bg-warn-wash px-2.5 py-1 text-[11.5px] font-semibold text-warn">
+                        Recompensa {colones(reporte.recompensa)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="pointer-events-none absolute inset-x-0 right-12 bottom-0 p-4">
+                    <h3 className="truncate text-[17px] font-semibold text-white">{reporte.nombre}</h3>
+                    <p className="mt-0.5 truncate text-[12.5px] text-white/85">
+                      {reporte.especie}
+                      {reporte.raza ? ` · ${reporte.raza}` : ""}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex flex-1 flex-col px-5 py-4">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <h3 className="text-[16px] font-semibold text-ink">{reporte.nombre}</h3>
-                    <span className="text-[11.5px] text-ink-mute">{reporte.especie}</span>
-                  </div>
-                  <p className="mt-0.5 text-[12.5px] text-ink-soft">{reporte.raza || "Raza no indicada"}</p>
+                  {/* Cada fila tiene su `dt` en `sr-only`: una lista de
+                      definiciones con `dd` sueltos no es válida, y quien
+                      navega con lector de pantalla oía tres datos sin
+                      saber de qué eran. El ícono no sirve de etiqueta. */}
+                  <dl className="flex flex-col gap-1 text-[12.5px] text-ink-soft">
+                    <div className="flex items-center gap-2"><MapPin size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">Zona</dt><dd className="truncate">Visto en {zonaLabel(reporte.zona)}</dd></div>
+                    <div className="flex items-center gap-2"><Clock size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">Reportado</dt><dd className="nums">{formatDateTime(reporte.fecha_reporte)}</dd></div>
+                    {reporte.contacto && (
+                      <div className="flex items-center gap-2">
+                        <Phone size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
+                        <dt className="sr-only">Contacto</dt>
+                        {/* Enlace `tel:`: en el teléfono, que es donde se
+                            va a ver esto, llamar es la acción del caso. */}
+                        <dd className="min-w-0"><a href={`tel:${reporte.contacto.replace(/[^+\d]/g, "")}`} className="nums truncate hover:text-ink hover:underline">{telefonoLegible(reporte.contacto)}</a></dd>
+                      </div>
+                    )}
+                  </dl>
 
-                  {reporte.recompensa != null && (
-                    <p className="nums mt-3 bg-warn-wash px-3 py-1.5 text-[12px] font-semibold text-warn">
-                      Recompensa {colones(reporte.recompensa)}
+                  {/* Lo que escribió quien la perdió. Va en tinta plena y
+                      separado del bloque de datos: es un mensaje, no una
+                      cuarta fila de la lista. Recortado a tres líneas
+                      para que una descripción larga no estire toda la
+                      fila de la rejilla. */}
+                  {reporte.descripcion && (
+                    <p className="mt-3 line-clamp-2 text-[12.5px] leading-relaxed text-ink">
+                      {reporte.descripcion}
                     </p>
                   )}
 
-                  <dl className="mt-3 flex flex-col gap-1.5 text-[12.5px] text-ink-soft">
-                    <div className="flex items-center gap-2"><MapPin size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" /><dd>Visto en {zonaLabel(reporte.zona)}</dd></div>
-                    <div className="flex items-center gap-2"><Clock size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" /><dd className="nums">{formatDateTime(reporte.fecha_reporte)}</dd></div>
-                    {reporte.contacto && <div className="flex items-center gap-2"><Phone size={13} strokeWidth={1.8} aria-hidden className="text-ink-mute" /><dd className="nums">{reporte.contacto}</dd></div>}
-                  </dl>
-
-                  <p className="mt-3 text-[12.5px] leading-snug text-ink-soft">{reporte.descripcion}</p>
-
-                  <div className="mt-3 bg-sunken px-3 py-2 text-[12px] text-ink-soft">
+                  {/* Sin avistamientos el recuadro decía dos veces lo
+                      mismo —"0 avistamientos" arriba y "Sin
+                      avistamientos reportados" debajo— y ocupaba el
+                      mismo sitio que cuando sí los hay. Una línea. */}
+                  {/* El recuento va siempre, también en cero: "0
+                      avistamientos" no es lo mismo que no decir nada
+                      —significa que nadie la ha visto todavía, y eso es
+                      un dato del caso—. */}
+                  <div className="mt-3 rounded-[14px] bg-sunken px-3 py-2.5 text-[12px] text-ink-soft">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold text-ink">
                           {reporte.avistamientos.length} {reporte.avistamientos.length === 1 ? "avistamiento" : "avistamientos"}
                         </p>
                         {ultimoAvistamiento ? (
                           <p className="mt-1 line-clamp-2">
-                            Ultimo: {ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona)} · {formatDateTime(ultimoAvistamiento.fecha)}
+                            Último: {ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona)} · {formatDateTime(ultimoAvistamiento.fecha)}
                           </p>
-                        ) : <p className="mt-1 text-ink-mute">Sin avistamientos reportados.</p>}
+                        ) : (
+                          <p className="mt-1 text-ink-mute">Sin avistamientos reportados.</p>
+                        )}
                       </div>
-                      {canClose && reporte.avistamientos.length > 0 && (
+                      {canClose && ultimoAvistamiento && (
                         <button type="button" className="shrink-0 text-[12px] font-semibold text-accent-dark hover:underline" onClick={() => setSightingDetails(reporte)}>
                           Detalles
                         </button>
@@ -642,16 +805,30 @@ const MascotasPerdidas = () => {
                     </div>
                   </div>
 
-                  <div className="mt-auto grid gap-2 pt-4">
-                    <a href={`https://www.google.com/maps/search/?api=1&query=${reporte.latitud},${reporte.longitud}`} target="_blank" rel="noreferrer" className={`${btnSecondary} w-full`}>
-                      <MapPin size={14} />
-                      Ver ubicacion
-                    </a>
-                    <button type="button" disabled={reporte.estado === "encontrada"} className={`${btnSecondary} w-full disabled:cursor-default disabled:opacity-45 disabled:hover:bg-neutral-wash`} onClick={() => setSighting(reporte)}>
+                  {/* Tres botones a lo alto y todos secundarios: ni
+                      jerarquía ni sitio. La acción que mueve el caso
+                      —avisar que se vio al animal— manda y ocupa la
+                      fila entera; las otras dos se reparten la de
+                      abajo, con las etiquetas cortas para que entren en
+                      una tarjeta de 280 px. */}
+                  <div className="mt-auto grid gap-2 pt-3.5">
+                    <button type="button" disabled={reporte.estado === "encontrada"} className={`${reporte.estado === "encontrada" ? btnSecondary : btnPrimary} w-full disabled:cursor-default disabled:opacity-45 disabled:hover:bg-neutral-wash disabled:hover:brightness-100`} onClick={() => setSighting(reporte)}>
                       <Eye size={14} strokeWidth={1.9} />
                       {reporte.estado === "encontrada" ? "Caso cerrado" : "Vi a esta mascota"}
                     </button>
-                    {canClose && reporte.estado === "perdida" && <button type="button" className={`${btnSecondary} w-full`} onClick={() => void closeReport(reporte)}><CheckCircle2 size={14} />Marcar encontrada</button>}
+
+                    <div className={`grid gap-2 ${puedeCerrar ? "grid-cols-2" : "grid-cols-1"}`}>
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${reporte.latitud},${reporte.longitud}`} target="_blank" rel="noreferrer" className={`${btnSecondaryCompacto} w-full`}>
+                        <MapPin size={13} />
+                        Ubicación
+                      </a>
+                      {puedeCerrar && (
+                        <button type="button" className={`${btnSecondaryCompacto} w-full`} onClick={() => setCerrandoCaso(reporte)}>
+                          <CheckCircle2 size={13} />
+                          Ya apareció
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </article>
@@ -661,17 +838,40 @@ const MascotasPerdidas = () => {
       )}
 
       {reporting && user && (
-        <Dialog title="Reportar mascota perdida" onClose={() => setReporting(false)}>
+        <Dialog ancho="max-w-[760px]" title="Reportar mascota perdida" onClose={() => setReporting(false)}>
           <ReportForm userId={user.id} pets={pets} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReporting(false)} onSaved={load} />
         </Dialog>
       )}
       {sighting && (
-        <Dialog title="Registrar avistamiento" onClose={() => setSighting(null)}>
+        <Dialog ancho="max-w-[760px]" title="Registrar avistamiento" onClose={() => setSighting(null)}>
           <SightingForm report={sighting} zonas={zonas} profilePhone={profilePhone} onClose={() => setSighting(null)} onSaved={load} />
         </Dialog>
       )}
+      <Visor
+        abierto={fotoAbierta !== null}
+        src={fotoAbierta?.fotoUrl ?? "/mock/dog-nube.jpg"}
+        alt={fotoAbierta ? `Foto de ${fotoAbierta.nombre}` : ""}
+        cerrar={() => setFotoAbierta(null)}
+      />
+
+      {cerrandoCaso && (
+        <Confirmar
+          titulo="Marcar como encontrada"
+          cuerpo={
+            <>
+              Vas a cerrar el reporte de <strong className="font-semibold text-ink">{cerrandoCaso.nombre}</strong>. Deja de
+              aparecer entre las mascotas perdidas y nadie va a poder registrar
+              más avistamientos.
+            </>
+          }
+          confirmar="Sí, apareció"
+          ocupado={cerrandoOcupado}
+          onConfirmar={() => void closeReport(cerrandoCaso)}
+          onCancelar={() => setCerrandoCaso(null)}
+        />
+      )}
       {sightingDetails && (
-        <Dialog title={`Avistamientos de ${sightingDetails.nombre}`} onClose={() => setSightingDetails(null)}>
+        <Dialog ancho="max-w-[760px]" title={`Avistamientos de ${sightingDetails.nombre}`} onClose={() => setSightingDetails(null)}>
           <SightingDetails report={sightingDetails} onClose={() => setSightingDetails(null)} />
         </Dialog>
       )}

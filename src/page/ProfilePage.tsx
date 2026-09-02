@@ -29,6 +29,8 @@ import {
 import ProfileAvatar from "../components/ProfileAvatar";
 import SelloVerificado from "../components/SelloVerificado";
 import Visor from "../components/Visor";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
 
 import {
   Badge,
@@ -682,13 +684,14 @@ const ProfilePage = () => {
     try {
       await persistProfile(true);
 
-      setMessage(
-        "Perfil actualizado correctamente.",
-      );
+      aviso.ok("Perfil actualizado", {
+        detalle: "Los datos se comparten entre todos tus perfiles.",
+      });
     } catch (cause) {
       setError(
         messageFrom(cause),
       );
+      aviso.error(cause, { respaldo: "No se pudo guardar el perfil." });
     } finally {
       setSaving(false);
     }
@@ -725,13 +728,14 @@ const ProfilePage = () => {
 
         setRoleSetup(null);
 
-        setMessage(
-          "Perfil de dueño activado correctamente.",
-        );
+        aviso.ok("Perfil de dueño activado", {
+          detalle: "Ya podés registrar mascotas y solicitar paseos.",
+        });
       } catch (cause) {
         setError(
           messageFrom(cause),
         );
+        aviso.error(cause, { respaldo: "No se pudo activar el perfil de dueño." });
       } finally {
         setAddingRole(null);
       }
@@ -809,13 +813,14 @@ const ProfilePage = () => {
 
         setRoleSetup(null);
 
-        setMessage(
-          "Solicitud de paseador enviada. Administración revisará tu información.",
-        );
+        aviso.ok("Solicitud de paseador enviada", {
+          detalle: "Ya podés entrar al panel. Para aceptar paseos falta la aprobación.",
+        });
       } catch (cause) {
         setError(
           messageFrom(cause),
         );
+        aviso.error(cause, { respaldo: "No se pudo enviar la solicitud." });
       } finally {
         setAddingRole(null);
       }
@@ -909,13 +914,14 @@ const ProfilePage = () => {
 
         setRoleSetup(null);
 
-        setMessage(
-          "Perfil de negocio activado correctamente.",
-        );
+        aviso.ok("Perfil de negocio activado", {
+          detalle: "Aparece en el directorio en cuanto se apruebe la verificación.",
+        });
       } catch (cause) {
         setError(
           messageFrom(cause),
         );
+        aviso.error(cause, { respaldo: "No se pudo activar el perfil de negocio." });
       } finally {
         setAddingRole(null);
       }
@@ -962,18 +968,22 @@ const ProfilePage = () => {
     setMessage(null);
 
     try {
-      await uploadVerificationDocument(
-        user.id,
-        type,
-        file,
-      );
-
-      applyProfile(
-        await getProfile(),
-      );
-
-      setMessage(
-        `${verificationDocumentLabels[type]} guardado correctamente.`,
+      /* Un aviso solo, que pasa de "subiendo" a "subido" o a la
+         falla. Es el caso de espera de verdad de todo el sistema: un
+         archivo de hasta diez megas viajando, y hasta ahora lo único
+         que lo contaba era un rótulo chiquito dentro de la ficha del
+         documento, que en el teléfono queda fuera de pantalla si se
+         eligió el de más abajo. */
+      await aviso.proceso(
+        (async () => {
+          await uploadVerificationDocument(user.id, type, file);
+          applyProfile(await getProfile());
+        })(),
+        {
+          esperando: `Subiendo ${verificationDocumentLabels[type].toLowerCase()}…`,
+          bien: `${verificationDocumentLabels[type]} subido`,
+          mal: `No se pudo subir ${verificationDocumentLabels[type].toLowerCase()}.`,
+        },
       );
     } catch (cause) {
       setError(
@@ -1002,13 +1012,14 @@ const ProfilePage = () => {
           await getProfile(),
         );
 
-        setMessage(
-          "Solicitud de verificación enviada a administración.",
-        );
+        aviso.ok("Verificación enviada", {
+          detalle: "Administración la revisa y te avisamos del resultado.",
+        });
       } catch (cause) {
         setError(
           messageFrom(cause),
         );
+        aviso.error(cause, { respaldo: "No se pudo enviar la verificación." });
       } finally {
         setSubmittingVerification(
           false,
@@ -1021,22 +1032,16 @@ const ProfilePage = () => {
      ========================================================= */
 
   if (loading) {
+    /* Era una tarjeta de 176 px con una rueda girando, y debajo
+       aparecía de golpe una pantalla de mil. El esqueleto de esta
+       pantalla no es una rejilla repetida: es la cabecera de
+       identidad con su degradado, la tira de pestañas y el panel de
+       datos, que es lo que se está esperando. */
     return (
       <Page>
-        <div
-          className={`${cardClass} flex min-h-44 items-center justify-center`}
-        >
-          <div className="flex flex-col items-center gap-3">
-            <RefreshCw
-              size={21}
-              className="animate-spin text-accent"
-            />
-
-            <p className="text-[13px] text-ink-soft">
-              Cargando tu perfil…
-            </p>
-          </div>
-        </div>
+        <Skeleton name="perfil-cuenta" loading>
+          <div />
+        </Skeleton>
       </Page>
     );
   }
