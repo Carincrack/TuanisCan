@@ -1,6 +1,9 @@
 export type CardBrand = "Visa" | "Mastercard";
 
-export const cardDigits = (value: string) => value.replace(/\D/g, "").slice(0, 19);
+export const CARD_NUMBER_LENGTH = 16;
+
+export const cardDigits = (value: string) =>
+  value.replace(/\D/g, "").slice(0, CARD_NUMBER_LENGTH);
 
 export const formatCardNumber = (value: string) =>
   cardDigits(value).replace(/(.{4})/g, "$1 ").trim();
@@ -23,7 +26,7 @@ export const cardBrand = (value: string): CardBrand | null => {
 
 export const isValidCardNumber = (value: string) => {
   const digits = cardDigits(value);
-  if (digits.length < 13) return false;
+  if (digits.length !== CARD_NUMBER_LENGTH) return false;
 
   let sum = 0;
   let double = false;

@@ -1,5 +1,10 @@
 import { supabase } from "../lib/supabase";
-import { cardBrand, cardDigits, isValidCardNumber, parseExpiry } from "../lib/payment-card";
+import {
+  CARD_NUMBER_LENGTH,
+  cardBrand,
+  cardDigits,
+  parseExpiry,
+} from "../lib/payment-card";
 
 export interface PaymentMethod {
   id_metodo_pago: string;
@@ -80,10 +85,13 @@ export const registerPaymentMethod = async (input: {
   const brand = cardBrand(digits);
   const expiry = parseExpiry(input.vencimiento);
 
-  if (!brand || !isValidCardNumber(digits)) throw new Error("El número de tarjeta no es válido.");
+  if (input.titular.trim().length < 3) throw new Error("Indica el nombre del titular.");
+  if (digits.length !== CARD_NUMBER_LENGTH) {
+    throw new Error("El número de tarjeta debe tener 16 dígitos.");
+  }
+  if (!brand) throw new Error("La tarjeta no es válida. Solo aceptamos Visa (comienza con 4) o Mastercard (comienza con 51-55 o 2221-2720).");
   if (!expiry) throw new Error("La fecha de vencimiento no es válida.");
   if (!/^\d{3,4}$/.test(input.cvv)) throw new Error("El código de seguridad no es válido.");
-  if (input.titular.trim().length < 3) throw new Error("Indica el nombre del titular.");
 
   const { data, error } = await supabase.rpc("registrar_metodo_pago", {
     p_titular: input.titular.trim(),
