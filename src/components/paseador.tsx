@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Check,
   Clock,
+  Loader,
   MapPin,
   Pause,
   Play,
@@ -34,6 +35,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
+import { listWalkerEarnings, type WalkerEarning } from "../services/payments.service";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -677,45 +679,44 @@ export const PaseoActivoPaseador = () => (
 
 /* ── Ganancias ───────────────────────────────────────────────── */
 
-interface Ingreso {
-  fecha: string;
-  mascota: string;
-  dueno: string;
-  bruto: number;
-  comision: number;
-  estado: "Liquidado" | "Por liquidar";
-}
+const filtrosIngreso = ["Todos", "Pendientes", "Pagados"];
 
-const ingresos: Ingreso[] = [
-  { fecha: "19 ago", mascota: "Nube", dueno: "Laura Vega", bruto: 3800, comision: 570, estado: "Por liquidar" },
-  { fecha: "19 ago", mascota: "Kira", dueno: "Diego Solís", bruto: 5200, comision: 780, estado: "Por liquidar" },
-  { fecha: "18 ago", mascota: "Rocky", dueno: "Ana Corrales", bruto: 4500, comision: 675, estado: "Por liquidar" },
-  { fecha: "17 ago", mascota: "Luna", dueno: "Ana Corrales", bruto: 5200, comision: 780, estado: "Liquidado" },
-  { fecha: "16 ago", mascota: "Kira", dueno: "Diego Solís", bruto: 5200, comision: 780, estado: "Liquidado" },
-  { fecha: "15 ago", mascota: "Rocky", dueno: "Ana Corrales", bruto: 4500, comision: 675, estado: "Liquidado" },
-];
-
-const filtrosIngreso = ["Todos", "Por liquidar", "Liquidados"];
+const fechaIngreso = (fecha: string) =>
+  new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(
+    new Date(`${fecha}T00:00:00`),
+  );
 
 export const GananciasPaseador = () => {
   const [filtro, setFiltro] = useState("Todos");
+  const [ingresos, setIngresos] = useState<WalkerEarning[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    listWalkerEarnings()
+      .then(setIngresos)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar las ganancias."))
+      .finally(() => setLoading(false));
+  }, []);
 
   const visibles = ingresos.filter((i) =>
-    filtro === "Por liquidar"
-      ? i.estado === "Por liquidar"
-      : filtro === "Liquidados"
-        ? i.estado === "Liquidado"
+    filtro === "Pendientes"
+      ? i.estado_pago === "pendiente"
+      : filtro === "Pagados"
+        ? i.estado_pago === "pagado"
         : true
   );
 
-  const neto = (i: Ingreso) => i.bruto - i.comision;
-  const totalNeto = visibles.reduce((s, i) => s + neto(i), 0);
+  const pagados = ingresos.filter((i) => i.estado_pago === "pagado");
+  const pendientes = ingresos.filter((i) => i.estado_pago === "pendiente");
+  const totalNeto = visibles.reduce((s, i) => s + i.neto, 0);
 
   return (
     <Page>
       <PageHeader
         title="Ganancias"
-        subtitle="Ingresos por paseo, comisión de la plataforma y liquidaciones."
+        subtitle="Ingresos reales por paseo y comisión de la plataforma."
         action={
           <span className="flex items-center gap-2 bg-sunken px-4 py-2.5 text-[13px] text-ink-soft">
             <Wallet size={15} strokeWidth={1.9} aria-hidden />
@@ -725,9 +726,9 @@ export const GananciasPaseador = () => {
       />
 
       <div className="grid gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Por liquidar" valor={colones(11730)} nota="3 paseos" />
-        <Stat etiqueta="Liquidado en agosto" valor={colones(38400)} nota="9 paseos" />
-        <Stat etiqueta="Próximo depósito" valor="21 ago" nota="viernes" />
+        <Stat etiqueta="Ganancia disponible" valor={colones(pagados.reduce((sum, item) => sum + item.neto, 0))} nota={`${pagados.length} pagos`} />
+        <Stat etiqueta="Pendiente de pago" valor={colones(pendientes.reduce((sum, item) => sum + item.neto, 0))} nota={`${pendientes.length} paseos`} />
+        <Stat etiqueta="Comisión descontada" valor={colones(pagados.reduce((sum, item) => sum + item.comision, 0))} nota="15%" />
       </div>
 
       <div className="bg-surface">
@@ -740,7 +741,14 @@ export const GananciasPaseador = () => {
       </div>
 
       <Section bodyClass="">
-        <Table
+        {error ? (
+          <div role="alert" className="px-6 py-6 text-[13px] text-danger">{error}</div>
+        ) : loading ? (
+          <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
+            <Loader size={16} className="animate-spin" /> Cargando ganancias…
+          </div>
+        ) : visibles.length ? (
+          <><Table
           caption={`Ingresos filtrados por ${filtro.toLowerCase()}`}
           columnas={[
             { label: "Fecha" },
@@ -751,18 +759,18 @@ export const GananciasPaseador = () => {
             { label: "Neto", align: "right" },
           ]}
         >
-          {visibles.map((i, idx) => (
-            <tr key={i.fecha + i.mascota + idx}>
+          {visibles.map((i) => (
+            <tr key={i.id_pago}>
               <td className="nums px-6 py-3.5 text-[12.5px] text-ink-soft">
-                {i.fecha}
+                {fechaIngreso(i.fecha)}
               </td>
               <td className="px-6 py-3.5">
                 <p className="text-[13px] font-medium text-ink">{i.mascota}</p>
                 <p className="text-[11.5px] text-ink-soft">{i.dueno}</p>
               </td>
               <td className="px-6 py-3.5">
-                <Badge tono={i.estado === "Liquidado" ? "neutral" : "warn"}>
-                  {i.estado}
+                <Badge tono={i.estado_pago === "pagado" ? "ok" : "warn"}>
+                  {i.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
                 </Badge>
               </td>
               <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
@@ -772,7 +780,7 @@ export const GananciasPaseador = () => {
                 −{colones(i.comision)}
               </td>
               <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                {colones(neto(i))}
+                {colones(i.neto)}
               </td>
             </tr>
           ))}
@@ -786,6 +794,10 @@ export const GananciasPaseador = () => {
             {colones(totalNeto)}
           </span>
         </div>
+        </>
+        ) : (
+          <EmptyState title="Sin ganancias todavía" hint="Los pagos de tus paseos aparecerán aquí." />
+        )}
       </Section>
     </Page>
   );

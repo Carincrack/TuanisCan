@@ -32,6 +32,7 @@ import {
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
+import { listAdminFinances, type AdminFinanceMovement } from "../services/payments.service";
 
 /* ─────────────────────────────────────────────────────────────
    Panel de la plataforma. Solo para el equipo de TuanisCan:
@@ -158,27 +159,52 @@ export const PanelAdmin = () => (
 
 /* ── Finanzas ────────────────────────────────────────────────── */
 
-const liquidaciones = [
-  { id: "LQ-0091", periodo: "11 – 17 ago", paseadores: 58, bruto: 892000, comision: 133800, estado: "Pagada" as const },
-  { id: "LQ-0090", periodo: "4 – 10 ago", paseadores: 55, bruto: 845000, comision: 126750, estado: "Pagada" as const },
-  { id: "LQ-0092", periodo: "18 – 24 ago", paseadores: 62, bruto: 418000, comision: 62700, estado: "Abierta" as const },
-  { id: "LQ-0089", periodo: "28 jul – 3 ago", paseadores: 53, bruto: 803000, comision: 120450, estado: "Pagada" as const },
-];
-
 export const FinanzasAdmin = () => {
-  const [filtro, setFiltro] = useState("Todas");
+  const [filtro, setFiltro] = useState("Todos");
+  const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const visibles = liquidaciones.filter((l) =>
-    filtro === "Todas" ? true : l.estado === (filtro === "Pagadas" ? "Pagada" : "Abierta")
+  useEffect(() => {
+    setLoading(true);
+    listAdminFinances()
+      .then(setMovimientos)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar las finanzas."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const visibles = movimientos.filter((movement) =>
+    filtro === "Pagados"
+      ? movement.estado_pago === "pagado"
+      : filtro === "Pendientes"
+        ? movement.estado_pago === "pendiente"
+        : true
   );
+
+  const pagados = movimientos.filter((movement) => movement.estado_pago === "pagado");
+  const pendientes = movimientos.filter((movement) => movement.estado_pago === "pendiente");
+  const brutoPagado = pagados.reduce((sum, movement) => sum + movement.bruto, 0);
+  const exportar = () => {
+    const rows = [
+      ["Fecha", "Mascota", "Dueño", "Paseador", "Bruto", "Comisión", "Neto", "Estado"],
+      ...visibles.map((movement) => [movement.fecha, movement.mascota, movement.dueno, movement.paseador, String(movement.bruto), String(movement.comision), String(movement.neto_paseador), movement.estado_pago]),
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "finanzas-tuaniscan.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Page>
       <PageHeader
         title="Finanzas"
-        subtitle="Comisión de la plataforma y liquidaciones semanales a paseadores."
+        subtitle="Pagos, ganancias de paseadores y comisión de la plataforma."
         action={
-          <button type="button" className={btnSecondary}>
+          <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
             <Download size={14} strokeWidth={1.9} />
             Exportar
           </button>
@@ -186,50 +212,64 @@ export const FinanzasAdmin = () => {
       />
 
       <div className="grid gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Comisión acumulada" valor={colones(2841000)} nota="año en curso" />
-        <Stat etiqueta="Por liquidar" valor={colones(355300)} nota="62 paseadores" />
-        <Stat etiqueta="Ticket promedio" valor={colones(4520)} nota="por paseo" />
+        <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota="15% de pagos completados" />
+        <Stat etiqueta="Comisión pendiente" valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} pagos`} />
+        <Stat etiqueta="Volumen pagado" valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} paseos` : "sin pagos"} />
       </div>
 
       <div className="bg-surface">
         <FilterTabs
-          label="Filtrar liquidaciones"
-          options={["Todas", "Abiertas", "Pagadas"]}
+          label="Filtrar pagos"
+          options={["Todos", "Pendientes", "Pagados"]}
           value={filtro}
           onChange={setFiltro}
         />
       </div>
 
       <Section bodyClass="">
-        {visibles.length > 0 ? (
+        {error ? (
+          <div role="alert" className="px-6 py-6 text-[13px] text-danger">{error}</div>
+        ) : loading ? (
+          <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
+            <Loader size={16} className="animate-spin" /> Cargando finanzas…
+          </div>
+        ) : visibles.length > 0 ? (
           <Table
-            caption={`Liquidaciones filtradas por ${filtro.toLowerCase()}`}
+            caption={`Pagos filtrados por ${filtro.toLowerCase()}`}
             columnas={[
-              { label: "Periodo" },
-              { label: "Paseadores", align: "right" },
+              { label: "Paseo" },
+              { label: "Dueño" },
+              { label: "Paseador" },
               { label: "Bruto", align: "right" },
               { label: "Comisión", align: "right" },
+              { label: "Neto", align: "right" },
               { label: "Estado" },
             ]}
           >
-            {visibles.map((l) => (
-              <tr key={l.id}>
+            {visibles.map((movement) => (
+              <tr key={movement.id_pago}>
                 <td className="px-6 py-3.5">
-                  <p className="text-[13px] font-medium text-ink">{l.periodo}</p>
-                  <p className="nums text-[11.5px] text-ink-mute">{l.id}</p>
+                  <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
+                  <p className="nums text-[11.5px] text-ink-mute">{movement.fecha}</p>
+                </td>
+                <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">
+                  {movement.dueno}
+                </td>
+                <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">
+                  {movement.paseador}
                 </td>
                 <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
-                  {l.paseadores}
-                </td>
-                <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
-                  {colones(l.bruto)}
+                  {colones(movement.bruto)}
                 </td>
                 <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                  {colones(l.comision)}
+                  {colones(movement.comision)}
+                </td>
+                <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
+                  {colones(movement.neto_paseador)}
                 </td>
                 <td className="px-6 py-3.5">
-                  <Badge tono={l.estado === "Pagada" ? "ok" : "warn"}>
-                    {l.estado}
+                  <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
+                    {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
                   </Badge>
                 </td>
               </tr>
@@ -237,8 +277,8 @@ export const FinanzasAdmin = () => {
           </Table>
         ) : (
           <EmptyState
-            title="Sin liquidaciones en este filtro"
-            hint="Cambia el filtro para ver el resto."
+            title="Sin pagos en este filtro"
+            hint="Los movimientos aparecerán cuando los paseadores acepten solicitudes."
           />
         )}
       </Section>
