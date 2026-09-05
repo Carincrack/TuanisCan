@@ -3,7 +3,6 @@ import {
   CARD_NUMBER_LENGTH,
   cardBrand,
   cardDigits,
-  isValidCardNumber,
   parseExpiry,
 } from "../lib/payment-card";
 
