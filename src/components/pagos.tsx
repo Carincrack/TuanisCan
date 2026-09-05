@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CreditCard, Download, Loader, Plus } from "../lib/iconos";
 import { aviso } from "../lib/aviso";
-import { cardBrand, cardDigits, formatCardNumber } from "../lib/payment-card";
+import { CARD_NUMBER_LENGTH, cardBrand, cardDigits, formatCardNumber } from "../lib/payment-card";
 import {
   listOwnerPayments,
   listPaymentMethods,
@@ -167,6 +167,11 @@ const Pagos = () => {
   }, [movimientos]);
 
   const saveCard = async () => {
+    const digits = cardDigits(form.numero);
+    if (digits.length !== CARD_NUMBER_LENGTH) {
+      setDialogError("El número de tarjeta debe tener 16 dígitos.");
+      return;
+    }
     setSaving(true);
     setDialogError("");
     try {
@@ -369,13 +374,38 @@ const Pagos = () => {
               vencimiento={form.vencimiento}
             />
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[14px] bg-accent-wash px-4 py-3 text-[12px] leading-relaxed text-accent sm:col-span-2">
+                <p className="font-semibold mb-1">✓ Aceptamos:</p>
+                <p>• <strong>Visa</strong>: números que comienzan con 4</p>
+                <p>• <strong>Mastercard</strong>: números que comienzan con 51-55 o 2221-2720</p>
+              </div>
               <label className={`${fieldLabel} sm:col-span-2`}>
                 Nombre del titular
                 <input autoComplete="cc-name" className={input} value={form.titular} onChange={(event) => setForm({ ...form, titular: event.target.value })} />
               </label>
               <label className={`${fieldLabel} sm:col-span-2`}>
-                Número de tarjeta
-                <input inputMode="numeric" autoComplete="cc-number" className={input} placeholder="Número de tarjeta" value={form.numero} onChange={(event) => setForm({ ...form, numero: formatCardNumber(event.target.value) })} />
+                <span className="flex items-center justify-between">
+                  <span>Número de tarjeta</span>
+                  <span className="nums text-[10px] font-normal normal-case text-ink-mute">
+                    {cardDigits(form.numero).length}/{CARD_NUMBER_LENGTH} dígitos
+                  </span>
+                </span>
+                <input
+                  inputMode="numeric"
+                  autoComplete="cc-number"
+                  maxLength={19}
+                  className={input}
+                  placeholder="Número de tarjeta (16 dígitos)"
+                  value={form.numero}
+                  onChange={(event) =>
+                    setForm({ ...form, numero: formatCardNumber(event.target.value) })
+                  }
+                  onPaste={(event) => {
+                    event.preventDefault();
+                    const pasted = event.clipboardData.getData("text");
+                    setForm((prev) => ({ ...prev, numero: formatCardNumber(pasted) }));
+                  }}
+                />
               </label>
               <label className={fieldLabel}>
                 Vencimiento
@@ -383,7 +413,18 @@ const Pagos = () => {
               </label>
               <label className={fieldLabel}>
                 CVV
-                <input type="password" inputMode="numeric" autoComplete="cc-csc" maxLength={4} className={input} placeholder="123" value={form.cvv} onChange={(event) => setForm({ ...form, cvv: cardDigits(event.target.value).slice(0, 4) })} />
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="cc-csc"
+                  maxLength={4}
+                  className={input}
+                  placeholder="123"
+                  value={form.cvv}
+                  onChange={(event) =>
+                    setForm({ ...form, cvv: event.target.value.replace(/\D/g, "").slice(0, 4) })
+                  }
+                />
               </label>
               <p className="text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
                 El número completo y el CVV se validan en este formulario, pero nunca se guardan en la base de datos.
