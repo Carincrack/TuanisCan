@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Skeleton } from "boneyard-js/react";
 import {
   AlertTriangle,
   Banknote,
@@ -6,8 +7,6 @@ import {
   Clock,
   CreditCard,
   Download,
-  Eye,
-  FileText,
   Loader,
   PawPrint,
   Plus,
@@ -16,15 +15,16 @@ import {
   ShieldCheck,
   Star,
   TrendingUp,
-  User,
   Wallet,
 } from "../lib/iconos";
-import { aviso } from "../lib/aviso";
+import { aviso, motivo } from "../lib/aviso";
 import {
   CARD_NUMBER_LENGTH,
   cardBrand,
   cardDigits,
   formatCardNumber,
+  isValidCardNumber,
+  parseExpiry,
   type CardBrand,
 } from "../lib/payment-card";
 import {
@@ -40,9 +40,11 @@ import {
   Badge,
   Dialog,
   EmptyState,
+  FilterTabs,
   Page,
   PageHeader,
   Section,
+  Table,
   btnPrimary,
   btnSecondary,
   colones,
@@ -50,71 +52,157 @@ import {
   input,
 } from "./ui";
 
+/* ─────────────────────────────────────────────────────────────
+   GESTIÓN DE PAGOS
+
+   Esta pantalla se había ido del sistema. Traía la paleta cruda de
+   Tailwind —`emerald-50`, `amber-100`, `rose-300`, `sky-900`,
+   `cyan-400`— cuando la casa tiene sus propios lavados de estado, y
+   con eso el verde de "pagado" no era el verde de "aprobado" del
+   panel de administración, ni el ámbar de "pendiente" el de las
+   verificaciones. Tenía además tabla propia, pestañas propias y su
+   copia de `messageFrom`.
+
+   Todo eso vuelve a las piezas compartidas. Lo único que se queda
+   como pieza propia es la tarjeta, porque es la única de verdad:
+   ninguna otra pantalla dibuja un objeto físico.
+
+   ── La tarjeta ──
+
+   Un rectángulo con degradado y esquinas redondas es lo que sale por
+   defecto y se nota. Lo que hace que una tarjeta se lea como tarjeta
+   son cuatro cosas que sí están en las de verdad:
+
+     · El guilloché. El grabado de líneas finas que llevan las
+       tarjetas y los billetes desde que existe la imprenta de
+       seguridad. Acá son dos rosetones y una trama diagonal a muy
+       poca opacidad: al cruzarse dan el moiré, que es exactamente lo
+       que hace el torno de grabar.
+     · La proporción. ID-1 de la norma ISO/IEC 7810 es 85,60 × 53,98
+       mm, o sea 1,586. Antes estaba en 1,62 —la proporción áurea—,
+       que es parecida pero no es la de ninguna tarjeta del mundo.
+     · El chip. Un chip EMV tiene seis contactos en dos columnas con
+       un puente al centro, no una cruz.
+     · El relieve. Los números van repujados: luz arriba, sombra
+       abajo. Dos sombras de texto de un píxel.
+
+   El turquesa de la casa aparece donde aparece siempre —un filete,
+   nada más—, y el navy es el mismo `--color-rail` del riel. La
+   tarjeta se ve cara sin dejar de ser de este producto.
+
+   ── Un objeto, tres tamaños ──
+
+   La misma tarjeta aparece completa en la sección de métodos, en
+   sello mediano al elegir con qué pagar, y en sello chico dentro de
+   la tabla. Es lo que ata la pantalla: quien ve el sello chico en una
+   fila reconoce cuál de sus tarjetas cobró.
+   ───────────────────────────────────────────────────────────── */
+
 type FiltroTipo = "Todos" | "Pagados" | "Pendientes" | "Reembolsos";
+
+type Tono = "ok" | "warn" | "danger" | "accent" | "neutral";
 
 const estadoConfig: Record<
   PaymentStatus,
-  {
-    label: string;
-    tono: "ok" | "warn" | "danger" | "neutral";
-    badgeClass: string;
-    icon: typeof CheckCircle2;
-  }
+  { label: string; tono: Tono; icon: typeof CheckCircle2 }
 > = {
-  pagado: {
-    label: "Pagado",
-    tono: "ok",
-    badgeClass: "bg-emerald-50 text-emerald-800 border border-emerald-300/70",
-    icon: CheckCircle2,
-  },
-  pendiente: {
-    label: "Pendiente",
-    tono: "warn",
-    badgeClass: "bg-amber-100 text-amber-900 border border-amber-300 font-semibold",
-    icon: Clock,
-  },
-  fallido: {
-    label: "Fallido",
-    tono: "danger",
-    badgeClass: "bg-rose-50 text-rose-800 border border-rose-300/70",
-    icon: AlertTriangle,
-  },
-  reembolsado: {
-    label: "Reembolsado",
-    tono: "neutral",
-    badgeClass: "bg-sky-50 text-sky-900 border border-sky-300/70",
-    icon: Repeat,
-  },
+  pagado: { label: "Pagado", tono: "ok", icon: CheckCircle2 },
+  pendiente: { label: "Pendiente", tono: "warn", icon: Clock },
+  fallido: { label: "Fallido", tono: "danger", icon: AlertTriangle },
+  // «Reembolso» y no «Reembolsado»: la insignia vive en una columna
+  // de 115 px y la palabra larga no cabe sin partirse.
+  reembolsado: { label: "Reembolso", tono: "accent", icon: Repeat },
 };
 
-const fechaFormateada = (fecha: string) => {
-  try {
-    return new Intl.DateTimeFormat("es-CR", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(`${fecha}T00:00:00`));
-  } catch {
-    return fecha;
+/* ── La tarjeta ──────────────────────────────────────────────── */
+
+/** El grabado. Dos rosetones descentrados más una trama diagonal: al
+    superponerse dan el moiré del torno de grabar. Va como valor y no
+    como clase porque son tres capas con posiciones y pasos distintos,
+    que es justo lo que una utilidad no puede expresar. */
+const GUILLOCHE = [
+  "repeating-radial-gradient(circle at 82% 14%, rgba(255,255,255,0.07) 0 1px, transparent 1px 6px)",
+  "repeating-radial-gradient(circle at 16% 88%, rgba(255,255,255,0.055) 0 1px, transparent 1px 8px)",
+  "repeating-linear-gradient(64deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 5px)",
+].join(", ");
+
+/** El brillo del plástico. Una sola banda ancha en diagonal. Se
+    desplaza al pasar el puntero, y eso no es adorno: en el diálogo de
+    pago la tarjeta se elige, y el brillo es lo que dice que responde. */
+const BRILLO =
+  "linear-gradient(104deg, transparent 20%, rgba(255,255,255,0.14) 42%, rgba(255,255,255,0.03) 54%, transparent 72%)";
+
+/** El repujado de los números. Luz arriba, sombra abajo: un píxel
+    cada una, que es lo que hace la máquina de repujar. */
+const REPUJADO = {
+  textShadow: "0 1px 0 rgba(255,255,255,0.26), 0 -1px 1px rgba(0,0,0,0.5)",
+};
+
+interface TemaTarjeta {
+  fondo: string;
+  filete: string;
+  logo: React.ReactNode;
+}
+
+const temaDe = (marca: string): TemaTarjeta => {
+  const nombre = (marca || "").trim().toLowerCase();
+
+  if (nombre.includes("visa")) {
+    return {
+      fondo: "bg-[linear-gradient(135deg,#0b2033_0%,#16405e_52%,#1f5e86_100%)]",
+      filete: "ring-sky-300/25",
+      logo: (
+        <span className="select-none text-[19px] font-black italic tracking-wider text-white">
+          VISA
+        </span>
+      ),
+    };
   }
+
+  if (nombre.includes("mastercard")) {
+    return {
+      fondo: "bg-[linear-gradient(135deg,#1a181c_0%,#2b262d_50%,#3d2e28_100%)]",
+      filete: "ring-amber-300/25",
+      logo: (
+        <span className="flex select-none items-center -space-x-2.5" aria-label="Mastercard">
+          <span className="h-6 w-6 rounded-full bg-[#eb001b] opacity-90" />
+          <span className="h-6 w-6 rounded-full bg-[#f79e1b] opacity-90" />
+        </span>
+      ),
+    };
+  }
+
+  /* La de la casa: el navy del riel abriendo al celeste del login. */
+  return {
+    fondo: "bg-[linear-gradient(135deg,#0f2a3a_0%,#1a4257_50%,#2e6584_100%)]",
+    filete: "ring-accent/30",
+    logo: (
+      <span className="titular select-none text-[15px] font-bold tracking-tight text-white">
+        TuanisCan
+      </span>
+    ),
+  };
 };
 
-const formatExpiryInput = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 4);
-  return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
-};
+/** El chip EMV. Seis contactos en dos columnas con un puente al
+    centro, que es el trazado real de la norma ISO/IEC 7816. */
+const ChipEmv = () => (
+  <span
+    className="relative block h-[26px] w-[34px] overflow-hidden rounded-[5px] bg-[linear-gradient(135deg,#f6e3ac_0%,#dcbc72_45%,#a8843c_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_1px_2px_rgba(0,0,0,0.35)]"
+    aria-hidden="true"
+  >
+    <svg
+      viewBox="0 0 34 26"
+      className="absolute inset-0 h-full w-full text-[#6d5219]/55"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1"
+    >
+      <path d="M0 8h11M23 8h11M0 18h11M23 18h11M11 0v26M23 0v26M11 13h12" />
+    </svg>
+  </span>
+);
 
-const messageFrom = (cause: unknown) =>
-  cause instanceof Error
-    ? cause.message
-    : typeof cause === "object" && cause && "message" in cause
-      ? String(cause.message)
-      : "No se pudo completar la operación.";
-
-/**
- * Componente visual de tarjeta de crédito con estilos diferenciados por marca,
- * chip EMV metálico detallado, indicador NFC contactless y distintivo de tarjeta principal.
- */
 const TarjetaVisual = ({
   marca,
   numero,
@@ -130,70 +218,30 @@ const TarjetaVisual = ({
   esPrincipal?: boolean;
   className?: string;
 }) => {
-  const brandName = (marca || "TuanisCan").trim();
-  const isVisa = brandName.toLowerCase().includes("visa");
-  const isMastercard = brandName.toLowerCase().includes("mastercard");
-
-  // Temas visuales diferenciados según marca
-  const cardTheme = isVisa
-    ? {
-        bg: "bg-gradient-to-br from-[#0c2438] via-[#14425e] to-[#1c5d85]",
-        border: "border-sky-400/20",
-        chip: "from-amber-200 via-amber-300 to-amber-500 border-amber-600/50",
-        accent: "text-sky-300",
-        logo: (
-          <span className="font-sans text-[19px] font-black italic tracking-wider text-white select-none">
-            VISA
-          </span>
-        ),
-      }
-    : isMastercard
-      ? {
-          bg: "bg-gradient-to-br from-[#181a20] via-[#242833] to-[#382d33]",
-          border: "border-amber-500/20",
-          chip: "from-amber-100 via-amber-200 to-amber-400 border-amber-500/50",
-          accent: "text-amber-300",
-          logo: (
-            <div className="flex items-center -space-x-2.5 select-none" aria-label="Mastercard">
-              <span className="h-6 w-6 rounded-full bg-[#eb001b] opacity-90" />
-              <span className="h-6 w-6 rounded-full bg-[#f79e1b] opacity-90" />
-            </div>
-          ),
-        }
-      : {
-          bg: "bg-gradient-to-br from-[#0f2a3a] via-[#1a4257] to-[#285d79]",
-          border: "border-cyan-400/20",
-          chip: "from-amber-200 via-amber-300 to-amber-400 border-amber-500/50",
-          accent: "text-cyan-300",
-          logo: (
-            <span className="titular text-[15px] font-bold tracking-tight text-white select-none">
-              TuanisCan
-            </span>
-          ),
-        };
+  const tema = temaDe(marca);
 
   return (
     <div
-      className={`relative flex aspect-[1.62/1] w-full max-w-[360px] flex-col justify-between overflow-hidden rounded-[22px] border ${cardTheme.border} ${cardTheme.bg} p-5 text-white shadow-[0_16px_34px_rgba(15,35,55,0.22)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_22px_42px_rgba(15,35,55,0.28)] ${className}`}
+      className={`group relative flex aspect-[1.586/1] w-full max-w-[360px] flex-col justify-between overflow-hidden rounded-[20px] p-5 text-white ring-1 ${tema.filete} ${tema.fondo} shadow-[0_14px_30px_rgba(15,35,55,0.24)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_22px_44px_rgba(15,35,55,0.3)] ${className}`}
     >
-      {/* Reflejo decorativo de iluminación prémium */}
-      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-accent/15 blur-2xl" />
+      {/* El grabado */}
+      <span
+        className="pointer-events-none absolute inset-0 mix-blend-overlay"
+        style={{ backgroundImage: GUILLOCHE }}
+        aria-hidden="true"
+      />
 
-      {/* Cabecera de la tarjeta: Chip EMV, Contactless y Marca */}
-      <div className="relative z-10 flex items-start justify-between gap-3">
+      {/* El brillo, que se corre al pasar el puntero */}
+      <span
+        className="pointer-events-none absolute -inset-x-1/3 inset-y-0 transition-transform duration-700 ease-out group-hover:translate-x-[16%]"
+        style={{ backgroundImage: BRILLO }}
+        aria-hidden="true"
+      />
+
+      {/* Chip, contactless y marca */}
+      <div className="relative flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          {/* Chip EMV realista */}
-          <div
-            className={`relative grid h-8 w-11 place-items-center rounded-[7px] border bg-gradient-to-br ${cardTheme.chip} shadow-sm`}
-            aria-hidden="true"
-          >
-            <div className="absolute inset-1 rounded-[4px] border border-amber-900/30 opacity-60" />
-            <div className="h-full w-[1px] bg-amber-900/30" />
-            <div className="absolute h-[1px] w-full bg-amber-900/30" />
-          </div>
-
-          {/* Icono de pago Contactless */}
+          <ChipEmv />
           <svg
             className="h-5 w-5 text-white/70"
             viewBox="0 0 24 24"
@@ -209,38 +257,46 @@ const TarjetaVisual = ({
           </svg>
         </div>
 
-        <div className="flex flex-col items-end gap-1">
-          {cardTheme.logo}
+        <div className="flex flex-col items-end gap-1.5">
+          {tema.logo}
           {esPrincipal && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-white backdrop-blur-sm border border-white/25">
-              <Star size={9} className="fill-amber-300 text-amber-300" /> Principal
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-white ring-1 ring-white/25 backdrop-blur-sm">
+              <Star size={9} className="fill-[#f2c14e] text-[#f2c14e]" />
+              Principal
             </span>
           )}
         </div>
       </div>
 
-      {/* Número de tarjeta con relieve visual */}
-      <div className="relative z-10 my-auto pt-2">
-        <p className="nums text-[18px] font-medium tracking-[0.14em] text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:text-[20px]">
-          {numero || "•••• •••• •••• ••••"}
-        </p>
-      </div>
+      {/* El número, repujado */}
+      <p
+        className="nums relative my-auto pt-2 text-[18px] font-medium tracking-[0.14em] text-white/95 sm:text-[20px]"
+        style={REPUJADO}
+      >
+        {numero || "•••• •••• •••• ••••"}
+      </p>
 
-      {/* Pie de la tarjeta: Titular y Expiración */}
-      <div className="relative z-10 flex items-end justify-between gap-4">
+      {/* Titular y vencimiento */}
+      <div className="relative flex items-end justify-between gap-4">
         <div className="min-w-0 max-w-[70%]">
-          <p className="text-[8.5px] font-bold tracking-[0.16em] text-white/60 uppercase">
+          <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-white/55">
             Titular
           </p>
-          <p className="mt-0.5 truncate text-[12px] font-semibold tracking-[0.06em] text-white uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">
+          <p
+            className="mt-0.5 truncate text-[12px] font-semibold uppercase tracking-[0.06em] text-white"
+            style={REPUJADO}
+          >
             {titular || "Nombre del titular"}
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-[8.5px] font-bold tracking-[0.16em] text-white/60 uppercase">
+          <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-white/55">
             Vence
           </p>
-          <p className="nums mt-0.5 text-[12px] font-semibold tracking-wider text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">
+          <p
+            className="nums mt-0.5 text-[12px] font-semibold tracking-wider text-white"
+            style={REPUJADO}
+          >
             {vencimiento || "MM/AA"}
           </p>
         </div>
@@ -248,6 +304,124 @@ const TarjetaVisual = ({
     </div>
   );
 };
+
+/** La misma tarjeta en chico. Lleva el chip porque a este tamaño es
+    lo único que la hace reconocible como tarjeta y no como cuadrito. */
+const SelloTarjeta = ({
+  marca,
+  className = "h-6 w-9",
+}: {
+  marca: string;
+  className?: string;
+}) => (
+  <span
+    className={`relative inline-block shrink-0 overflow-hidden rounded-[4px] ring-1 ring-inset ring-white/15 ${temaDe(marca).fondo} ${className}`}
+    aria-hidden="true"
+  >
+    <span className="absolute left-[14%] top-[26%] h-[30%] w-[22%] rounded-[1.5px] bg-[linear-gradient(135deg,#f6e3ac,#a8843c)]" />
+  </span>
+);
+
+/* ── Utilidades ──────────────────────────────────────────────── */
+
+const fechaFormateada = (fecha: string) => {
+  try {
+    return new Intl.DateTimeFormat("es-CR", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(`${fecha}T00:00:00`));
+  } catch {
+    return fecha;
+  }
+};
+
+/** Fecha de fila. El año solo sale cuando NO es el corriente: en un
+    historial donde casi todo pasó este año, repetir «2026» en cada
+    fila es ruido, y además es el ancho que necesita el día. */
+const fechaCorta = (fecha: string) => {
+  const dia = new Date(`${fecha}T00:00:00`);
+  if (Number.isNaN(dia.getTime())) return fecha;
+
+  return new Intl.DateTimeFormat("es-CR", {
+    day: "numeric",
+    month: "short",
+    ...(dia.getFullYear() === new Date().getFullYear() ? {} : { year: "2-digit" }),
+  }).format(dia);
+};
+
+/** «Visa •••• 4242» → «4242». El sello ya dice de qué marca es; la
+    palabra al lado repite el dato y se come el ancho que necesitan los
+    cuatro dígitos, que es lo único que distingue una tarjeta de otra
+    cuando hay dos Visa guardadas. */
+const ultimos4De = (metodo: string) => metodo.match(/(\d{4})\s*$/)?.[1] ?? "";
+
+/** El estado, con su ícono. Se repite igual en la tabla y en la lista
+    de mano, así que vive una sola vez. */
+const EstadoInsignia = ({ estado }: { estado: PaymentStatus }) => {
+  const config = estadoConfig[estado];
+  const Icono = config.icon;
+
+  return (
+    <Badge tono={config.tono}>
+      <span className="inline-flex items-center gap-1.5">
+        <Icono size={12} className="shrink-0" />
+        {config.label}
+      </span>
+    </Badge>
+  );
+};
+
+/** El importe. Un reembolso ENTRA y todo lo demás SALE: el signo hace
+    la mitad del trabajo y el color la otra mitad, porque el signo solo
+    es un píxel de ancho y se pierde al barrer la columna. */
+const Importe = ({
+  monto,
+  estado,
+  className = "text-[13.5px]",
+}: {
+  monto: number;
+  estado: PaymentStatus;
+  className?: string;
+}) => (
+  <span
+    className={`nums font-semibold whitespace-nowrap ${className} ${
+      estado === "reembolsado" ? "text-ok" : estado === "pendiente" ? "text-warn" : "text-ink"
+    }`}
+  >
+    {estado === "reembolsado" ? "+" : "−"}
+    {colones(monto)}
+  </span>
+);
+
+/** El método, en pequeño: el sello de la tarjeta más los cuatro
+    dígitos. Si el texto no trae dígitos —un método viejo, otra
+    pasarela— cae de vuelta a la cadena completa. */
+const MetodoBreve = ({ metodo }: { metodo: string }) => {
+  const ultimos = ultimos4De(metodo);
+
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 text-[11.5px] text-ink-soft">
+      <SelloTarjeta marca={metodo} className="h-4 w-[26px]" />
+      <span className="nums truncate">{ultimos ? `•••• ${ultimos}` : metodo}</span>
+    </span>
+  );
+};
+
+/** El botón de cobrar. Es el único que queda en la fila y tiene que
+    caber en la columna del importe, así que es el navy de la casa a
+    tamaño de fila: misma píldora, mismo acuse al pulsar. */
+const btnPagar =
+  "inline-flex items-center gap-1.5 rounded-full bg-rail px-3 py-1 text-[11.5px] font-semibold text-white transition-[filter,transform] duration-150 ease-out hover:brightness-125 active:scale-[0.97]";
+
+const formatExpiryInput = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+};
+
+type CampoTarjeta = "titular" | "numero" | "vencimiento" | "cvv";
+
+/* ── La pantalla ─────────────────────────────────────────────── */
 
 const Pagos = () => {
   const [metodos, setMetodos] = useState<PaymentMethod[]>([]);
@@ -263,6 +437,7 @@ const Pagos = () => {
   const [detalleMovimiento, setDetalleMovimiento] = useState<PaymentMovement | null>(null);
   const [metodoSeleccionado, setMetodoSeleccionado] = useState("");
   const [form, setForm] = useState({ titular: "", numero: "", vencimiento: "", cvv: "" });
+  const [tocado, setTocado] = useState<Partial<Record<CampoTarjeta, boolean>>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -282,7 +457,8 @@ const Pagos = () => {
           : nextMethods[0]?.id_metodo_pago ?? "";
       });
     } catch (cause) {
-      setError(messageFrom(cause));
+      setError(motivo(cause));
+      aviso.error(cause, { respaldo: "No se pudieron cargar tus pagos." });
     } finally {
       setLoading(false);
     }
@@ -292,37 +468,34 @@ const Pagos = () => {
     void load();
   }, [load]);
 
-  // Contadores por categoría para los filtros
-  const contadores = useMemo(() => {
-    return {
+  const contadores = useMemo(
+    () => ({
       Todos: movimientos.length,
       Pagados: movimientos.filter((m) => m.estado_pago === "pagado").length,
       Pendientes: movimientos.filter((m) => m.estado_pago === "pendiente").length,
       Reembolsos: movimientos.filter((m) => m.estado_pago === "reembolsado").length,
-    };
-  }, [movimientos]);
+    }),
+    [movimientos],
+  );
 
-  // Filtrado de movimientos considerando pestaña y texto de búsqueda
   const visibles = useMemo(() => {
+    const query = busqueda.trim().toLowerCase();
+
     return movimientos.filter((movement) => {
       if (filtro === "Pagados" && movement.estado_pago !== "pagado") return false;
       if (filtro === "Pendientes" && movement.estado_pago !== "pendiente") return false;
       if (filtro === "Reembolsos" && movement.estado_pago !== "reembolsado") return false;
+      if (!query) return true;
 
-      if (busqueda.trim()) {
-        const query = busqueda.toLowerCase().trim();
-        const coincideMascota = movement.mascota.toLowerCase().includes(query);
-        const coincidePaseador = movement.paseador.toLowerCase().includes(query);
-        const coincideMetodo = movement.metodo_pago.toLowerCase().includes(query);
-        const coincideId = movement.id_pago.toLowerCase().includes(query);
-        return coincideMascota || coincidePaseador || coincideMetodo || coincideId;
-      }
-
-      return true;
+      return (
+        movement.mascota.toLowerCase().includes(query) ||
+        movement.paseador.toLowerCase().includes(query) ||
+        movement.metodo_pago.toLowerCase().includes(query) ||
+        movement.id_pago.toLowerCase().includes(query)
+      );
     });
   }, [filtro, movimientos, busqueda]);
 
-  // Estadísticas del resumen financiero
   const stats = useMemo(() => {
     const today = new Date();
     const paidThisMonth = movimientos.filter((movement) => {
@@ -333,7 +506,6 @@ const Pagos = () => {
 
     const pendingMovements = movimientos.filter((m) => m.estado_pago === "pendiente");
     const refundedMovements = movimientos.filter((m) => m.estado_pago === "reembolsado");
-
     const nombreMes = new Intl.DateTimeFormat("es-CR", { month: "long" }).format(today);
 
     return {
@@ -347,24 +519,82 @@ const Pagos = () => {
     };
   }, [movimientos]);
 
+  /* Validación de la tarjeta. `payment-card.ts` ya traía Luhn y el
+     control de vencimiento exportados y nadie los llamaba: la pantalla
+     solo contaba dieciséis dígitos, así que un número inventado que
+     empezara con 4 pasaba de largo y el error llegaba del servidor
+     cuando ya era tarde. Va acá, pegado al campo, porque un aviso
+     flotante no puede señalar cuál de los cuatro está mal. */
+  const errores = useMemo(() => {
+    const digitos = cardDigits(form.numero);
+    const marca = cardBrand(form.numero);
+
+    return {
+      titular:
+        form.titular.trim().length < 3 ? "Escribí el nombre como aparece en la tarjeta." : "",
+      numero:
+        digitos.length !== CARD_NUMBER_LENGTH
+          ? `Faltan ${CARD_NUMBER_LENGTH - digitos.length} dígitos.`
+          : !marca
+            ? "Solo aceptamos Visa y Mastercard."
+            : !isValidCardNumber(form.numero)
+              ? "Ese número no existe. Revisá los dígitos."
+              : "",
+      vencimiento: !parseExpiry(form.vencimiento)
+        ? "Fecha inválida o ya vencida. Usá MM/AA."
+        : "",
+      cvv: !/^\d{3,4}$/.test(form.cvv) ? "Son los tres dígitos del reverso." : "",
+    } satisfies Record<CampoTarjeta, string>;
+  }, [form]);
+
+  const formValido = !Object.values(errores).some(Boolean);
+
+  const marcar = (campo: CampoTarjeta) => () =>
+    setTocado((prev) => ({ ...prev, [campo]: true }));
+
+  const fallo = (campo: CampoTarjeta) => (tocado[campo] ? errores[campo] : "");
+
+  const cerrarFormulario = () => {
+    setMostrarTarjeta(false);
+    setTocado({});
+    setDialogError("");
+  };
+
+  const abrirFormulario = () => {
+    setDialogError("");
+    setTocado({});
+    setMostrarTarjeta(true);
+  };
+
+  /** Abrir el cobro de una fila. Estaba en línea dentro del botón de
+      la tabla; ahora lo llaman la tabla y la lista de mano, así que
+      vive una sola vez. Llega elegida la tarjeta principal, que es la
+      que quien paga espera encontrar puesta. */
+  const abrirPago = (movimiento: PaymentMovement) => {
+    setDialogError("");
+    setPagoSeleccionado(movimiento);
+    setMetodoSeleccionado(
+      metodos.find((m) => m.es_principal)?.id_metodo_pago ?? metodos[0]?.id_metodo_pago ?? "",
+    );
+  };
+
   const saveCard = async () => {
-    const digits = cardDigits(form.numero);
-    if (digits.length !== CARD_NUMBER_LENGTH) {
-      setDialogError("El número de tarjeta debe tener 16 dígitos.");
-      return;
-    }
+    setTocado({ titular: true, numero: true, vencimiento: true, cvv: true });
+    if (!formValido) return;
+
     setSaving(true);
     setDialogError("");
     try {
-      await registerPaymentMethod(form);
-      setForm({ titular: "", numero: "", vencimiento: "", cvv: "" });
-      setMostrarTarjeta(false);
-      await load();
-      aviso.ok("Tarjeta registrada", {
-        detalle: "Guardamos únicamente la marca y los últimos cuatro dígitos de forma segura.",
+      await aviso.proceso(registerPaymentMethod(form), {
+        esperando: "Registrando la tarjeta…",
+        bien: "Tarjeta registrada",
+        mal: "No se pudo registrar la tarjeta.",
       });
+      setForm({ titular: "", numero: "", vencimiento: "", cvv: "" });
+      cerrarFormulario();
+      await load();
     } catch (cause) {
-      setDialogError(messageFrom(cause));
+      setDialogError(motivo(cause));
     } finally {
       setSaving(false);
     }
@@ -372,18 +602,20 @@ const Pagos = () => {
 
   const pay = async () => {
     if (!pagoSeleccionado || !metodoSeleccionado) return;
+
     setSaving(true);
     setDialogError("");
     try {
-      await processPayment(pagoSeleccionado.id_paseo, metodoSeleccionado);
-      const montoPagado = pagoSeleccionado.monto;
+      const monto = pagoSeleccionado.monto;
+      await aviso.proceso(processPayment(pagoSeleccionado.id_paseo, metodoSeleccionado), {
+        esperando: `Cobrando ${colones(monto)}…`,
+        bien: `Pago de ${colones(monto)} completado`,
+        mal: "No se pudo procesar el pago.",
+      });
       setPagoSeleccionado(null);
       await load();
-      aviso.ok("Pago completado", {
-        detalle: `Se procesaron exitosamente ${colones(montoPagado)}.`,
-      });
     } catch (cause) {
-      setDialogError(messageFrom(cause));
+      setDialogError(motivo(cause));
     } finally {
       setSaving(false);
     }
@@ -391,7 +623,16 @@ const Pagos = () => {
 
   const exportCsv = () => {
     const rows = [
-      ["ID Transacción", "Servicio", "Mascota", "Paseador", "Fecha", "Método", "Estado", "Monto CRC"],
+      [
+        "ID Transacción",
+        "Servicio",
+        "Mascota",
+        "Paseador",
+        "Fecha",
+        "Método",
+        "Estado",
+        "Monto CRC",
+      ],
       ...visibles.map((movement) => [
         movement.id_pago,
         `Paseo (${movement.duracion_min} min)`,
@@ -403,35 +644,42 @@ const Pagos = () => {
         String(movement.monto),
       ]),
     ];
+
     const csv = rows
       .map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(","))
       .join("\n");
+
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const nombre = `tuaniscan-pagos-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    /* El enlace tiene que estar en el documento para que Firefox
+       obedezca el clic. Suelto anda en Chrome y en Firefox no hace
+       nada: ni descarga ni error. */
     const link = document.createElement("a");
     link.href = url;
-    link.download = `tuaniscan-pagos-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = nombre;
+    document.body.appendChild(link);
     link.click();
+    link.remove();
     URL.revokeObjectURL(url);
+
+    aviso.ok(
+      `${visibles.length} ${visibles.length === 1 ? "movimiento exportado" : "movimientos exportados"}`,
+      { detalle: `Se descargó ${nombre}.` },
+    );
   };
 
   const previewBrand = cardBrand(form.numero) ?? "";
   const previewNumber = formatCardNumber(form.numero);
+  const digitosPuestos = cardDigits(form.numero).length;
 
   return (
     <Page>
-      {/* Cabecera Principal */}
       <PageHeader
-        title="Gestión de Pagos"
-        subtitle="Monitorea tus comprobantes, abona paseos pendientes y administra tus métodos de pago."
+        title="Gestión de pagos"
+        subtitle="Monitoreá tus comprobantes, aboná paseos pendientes y administrá tus métodos de pago."
         action={
-          <button
-            type="button"
-            className={btnPrimary}
-            onClick={() => {
-              setDialogError("");
-              setMostrarTarjeta(true);
-            }}
-          >
+          <button type="button" className={btnPrimary} onClick={abrirFormulario}>
             <Plus size={15} strokeWidth={2} />
             Agregar tarjeta
           </button>
@@ -441,183 +689,132 @@ const Pagos = () => {
       {error && (
         <div
           role="alert"
-          className="flex items-center gap-3 rounded-[18px] bg-danger-wash px-5 py-4 text-[13px] font-medium text-danger shadow-sm"
+          className="flex items-center gap-3 rounded-[18px] bg-danger-wash px-5 py-4 text-[13px] font-medium text-danger"
         >
           <AlertTriangle size={18} className="shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Tira de Métricas Financieras con Jerarquía Clara */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        {/* Gasto del Mes */}
-        <div className="flex flex-col justify-between rounded-[18px] bg-surface p-5 shadow-sm transition-all duration-150 hover:shadow-md">
+      {/* ── Las tres cifras ── */}
+      <div className="grid gap-2.5 sm:grid-cols-3">
+        <div className="rounded-[18px] bg-surface px-6 py-5">
           <div className="flex items-center justify-between gap-2">
-            <span className="rotulo text-ink-mute">Gasto de {stats.mesNombre}</span>
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-accent-wash text-accent-deep">
+            <p className="rotulo text-ink-mute">Gasto de {stats.mesNombre}</p>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent-wash text-accent-deep">
               <Wallet size={16} />
-            </div>
+            </span>
           </div>
-          <div className="mt-3">
-            <p className="nums text-[28px] font-bold tracking-tight text-ink sm:text-[30px]">
-              {colones(stats.spent)}
-            </p>
-            <p className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-ink-soft">
-              <TrendingUp size={13} className="text-emerald-600" />
-              <span>{stats.count} {stats.count === 1 ? "pago realizado" : "pagos realizados"}</span>
-            </p>
-          </div>
+          <p className="nums mt-2 text-[27px] font-semibold leading-none tracking-[-0.02em] text-ink">
+            {colones(stats.spent)}
+          </p>
+          <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-soft">
+            <TrendingUp size={13} className="text-ok" />
+            {stats.count} {stats.count === 1 ? "pago realizado" : "pagos realizados"}
+          </p>
         </div>
 
-        {/* Pendiente de Pago */}
+        {/* La única que puede pedir algo. Con deuda se levanta con el
+            filete cálido; en cero se calla y se ve como las otras dos. */}
         <div
-          className={`flex flex-col justify-between rounded-[18px] bg-surface p-5 shadow-sm transition-all duration-150 hover:shadow-md ${
-            stats.pending > 0 ? "ring-2 ring-amber-400/40 bg-gradient-to-b from-amber-50/40 to-surface" : ""
+          className={`rounded-[18px] px-6 py-5 ${
+            stats.pending > 0 ? "bg-warn-wash ring-1 ring-warn/25" : "bg-surface"
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="rotulo text-ink-mute">Pendiente de cobro</span>
-            <div
+            <p className="rotulo text-ink-mute">Pendiente de cobro</p>
+            <span
               className={`grid h-8 w-8 place-items-center rounded-full ${
-                stats.pending > 0 ? "bg-amber-100 text-amber-900" : "bg-sunken text-ink-mute"
+                stats.pending > 0 ? "bg-warn text-white" : "bg-sunken text-ink-mute"
               }`}
             >
               <Clock size={16} />
-            </div>
+            </span>
           </div>
-          <div className="mt-3">
-            <p
-              className={`nums text-[28px] font-bold tracking-tight sm:text-[30px] ${
-                stats.pending > 0 ? "text-amber-900" : "text-ink"
-              }`}
-            >
-              {colones(stats.pending)}
-            </p>
-            <p className="mt-1 text-[12px] font-medium text-ink-soft">
-              {stats.pendingCount > 0 ? (
-                <span className="font-semibold text-amber-800">
-                  {stats.pendingCount} {stats.pendingCount === 1 ? "paseo por abonar" : "paseos por abonar"}
-                </span>
-              ) : (
-                "Al día con todos los paseos"
-              )}
-            </p>
-          </div>
+          <p
+            className={`nums mt-2 text-[27px] font-semibold leading-none tracking-[-0.02em] ${
+              stats.pending > 0 ? "text-warn" : "text-ink"
+            }`}
+          >
+            {colones(stats.pending)}
+          </p>
+          <p className="mt-1.5 text-[12px] text-ink-soft">
+            {stats.pendingCount > 0
+              ? `${stats.pendingCount} ${stats.pendingCount === 1 ? "paseo por abonar" : "paseos por abonar"}`
+              : "Al día con todos los paseos"}
+          </p>
         </div>
 
-        {/* Reembolsos */}
-        <div className="flex flex-col justify-between rounded-[18px] bg-surface p-5 shadow-sm transition-all duration-150 hover:shadow-md">
+        <div className="rounded-[18px] bg-surface px-6 py-5">
           <div className="flex items-center justify-between gap-2">
-            <span className="rotulo text-ink-mute">Total Reembolsado</span>
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-emerald-50 text-emerald-700">
+            <p className="rotulo text-ink-mute">Total reembolsado</p>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-ok-wash text-ok">
               <Banknote size={16} />
-            </div>
+            </span>
           </div>
-          <div className="mt-3">
-            <p className="nums text-[28px] font-bold tracking-tight text-emerald-700 sm:text-[30px]">
-              {colones(stats.refunded)}
-            </p>
-            <p className="mt-1 text-[12px] font-medium text-ink-soft">
-              {stats.refundedCount > 0
-                ? `${stats.refundedCount} ${stats.refundedCount === 1 ? "reembolso emitido" : "reembolsos emitidos"}`
-                : "Sin reembolsos registrados"}
-            </p>
-          </div>
+          <p className="nums mt-2 text-[27px] font-semibold leading-none tracking-[-0.02em] text-ok">
+            {colones(stats.refunded)}
+          </p>
+          <p className="mt-1.5 text-[12px] text-ink-soft">
+            {stats.refundedCount > 0
+              ? `${stats.refundedCount} ${stats.refundedCount === 1 ? "reembolso emitido" : "reembolsos emitidos"}`
+              : "Sin reembolsos registrados"}
+          </p>
         </div>
       </div>
 
-      {/* Sección de Métodos de Pago */}
+      {/* ── Las tarjetas ── */}
       <Section
-        title="Tarjetas y Métodos Guardados"
+        title="Tarjetas guardadas"
         aside={
           metodos.length > 0 && (
-            <span className="text-[12px] font-medium text-ink-soft">
+            <span className="text-[12px] text-ink-soft">
               {metodos.length} {metodos.length === 1 ? "tarjeta activa" : "tarjetas activas"}
             </span>
           )
         }
-        bodyClass="px-6 pb-6 pt-2"
       >
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-[13px] font-medium text-ink-soft">
-            <Loader size={18} className="animate-spin text-accent" /> Cargando métodos de pago…
-          </div>
+          <Skeleton name="mascotas-rejilla" loading>
+            <div />
+          </Skeleton>
         ) : metodos.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {metodos.map((method) => (
-              <div key={method.id_metodo_pago} className="flex flex-col items-center">
-                <TarjetaVisual
-                  marca={method.marca}
-                  numero={`•••• •••• •••• ${method.ultimos4}`}
-                  titular={method.titular}
-                  vencimiento={`${String(method.exp_mes).padStart(2, "0")}/${String(method.exp_ano).slice(-2)}`}
-                  esPrincipal={method.es_principal}
-                />
-              </div>
+              <TarjetaVisual
+                key={method.id_metodo_pago}
+                marca={method.marca}
+                numero={`•••• •••• •••• ${method.ultimos4}`}
+                titular={method.titular}
+                vencimiento={`${String(method.exp_mes).padStart(2, "0")}/${String(method.exp_ano).slice(-2)}`}
+                esPrincipal={method.es_principal}
+              />
             ))}
           </div>
         ) : (
           <EmptyState
-            title="No tienes tarjetas registradas"
-            hint="Agrega una tarjeta Visa o Mastercard para abonar los paseos de tus mascotas automáticamente."
+            title="Todavía no tenés tarjetas"
+            hint="Agregá una Visa o una Mastercard para abonar los paseos de tus mascotas."
             action={
-              <button
-                type="button"
-                className={btnPrimary}
-                onClick={() => {
-                  setDialogError("");
-                  setMostrarTarjeta(true);
-                }}
-              >
+              <button type="button" className={btnPrimary} onClick={abrirFormulario}>
                 <Plus size={15} strokeWidth={2} />
-                Registrar primera tarjeta
+                Registrar la primera
               </button>
             }
           />
         )}
       </Section>
 
-      {/* Barra de Filtros, Búsqueda y Exportación */}
-      <div className="flex flex-col gap-3 rounded-[18px] bg-surface p-4 shadow-sm md:flex-row md:items-center md:justify-between">
-        {/* Pestañas de Filtros con contadores visuales */}
-        <div
-          role="group"
-          aria-label="Filtrar movimientos"
-          className="inline-flex flex-wrap gap-1 rounded-full bg-sunken p-1"
-        >
-          {(["Todos", "Pagados", "Pendientes", "Reembolsos"] as FiltroTipo[]).map((tab) => {
-            const count = contadores[tab];
-            const isSelected = filtro === tab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => setFiltro(tab)}
-                className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-all duration-150 ease-out active:scale-[0.97] ${
-                  isSelected
-                    ? "bg-rail text-white shadow-sm"
-                    : "text-ink-soft hover:bg-white/75 hover:text-ink"
-                }`}
-              >
-                <span>{tab}</span>
-                <span
-                  className={`rounded-full px-1.5 py-0.2 text-[10.5px] font-bold ${
-                    isSelected
-                      ? "bg-white/20 text-white"
-                      : tab === "Pendientes" && count > 0
-                        ? "bg-amber-200 text-amber-900"
-                        : "bg-surface text-ink-mute"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      {/* ── Filtros y búsqueda ── */}
+      <div className="flex flex-col gap-3 rounded-[18px] bg-surface p-4 md:flex-row md:items-center md:justify-between">
+        <FilterTabs
+          label="Filtrar movimientos"
+          options={["Todos", "Pagados", "Pendientes", "Reembolsos"]}
+          value={filtro}
+          onChange={(v) => setFiltro(v as FiltroTipo)}
+          cuentas={contadores}
+        />
 
-        {/* Búsqueda rápida y botón Exportar */}
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative min-w-[200px] flex-1 sm:w-64">
             <Search
@@ -625,11 +822,11 @@ const Pagos = () => {
               className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-mute"
             />
             <input
-              type="text"
+              type="search"
               placeholder="Buscar por mascota o paseador…"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full rounded-full bg-sunken py-1.5 pl-9 pr-3 text-[12.5px] text-ink placeholder:text-ink-mute focus:bg-white focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
+              className="w-full rounded-full bg-sunken py-2 pl-9 pr-3 text-[12.5px] text-ink placeholder:text-ink-mute focus:bg-white focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
             />
           </div>
 
@@ -638,7 +835,7 @@ const Pagos = () => {
             className={btnSecondary}
             onClick={exportCsv}
             disabled={!visibles.length}
-            title="Descargar historial en formato CSV"
+            title="Descargar el historial en formato CSV"
           >
             <Download size={14} strokeWidth={1.9} />
             Exportar CSV
@@ -646,262 +843,270 @@ const Pagos = () => {
         </div>
       </div>
 
-      {/* Tabla de Movimientos / Transacciones */}
+      {/* ── Los movimientos ──
+
+          La tabla traía siete columnas a `px-6`. Suena inofensivo
+          hasta que se mide el hueco donde vive: con el riel anclado y
+          la columna de contexto abierta, a `main` le quedan unos 650
+          px. Siete columnas gastan 336 solo en calles, quedan 314 para
+          el contenido, y ahí no entra ni «REEMBOLSADO» ni una fecha
+          con año. El reparto automático hace entonces lo único que
+          puede —partir las palabras en dos—, cada fila pasa a medir un
+          alto distinto, la cabecera deja de caer encima de su columna
+          y la tabla se ve rota. Eso era lo que se rompía.
+
+          Tres decisiones, en este orden:
+
+            1. Menos columnas. El paseador no es un dato aparte del
+               movimiento: es DEL movimiento, y baja a la segunda línea
+               junto a la duración, que es donde se lee sin buscarlo.
+               Y el botón de ver deja de ocupar una columna entera para
+               un ícono: el título de la fila ES el botón.
+            2. Reparto fijo. Las cinco que quedan llevan ancho
+               declarado, así que la tabla ya no depende del contenido:
+               ninguna fila puede empujar a otra.
+            3. Debajo de `lg` no hay tabla. Ahí el hueco baja de 500 px
+               y no hay reparto que salve cinco columnas; rodar una
+               tabla de lado es justamente lo que se siente roto. Los
+               mismos datos se apilan en fichas, con el importe donde
+               estaba: arriba a la derecha. */}
       <Section bodyClass="p-0">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 px-6 py-12 text-[13px] font-medium text-ink-soft">
-            <Loader size={18} className="animate-spin text-accent" /> Cargando historial de movimientos…
-          </div>
+          <Skeleton name="admin-tabla" loading>
+            <div />
+          </Skeleton>
         ) : visibles.length ? (
-          <div className="overflow-x-auto overflow-y-hidden rounded-[18px]">
-            <table className="w-full min-w-[700px] text-left">
-              <caption className="sr-only">Historial de movimientos de pago</caption>
-              <thead className="bg-sunken/80 border-b border-sunken">
-                <tr>
-                  <th scope="col" className="rotulo px-6 py-3.5 text-ink-mute">
-                    Transacción / Mascota
-                  </th>
-                  <th scope="col" className="rotulo px-5 py-3.5 text-ink-mute">
-                    Paseador
-                  </th>
-                  <th scope="col" className="rotulo px-5 py-3.5 text-ink-mute">
-                    Fecha
-                  </th>
-                  <th scope="col" className="rotulo px-5 py-3.5 text-ink-mute">
-                    Método
-                  </th>
-                  <th scope="col" className="rotulo px-5 py-3.5 text-ink-mute">
-                    Estado
-                  </th>
-                  <th scope="col" className="rotulo px-5 py-3.5 text-right text-ink-mute">
-                    Monto
-                  </th>
-                  <th scope="col" className="rotulo px-6 py-3.5 text-right text-ink-mute">
-                    Acción
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sunken/50 bg-surface">
-                {visibles.map((movement) => {
-                  const config = estadoConfig[movement.estado_pago];
-                  const IconoEstado = config.icon;
-                  const isReembolso = movement.estado_pago === "reembolsado";
-                  const isPendiente = movement.estado_pago === "pendiente";
-
-                  return (
-                    <tr
-                      key={movement.id_pago}
-                      className="transition-colors duration-150 hover:bg-sunken/30"
-                    >
-                      {/* Mascota & Servicio */}
-                      <td className="px-6 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
-                            <PawPrint size={16} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-[13.5px] font-semibold text-ink">
-                              Paseo con {movement.mascota}
-                            </p>
-                            <p className="flex items-center gap-1.5 text-[11.5px] text-ink-soft">
-                              <span>{movement.duracion_min} minutos</span>
-                              <span className="text-ink-mute">·</span>
-                              <span className="nums text-[10.5px] text-ink-mute font-mono">
-                                #{movement.id_pago.slice(0, 8)}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Paseador */}
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2 text-[12.5px] text-ink font-medium">
-                          <User size={14} className="text-ink-mute" />
-                          <span>{movement.paseador}</span>
-                        </div>
-                      </td>
-
-                      {/* Fecha */}
-                      <td className="nums px-5 py-3.5 text-[12.5px] font-medium text-ink-soft whitespace-nowrap">
-                        {fechaFormateada(movement.fecha)}
-                      </td>
-
-                      {/* Método de pago */}
-                      <td className="px-5 py-3.5">
-                        <div className="inline-flex items-center gap-1.5 rounded-md bg-sunken/70 px-2.5 py-1 text-[12px] font-medium text-ink">
-                          <CreditCard size={14} className="text-ink-soft" />
-                          <span className="nums">{movement.metodo_pago}</span>
-                        </div>
-                      </td>
-
-                      {/* Estado con alto contraste e icono */}
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase ${config.badgeClass}`}
-                        >
-                          <IconoEstado size={12} className="shrink-0" />
-                          <span>{config.label}</span>
+          <>
+            {/* ── De lg para arriba: la tabla ── */}
+            <div className="hidden lg:block">
+              <Table
+                caption="Historial de movimientos de pago"
+                min="min-w-[640px]"
+                padX="px-4"
+                columnas={[
+                  { label: "Transacción", ancho: "w-[30%]" },
+                  { label: "Fecha", ancho: "w-[13%]" },
+                  { label: "Método", ancho: "w-[17%]" },
+                  { label: "Estado", ancho: "w-[23%]" },
+                  { label: "Monto", ancho: "w-[17%]", align: "right" },
+                ]}
+              >
+                {visibles.map((movement) => (
+                  <tr
+                    key={movement.id_pago}
+                    className="group transition-colors duration-150 hover:bg-accent-wash/40"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                          <PawPrint size={15} />
                         </span>
-                      </td>
 
-                      {/* Monto con jerarquía visual y signo claro */}
-                      <td className="nums px-5 py-3.5 text-right whitespace-nowrap">
-                        <span
-                          className={`text-[14px] font-bold ${
-                            isReembolso
-                              ? "text-emerald-700"
-                              : isPendiente
-                                ? "text-amber-900"
-                                : "text-ink"
-                          }`}
-                        >
-                          {isReembolso ? "+" : "−"}
-                          {colones(movement.monto)}
-                        </span>
-                      </td>
-
-                      {/* Acciones */}
-                      <td className="px-6 py-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="min-w-0">
                           <button
                             type="button"
                             onClick={() => setDetalleMovimiento(movement)}
-                            className="inline-flex items-center gap-1 rounded-full p-2 text-ink-soft transition-colors hover:bg-sunken hover:text-ink active:scale-95"
-                            title="Ver detalles del comprobante"
-                            aria-label={`Ver detalles del paseo de ${movement.mascota}`}
+                            title={`Ver el comprobante · Paseo con ${movement.mascota}`}
+                            className="block max-w-full truncate text-left text-[13.5px] font-semibold text-ink underline-offset-[3px] transition-colors duration-150 group-hover:underline hover:text-accent-deep"
                           >
-                            <Eye size={15} />
+                            Paseo con {movement.mascota}
                           </button>
-
-                          {isPendiente && (
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1.5 rounded-full bg-rail px-4 py-1.5 text-[12.5px] font-semibold text-white shadow-sm transition-all duration-150 hover:brightness-125 active:scale-95"
-                              onClick={() => {
-                                setDialogError("");
-                                setPagoSeleccionado(movement);
-                                const defaultCard =
-                                  metodos.find((m) => m.es_principal)?.id_metodo_pago ??
-                                  metodos[0]?.id_metodo_pago ??
-                                  "";
-                                setMetodoSeleccionado(defaultCard);
-                              }}
-                            >
-                              <CreditCard size={13} />
-                              Pagar
-                            </button>
-                          )}
+                          <p className="truncate text-[11.5px] text-ink-soft">
+                            <span className="nums">{movement.duracion_min} min</span> ·{" "}
+                            {movement.paseador}
+                          </p>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+
+                    <td className="nums px-4 py-3 text-[12px] whitespace-nowrap text-ink-soft">
+                      {fechaCorta(movement.fecha)}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <MetodoBreve metodo={movement.metodo_pago} />
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <EstadoInsignia estado={movement.estado_pago} />
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col items-end gap-1.5">
+                        <Importe monto={movement.monto} estado={movement.estado_pago} />
+
+                        {movement.estado_pago === "pendiente" && (
+                          <button
+                            type="button"
+                            className={btnPagar}
+                            onClick={() => abrirPago(movement)}
+                          >
+                            <CreditCard size={12} />
+                            Pagar
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            </div>
+
+            {/* ── Debajo de lg: la misma información, apilada ── */}
+            <ul className="lg:hidden [&>li:nth-child(even)]:bg-sunken/60">
+              {visibles.map((movement) => (
+                <li key={movement.id_pago} className="px-5 py-4">
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                      <PawPrint size={16} />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => setDetalleMovimiento(movement)}
+                        className="block max-w-full truncate text-left text-[13.5px] font-semibold text-ink transition-transform duration-150 ease-out active:scale-[0.99]"
+                      >
+                        Paseo con {movement.mascota}
+                      </button>
+                      <p className="mt-0.5 truncate text-[11.5px] text-ink-soft">
+                        <span className="nums">{movement.duracion_min} min</span> ·{" "}
+                        {movement.paseador}
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      <Importe
+                        monto={movement.monto}
+                        estado={movement.estado_pago}
+                        className="text-[14px]"
+                      />
+                      <p className="nums mt-0.5 text-[11px] text-ink-mute">
+                        {fechaCorta(movement.fecha)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 pl-12">
+                    <EstadoInsignia estado={movement.estado_pago} />
+                    <MetodoBreve metodo={movement.metodo_pago} />
+
+                    {movement.estado_pago === "pendiente" && (
+                      <button
+                        type="button"
+                        className={`${btnPagar} ml-auto`}
+                        onClick={() => abrirPago(movement)}
+                      >
+                        <CreditCard size={12} />
+                        Pagar
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         ) : (
           <EmptyState
-            title="Sin transacciones en este filtro"
+            title="Sin movimientos en este filtro"
             hint={
               busqueda
-                ? "No hay resultados que coincidan con el término buscado."
-                : "Las operaciones de cobro y paseo aparecerán registradas aquí."
+                ? "Ningún movimiento coincide con lo que buscaste."
+                : "Los cobros y los paseos van a aparecer registrados acá."
             }
           />
         )}
       </Section>
 
-      {/* Modal: Agregar / Registrar Tarjeta */}
+      {/* ── Registrar tarjeta ── */}
       {mostrarTarjeta && (
-        <Dialog
-          title="Registrar Método de Pago"
-          ancho="max-w-[780px]"
-          onClose={() => setMostrarTarjeta(false)}
-        >
+        <Dialog title="Registrar método de pago" ancho="max-w-[780px]" onClose={cerrarFormulario}>
           <div className="grid gap-6 p-6 md:grid-cols-[1fr_1.1fr] md:items-start">
-            {/* Preview interactivo en tiempo real de la tarjeta */}
-            <div className="flex flex-col items-center">
-              <p className="rotulo mb-3 text-ink-mute self-start">Vista previa</p>
+            {/* La vista previa se arma sola mientras se escribe: es la
+                forma más rápida de ver que el número quedó bien. */}
+            <div>
+              <p className="rotulo mb-3 text-ink-mute">Vista previa</p>
               <TarjetaVisual
                 marca={previewBrand}
                 numero={previewNumber}
                 titular={form.titular}
                 vencimiento={form.vencimiento}
-                className="w-full"
+                className="max-w-none"
               />
-              <div className="mt-4 flex items-center gap-2 text-[12px] text-ink-soft">
-                <ShieldCheck size={16} className="text-emerald-600" />
-                <span>Cifrado seguro SSL de 256 bits</span>
-              </div>
+              <p className="mt-4 flex items-center gap-2 text-[12px] text-ink-soft">
+                <ShieldCheck size={16} className="text-ok" />
+                Guardamos solo la marca y los últimos cuatro dígitos.
+              </p>
             </div>
 
-            {/* Formulario de Registro */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[14px] bg-accent-wash px-4 py-3 text-[12px] leading-relaxed text-accent-deep sm:col-span-2">
-                <p className="font-semibold mb-1 flex items-center gap-1.5 text-accent-deep">
-                  <CreditCard size={14} /> Tarjetas aceptadas:
+                <p className="mb-1 flex items-center gap-1.5 font-semibold">
+                  <CreditCard size={14} />
+                  Tarjetas aceptadas
                 </p>
-                <div className="grid grid-cols-2 gap-1 text-[11.5px] text-ink-soft">
-                  <p>• <strong>Visa</strong> (inicia con 4)</p>
-                  <p>• <strong>Mastercard</strong> (inicia con 51-55 o 22-27)</p>
-                </div>
+                <p className="text-[11.5px] text-ink-soft">
+                  <strong>Visa</strong> (empieza con 4) y <strong>Mastercard</strong> (51-55 o
+                  2221-2720).
+                </p>
               </div>
 
-              {/* Nombre del Titular */}
               <label className={`${fieldLabel} sm:col-span-2`}>
-                Nombre y apellido del titular
+                Nombre del titular
                 <input
                   autoComplete="cc-name"
                   className={input}
                   placeholder="Como aparece en la tarjeta"
                   value={form.titular}
-                  onChange={(event) =>
-                    setForm({ ...form, titular: event.target.value })
-                  }
+                  onBlur={marcar("titular")}
+                  onChange={(event) => setForm({ ...form, titular: event.target.value })}
                 />
+                {fallo("titular") && (
+                  <span className="mt-1 block text-[11.5px] font-medium text-danger">
+                    {fallo("titular")}
+                  </span>
+                )}
               </label>
 
-              {/* Número de Tarjeta */}
               <label className={`${fieldLabel} sm:col-span-2`}>
                 <span className="flex items-center justify-between">
-                  <span>Número de tarjeta</span>
+                  Número de tarjeta
                   <span className="nums text-[11px] font-medium normal-case text-ink-soft">
-                    {cardDigits(form.numero).length}/{CARD_NUMBER_LENGTH} dígitos
+                    {digitosPuestos}/{CARD_NUMBER_LENGTH}
                   </span>
                 </span>
-                <div className="relative">
+                <span className="relative block">
                   <input
                     inputMode="numeric"
                     autoComplete="cc-number"
                     maxLength={19}
-                    className={`${input} pr-12`}
+                    className={`${input} pr-24`}
                     placeholder="•••• •••• •••• ••••"
                     value={form.numero}
+                    onBlur={marcar("numero")}
                     onChange={(event) =>
-                      setForm({
-                        ...form,
-                        numero: formatCardNumber(event.target.value),
-                      })
+                      setForm({ ...form, numero: formatCardNumber(event.target.value) })
                     }
                     onPaste={(event) => {
                       event.preventDefault();
-                      const pasted = event.clipboardData.getData("text");
-                      setForm((prev) => ({
-                        ...prev,
-                        numero: formatCardNumber(pasted),
-                      }));
+                      const pegado = event.clipboardData.getData("text");
+                      setForm((prev) => ({ ...prev, numero: formatCardNumber(pegado) }));
                     }}
                   />
                   {previewBrand && (
-                    <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-accent-deep">
+                    <span className="pointer-events-none absolute right-3.5 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-[11px] font-semibold text-accent-deep">
+                      <SelloTarjeta marca={previewBrand} className="h-4 w-[26px]" />
                       {previewBrand}
                     </span>
                   )}
-                </div>
+                </span>
+                {fallo("numero") && (
+                  <span className="mt-1 block text-[11.5px] font-medium text-danger">
+                    {fallo("numero")}
+                  </span>
+                )}
               </label>
 
-              {/* Vencimiento */}
               <label className={fieldLabel}>
                 Vencimiento
                 <input
@@ -911,18 +1116,20 @@ const Pagos = () => {
                   className={input}
                   placeholder="MM/AA"
                   value={form.vencimiento}
+                  onBlur={marcar("vencimiento")}
                   onChange={(event) =>
-                    setForm({
-                      ...form,
-                      vencimiento: formatExpiryInput(event.target.value),
-                    })
+                    setForm({ ...form, vencimiento: formatExpiryInput(event.target.value) })
                   }
                 />
+                {fallo("vencimiento") && (
+                  <span className="mt-1 block text-[11.5px] font-medium text-danger">
+                    {fallo("vencimiento")}
+                  </span>
+                )}
               </label>
 
-              {/* Código CVV */}
               <label className={fieldLabel}>
-                Código CVV
+                Código de seguridad
                 <input
                   type="password"
                   inputMode="numeric"
@@ -931,17 +1138,22 @@ const Pagos = () => {
                   className={input}
                   placeholder="123"
                   value={form.cvv}
+                  onBlur={marcar("cvv")}
                   onChange={(event) =>
-                    setForm({
-                      ...form,
-                      cvv: event.target.value.replace(/\D/g, "").slice(0, 4),
-                    })
+                    setForm({ ...form, cvv: event.target.value.replace(/\D/g, "").slice(0, 4) })
                   }
                 />
+                {fallo("cvv") && (
+                  <span className="mt-1 block text-[11.5px] font-medium text-danger">
+                    {fallo("cvv")}
+                  </span>
+                )}
               </label>
 
-              <p className="text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
-                🔒 Por seguridad, el número completo y CVV se validan en tu dispositivo pero nunca se almacenan en servidores.
+              <p className="flex items-start gap-2 text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
+                <ShieldCheck size={14} className="mt-px shrink-0" />
+                El número completo y el código se comprueban en tu dispositivo. No viajan ni se
+                guardan.
               </p>
 
               {dialogError && (
@@ -955,11 +1167,7 @@ const Pagos = () => {
               )}
 
               <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
-                <button
-                  type="button"
-                  className={btnSecondary}
-                  onClick={() => setMostrarTarjeta(false)}
-                >
+                <button type="button" className={btnSecondary} onClick={cerrarFormulario}>
                   Cancelar
                 </button>
                 <button
@@ -977,94 +1185,91 @@ const Pagos = () => {
         </Dialog>
       )}
 
-      {/* Modal: Confirmar y Procesar Pago de Paseo */}
+      {/* ── Confirmar el pago ── */}
       {pagoSeleccionado && (
-        <Dialog
-          title="Confirmar Pago de Paseo"
-          onClose={() => setPagoSeleccionado(null)}
-        >
+        <Dialog title="Confirmar pago del paseo" onClose={() => setPagoSeleccionado(null)}>
           <div className="p-6">
-            {/* Resumen del Paseo */}
             <div className="rounded-[18px] bg-sunken p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent-wash px-2.5 py-0.5 text-[11px] font-semibold text-accent-deep">
-                    <PawPrint size={12} /> Paseo canino
-                  </span>
-                  <p className="mt-1.5 text-[16px] font-bold text-ink">
-                    Mascota: {pagoSeleccionado.mascota}
-                  </p>
-                  <p className="mt-0.5 text-[12.5px] text-ink-soft">
-                    Paseador: <strong>{pagoSeleccionado.paseador}</strong> · Duración: {pagoSeleccionado.duracion_min} min
-                  </p>
-                  <p className="text-[12px] text-ink-mute">
-                    Fecha del servicio: {fechaFormateada(pagoSeleccionado.fecha)}
-                  </p>
-                </div>
-              </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent-wash px-2.5 py-0.5 text-[11px] font-semibold text-accent-deep">
+                <PawPrint size={12} />
+                Paseo canino
+              </span>
+              <p className="mt-2 text-[16px] font-semibold text-ink">{pagoSeleccionado.mascota}</p>
+              <p className="mt-0.5 text-[12.5px] text-ink-soft">
+                Con {pagoSeleccionado.paseador} · {pagoSeleccionado.duracion_min} minutos
+              </p>
+              <p className="text-[12px] text-ink-mute">
+                {fechaFormateada(pagoSeleccionado.fecha)}
+              </p>
 
               <div className="mt-4 border-t border-ink/10 pt-4">
                 <div className="flex items-baseline justify-between">
                   <span className="rotulo text-ink-mute">Total a abonar</span>
-                  <span className="nums text-[26px] font-bold text-ink">
+                  <span className="nums text-[26px] font-semibold tracking-[-0.02em] text-ink">
                     {colones(pagoSeleccionado.monto)}
                   </span>
                 </div>
                 <div className="mt-2 flex justify-between text-[11.5px] text-ink-mute">
-                  <span>Pago a paseador: {colones(pagoSeleccionado.monto - pagoSeleccionado.comision_plataforma)}</span>
-                  <span>Comisión TuanisCan: {colones(pagoSeleccionado.comision_plataforma)}</span>
+                  <span>
+                    Al paseador{" "}
+                    {colones(pagoSeleccionado.monto - pagoSeleccionado.comision_plataforma)}
+                  </span>
+                  <span>Comisión {colones(pagoSeleccionado.comision_plataforma)}</span>
                 </div>
               </div>
             </div>
 
-            {/* Selección de Tarjeta */}
             {metodos.length ? (
               <fieldset className="mt-5 grid gap-2">
-                <legend className="rotulo mb-2 text-ink-mute">
-                  Selecciona la tarjeta para el cargo
-                </legend>
+                <legend className="rotulo mb-2 text-ink-mute">Con cuál cobramos</legend>
                 {metodos.map((method) => {
-                  const isSelected = metodoSeleccionado === method.id_metodo_pago;
+                  const elegida = metodoSeleccionado === method.id_metodo_pago;
+
                   return (
                     <label
                       key={method.id_metodo_pago}
-                      className={`flex cursor-pointer items-center gap-3.5 rounded-[16px] p-3.5 transition-all duration-150 ${
-                        isSelected
-                          ? "bg-accent-wash/60 ring-2 ring-accent border border-accent/40"
-                          : "bg-sunken/80 hover:bg-sunken border border-transparent"
+                      className={`flex cursor-pointer items-center gap-3.5 rounded-[16px] p-3.5 transition-[background-color,box-shadow] duration-150 ease-out ${
+                        elegida
+                          ? "bg-accent-wash ring-2 ring-accent"
+                          : "bg-sunken hover:brightness-[0.97]"
                       }`}
                     >
                       <input
                         type="radio"
                         name="metodo-pago"
                         value={method.id_metodo_pago}
-                        checked={isSelected}
+                        checked={elegida}
                         onChange={() => setMetodoSeleccionado(method.id_metodo_pago)}
-                        className="h-4 w-4 text-accent accent-accent"
+                        className="h-4 w-4 accent-accent"
                       />
-                      <CreditCard size={18} className="text-ink" />
-                      <div className="flex-1">
-                        <p className="text-[13px] font-semibold text-ink">
+                      <SelloTarjeta marca={method.marca} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-semibold text-ink">
                           {method.marca} •••• {method.ultimos4}
-                        </p>
-                        <p className="text-[11px] text-ink-soft">{method.titular}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="nums text-[11.5px] font-medium text-ink-mute">
-                          {String(method.exp_mes).padStart(2, "0")}/{String(method.exp_ano).slice(-2)}
+                        </span>
+                        <span className="block truncate text-[11px] text-ink-soft">
+                          {method.titular}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="nums block text-[11.5px] text-ink-mute">
+                          {String(method.exp_mes).padStart(2, "0")}/
+                          {String(method.exp_ano).slice(-2)}
                         </span>
                         {method.es_principal && (
-                          <p className="text-[10px] font-semibold text-accent-deep">Principal</p>
+                          <span className="block text-[10px] font-semibold text-accent-deep">
+                            Principal
+                          </span>
                         )}
-                      </div>
+                      </span>
                     </label>
                   );
                 })}
               </fieldset>
             ) : (
-              <div className="mt-5 rounded-[14px] bg-amber-50 border border-amber-200 p-4 text-[12.5px] text-amber-900">
-                <p className="font-semibold">No tienes ninguna tarjeta activa</p>
-                <p className="mt-1">Registra una tarjeta para continuar con el pago del paseo.</p>
+              <div className="mt-5 rounded-[14px] bg-warn-wash px-4 py-3.5 text-[12.5px] text-warn">
+                <p className="font-semibold">No tenés ninguna tarjeta activa</p>
+                <p className="mt-1">Registrá una para poder abonar el paseo.</p>
               </div>
             )}
 
@@ -1078,11 +1283,11 @@ const Pagos = () => {
               </p>
             )}
 
-            <div className="mt-6 flex items-center justify-between border-t border-sunken pt-4">
-              <div className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
-                <ShieldCheck size={15} className="text-emerald-600" />
-                <span>Transacción segura</span>
-              </div>
+            <div className="mt-6 flex items-center justify-between gap-3 border-t border-sunken pt-4">
+              <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
+                <ShieldCheck size={15} className="text-ok" />
+                Transacción segura
+              </span>
 
               <div className="flex gap-2">
                 <button
@@ -1092,19 +1297,7 @@ const Pagos = () => {
                 >
                   Cancelar
                 </button>
-                {!metodos.length ? (
-                  <button
-                    type="button"
-                    className={btnPrimary}
-                    onClick={() => {
-                      setDialogError("");
-                      setPagoSeleccionado(null);
-                      setMostrarTarjeta(true);
-                    }}
-                  >
-                    Agregar tarjeta
-                  </button>
-                ) : (
+                {metodos.length ? (
                   <button
                     type="button"
                     className={btnPrimary}
@@ -1112,7 +1305,18 @@ const Pagos = () => {
                     onClick={() => void pay()}
                   >
                     {saving && <Loader size={14} className="animate-spin" />}
-                    Confirmar {colones(pagoSeleccionado.monto)}
+                    Pagar {colones(pagoSeleccionado.monto)}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={() => {
+                      setPagoSeleccionado(null);
+                      abrirFormulario();
+                    }}
+                  >
+                    Agregar tarjeta
                   </button>
                 )}
               </div>
@@ -1121,81 +1325,57 @@ const Pagos = () => {
         </Dialog>
       )}
 
-      {/* Modal: Comprobante / Detalle de Movimiento */}
+      {/* ── El comprobante ── */}
       {detalleMovimiento && (
-        <Dialog
-          title="Comprobante de Transacción"
-          onClose={() => setDetalleMovimiento(null)}
-        >
+        <Dialog title="Comprobante" onClose={() => setDetalleMovimiento(null)}>
           <div className="p-6">
-            <div className="flex items-center justify-between border-b border-sunken pb-4">
-              <div>
-                <span className="nums text-[12px] font-mono font-medium text-ink-mute">
-                  ID: #{detalleMovimiento.id_pago}
-                </span>
-                <h4 className="mt-1 text-[17px] font-bold text-ink">
-                  Paseo canino con {detalleMovimiento.mascota}
+            <div className="flex items-start justify-between gap-4 border-b border-sunken pb-4">
+              <div className="min-w-0">
+                <span className="nums text-[12px] text-ink-mute">#{detalleMovimiento.id_pago}</span>
+                <h4 className="titular mt-1 text-[17px] text-ink">
+                  Paseo con {detalleMovimiento.mascota}
                 </h4>
               </div>
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-semibold uppercase ${
-                  estadoConfig[detalleMovimiento.estado_pago].badgeClass
-                }`}
-              >
+              <Badge tono={estadoConfig[detalleMovimiento.estado_pago].tono}>
                 {estadoConfig[detalleMovimiento.estado_pago].label}
-              </span>
+              </Badge>
             </div>
 
-            <div className="mt-4 grid gap-3 text-[13px]">
-              <div className="flex justify-between py-1.5 border-b border-sunken/60">
-                <span className="text-ink-soft">Paseador contratado:</span>
-                <span className="font-semibold text-ink">{detalleMovimiento.paseador}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-sunken/60">
-                <span className="text-ink-soft">Fecha del servicio:</span>
-                <span className="font-semibold text-ink">
-                  {fechaFormateada(detalleMovimiento.fecha)}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-sunken/60">
-                <span className="text-ink-soft">Duración del paseo:</span>
-                <span className="font-semibold text-ink">
-                  {detalleMovimiento.duracion_min} minutos
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-sunken/60">
-                <span className="text-ink-soft">Método utilizado:</span>
-                <span className="font-semibold text-ink">
-                  {detalleMovimiento.metodo_pago}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-sunken/60">
-                <span className="text-ink-soft">Tarifa neta del paseador:</span>
-                <span className="nums font-medium text-ink">
-                  {colones(detalleMovimiento.monto - detalleMovimiento.comision_plataforma)}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-sunken/60">
-                <span className="text-ink-soft">Comisión de servicio (TuanisCan):</span>
-                <span className="nums font-medium text-ink">
-                  {colones(detalleMovimiento.comision_plataforma)}
-                </span>
-              </div>
-              <div className="flex justify-between items-baseline pt-2">
-                <span className="rotulo text-ink-mute">Monto total:</span>
-                <span className="nums text-[22px] font-bold text-ink">
+            <dl className="mt-4 text-[13px]">
+              {[
+                ["Paseador", detalleMovimiento.paseador],
+                ["Fecha del servicio", fechaFormateada(detalleMovimiento.fecha)],
+                ["Duración", `${detalleMovimiento.duracion_min} minutos`],
+                ["Método utilizado", detalleMovimiento.metodo_pago],
+                [
+                  "Tarifa del paseador",
+                  colones(detalleMovimiento.monto - detalleMovimiento.comision_plataforma),
+                ],
+                ["Comisión TuanisCan", colones(detalleMovimiento.comision_plataforma)],
+              ].map(([etiqueta, valor]) => (
+                <div
+                  key={etiqueta}
+                  className="flex justify-between gap-4 border-b border-sunken py-2"
+                >
+                  <dt className="text-ink-soft">{etiqueta}</dt>
+                  <dd className="text-right font-medium text-ink">{valor}</dd>
+                </div>
+              ))}
+              <div className="flex items-baseline justify-between gap-4 pt-3">
+                <dt className="rotulo text-ink-mute">Monto total</dt>
+                <dd className="nums text-[22px] font-semibold tracking-[-0.02em] text-ink">
                   {colones(detalleMovimiento.monto)}
-                </span>
+                </dd>
               </div>
-            </div>
+            </dl>
 
-            <div className="mt-6 flex justify-end gap-2 border-t border-sunken pt-4">
+            <div className="mt-6 flex justify-end border-t border-sunken pt-4">
               <button
                 type="button"
                 className={btnPrimary}
                 onClick={() => setDetalleMovimiento(null)}
               >
-                Cerrar comprobante
+                Cerrar
               </button>
             </div>
           </div>
