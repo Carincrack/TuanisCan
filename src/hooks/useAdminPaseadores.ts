@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listarPaseadoresAdmin } from "../services/admin-walkers.service";
 import type { AdminWalker } from "../types/auth.types";
+import { aviso } from "../lib/aviso";
 
 const messageFrom = (error: unknown) => {
   if (error instanceof Error) return error.message;
@@ -22,6 +23,7 @@ export const useAdminPaseadores = () => {
       setPaseadores(await listarPaseadoresAdmin());
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo cargar la lista de paseadores." });
     } finally {
       setLoading(false);
     }

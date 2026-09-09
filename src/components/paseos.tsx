@@ -24,6 +24,7 @@ import {
   fieldLabel,
 } from "./ui";
 import { Combo } from "./Combo";
+import { Skeleton } from "boneyard-js/react";
 
 const filtros = ["Próximos", "Historial", "Todos"];
 
@@ -240,9 +241,9 @@ const Paseos = () => {
       )}
 
       {loading ? (
-        <div className="bg-surface px-6 py-12 text-center text-[13px] text-ink-soft">
-          Cargando paseos...
-        </div>
+        <Skeleton name="paseos-lista" loading>
+          <div />
+        </Skeleton>
       ) : (
         <>
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">

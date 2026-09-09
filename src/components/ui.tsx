@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X } from "../lib/iconos";
+import { Loader, X } from "../lib/iconos";
 
 /* ─────────────────────────────────────────────────────────────
    Piezas compartidas del sistema.
@@ -46,6 +46,12 @@ const pulsable =
 export const btnPrimary = `${pulsable} bg-rail px-5 py-2.5 text-[13px] text-white hover:brightness-125`;
 
 export const btnSecondary = `${pulsable} bg-sunken px-5 py-2.5 text-[13px] font-medium text-ink hover:brightness-[0.97]`;
+
+/** Secundario compacto. Para las acciones que ACOMPAÑAN a una
+    principal dentro de una tarjeta: a tamaño completo pesan lo mismo
+    que ella, compiten por la mirada y estiran el pie de la tarjeta
+    diez píxeles por fila. */
+export const btnSecondaryCompacto = `${pulsable} bg-sunken px-3 py-2 text-[12px] font-medium text-ink hover:brightness-[0.97]`;
 
 export const btnQuiet = `${pulsable} px-4 py-2 text-[13px] font-medium text-ink-soft hover:bg-sunken hover:text-ink`;
 
@@ -130,32 +136,51 @@ export const FilterTabs = ({
   value,
   onChange,
   label,
+  cuentas,
 }: {
   options: string[];
   value: string;
   onChange: (v: string) => void;
   label: string;
+  /** Cuántos elementos cae en cada opción. Opcional: sin esto las
+      pestañas son solo etiquetas. Con esto se ve de un vistazo si
+      vale la pena entrar a una —una pestaña en cero no se pulsa—. */
+  cuentas?: Record<string, number>;
 }) => (
   <div
     role="group"
     aria-label={label}
     className="inline-flex flex-wrap gap-1 rounded-full bg-sunken p-1"
   >
-    {options.map((o) => (
-      <button
-        key={o}
-        type="button"
-        aria-pressed={value === o}
-        onClick={() => onChange(o)}
-        className={`rounded-full px-4 py-2 text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
-          value === o
-            ? "bg-rail text-white"
-            : "text-ink-soft hover:bg-white/70 hover:text-ink"
-        }`}
-      >
-        {o}
-      </button>
-    ))}
+    {options.map((o) => {
+      const activa = value === o;
+      const cuenta = cuentas?.[o];
+
+      return (
+        <button
+          key={o}
+          type="button"
+          aria-pressed={activa}
+          onClick={() => onChange(o)}
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
+            activa
+              ? "bg-rail text-white"
+              : "text-ink-soft hover:bg-white/70 hover:text-ink"
+          }`}
+        >
+          {o}
+          {cuenta !== undefined && (
+            <span
+              className={`nums rounded-full px-1.5 text-[11px] font-semibold ${
+                activa ? "bg-white/20 text-white" : "bg-surface text-ink-mute"
+              }`}
+            >
+              {cuenta}
+            </span>
+          )}
+        </button>
+      );
+    })}
   </div>
 );
 
@@ -219,38 +244,74 @@ export const EmptyState = ({
 
     El `overflow-hidden` del envoltorio no es por el scroll: es lo que
     recorta la cabecera hundida contra las esquinas redondas. Sin él
-    el gris de la cabecera sale por las cuatro puntas. */
+    el gris de la cabecera sale por las cuatro puntas.
+
+    ── El reparto de las columnas ──
+
+    Sin `ancho`, la tabla se reparte sola —`table-auto`— y el navegador
+    le da a cada columna lo que su contenido pida. Eso funciona
+    mientras todas midan parecido. En cuanto una trae un importe y otra
+    una insignia larga, el reparto automático le roba ancho a la que ya
+    iba justa y el texto se parte en dos líneas: la fila de al lado
+    queda más alta, la cabecera se desalinea y la tabla se ve rota.
+
+    Con `ancho` en las columnas la tabla pasa a `table-fixed`: el
+    reparto queda decidido de antemano, no depende del contenido y
+    ninguna fila puede descuadrar a la de arriba. */
 export const Table = ({
   columnas,
   children,
   caption,
+  min = "min-w-[560px]",
+  padX = "px-6",
 }: {
-  columnas: { label: string; align?: "right" }[];
+  columnas: {
+    label: string;
+    align?: "right";
+    /** Ancho de la columna en clases: `w-[30%]`, `w-[120px]`. Basta
+        con que UNA lo traiga para que toda la tabla pase a reparto
+        fijo, así que o lo llevan todas o no lo lleva ninguna. */
+    ancho?: string;
+    /** Columna sin rótulo visible —la de los botones—. La etiqueta
+        sigue existiendo para quien navega a ciegas: se oculta, no se
+        borra. */
+    muda?: boolean;
+  }[];
   children: ReactNode;
   caption: string;
-}) => (
-  <div className="overflow-x-auto overflow-y-hidden rounded-[14px]">
-    <table className="w-full min-w-[560px] text-left">
-      <caption className="sr-only">{caption}</caption>
-      <thead className="bg-sunken">
-        <tr>
-          {columnas.map((c) => (
-            <th
-              key={c.label}
-              scope="col"
-              className={`rotulo px-6 py-3.5 text-ink-mute ${
-                c.align === "right" ? "text-right" : ""
-              }`}
-            >
-              {c.label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody className="[&>tr:nth-child(even)]:bg-sunken/60">{children}</tbody>
-    </table>
-  </div>
-);
+  /** Ancho mínimo antes de que la tabla ruede de lado. */
+  min?: string;
+  /** Calle horizontal de las celdas. Cinco columnas a `px-6` gastan
+      240 px solo en aire, y cuando el hueco disponible ronda los 650
+      eso es más de un tercio de la tabla. */
+  padX?: string;
+}) => {
+  const fijo = columnas.some((c) => c.ancho);
+
+  return (
+    <div className="overflow-x-auto overflow-y-hidden rounded-[14px]">
+      <table className={`w-full ${min} text-left ${fijo ? "table-fixed" : ""}`}>
+        <caption className="sr-only">{caption}</caption>
+        <thead className="bg-sunken">
+          <tr>
+            {columnas.map((c) => (
+              <th
+                key={c.label}
+                scope="col"
+                className={`rotulo ${padX} py-3.5 whitespace-nowrap text-ink-mute ${
+                  c.ancho ?? ""
+                } ${c.align === "right" ? "text-right" : ""}`}
+              >
+                {c.muda ? <span className="sr-only">{c.label}</span> : c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="[&>tr:nth-child(even)]:bg-sunken/60">{children}</tbody>
+      </table>
+    </div>
+  );
+};
 
 /* ── Diálogos ────────────────────────────────────────────────── */
 
@@ -354,6 +415,75 @@ export const Dialog = ({
     document.body,
   );
 };
+
+/** Confirmación de una acción.
+
+    Sustituye a `window.confirm`, que el navegador dibuja a su manera:
+    letra del sistema, botones cuadrados, pegado al borde de arriba de
+    la ventana. Encima bloquea el hilo —nada se puede pintar mientras
+    está abierto, ni un indicador de espera— y en el móvil aparece con
+    el nombre del dominio encima, que en una aplicación instalada se
+    lee como un aviso del navegador y no del producto.
+
+    Lo importante no es que sea más lindo: es que acá se puede decir
+    QUÉ va a pasar. `confirm` da una línea y dos botones que dicen
+    "Aceptar" y "Cancelar"; esto tiene cuerpo para explicar la
+    consecuencia y un botón que la nombra.
+
+    Mientras `ocupado` está puesto no se cierra ni por Escape ni
+    tocando el fondo: la petición ya salió. */
+export const Confirmar = ({
+  titulo,
+  cuerpo,
+  confirmar = "Confirmar",
+  cancelar = "Cancelar",
+  tono = "normal",
+  ocupado = false,
+  onConfirmar,
+  onCancelar,
+}: {
+  titulo: string;
+  cuerpo: ReactNode;
+  confirmar?: string;
+  cancelar?: string;
+  /** `peligro` para lo que borra o no se puede deshacer. */
+  tono?: "normal" | "peligro";
+  ocupado?: boolean;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) => (
+  <Dialog
+    title={titulo}
+    ancho="max-w-[440px]"
+    onClose={() => {
+      if (!ocupado) onCancelar();
+    }}
+  >
+    <div className="px-6 py-5">
+      <p className="text-[13.5px] leading-relaxed text-ink-soft">{cuerpo}</p>
+
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          disabled={ocupado}
+          onClick={onCancelar}
+          className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}
+        >
+          {cancelar}
+        </button>
+        <button
+          type="button"
+          disabled={ocupado}
+          onClick={onConfirmar}
+          className={`${tono === "peligro" ? btnDanger : btnPrimary} w-full disabled:cursor-wait disabled:opacity-60 sm:w-auto`}
+        >
+          {ocupado && <Loader size={14} className="animate-spin" />}
+          {confirmar}
+        </button>
+      </div>
+    </div>
+  </Dialog>
+);
 
 /* ── Imágenes ficticias ──────────────────────────────────────── */
 

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, Check, Menu, Search, ShieldAlert, Trash2 } from "../lib/iconos";
 
 import { tituloDeRuta, type Rol } from "../lib/nav";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
+import { GooeyToaster } from "goey-toast";
 import {
   deleteAllNotifications,
   deleteNotification,
@@ -176,6 +178,48 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
   return (
     <div className="suave flex h-dvh w-full gap-2.5 overflow-hidden bg-suelo p-2.5">
+      {/* El avisador se monta acá y no en `main.tsx` a propósito: el
+          pedido era para el sistema por dentro, no para la portada,
+          y colgado de la entrada estaría también sobre la landing.
+
+          Pero se PINTA en el `body`, por portal, y eso no es un
+          adorno. Dos razones, las dos medidas:
+
+          1. `RootLayout` envuelve todo esto en un div `.anim-app-in`,
+             cuya animación termina en `transform: scale(1)` y se
+             queda puesta porque el relleno es `both`. Un `transform`
+             distinto de `none` convierte al elemento en bloque
+             contenedor de todo `position: fixed` que tenga dentro.
+             La lista de sonner es `fixed`: dentro del árbol dejaba
+             de anclarse a la pantalla, pasaba a anclarse a ese div y
+             entonces SÍ contaba para el alto del documento. Aparecía
+             un aviso y aparecía barra de desplazamiento.
+
+          2. Suelto en el árbol era además hijo de esta fila `flex`,
+             o sea un ítem más, con su `gap` propio robándole ancho
+             al lienzo.
+
+          En el `body` no hay ancestro con `transform` y no hay fila
+          que estorbar: `fixed` vuelve a medir contra la pantalla.
+
+          Abajo a la derecha: el riel está a la izquierda y la columna
+          de contexto solo aparece a partir de xl, así que esa esquina
+          es la única que no tapa nada en ningún ancho.
+
+          Solo posición y comportamiento. El aspecto y la animación
+          son los que trae la librería: no se le pasa `preset`, ni
+          separación, ni margen. */}
+      {createPortal(
+        <GooeyToaster
+          position="bottom-right"
+          closeButton
+          swipeToDismiss
+          closeOnEscape
+          visibleToasts={4}
+        />,
+        document.body,
+      )}
+
       <RielSuave {...navegacion} />
       <CajonSuave
         {...navegacion}

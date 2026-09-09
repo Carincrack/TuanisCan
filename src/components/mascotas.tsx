@@ -15,6 +15,7 @@ import {
 import type { Pet, PetInput, Vaccine, VaccineInput } from "../types/pet.types";
 import {
   Badge,
+  Confirmar,
   EmptyState,
   Page,
   PageHeader,
@@ -26,6 +27,8 @@ import {
   input,
 } from "./ui";
 import { Combo } from "./Combo";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
 
 const messageFrom = (error: unknown) =>
   error instanceof Error ? error.message : "No se pudo completar la operación.";
@@ -90,8 +93,12 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
       await savePet(userId, payload, pet ?? undefined, photo);
       await onSaved();
       onClose();
+      aviso.ok(pet ? `${values.nombre} actualizado` : `${values.nombre} quedó registrado`, {
+        detalle: pet ? undefined : "Su carné digital ya está disponible.",
+      });
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo guardar la mascota." });
     } finally {
       setBusy(false);
     }
@@ -152,8 +159,12 @@ const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Va
       await saveVaccine(pet.id_mascota, payload, vaccine ?? undefined);
       await onSaved();
       onClose();
+      aviso.ok(vaccine ? "Vacuna actualizada" : "Vacuna registrada", {
+        detalle: `${values.nombre_vacuna} · ${pet.nombre}`,
+      });
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo guardar el registro." });
     } finally {
       setBusy(false);
     }
@@ -215,14 +226,34 @@ const Mascotas = () => {
   useEffect(() => { void load(); }, [load]);
   const selected = pets.find((pet) => pet.id_mascota === selectedId) ?? null;
 
-  const removePet = async (pet: Pet) => {
-    if (!window.confirm(`¿Eliminar a ${pet.nombre} y todo su historial? Esta acción no se puede deshacer.`)) return;
-    try { await deletePet(pet); await load(); } catch (cause) { setError(messageFrom(cause)); }
+  /* Un solo estado para las dos confirmaciones: nunca hay dos
+     abiertas a la vez, y así el diálogo se monta una sola vez. */
+  const [porBorrar, setPorBorrar] = useState<
+    { tipo: "mascota"; pet: Pet } | { tipo: "vacuna"; vaccine: Vaccine } | null
+  >(null);
+  const [borrando, setBorrando] = useState(false);
+
+  const confirmarBorrado = async () => {
+    if (!porBorrar) return;
+    setBorrando(true);
+    try {
+      const nombreBorrado =
+        porBorrar.tipo === "mascota" ? porBorrar.pet.nombre : porBorrar.vaccine.nombre_vacuna;
+      if (porBorrar.tipo === "mascota") await deletePet(porBorrar.pet);
+      else await deleteVaccine(porBorrar.vaccine.id_vacuna);
+      setPorBorrar(null);
+      await load();
+      aviso.ok(`${nombreBorrado} eliminado`);
+    } catch (cause) {
+      setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo eliminar." });
+    } finally {
+      setBorrando(false);
+    }
   };
-  const removeVaccine = async (vaccine: Vaccine) => {
-    if (!window.confirm(`¿Eliminar el registro de ${vaccine.nombre_vacuna}?`)) return;
-    try { await deleteVaccine(vaccine.id_vacuna); await load(); } catch (cause) { setError(messageFrom(cause)); }
-  };
+
+  const removePet = (pet: Pet) => setPorBorrar({ tipo: "mascota", pet });
+  const removeVaccine = (vaccine: Vaccine) => setPorBorrar({ tipo: "vacuna", vaccine });
   const openCard = (pet: Pet) => {
     sessionStorage.setItem("tuaniscan.carnetPetId", pet.id_mascota);
     void navigate({ to: "/carnet" });
@@ -233,7 +264,11 @@ const Mascotas = () => {
       <PageHeader title="Mis mascotas" subtitle={loading ? "Cargando perfiles…" : `${pets.length} ${pets.length === 1 ? "mascota registrada" : "mascotas registradas"} en tu cuenta.`} action={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingPet(null)}><Plus size={15} /> Registrar mascota</button>} />
       {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
 
-      {!loading && !pets.length ? (
+      {loading ? (
+        <Skeleton name="mascotas-rejilla" loading>
+          <div />
+        </Skeleton>
+      ) : !pets.length ? (
         <div className="bg-surface p-5"><EmptyState title="Aún no tienes mascotas" hint="Registra su información para crear el carné digital y llevar el control de vacunas." /></div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -282,7 +317,7 @@ const Mascotas = () => {
                 <td className="px-6 py-3 text-[13px] font-medium text-ink"><span className="block">{vaccine.nombre_vacuna}</span>{vaccine.veterinaria && <span className="text-[11px] font-normal text-ink-mute">{vaccine.veterinaria}</span>}</td>
                 <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_aplicacion)}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_vencimiento)}</td>
                 <td className="px-6 py-3"><Badge tono={vaccine.estado === "vigente" ? "ok" : vaccine.estado === "pendiente" ? "warn" : "danger"}>{vaccine.estado === "pendiente" ? "Por vencer" : vaccine.estado}</Badge></td>
-                <td className="px-4 py-2 text-right"><button type="button" disabled={!canOperate} className={`${btnQuiet} disabled:cursor-not-allowed disabled:opacity-50`} aria-label={`Editar ${vaccine.nombre_vacuna}`} onClick={() => setEditingVaccine(vaccine)}><Pencil size={14} /></button><button type="button" disabled={!canOperate} className={btnQuiet + " text-danger disabled:cursor-not-allowed disabled:opacity-50"} aria-label={`Eliminar ${vaccine.nombre_vacuna}`} onClick={() => void removeVaccine(vaccine)}><Trash2 size={14} /></button></td>
+                <td className="px-4 py-2 text-right"><button type="button" disabled={!canOperate} className={`${btnQuiet} disabled:cursor-not-allowed disabled:opacity-50`} aria-label={`Editar ${vaccine.nombre_vacuna}`} onClick={() => setEditingVaccine(vaccine)}><Pencil size={14} /></button><button type="button" disabled={!canOperate} className={btnQuiet + " text-danger disabled:cursor-not-allowed disabled:opacity-50"} aria-label={`Eliminar ${vaccine.nombre_vacuna}`} onClick={() => removeVaccine(vaccine)}><Trash2 size={14} /></button></td>
               </tr>)}
             </Table>
           ) : <div className="px-5 pb-5"><EmptyState title="Sin registros de vacunación" hint="Agrega la primera vacuna o desparasitación de esta mascota." /></div>}
@@ -291,6 +326,33 @@ const Mascotas = () => {
 
       {editingPet !== undefined && user && <Dialog title={editingPet ? `Editar a ${editingPet.nombre}` : "Registrar mascota"} onClose={() => setEditingPet(undefined)}><PetForm pet={editingPet} userId={user.id} onClose={() => setEditingPet(undefined)} onSaved={load} /></Dialog>}
       {editingVaccine !== undefined && selected && <Dialog title={editingVaccine ? "Editar vacuna" : `Agregar vacuna de ${selected.nombre}`} onClose={() => setEditingVaccine(undefined)}><VaccineForm pet={selected} vaccine={editingVaccine} onClose={() => setEditingVaccine(undefined)} onSaved={load} /></Dialog>}
+
+      {/* Reemplaza a dos `window.confirm`. El de la mascota decía
+          "Esta acción no se puede deshacer" y no podía decir mucho
+          más; acá se nombra lo que se lleva por delante. */}
+      {porBorrar && (
+        <Confirmar
+          tono="peligro"
+          titulo={porBorrar.tipo === "mascota" ? `Eliminar a ${porBorrar.pet.nombre}` : "Eliminar registro de vacuna"}
+          cuerpo={
+            porBorrar.tipo === "mascota" ? (
+              <>
+                Se borran también su carné digital y sus {porBorrar.pet.vacunas.length}{" "}
+                {porBorrar.pet.vacunas.length === 1 ? "registro de vacunación" : "registros de vacunación"}. No se puede deshacer.
+              </>
+            ) : (
+              <>
+                Se borra el registro de <strong className="font-semibold text-ink">{porBorrar.vaccine.nombre_vacuna}</strong>.
+                El resto del historial no se toca.
+              </>
+            )
+          }
+          confirmar={porBorrar.tipo === "mascota" ? "Eliminar mascota" : "Eliminar registro"}
+          ocupado={borrando}
+          onConfirmar={() => void confirmarBorrado()}
+          onCancelar={() => setPorBorrar(null)}
+        />
+      )}
     </Page>
   );
 };

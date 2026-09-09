@@ -4,6 +4,7 @@ import {
   getAdminUsuarios,
   inactivarUsuario,
 } from "../services/admin-users.service";
+import { aviso } from "../lib/aviso";
 import type { AdminUser } from "../types/auth.types";
 
 const messageFrom = (error: unknown) => {
@@ -28,6 +29,7 @@ export const useAdminUsuarios = () => {
       setUsuarios(await getAdminUsuarios());
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo cargar el directorio de usuarios." });
     } finally {
       setLoading(false);
     }
@@ -46,6 +48,17 @@ export const useAdminUsuarios = () => {
       if (usuario.activo) await inactivarUsuario(usuario.id_usuario);
       else await activarUsuario(usuario.id_usuario);
 
+      aviso.ok(
+        usuario.activo
+          ? `${usuario.nombre} quedó inactivo`
+          : `${usuario.nombre} quedó activo`,
+        {
+          detalle: usuario.activo
+            ? "Pierde acceso a las funciones protegidas."
+            : "Recupera acceso a las funciones protegidas.",
+        },
+      );
+
       setUsuarios((actuales) =>
         actuales.map((item) =>
           item.id_usuario === usuario.id_usuario
@@ -58,6 +71,7 @@ export const useAdminUsuarios = () => {
       );
     } catch (cause) {
       setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo cambiar el estado de la cuenta." });
       throw cause;
     } finally {
       setProcesandoId(null);

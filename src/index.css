@@ -1120,3 +1120,81 @@
     animation-duration: 1ms !important;
   }
 }
+
+/* ── El carné en papel ────────────────────────────────────────
+
+   La hoja vive fuera de `#root`, colgada del `body` por un portal.
+   Eso es lo que permite apagar la aplicación entera con una regla,
+   sin ir tapando el riel, la barra y los avisos uno por uno —y sin
+   pelearse con los `overflow: hidden` y los `h-dvh` del armazón, que
+   en pantalla son los que sostienen el diseño y en papel recortaban
+   el carné a la altura de la ventana.
+
+   La marca `imprimiendo-carnet` en el `body` la pone el botón y se
+   quita al terminar. Sin esa condición, imprimir cualquier otra
+   pantalla saldría en blanco. */
+
+.carnet-hoja {
+  display: none;
+}
+
+@media print {
+  /* El navegador no imprime fondos salvo que se le pida. Sin esto la
+     cabecera navy sale blanca con letras blancas: ilegible. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.imprimiendo-carnet > *:not(.carnet-hoja) {
+    display: none !important;
+  }
+
+  body.imprimiendo-carnet .carnet-hoja {
+    display: block;
+  }
+
+  /* En papel el carné no flota sobre un lienzo: la hoja ES el lienzo.
+     Se le quitan el radio y la sombra, que solo tienen sentido cuando
+     hay un fondo del que despegarse. */
+  .carnet-hoja .carnet-pieza {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* La tabla de vacunas se desplaza a lo ancho en pantallas angostas.
+     En una hoja no hay hacia dónde desplazar: lo que sobresale, se
+     pierde. */
+  .carnet-hoja table {
+    min-width: 0 !important;
+  }
+
+  .carnet-hoja [class*="overflow-x-auto"] {
+    overflow: visible !important;
+  }
+
+  /* Cortar una fila de vacunas por la mitad entre dos hojas deja media
+     fecha arriba y media abajo. */
+  .carnet-hoja tr,
+  .carnet-hoja img {
+    break-inside: avoid;
+  }
+
+  .carnet-hoja thead {
+    display: table-header-group;
+  }
+
+  /* La entrada animada deja el carné en su estado final por el
+     `both`, pero en papel no hay nada que animar y algunos motores
+     capturan el fotograma inicial: transparente. */
+  .carnet-hoja .anim-rise {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 12mm;
+  }
+}

@@ -256,6 +256,11 @@ const RootLayout = () => {
     "/registro",
     "/recuperar-contrasena",
     "/actualizar-contrasena",
+    /* La página de captura de esqueletos trae su propia reconstrucción
+       del armazón, a medida para que los huesos salgan con las
+       medidas reales. Montarla dentro del armazón de verdad la
+       encerraría dos veces. */
+    "/esqueletos",
   ].includes(pathname);
 
   /*

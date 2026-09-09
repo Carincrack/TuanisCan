@@ -116,7 +116,8 @@ export interface AdminUser {
   correo: string | null;
   telefono: string | null;
   foto_perfil: string | null;
-  roles: RolPublico[];
+  roles: Rol[];
+  estado_paseador: PaseadorProfile["estado_verificacion"] | null;
   fecha_registro: string;
   activo: boolean;
   zona: Pick<Zona, "nombre" | "canton" | "provincia"> | null;

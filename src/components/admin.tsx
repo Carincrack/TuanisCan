@@ -30,6 +30,10 @@ import {
   input,
 } from "./ui";
 import { Combo } from "./Combo";
+import { Skeleton } from "boneyard-js/react";
+import { aviso } from "../lib/aviso";
+import { listAdminFinances, type AdminFinanceMovement } from "../services/payments.service";
+import type { Rol } from "../lib/nav";
 
 /* ─────────────────────────────────────────────────────────────
    Panel de la plataforma. Solo para el equipo de TuanisCan:
@@ -156,78 +160,117 @@ export const PanelAdmin = () => (
 
 /* ── Finanzas ────────────────────────────────────────────────── */
 
-const liquidaciones = [
-  { id: "LQ-0091", periodo: "11 – 17 ago", paseadores: 58, bruto: 892000, comision: 133800, estado: "Pagada" as const },
-  { id: "LQ-0090", periodo: "4 – 10 ago", paseadores: 55, bruto: 845000, comision: 126750, estado: "Pagada" as const },
-  { id: "LQ-0092", periodo: "18 – 24 ago", paseadores: 62, bruto: 418000, comision: 62700, estado: "Abierta" as const },
-  { id: "LQ-0089", periodo: "28 jul – 3 ago", paseadores: 53, bruto: 803000, comision: 120450, estado: "Pagada" as const },
-];
-
 export const FinanzasAdmin = () => {
-  const [filtro, setFiltro] = useState("Todas");
+  const [filtro, setFiltro] = useState("Todos");
+  const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const visibles = liquidaciones.filter((l) =>
-    filtro === "Todas" ? true : l.estado === (filtro === "Pagadas" ? "Pagada" : "Abierta")
+  useEffect(() => {
+    setLoading(true);
+    listAdminFinances()
+      .then(setMovimientos)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar las finanzas."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const visibles = movimientos.filter((movement) =>
+    filtro === "Pagados"
+      ? movement.estado_pago === "pagado"
+      : filtro === "Pendientes"
+        ? movement.estado_pago === "pendiente"
+        : true
   );
+
+  const pagados = movimientos.filter((movement) => movement.estado_pago === "pagado");
+  const pendientes = movimientos.filter((movement) => movement.estado_pago === "pendiente");
+  const brutoPagado = pagados.reduce((sum, movement) => sum + movement.bruto, 0);
+  const exportar = () => {
+    const rows = [
+      ["Fecha", "Mascota", "Dueño", "Paseador", "Bruto", "Comisión", "Neto", "Estado"],
+      ...visibles.map((movement) => [movement.fecha, movement.mascota, movement.dueno, movement.paseador, String(movement.bruto), String(movement.comision), String(movement.neto_paseador), movement.estado_pago]),
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "finanzas-tuaniscan.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Page>
       <PageHeader
         title="Finanzas"
-        subtitle="Comisión de la plataforma y liquidaciones semanales a paseadores."
+        subtitle="Pagos, ganancias de paseadores y comisión de la plataforma."
         action={
-          <button type="button" className={btnSecondary}>
+          <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
             <Download size={14} strokeWidth={1.9} />
             Exportar
           </button>
         }
       />
 
-      <div className="grid gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Comisión acumulada" valor={colones(2841000)} nota="año en curso" />
-        <Stat etiqueta="Por liquidar" valor={colones(355300)} nota="62 paseadores" />
-        <Stat etiqueta="Ticket promedio" valor={colones(4520)} nota="por paseo" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? "pago completado" : "pagos completados"}`} />
+        <Stat etiqueta="Comisión pendiente" valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} ${pendientes.length === 1 ? "pago" : "pagos"}`} />
+        <Stat etiqueta="Volumen pagado" valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} paseos` : "sin pagos"} />
       </div>
 
-      <div className="bg-surface">
+      <div className="overflow-x-auto rounded-lg bg-surface p-1">
         <FilterTabs
-          label="Filtrar liquidaciones"
-          options={["Todas", "Abiertas", "Pagadas"]}
+          label="Filtrar pagos"
+          options={["Todos", "Pendientes", "Pagados"]}
           value={filtro}
           onChange={setFiltro}
         />
       </div>
 
       <Section bodyClass="">
-        {visibles.length > 0 ? (
+        {error ? (
+          <div role="alert" className="bg-danger-wash px-6 py-5 text-[13px] text-danger">{error}</div>
+        ) : loading ? (
+          <div className="flex items-center gap-2 px-6 py-10 text-[13px] text-ink-soft">
+            <Loader size={16} className="animate-spin" /> Cargando finanzas…
+          </div>
+        ) : visibles.length > 0 ? (
           <Table
-            caption={`Liquidaciones filtradas por ${filtro.toLowerCase()}`}
+            caption={`Pagos filtrados por ${filtro.toLowerCase()}`}
             columnas={[
-              { label: "Periodo" },
-              { label: "Paseadores", align: "right" },
+              { label: "Paseo" },
+              { label: "Dueño" },
+              { label: "Paseador" },
               { label: "Bruto", align: "right" },
               { label: "Comisión", align: "right" },
+              { label: "Neto", align: "right" },
               { label: "Estado" },
             ]}
           >
-            {visibles.map((l) => (
-              <tr key={l.id}>
-                <td className="px-6 py-3.5">
-                  <p className="text-[13px] font-medium text-ink">{l.periodo}</p>
-                  <p className="nums text-[11.5px] text-ink-mute">{l.id}</p>
+            {visibles.map((movement) => (
+              <tr key={movement.id_pago} className="transition-colors duration-150 hover:bg-sunken">
+                <td className="px-6 py-4 align-top">
+                  <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
+                  <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{movement.fecha}</p>
                 </td>
-                <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
-                  {l.paseadores}
+                <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                  {movement.dueno}
                 </td>
-                <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
-                  {colones(l.bruto)}
+                <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                  {movement.paseador}
                 </td>
-                <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                  {colones(l.comision)}
+                <td className="nums px-6 py-4 text-right align-top text-[12.5px] text-ink-soft">
+                  {colones(movement.bruto)}
                 </td>
-                <td className="px-6 py-3.5">
-                  <Badge tono={l.estado === "Pagada" ? "ok" : "warn"}>
-                    {l.estado}
+                <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
+                  {colones(movement.comision)}
+                </td>
+                <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
+                  {colones(movement.neto_paseador)}
+                </td>
+                <td className="px-6 py-4 align-top">
+                  <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
+                    {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
                   </Badge>
                 </td>
               </tr>
@@ -235,8 +278,8 @@ export const FinanzasAdmin = () => {
           </Table>
         ) : (
           <EmptyState
-            title="Sin liquidaciones en este filtro"
-            hint="Cambia el filtro para ver el resto."
+            title="Sin pagos en este filtro"
+            hint="Los movimientos aparecerán cuando los paseadores acepten solicitudes."
           />
         )}
       </Section>
@@ -571,8 +614,10 @@ const VisorDocumentos = ({
     setFallo(null);
     try {
       await downloadVerificationDocument(documento);
+      aviso.ok("Documento descargado", { detalle: documento.nombre_archivo });
     } catch (cause) {
       setFallo(errorMessage(cause));
+      aviso.error(cause, { respaldo: "No se pudo descargar el documento." });
     } finally {
       setDescargando(false);
     }
@@ -591,6 +636,15 @@ const VisorDocumentos = ({
         estado === "rechazado" ? observacion.trim() : undefined,
       );
       onClose();
+      if (estado === "aprobado") {
+        aviso.ok(`${solicitud.nombre} quedó verificado`, {
+          detalle: "Ya puede operar en la plataforma con todos sus perfiles.",
+        });
+      } else {
+        aviso.dato(`Verificación de ${solicitud.nombre} rechazada`, {
+          detalle: "Recibió tu observación y puede volver a enviarla.",
+        });
+      }
     } catch (cause) {
       setFallo(errorMessage(cause));
       setVeredicto(null);
@@ -1084,8 +1138,18 @@ export const VerificacionesAdmin = () => {
       await revisar(request, status, status === "rechazado" ? observation.trim() : undefined);
       setRejectingId(null);
       setObservation("");
+      if (status === "aprobado") {
+        aviso.ok(`${request.nombre} quedó verificado`, {
+          detalle: "Ya puede operar en la plataforma con todos sus perfiles.",
+        });
+      } else {
+        aviso.dato(`Verificación de ${request.nombre} rechazada`, {
+          detalle: "Recibió tu observación y puede volver a enviarla.",
+        });
+      }
     } catch (cause) {
       setError(errorMessage(cause));
+      aviso.error(cause, { respaldo: "No se pudo registrar la revisión." });
     } finally {
       setProcessingId(null);
     }
@@ -1101,7 +1165,11 @@ export const VerificacionesAdmin = () => {
 
       {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
 
-      {loading && <div className="flex items-center gap-2 bg-surface px-6 py-8 text-[13px] text-ink-soft"><Loader size={16} className="animate-spin" /> Cargando solicitudes…</div>}
+      {loading && (
+        <Skeleton name="admin-verificaciones" loading>
+          <div />
+        </Skeleton>
+      )}
 
       {pendientes.map((v) => (
         <article key={v.id_usuario} className="anim-rise bg-surface px-6 py-5">
@@ -1191,9 +1259,16 @@ export const VerificacionesAdmin = () => {
 
 /* ── Usuarios ────────────────────────────────────────────────── */
 
-const rolLabel: Record<RolPublico, string> = { dueno: "Dueño", paseador: "Paseador", negocio: "Negocio" };
-const rolTono = (rol: RolPublico | null) => rol === "paseador" ? "accent" : rol === "negocio" ? "warn" : "neutral";
-const rolesLabel = (roles: RolPublico[]) => roles.map((rol) => rolLabel[rol]).join(" + ") || "Sin rol";
+const rolLabel: Record<Rol, string> = { dueno: "Dueño", paseador: "Paseador", negocio: "Negocio", admin: "Administrador" };
+const rolesLabel = (roles: Rol[]) => roles.map((rol) => rolLabel[rol]).join(" + ") || "Sin rol";
+const perfilSinRol = (estado: AdminUser["estado_paseador"]) =>
+  estado === "pendiente"
+    ? { label: "Paseador · pendiente", className: "bg-warn-wash text-warn" }
+    : estado === "rechazado"
+      ? { label: "Paseador · rechazado", className: "bg-danger-wash text-danger" }
+      : estado === "aprobado"
+        ? { label: "Falta rol paseador", className: "bg-danger-wash text-danger" }
+        : { label: "Sin rol", className: "bg-sunken text-ink-mute" };
 const PAGE_SIZE = 8;
 const dateFormatter = new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" });
 
@@ -1201,7 +1276,7 @@ export const UsuariosAdmin = () => {
   const { user } = useAuth();
   const { usuarios, loading, procesandoId, error, mensaje, cambiarEstado, clearMessage } = useAdminUsuarios();
   const [busqueda, setBusqueda] = useState("");
-  const [filtroRol, setFiltroRol] = useState<"todos" | RolPublico>("todos");
+  const [filtroRol, setFiltroRol] = useState<"todos" | Rol>("todos");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos");
   const [pagina, setPagina] = useState(1);
   const [confirmar, setConfirmar] = useState<AdminUser | null>(null);
@@ -1215,7 +1290,7 @@ export const UsuariosAdmin = () => {
   const paginaUsuarios = visibles.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE);
   const activos = usuarios.filter((usuario) => usuario.activo).length;
   const duenos = usuarios.filter((usuario) => usuario.roles.includes("dueno")).length;
-  const cambiarFiltroRol = (value: "todos" | RolPublico) => { setFiltroRol(value); setPagina(1); };
+  const cambiarFiltroRol = (value: "todos" | Rol) => { setFiltroRol(value); setPagina(1); };
   const cambiarFiltroEstado = (value: "todos" | "activos" | "inactivos") => { setFiltroEstado(value); setPagina(1); };
   const exportar = () => {
     const csv = ["Nombre,Correo,Telefono,Roles,Zona,Registro,Estado", ...visibles.map((u) => [u.nombre, u.correo ?? "", u.telefono ?? "", rolesLabel(u.roles), u.zona?.nombre ?? "Sin zona", u.fecha_registro, u.activo ? "Activo" : "Inactivo"].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
@@ -1224,49 +1299,177 @@ export const UsuariosAdmin = () => {
     enlace.download = "usuarios-tuaniscan.csv";
     enlace.click();
     URL.revokeObjectURL(enlace.href);
+    aviso.ok("Directorio exportado", {
+      detalle: `${visibles.length} ${visibles.length === 1 ? "fila" : "filas"} en usuarios-tuaniscan.csv`,
+    });
+  };
+
+  const btnFila =
+    "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  const btnPaginacion =
+    "inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-ink-soft transition-colors hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+  const chipRol =
+    "inline-flex h-5 items-center whitespace-nowrap rounded-full px-2 text-[10px] font-semibold uppercase leading-none tracking-wide";
+  const chipRolTono: Record<Rol, string> = {
+    dueno: "bg-neutral-wash text-ink-soft",
+    paseador: "bg-accent-wash text-accent-dark",
+    negocio: "bg-warn-wash text-warn",
+    admin: "bg-sunken text-accent-deep",
   };
 
   return (
     <Page>
-      <PageHeader title="Usuarios" subtitle="Directorio general de las personas y negocios registrados." action={<button type="button" onClick={exportar} className={btnSecondary}><Download size={14} strokeWidth={1.9} /> Exportar vista</button>} />
-      <div className="grid gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas públicas" />
+      <PageHeader
+        title="Usuarios"
+        subtitle="Directorio general de las personas y negocios registrados."
+        action={
+          <button type="button" onClick={exportar} className={btnSecondary}>
+            <Download size={14} strokeWidth={1.9} /> Exportar vista
+          </button>
+        }
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas" />
         <Stat etiqueta="Cuentas activas" valor={String(activos)} nota={`${usuarios.length ? Math.round((activos / usuarios.length) * 100) : 0}% del total`} />
         <Stat etiqueta="Dueños de mascotas" valor={String(duenos)} nota="Segmento principal" />
       </div>
-      <Section title="Directorio" aside={<span className="text-[12px] text-ink-mute">{visibles.length} resultados</span>} bodyClass="px-4 py-4 sm:px-6">
-        <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_160px_160px]">
-          <label className="relative block"><Search size={15} className="absolute top-3 left-3 text-ink-mute" aria-hidden /><span className="sr-only">Buscar usuarios</span><input value={busqueda} onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }} className={`${input} pl-10`} placeholder="Buscar por nombre, teléfono o zona" /></label>
-          <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label="Filtrar por rol" options={[{ value: "todos", label: "Todos los roles" }, { value: "dueno", label: "Dueños" }, { value: "paseador", label: "Paseadores" }, { value: "negocio", label: "Negocios" }]} />
+
+      <Section
+        title="Directorio"
+        aside={
+          <span className="inline-flex items-center rounded-full bg-sunken px-2.5 py-1 text-[12px] font-medium text-ink-soft">
+            {visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}
+          </span>
+        }
+        bodyClass="px-4 py-4 sm:px-6"
+      >
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1fr)_190px_190px]">
+          <label className="relative block sm:col-span-2 lg:col-span-1">
+            <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" aria-hidden />
+            <span className="sr-only">Buscar usuarios</span>
+            <input
+              value={busqueda}
+              onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }}
+              className={`${input} pl-10`}
+              placeholder="Buscar por nombre, teléfono o zona"
+            />
+          </label>
+          <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label="Filtrar por rol" options={[{ value: "todos", label: "Todos los roles" }, { value: "dueno", label: "Dueños" }, { value: "paseador", label: "Paseadores" }, { value: "negocio", label: "Negocios" }, { value: "admin", label: "Administradores" }]} />
           <Combo value={filtroEstado} onChange={(v) => cambiarFiltroEstado(v as typeof filtroEstado)} aria-label="Filtrar por estado" options={[{ value: "todos", label: "Todos los estados" }, { value: "activos", label: "Activos" }, { value: "inactivos", label: "Inactivos" }]} />
         </div>
       </Section>
-      {(error || mensaje) && <div aria-live="polite" className={`px-6 py-3 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>{error ?? mensaje}</div>}
+
+      {(error || mensaje) && (
+        <div aria-live="polite" className={`rounded-lg px-4 py-3 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>
+          {error ?? mensaje}
+        </div>
+      )}
+
       <Section bodyClass="">
-        {loading ? <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando directorio...</p> : visibles.length === 0 ? <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} /> : <Table caption="Directorio de usuarios" columnas={[{ label: "Usuario" }, { label: "Roles" }, { label: "Contacto" }, { label: "Zona" }, { label: "Registro" }, { label: "Estado" }, { label: "Acciones" }]}>{paginaUsuarios.map((usuario) => {
-          const esCuentaActual = usuario.id_usuario === user?.id;
-          return <tr key={usuario.id_usuario}><td className="px-6 py-3"><div className="flex items-center gap-3">{usuario.foto_perfil ? <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 object-cover" /> : <Avatar nombre={usuario.nombre} size={36} />}<div className="min-w-0"><p className="truncate text-[13px] font-medium text-ink">{usuario.nombre}</p><p className="text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p></div></div></td><td className="px-6 py-3"><Badge tono={rolTono(usuario.roles[0] ?? null)}>{rolesLabel(usuario.roles)}</Badge></td><td className="px-6 py-3 text-[12.5px] text-ink-soft"><span className="block">{usuario.correo || "Sin correo"}</span><span className="block text-[11px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span></td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</td><td className="px-6 py-3 text-[12.5px] text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td><td className="px-6 py-3"><Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge></td><td className="px-6 py-3">{esCuentaActual ? <span className="text-[12px] font-medium text-ink-mute">Tu cuenta</span> : <button type="button" disabled={procesandoId === usuario.id_usuario} onClick={() => { clearMessage(); setConfirmar(usuario); }} className={usuario.activo ? btnDanger : btnPrimary}>{procesandoId === usuario.id_usuario ? <Loader size={14} className="animate-spin" /> : usuario.activo ? <UserX size={14} /> : <UserCheck size={14} />}{usuario.activo ? "Inactivar" : "Activar"}</button>}</td></tr>;
-        })}</Table>}
+        {loading ? (
+          <Skeleton name="admin-tabla" loading><div /></Skeleton>
+        ) : visibles.length === 0 ? (
+          <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} />
+        ) : (
+          <Table
+            caption="Directorio de usuarios"
+            min="min-w-0"
+            padX="px-3"
+            columnas={[
+              { label: "Usuario", ancho: "w-[18%]" },
+              { label: "Roles", ancho: "w-[18%]" },
+              { label: "Contacto", ancho: "w-[19%]" },
+              { label: "Zona", ancho: "w-[11%]" },
+              { label: "Registro", ancho: "w-[11%]" },
+              { label: "Estado", ancho: "w-[10%]" },
+              { label: "Acciones", align: "right", ancho: "w-[13%]" },
+            ]}
+          >
+            {paginaUsuarios.map((usuario) => {
+              const esCuentaActual = usuario.id_usuario === user?.id;
+              const perfil = perfilSinRol(usuario.estado_paseador);
+              return (
+                <tr key={usuario.id_usuario} className="align-top transition-colors hover:bg-accent-wash/40">
+                  <td className="px-3 py-3.5">
+                    <div className="flex items-center gap-2.5">
+                      {usuario.foto_perfil ? (
+                        <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 rounded-full object-cover ring-1 ring-border" />
+                      ) : (
+                        <Avatar nombre={usuario.nombre} size={36} />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[13px] leading-tight font-semibold text-ink [overflow-wrap:anywhere]">{usuario.nombre}</p>
+                        <p className="nums mt-1 text-[10px] tracking-tight text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3.5">
+                    {usuario.roles.length ? (
+                      <div className="flex flex-wrap items-center gap-1">
+                        {usuario.roles.map((rol) => (
+                          <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{rolLabel[rol]}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className={`${chipRol} ${perfil.className}`}>{perfil.label}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3.5">
+                    <span className="block text-[12px] font-medium text-ink [overflow-wrap:anywhere]">{usuario.correo || "Sin correo"}</span>
+                    <span className="nums mt-1 block text-[10.5px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span>
+                  </td>
+                  <td className="px-3 py-3.5 text-[12px] leading-snug text-ink-soft [overflow-wrap:anywhere]">{usuario.zona?.nombre || "Sin zona"}</td>
+                  <td className="nums px-3 py-3.5 text-[11.5px] leading-snug text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td>
+                  <td className="px-3 py-3.5">
+                    <Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge>
+                  </td>
+                  <td className="px-3 py-3.5 text-right">
+                    {esCuentaActual ? (
+                      <span className="inline-flex items-center rounded-full bg-sunken px-2 py-0.5 text-[10.5px] font-medium text-ink-mute">Tu cuenta</span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={procesandoId === usuario.id_usuario}
+                        onClick={() => { clearMessage(); setConfirmar(usuario); }}
+                        className={`${btnFila} ${usuario.activo ? "border-danger/30 text-danger hover:border-danger/50 hover:bg-danger-wash" : "border-accent/30 text-accent-dark hover:border-accent/50 hover:bg-accent-wash"}`}
+                      >
+                        {procesandoId === usuario.id_usuario ? <Loader size={13} className="animate-spin" /> : usuario.activo ? <UserX size={13} /> : <UserCheck size={13} />}
+                        {usuario.activo ? "Inactivar" : "Activar"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </Table>
+        )}
       </Section>
+
       {!loading && visibles.length > PAGE_SIZE && (
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-surface px-6 py-4">
-          <span className="text-[12px] text-ink-mute">Página {paginaActual} de {totalPaginas}</span>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+          <span className="text-[12px] text-ink-mute">Página <span className="font-medium text-ink-soft">{paginaActual}</span> de {totalPaginas}</span>
           <div className="flex gap-2">
-            <button type="button" disabled={paginaActual === 1} onClick={() => setPagina((actual) => Math.max(1, actual - 1))} className={btnSecondary}>Anterior</button>
-            <button type="button" disabled={paginaActual === totalPaginas} onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))} className={btnSecondary}>Siguiente</button>
+            <button type="button" disabled={paginaActual === 1} onClick={() => setPagina((actual) => Math.max(1, actual - 1))} className={btnPaginacion}>
+              <ChevronLeft size={14} /> Anterior
+            </button>
+            <button type="button" disabled={paginaActual === totalPaginas} onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))} className={btnPaginacion}>
+              Siguiente <ChevronRight size={14} />
+            </button>
           </div>
         </div>
       )}
+
       {confirmar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b2331]/60 px-4" role="dialog" aria-modal="true" aria-labelledby="estado-usuario-title">
-          <div className="w-full max-w-[440px] bg-surface">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b2331]/60 px-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="estado-usuario-title">
+          <div className="w-full max-w-[440px] overflow-hidden rounded-xl bg-surface shadow-lg">
             <div className={`px-6 py-5 ${confirmar.activo ? "bg-danger-wash" : "bg-ok-wash"}`}>
               <h3 id="estado-usuario-title" className={`text-[18px] font-semibold ${confirmar.activo ? "text-danger" : "text-ok"}`}>{confirmar.activo ? "Inactivar usuario" : "Activar usuario"}</h3>
               <p className="mt-2 text-[13px] text-ink-soft">{confirmar.activo ? "La cuenta no podrá usar funciones protegidas aunque conserve una sesión anterior." : "La cuenta recuperará acceso a las funciones protegidas."}</p>
             </div>
             <div className="px-6 py-5">
               <p className="text-[13px] text-ink-soft">Vas a {confirmar.activo ? "inactivar" : "activar"} a <strong className="text-ink">{confirmar.nombre}</strong>.</p>
-              {error && <p className="mt-4 bg-danger-wash px-3 py-2 text-[13px] text-danger">{error}</p>}
+              {error && <p className="mt-4 rounded-md bg-danger-wash px-3 py-2 text-[13px] text-danger">{error}</p>}
               <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button type="button" disabled={procesandoId === confirmar.id_usuario} onClick={() => setConfirmar(null)} className={btnSecondary}>Cancelar</button>
                 <button type="button" disabled={procesandoId === confirmar.id_usuario} onClick={() => void cambiarEstado(confirmar).then(() => setConfirmar(null)).catch(() => undefined)} className={confirmar.activo ? btnDanger : btnPrimary}>{procesandoId === confirmar.id_usuario ? <Loader size={14} className="animate-spin" /> : confirmar.activo ? <UserX size={14} /> : <UserCheck size={14} />}{confirmar.activo ? "Sí, inactivar" : "Sí, activar"}</button>
