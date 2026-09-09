@@ -8,8 +8,8 @@ type AdminUserRow = Omit<AdminUser, "zona" | "roles"> & {
   roles: string[] | null;
 };
 
-const isPublicRole = (rol: string): rol is AdminUser["roles"][number] =>
-  rol === "dueno" || rol === "paseador" || rol === "negocio";
+const isRole = (rol: string): rol is AdminUser["roles"][number] =>
+  rol === "dueno" || rol === "paseador" || rol === "negocio" || rol === "admin";
 
 export const getAdminUsuarios = async (): Promise<AdminUser[]> => {
   const { data, error } = await supabase.rpc("listar_usuarios_admin");
@@ -23,7 +23,8 @@ export const getAdminUsuarios = async (): Promise<AdminUser[]> => {
     foto_perfil: usuario.foto_perfil,
     fecha_registro: usuario.fecha_registro,
     activo: usuario.activo,
-    roles: (usuario.roles ?? []).filter(isPublicRole),
+    roles: (usuario.roles ?? []).filter(isRole),
+    estado_paseador: usuario.estado_paseador,
     zona: usuario.zona_nombre
       ? {
           nombre: usuario.zona_nombre,
