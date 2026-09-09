@@ -211,13 +211,13 @@ export const FinanzasAdmin = () => {
         }
       />
 
-      <div className="grid gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota="15% de pagos completados" />
-        <Stat etiqueta="Comisión pendiente" valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} pagos`} />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? "pago completado" : "pagos completados"}`} />
+        <Stat etiqueta="Comisión pendiente" valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} ${pendientes.length === 1 ? "pago" : "pagos"}`} />
         <Stat etiqueta="Volumen pagado" valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} paseos` : "sin pagos"} />
       </div>
 
-      <div className="bg-surface">
+      <div className="overflow-x-auto rounded-lg bg-surface p-1">
         <FilterTabs
           label="Filtrar pagos"
           options={["Todos", "Pendientes", "Pagados"]}
@@ -228,9 +228,9 @@ export const FinanzasAdmin = () => {
 
       <Section bodyClass="">
         {error ? (
-          <div role="alert" className="px-6 py-6 text-[13px] text-danger">{error}</div>
+          <div role="alert" className="bg-danger-wash px-6 py-5 text-[13px] text-danger">{error}</div>
         ) : loading ? (
-          <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
+          <div className="flex items-center gap-2 px-6 py-10 text-[13px] text-ink-soft">
             <Loader size={16} className="animate-spin" /> Cargando finanzas…
           </div>
         ) : visibles.length > 0 ? (
@@ -247,27 +247,27 @@ export const FinanzasAdmin = () => {
             ]}
           >
             {visibles.map((movement) => (
-              <tr key={movement.id_pago}>
-                <td className="px-6 py-3.5">
+              <tr key={movement.id_pago} className="transition-colors duration-150 hover:bg-sunken">
+                <td className="px-6 py-4 align-top">
                   <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
-                  <p className="nums text-[11.5px] text-ink-mute">{movement.fecha}</p>
+                  <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{movement.fecha}</p>
                 </td>
-                <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">
+                <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
                   {movement.dueno}
                 </td>
-                <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">
+                <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
                   {movement.paseador}
                 </td>
-                <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
+                <td className="nums px-6 py-4 text-right align-top text-[12.5px] text-ink-soft">
                   {colones(movement.bruto)}
                 </td>
-                <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
+                <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
                   {colones(movement.comision)}
                 </td>
-                <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
+                <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
                   {colones(movement.neto_paseador)}
                 </td>
-                <td className="px-6 py-3.5">
+                <td className="px-6 py-4 align-top">
                   <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
                     {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
                   </Badge>
