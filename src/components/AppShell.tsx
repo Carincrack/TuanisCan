@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Bell, Check, Menu, Search, ShieldAlert, Trash2 } from "../lib/iconos";
+import { Bell, Check, Menu, ShieldAlert, Trash2 } from "../lib/iconos";
 
 import { tituloDeRuta, type Rol } from "../lib/nav";
 import type { UserProfile } from "../types/auth.types";
@@ -16,7 +16,6 @@ import {
   markNotificationRead,
   type Notification,
 } from "../services/notifications.service";
-import { AsideDeRol } from "./aside";
 import { CajonSuave, RielSuave } from "./rielSuave";
 
 /* ─────────────────────────────────────────────────────────────
@@ -249,26 +248,6 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             {tituloDeRuta(rol, pathname)}
           </h1>
 
-          {/* La búsqueda se retira antes que nada al angostarse: es lo
-              único de la barra que tiene su propia pantalla adonde ir. */}
-          <div className="relative hidden w-[200px] shrink-0 lg:block lg:w-[260px]">
-            <label htmlFor="busqueda-global" className="sr-only">
-              Buscar en la plataforma
-            </label>
-            <input
-              id="busqueda-global"
-              type="search"
-              placeholder="Buscar"
-              className="flota h-10 w-full rounded-full bg-surface pr-4 pl-10 text-[13.5px] text-ink outline-none placeholder:text-ink-mute focus:outline-2 focus:outline-offset-2 focus:outline-accent"
-            />
-            <Search
-              size={15}
-              strokeWidth={1.9}
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute"
-            />
-          </div>
-
           <div className="relative">
             <button
               type="button"
@@ -431,12 +410,6 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             </div>
           </main>
 
-          <aside
-            aria-label="Contexto"
-            className="anim-rise d-3 hidden w-[312px] shrink-0 flex-col gap-2.5 px-4 pt-2 pb-4 pl-0 xl:flex"
-          >
-            <AsideDeRol rol={rol} />
-          </aside>
         </div>
       </div>
     </div>
