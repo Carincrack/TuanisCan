@@ -1273,7 +1273,7 @@ const perfilSinRol = (estado: AdminUser["estado_paseador"]) =>
       : estado === "aprobado"
         ? { label: "Falta rol paseador", className: "bg-danger-wash text-danger" }
         : { label: "Sin rol", className: "bg-sunken text-ink-mute" };
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 8;
 const dateFormatter = new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" });
 
 /** Variante compacta de `Stat`, solo para el directorio de usuarios:
@@ -1299,14 +1299,18 @@ const StatUsuarios = ({
   valor: string;
   nota: string;
 }) => (
-  <div className={`${surface} flex items-center gap-3 border border-border/60 px-4 py-3.5`}>
-    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${statTono[tono]}`}>
-      <Icon size={16} strokeWidth={1.9} />
+  <div
+    className={`${surface} group flex items-center gap-3 border border-border/60 px-4 py-4 transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-border hover:shadow-[0_10px_24px_-12px_rgba(20,36,46,0.18)]`}
+  >
+    <span
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-transform duration-200 ease-out group-hover:scale-110 ${statTono[tono]}`}
+    >
+      <Icon size={17} strokeWidth={1.9} />
     </span>
     <div className="min-w-0">
       <p className="truncate text-[11.5px] font-medium text-ink-mute">{etiqueta}</p>
-      <p className="mt-0.5 flex items-baseline gap-1.5">
-        <span className="nums text-[19px] leading-none font-semibold tracking-[-0.01em] text-ink">{valor}</span>
+      <p className="mt-1 flex items-baseline gap-1.5">
+        <span className="nums text-[21px] leading-none font-bold tracking-[-0.01em] text-ink">{valor}</span>
         <span className="truncate text-[11px] text-ink-soft">{nota}</span>
       </p>
     </div>
@@ -1348,18 +1352,18 @@ export const UsuariosAdmin = () => {
   };
 
   const btnFila =
-    "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-[background-color,color,transform,box-shadow] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
+    "inline-flex items-center gap-1.5 rounded-lg border bg-transparent px-3 py-1.5 text-[11.5px] font-medium shadow-none transition-[background-color,color,border-color,transform] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
   const btnPaginacion =
-    "inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium text-ink-soft transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
+    "inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-border/60 px-3 text-[12.5px] font-medium text-ink-soft transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
   const btnPaginaNum = (activa: boolean) =>
     `inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] font-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${activa ? "bg-rail text-white" : "text-ink-soft hover:bg-sunken"}`;
   const chipRol =
-    "inline-flex h-6 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full px-2.5 text-[10px] font-semibold uppercase leading-none tracking-wide";
+    "inline-flex h-6 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[10px] font-semibold uppercase leading-none tracking-wide";
   const chipRolTono: Record<Rol, string> = {
     dueno: "bg-neutral-wash text-ink-soft",
     paseador: "bg-accent-wash text-accent-dark",
     negocio: "bg-warn-wash text-warn",
-    admin: "bg-sunken text-accent-deep",
+    admin: "bg-rail/10 text-rail",
   };
 
   const botonNotificaciones = useContext(NotificationButtonContext);
@@ -1392,7 +1396,7 @@ export const UsuariosAdmin = () => {
       <div className="min-w-0">
         <Section
           title="Directorio"
-          aside={<Badge tono="neutral">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</Badge>}
+          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</Badge>}
           bodyClass="px-4 py-4 sm:px-6"
         >
           <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.6fr)_minmax(150px,1fr)_minmax(150px,1fr)]">
@@ -1449,7 +1453,7 @@ export const UsuariosAdmin = () => {
                     const esCuentaActual = usuario.id_usuario === user?.id;
                     const perfil = perfilSinRol(usuario.estado_paseador);
                     return (
-                      <tr key={usuario.id_usuario} className="transition-colors hover:bg-accent-wash/40">
+                      <tr key={usuario.id_usuario} className="transition-colors duration-150 hover:bg-accent-wash/25">
                         <td className="px-5 py-3.5">
                           <div className="flex min-w-0 items-center gap-3">
                             {usuario.foto_perfil ? (
@@ -1458,8 +1462,8 @@ export const UsuariosAdmin = () => {
                               <Avatar nombre={usuario.nombre} size={36} />
                             )}
                             <span className="min-w-0">
-                              <span className="block text-[13.5px] font-semibold text-ink">{usuario.nombre}</span>
-                              <span className="nums mt-0.5 block text-[12px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</span>
+                              <span className="block text-[14px] font-semibold text-ink">{usuario.nombre}</span>
+                              <span className="nums mt-0.5 block text-[11.5px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</span>
                             </span>
                           </div>
                         </td>
@@ -1477,10 +1481,10 @@ export const UsuariosAdmin = () => {
                           )}
                         </td>
                         <td className="px-5 py-3.5">
-                          <span className="block text-[13px] text-ink-soft">{usuario.correo || "Sin correo"}</span>
-                          <span className="nums mt-0.5 block text-[12px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span>
+                          <span className={`block text-[13px] ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`}>{usuario.correo || "Sin correo"}</span>
+                          <span className="nums mt-1 block text-[12px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span>
                         </td>
-                        <td className="px-5 py-3.5 text-[13px] text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</td>
+                        <td className={`px-5 py-3.5 text-[13px] ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`}>{usuario.zona?.nombre || "Sin zona"}</td>
                         <td className="nums px-5 py-3.5 text-[13px] text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td>
                         <td className="px-5 py-3.5">
                           <Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge>
@@ -1513,7 +1517,7 @@ export const UsuariosAdmin = () => {
                   const esCuentaActual = usuario.id_usuario === user?.id;
                   const perfil = perfilSinRol(usuario.estado_paseador);
                   return (
-                    <li key={usuario.id_usuario} className="rounded-[14px] border border-border bg-surface p-5">
+                    <li key={usuario.id_usuario} className="rounded-[14px] border border-border/60 bg-surface p-5">
                       <div className="flex items-start gap-3.5">
                         {usuario.foto_perfil ? (
                           <img src={usuario.foto_perfil} alt="" className="h-10 w-10 flex-shrink-0 rounded-full object-cover ring-1 ring-border" />
@@ -1522,12 +1526,12 @@ export const UsuariosAdmin = () => {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14px] font-semibold text-ink">{usuario.nombre}</p>
-                          <p className="nums mt-1 text-[10.5px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p>
+                          <p className="nums mt-1 text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p>
                         </div>
                         <Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge>
                       </div>
 
-                      <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border pt-4">
+                      <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-4">
                         {usuario.roles.length ? (
                           usuario.roles.map((rol) => (
                             <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{rolLabel[rol]}</span>
@@ -1542,12 +1546,12 @@ export const UsuariosAdmin = () => {
                       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-[12px]">
                         <div className="col-span-2">
                           <dt className="text-ink-mute">Contacto</dt>
-                          <dd className="mt-1 font-medium break-words text-ink-soft">{usuario.correo || "Sin correo"}</dd>
+                          <dd className={`mt-1 break-words ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`}>{usuario.correo || "Sin correo"}</dd>
                           <dd className="nums mt-1 text-ink-mute">{usuario.telefono || "Sin teléfono"}</dd>
                         </div>
                         <div>
                           <dt className="text-ink-mute">Zona</dt>
-                          <dd className="mt-1 font-medium break-words text-ink-soft">{usuario.zona?.nombre || "Sin zona"}</dd>
+                          <dd className={`mt-1 break-words ${usuario.zona?.nombre ? "font-medium text-ink-soft" : "text-ink-mute italic"}`}>{usuario.zona?.nombre || "Sin zona"}</dd>
                         </div>
                         <div>
                           <dt className="text-ink-mute">Registro</dt>
@@ -1555,7 +1559,7 @@ export const UsuariosAdmin = () => {
                         </div>
                       </dl>
 
-                      <div className="mt-4 border-t border-border pt-4">
+                      <div className="mt-4 border-t border-border/60 pt-4">
                         {esCuentaActual ? (
                           <span className="inline-flex items-center rounded-full bg-sunken px-2 py-0.5 text-[10.5px] font-medium text-ink-mute">Tu cuenta</span>
                         ) : (
@@ -1581,7 +1585,7 @@ export const UsuariosAdmin = () => {
                   resultados no desaparezca y reaparezca al filtrar. */}
               <nav
                 aria-label="Paginación de usuarios"
-                className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3.5 sm:px-6"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-4 py-3.5 sm:px-6"
               >
                 <p className="text-[12px] text-ink-mute">
                   Mostrando <span className="font-medium text-ink-soft">{inicioPagina + 1}</span>–<span className="font-medium text-ink-soft">{finPagina}</span> de{" "}
