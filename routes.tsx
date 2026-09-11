@@ -80,6 +80,7 @@ const PaseoEnVivo = perezoso(() => import("./src/components/paseoEnVivo"));
 const MascotasPerdidas = perezoso(() => import("./src/components/mascotasPerdidas"), "perdidas-rejilla");
 const Directorio = perezoso(() => import("./src/components/directorio"), "directorio-rejilla");
 const Pagos = perezoso(() => import("./src/components/pagos"));
+const Tarjetas = perezoso(() => import("./src/components/tarjetas"));
 const Resenas = perezoso(() => import("./src/components/resenas"));
 const ZonasAdminPage = perezoso(() => import("./src/page/ZonasAdminPage"), "admin-tabla");
 const PaginaCaptura = perezoso(() => import("./src/esqueletos/PaginaCaptura"));
@@ -128,6 +129,7 @@ const paseoEnVivoRoute = ruta("/paseo-en-vivo", PaseoEnVivo);
 const mascotasPerdidasRoute = ruta("/mascotas-perdidas", MascotasPerdidas);
 const directorioRoute = ruta("/directorio", Directorio);
 const pagosRoute = ruta("/pagos", Pagos);
+const tarjetasRoute = ruta("/pagos/tarjetas", Tarjetas);
 const resenasRoute = ruta("/resenas", Resenas);
 const carnetRoute = ruta("/carnet", CarnetDigital);
 
@@ -189,6 +191,7 @@ rootRoute.addChildren([
   mascotasPerdidasRoute,
   directorioRoute,
   pagosRoute,
+  tarjetasRoute,
   resenasRoute,
 ]);
 

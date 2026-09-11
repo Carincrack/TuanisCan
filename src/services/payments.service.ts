@@ -4,6 +4,7 @@ import {
   cardBrand,
   cardDigits,
   parseExpiry,
+  sanitizeCardholderName,
 } from "../lib/payment-card";
 
 export interface PaymentMethod {
@@ -84,8 +85,9 @@ export const registerPaymentMethod = async (input: {
   const digits = cardDigits(input.numero);
   const brand = cardBrand(digits);
   const expiry = parseExpiry(input.vencimiento);
+  const titular = sanitizeCardholderName(input.titular).trim();
 
-  if (input.titular.trim().length < 3) throw new Error("Indica el nombre del titular.");
+  if (titular.length < 3) throw new Error("Indica el nombre del titular, solo letras.");
   if (digits.length !== CARD_NUMBER_LENGTH) {
     throw new Error("El número de tarjeta debe tener 16 dígitos.");
   }
@@ -94,7 +96,7 @@ export const registerPaymentMethod = async (input: {
   if (!/^\d{3,4}$/.test(input.cvv)) throw new Error("El código de seguridad no es válido.");
 
   const { data, error } = await supabase.rpc("registrar_metodo_pago", {
-    p_titular: input.titular.trim(),
+    p_titular: titular,
     p_marca: brand,
     p_ultimos4: digits.slice(-4),
     p_exp_mes: expiry.month,
@@ -103,6 +105,18 @@ export const registerPaymentMethod = async (input: {
 
   if (error) throw error;
   return data as string;
+};
+
+/** Nunca se edita una tarjeta -no es común ni seguro cambiar el número o
+    la marca de algo ya guardado-, así que la única operación que existe
+    además de registrar es borrar. El backend impide dejar la cuenta sin
+    ninguna tarjeta y reasigna la principal si hacía falta. */
+export const deletePaymentMethod = async (methodId: string) => {
+  const { error } = await supabase.rpc("eliminar_metodo_pago", {
+    p_id_metodo_pago: methodId,
+  });
+
+  if (error) throw error;
 };
 
 export const processPayment = async (walkId: string, methodId: string) => {

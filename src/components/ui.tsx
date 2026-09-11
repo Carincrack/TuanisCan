@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useId, useRef } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Loader, X } from "../lib/iconos";
@@ -77,9 +77,37 @@ export const colones = (n: number) => `₡${n.toLocaleString("es-CR")}`;
 
 /* ── Estructura de página ────────────────────────────────────── */
 
-export const Page = ({ children }: { children: ReactNode }) => (
-  <div className="flex flex-col gap-2.5">{children}</div>
-);
+/** `AppShell` centra el contenido en un carril angosto —cómodo para
+    formularios y paneles chicos— pero una tabla densa como el
+    directorio de usuarios necesita más aire. `<Page wide>` avisa a
+    `AppShell`, por contexto, que ceda ese ancho extra solo mientras
+    esta página esté montada; el resto del sistema no se entera. */
+export const PageWidthContext = createContext<((wide: boolean) => void) | null>(null);
+
+/** El botón de notificaciones vive en `AppShell` —ahí están el estado
+    y el panel—, pero una página puede pedir mostrarlo dentro de su
+    propio encabezado en vez de la franja superior del layout. Se pasa
+    el botón ya armado (no la lógica) para no duplicar nada: quien lo
+    consume solo lo coloca donde le convenga. */
+export const NotificationButtonContext = createContext<ReactNode>(null);
+
+export const Page = ({
+  children,
+  wide = false,
+}: {
+  children: ReactNode;
+  /** Pide el carril ancho de `AppShell` para esta página. */
+  wide?: boolean;
+}) => {
+  const setWide = useContext(PageWidthContext);
+
+  useLayoutEffect(() => {
+    setWide?.(wide);
+    return () => setWide?.(false);
+  }, [setWide, wide]);
+
+  return <div className="flex flex-col gap-2.5">{children}</div>;
+};
 
 export const PageHeader = ({
   title,

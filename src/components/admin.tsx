@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, RefreshCw, Search, ShieldCheck, UserCheck, UserX, X } from "../lib/iconos";
+import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, PawPrint, RefreshCw, Search, ShieldCheck, UserCheck, UserX, Users, X } from "../lib/iconos";
+import type { Icono } from "../lib/iconos";
 import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
@@ -15,8 +16,10 @@ import type { AdminUser, AdminVerificationRequest, AdminWalker, RolPublico, Veri
 import {
   Avatar,
   Badge,
+  Confirmar,
   EmptyState,
   FilterTabs,
+  NotificationButtonContext,
   Page,
   PageHeader,
   Section,
@@ -28,6 +31,7 @@ import {
   btnSecondary,
   colones,
   input,
+  surface,
 } from "./ui";
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
@@ -1263,7 +1267,7 @@ const rolLabel: Record<Rol, string> = { dueno: "Dueño", paseador: "Paseador", n
 const rolesLabel = (roles: Rol[]) => roles.map((rol) => rolLabel[rol]).join(" + ") || "Sin rol";
 const perfilSinRol = (estado: AdminUser["estado_paseador"]) =>
   estado === "pendiente"
-    ? { label: "Paseador · pendiente", className: "bg-warn-wash text-warn" }
+    ? { label: "Pendiente de aprobación", className: "border border-amber-200 bg-amber-50 text-amber-800" }
     : estado === "rechazado"
       ? { label: "Paseador · rechazado", className: "bg-danger-wash text-danger" }
       : estado === "aprobado"
@@ -1271,6 +1275,47 @@ const perfilSinRol = (estado: AdminUser["estado_paseador"]) =>
         : { label: "Sin rol", className: "bg-sunken text-ink-mute" };
 const PAGE_SIZE = 8;
 const dateFormatter = new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" });
+
+/** Variante compacta de `Stat`, solo para el directorio de usuarios:
+    `Stat` es la tira de métricas que ya usan Finanzas, Zonas y el
+    panel de dueño/paseador, así que cambiar su apariencia ahí
+    afectaría todas esas pantallas. Esta vive nada más acá. */
+const statTono: Record<"neutral" | "ok" | "accent", string> = {
+  neutral: "bg-sunken text-ink-soft",
+  ok: "bg-ok-wash text-ok",
+  accent: "bg-accent-wash text-accent-dark",
+};
+
+const StatUsuarios = ({
+  icono: Icon,
+  tono,
+  etiqueta,
+  valor,
+  nota,
+}: {
+  icono: Icono;
+  tono: keyof typeof statTono;
+  etiqueta: string;
+  valor: string;
+  nota: string;
+}) => (
+  <div
+    className={`${surface} group flex items-center gap-3 border border-border/60 px-4 py-4 transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-border hover:shadow-[0_10px_24px_-12px_rgba(20,36,46,0.18)]`}
+  >
+    <span
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-transform duration-200 ease-out group-hover:scale-110 ${statTono[tono]}`}
+    >
+      <Icon size={17} strokeWidth={1.9} />
+    </span>
+    <div className="min-w-0">
+      <p className="truncate text-[11.5px] font-medium text-ink-mute">{etiqueta}</p>
+      <p className="mt-1 flex items-baseline gap-1.5">
+        <span className="nums text-[21px] leading-none font-bold tracking-[-0.01em] text-ink">{valor}</span>
+        <span className="truncate text-[11px] text-ink-soft">{nota}</span>
+      </p>
+    </div>
+  </div>
+);
 
 export const UsuariosAdmin = () => {
   const { user } = useAuth();
@@ -1287,7 +1332,9 @@ export const UsuariosAdmin = () => {
   }), [busqueda, filtroEstado, filtroRol, usuarios]);
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
-  const paginaUsuarios = visibles.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE);
+  const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
+  const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
+  const paginaUsuarios = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
   const activos = usuarios.filter((usuario) => usuario.activo).length;
   const duenos = usuarios.filter((usuario) => usuario.roles.includes("dueno")).length;
   const cambiarFiltroRol = (value: "todos" | Rol) => { setFiltroRol(value); setPagina(1); };
@@ -1305,60 +1352,69 @@ export const UsuariosAdmin = () => {
   };
 
   const btnFila =
-    "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex items-center gap-1.5 rounded-lg border bg-transparent px-3 py-1.5 text-[11.5px] font-medium shadow-none transition-[background-color,color,border-color,transform] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
   const btnPaginacion =
-    "inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-ink-soft transition-colors hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+    "inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-border/60 px-3 text-[12.5px] font-medium text-ink-soft transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
+  const btnPaginaNum = (activa: boolean) =>
+    `inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] font-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${activa ? "bg-rail text-white" : "text-ink-soft hover:bg-sunken"}`;
   const chipRol =
-    "inline-flex h-5 items-center whitespace-nowrap rounded-full px-2 text-[10px] font-semibold uppercase leading-none tracking-wide";
+    "inline-flex h-6 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[10px] font-semibold uppercase leading-none tracking-wide";
   const chipRolTono: Record<Rol, string> = {
     dueno: "bg-neutral-wash text-ink-soft",
     paseador: "bg-accent-wash text-accent-dark",
     negocio: "bg-warn-wash text-warn",
-    admin: "bg-sunken text-accent-deep",
+    admin: "bg-rail/10 text-rail",
   };
 
+  const botonNotificaciones = useContext(NotificationButtonContext);
+
   return (
-    <Page>
+    <Page wide>
       <PageHeader
         title="Usuarios"
         subtitle="Directorio general de las personas y negocios registrados."
         action={
-          <button type="button" onClick={exportar} className={btnSecondary}>
-            <Download size={14} strokeWidth={1.9} /> Exportar vista
-          </button>
+          <div className="flex w-full items-center gap-2.5 sm:w-auto">
+            <button
+              type="button"
+              onClick={exportar}
+              className={`${btnSecondary} flex-1 justify-center shadow-sm hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 sm:flex-none`}
+            >
+              <Download size={14} strokeWidth={1.9} /> Exportar vista
+            </button>
+            {botonNotificaciones}
+          </div>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas" />
-        <Stat etiqueta="Cuentas activas" valor={String(activos)} nota={`${usuarios.length ? Math.round((activos / usuarios.length) * 100) : 0}% del total`} />
-        <Stat etiqueta="Dueños de mascotas" valor={String(duenos)} nota="Segmento principal" />
+      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <StatUsuarios icono={Users} tono="neutral" etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas" />
+        <StatUsuarios icono={UserCheck} tono="ok" etiqueta="Cuentas activas" valor={String(activos)} nota={`${usuarios.length ? Math.round((activos / usuarios.length) * 100) : 0}% del total`} />
+        <StatUsuarios icono={PawPrint} tono="accent" etiqueta="Dueños de mascotas" valor={String(duenos)} nota="Segmento principal" />
       </div>
 
-      <Section
-        title="Directorio"
-        aside={
-          <span className="inline-flex items-center rounded-full bg-sunken px-2.5 py-1 text-[12px] font-medium text-ink-soft">
-            {visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}
-          </span>
-        }
-        bodyClass="px-4 py-4 sm:px-6"
-      >
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1fr)_190px_190px]">
-          <label className="relative block sm:col-span-2 lg:col-span-1">
-            <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" aria-hidden />
-            <span className="sr-only">Buscar usuarios</span>
-            <input
-              value={busqueda}
-              onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }}
-              className={`${input} pl-10`}
-              placeholder="Buscar por nombre, teléfono o zona"
-            />
-          </label>
-          <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label="Filtrar por rol" options={[{ value: "todos", label: "Todos los roles" }, { value: "dueno", label: "Dueños" }, { value: "paseador", label: "Paseadores" }, { value: "negocio", label: "Negocios" }, { value: "admin", label: "Administradores" }]} />
-          <Combo value={filtroEstado} onChange={(v) => cambiarFiltroEstado(v as typeof filtroEstado)} aria-label="Filtrar por estado" options={[{ value: "todos", label: "Todos los estados" }, { value: "activos", label: "Activos" }, { value: "inactivos", label: "Inactivos" }]} />
-        </div>
-      </Section>
+      <div className="min-w-0">
+        <Section
+          title="Directorio"
+          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</Badge>}
+          bodyClass="px-4 py-4 sm:px-6"
+        >
+          <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.6fr)_minmax(150px,1fr)_minmax(150px,1fr)]">
+            <label className="relative block sm:col-span-2 lg:col-span-1">
+              <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" aria-hidden />
+              <span className="sr-only">Buscar usuarios</span>
+              <input
+                value={busqueda}
+                onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }}
+                className={`${input} pl-10`}
+                placeholder="Buscar por nombre, teléfono o zona"
+              />
+            </label>
+            <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label="Filtrar por rol" options={[{ value: "todos", label: "Todos los roles" }, { value: "dueno", label: "Dueños" }, { value: "paseador", label: "Paseadores" }, { value: "negocio", label: "Negocios" }, { value: "admin", label: "Administradores" }]} />
+            <Combo value={filtroEstado} onChange={(v) => cambiarFiltroEstado(v as typeof filtroEstado)} aria-label="Filtrar por estado" options={[{ value: "todos", label: "Todos los estados" }, { value: "activos", label: "Activos" }, { value: "inactivos", label: "Inactivos" }]} />
+          </div>
+        </Section>
+      </div>
 
       {(error || mensaje) && (
         <div aria-live="polite" className={`rounded-lg px-4 py-3 text-[13px] ${error ? "bg-danger-wash text-danger" : "bg-ok-wash text-ok"}`}>
@@ -1366,117 +1422,238 @@ export const UsuariosAdmin = () => {
         </div>
       )}
 
-      <Section bodyClass="">
-        {loading ? (
-          <Skeleton name="admin-tabla" loading><div /></Skeleton>
-        ) : visibles.length === 0 ? (
-          <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} />
-        ) : (
-          <Table
-            caption="Directorio de usuarios"
-            min="min-w-0"
-            padX="px-3"
-            columnas={[
-              { label: "Usuario", ancho: "w-[18%]" },
-              { label: "Roles", ancho: "w-[18%]" },
-              { label: "Contacto", ancho: "w-[19%]" },
-              { label: "Zona", ancho: "w-[11%]" },
-              { label: "Registro", ancho: "w-[11%]" },
-              { label: "Estado", ancho: "w-[10%]" },
-              { label: "Acciones", align: "right", ancho: "w-[13%]" },
-            ]}
-          >
-            {paginaUsuarios.map((usuario) => {
-              const esCuentaActual = usuario.id_usuario === user?.id;
-              const perfil = perfilSinRol(usuario.estado_paseador);
-              return (
-                <tr key={usuario.id_usuario} className="align-top transition-colors hover:bg-accent-wash/40">
-                  <td className="px-3 py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      {usuario.foto_perfil ? (
-                        <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 rounded-full object-cover ring-1 ring-border" />
-                      ) : (
-                        <Avatar nombre={usuario.nombre} size={36} />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-[13px] leading-tight font-semibold text-ink [overflow-wrap:anywhere]">{usuario.nombre}</p>
-                        <p className="nums mt-1 text-[10px] tracking-tight text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3.5">
-                    {usuario.roles.length ? (
-                      <div className="flex flex-wrap items-center gap-1">
-                        {usuario.roles.map((rol) => (
-                          <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{rolLabel[rol]}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className={`${chipRol} ${perfil.className}`}>{perfil.label}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3.5">
-                    <span className="block text-[12px] font-medium text-ink [overflow-wrap:anywhere]">{usuario.correo || "Sin correo"}</span>
-                    <span className="nums mt-1 block text-[10.5px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span>
-                  </td>
-                  <td className="px-3 py-3.5 text-[12px] leading-snug text-ink-soft [overflow-wrap:anywhere]">{usuario.zona?.nombre || "Sin zona"}</td>
-                  <td className="nums px-3 py-3.5 text-[11.5px] leading-snug text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td>
-                  <td className="px-3 py-3.5">
-                    <Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge>
-                  </td>
-                  <td className="px-3 py-3.5 text-right">
-                    {esCuentaActual ? (
-                      <span className="inline-flex items-center rounded-full bg-sunken px-2 py-0.5 text-[10.5px] font-medium text-ink-mute">Tu cuenta</span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={procesandoId === usuario.id_usuario}
-                        onClick={() => { clearMessage(); setConfirmar(usuario); }}
-                        className={`${btnFila} ${usuario.activo ? "border-danger/30 text-danger hover:border-danger/50 hover:bg-danger-wash" : "border-accent/30 text-accent-dark hover:border-accent/50 hover:bg-accent-wash"}`}
-                      >
-                        {procesandoId === usuario.id_usuario ? <Loader size={13} className="animate-spin" /> : usuario.activo ? <UserX size={13} /> : <UserCheck size={13} />}
-                        {usuario.activo ? "Inactivar" : "Activar"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </Table>
-        )}
-      </Section>
+      <div className="min-w-0">
+        <Section bodyClass="">
+          {loading ? (
+            <Skeleton name="admin-tabla" loading><div /></Skeleton>
+          ) : visibles.length === 0 ? (
+            <div className="px-4 py-4 sm:px-6">
+              <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} />
+            </div>
+          ) : (
+            <>
+              {/* Escritorio: tabla completa, mismo diseño que la tabla de
+                  Zonas —table-auto sin anchos fijos, para que crezca con
+                  el contenido en vez de aplastarlo. */}
+              <div className="hidden overflow-x-auto md:block">
+                <Table
+                  caption="Directorio de usuarios"
+                  padX="px-5"
+                  columnas={[
+                    { label: "Usuario" },
+                    { label: "Roles" },
+                    { label: "Contacto" },
+                    { label: "Zona" },
+                    { label: "Registro" },
+                    { label: "Estado" },
+                    { label: "Acciones", align: "right" },
+                  ]}
+                >
+                  {paginaUsuarios.map((usuario) => {
+                    const esCuentaActual = usuario.id_usuario === user?.id;
+                    const perfil = perfilSinRol(usuario.estado_paseador);
+                    return (
+                      <tr key={usuario.id_usuario} className="transition-colors duration-150 hover:bg-accent-wash/25">
+                        <td className="px-5 py-3.5">
+                          <div className="flex min-w-0 items-center gap-3">
+                            {usuario.foto_perfil ? (
+                              <img src={usuario.foto_perfil} alt="" className="h-9 w-9 flex-shrink-0 rounded-full object-cover ring-1 ring-border" />
+                            ) : (
+                              <Avatar nombre={usuario.nombre} size={36} />
+                            )}
+                            <span className="min-w-0">
+                              <span className="block text-[14px] font-semibold text-ink">{usuario.nombre}</span>
+                              <span className="nums mt-0.5 block text-[11.5px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {usuario.roles.length ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {usuario.roles.map((rol) => (
+                                <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{rolLabel[rol]}</span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className={`${chipRol} ${perfil.className}`} title={perfil.label}>
+                              {perfil.label}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className={`block text-[13px] ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`}>{usuario.correo || "Sin correo"}</span>
+                          <span className="nums mt-1 block text-[12px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span>
+                        </td>
+                        <td className={`px-5 py-3.5 text-[13px] ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`}>{usuario.zona?.nombre || "Sin zona"}</td>
+                        <td className="nums px-5 py-3.5 text-[13px] text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td>
+                        <td className="px-5 py-3.5">
+                          <Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge>
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          {esCuentaActual ? (
+                            <span className="inline-flex items-center rounded-full bg-sunken px-2 py-0.5 text-[10.5px] font-medium text-ink-mute">Tu cuenta</span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={procesandoId === usuario.id_usuario}
+                              onClick={() => { clearMessage(); setConfirmar(usuario); }}
+                              className={`${btnFila} ${usuario.activo ? "border-danger/30 text-danger hover:border-danger/50 hover:bg-danger-wash" : "border-accent/30 text-accent-dark hover:border-accent/50 hover:bg-accent-wash"}`}
+                            >
+                              {procesandoId === usuario.id_usuario ? <Loader size={13} className="animate-spin" /> : usuario.activo ? <UserX size={13} /> : <UserCheck size={13} />}
+                              {usuario.activo ? "Inactivar" : "Activar"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </Table>
+              </div>
 
-      {!loading && visibles.length > PAGE_SIZE && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
-          <span className="text-[12px] text-ink-mute">Página <span className="font-medium text-ink-soft">{paginaActual}</span> de {totalPaginas}</span>
-          <div className="flex gap-2">
-            <button type="button" disabled={paginaActual === 1} onClick={() => setPagina((actual) => Math.max(1, actual - 1))} className={btnPaginacion}>
-              <ChevronLeft size={14} /> Anterior
-            </button>
-            <button type="button" disabled={paginaActual === totalPaginas} onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))} className={btnPaginacion}>
-              Siguiente <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
+              {/* Móvil: una tarjeta por usuario en vez de forzar el
+                  scroll horizontal de la tabla en pantallas angostas. */}
+              <ul className="grid gap-3.5 p-4 md:hidden">
+                {paginaUsuarios.map((usuario) => {
+                  const esCuentaActual = usuario.id_usuario === user?.id;
+                  const perfil = perfilSinRol(usuario.estado_paseador);
+                  return (
+                    <li key={usuario.id_usuario} className="rounded-[14px] border border-border/60 bg-surface p-5">
+                      <div className="flex items-start gap-3.5">
+                        {usuario.foto_perfil ? (
+                          <img src={usuario.foto_perfil} alt="" className="h-10 w-10 flex-shrink-0 rounded-full object-cover ring-1 ring-border" />
+                        ) : (
+                          <Avatar nombre={usuario.nombre} size={40} />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[14px] font-semibold text-ink">{usuario.nombre}</p>
+                          <p className="nums mt-1 text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p>
+                        </div>
+                        <Badge tono={usuario.activo ? "ok" : "neutral"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-4">
+                        {usuario.roles.length ? (
+                          usuario.roles.map((rol) => (
+                            <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{rolLabel[rol]}</span>
+                          ))
+                        ) : (
+                          <span className={`${chipRol} ${perfil.className}`} title={perfil.label}>
+                            {perfil.label}
+                          </span>
+                        )}
+                      </div>
+
+                      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-[12px]">
+                        <div className="col-span-2">
+                          <dt className="text-ink-mute">Contacto</dt>
+                          <dd className={`mt-1 break-words ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`}>{usuario.correo || "Sin correo"}</dd>
+                          <dd className="nums mt-1 text-ink-mute">{usuario.telefono || "Sin teléfono"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-ink-mute">Zona</dt>
+                          <dd className={`mt-1 break-words ${usuario.zona?.nombre ? "font-medium text-ink-soft" : "text-ink-mute italic"}`}>{usuario.zona?.nombre || "Sin zona"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-ink-mute">Registro</dt>
+                          <dd className="nums mt-1 font-medium text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</dd>
+                        </div>
+                      </dl>
+
+                      <div className="mt-4 border-t border-border/60 pt-4">
+                        {esCuentaActual ? (
+                          <span className="inline-flex items-center rounded-full bg-sunken px-2 py-0.5 text-[10.5px] font-medium text-ink-mute">Tu cuenta</span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={procesandoId === usuario.id_usuario}
+                            onClick={() => { clearMessage(); setConfirmar(usuario); }}
+                            className={`${btnFila} w-full justify-center ${usuario.activo ? "border-danger/30 text-danger hover:border-danger/50 hover:bg-danger-wash" : "border-accent/30 text-accent-dark hover:border-accent/50 hover:bg-accent-wash"}`}
+                          >
+                            {procesandoId === usuario.id_usuario ? <Loader size={13} className="animate-spin" /> : usuario.activo ? <UserX size={13} /> : <UserCheck size={13} />}
+                            {usuario.activo ? "Inactivar" : "Activar"}
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {/* Paginación: franja blanca cosida a la tabla, con un
+                  filete arriba en vez de vivir como bloque aparte. Se ve
+                  aun con una sola página, para que el conteo de
+                  resultados no desaparezca y reaparezca al filtrar. */}
+              <nav
+                aria-label="Paginación de usuarios"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-4 py-3.5 sm:px-6"
+              >
+                <p className="text-[12px] text-ink-mute">
+                  Mostrando <span className="font-medium text-ink-soft">{inicioPagina + 1}</span>–<span className="font-medium text-ink-soft">{finPagina}</span> de{" "}
+                  <span className="font-medium text-ink-soft">{visibles.length}</span> {visibles.length === 1 ? "usuario" : "usuarios"}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={paginaActual === 1}
+                    onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
+                    className={btnPaginacion}
+                  >
+                    <ChevronLeft size={15} />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </button>
+
+                  <span className="px-1 text-[12.5px] text-ink-mute sm:hidden">
+                    Página <span className="font-medium text-ink-soft">{paginaActual}</span> de {totalPaginas}
+                  </span>
+
+                  <div className="hidden items-center gap-1 sm:flex">
+                    {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((numero) => (
+                      <button
+                        key={numero}
+                        type="button"
+                        aria-current={numero === paginaActual ? "page" : undefined}
+                        onClick={() => setPagina(numero)}
+                        className={btnPaginaNum(numero === paginaActual)}
+                      >
+                        {numero}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={paginaActual === totalPaginas}
+                    onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))}
+                    className={btnPaginacion}
+                  >
+                    <span className="hidden sm:inline">Siguiente</span>
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </nav>
+            </>
+          )}
+        </Section>
+      </div>
 
       {confirmar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b2331]/60 px-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="estado-usuario-title">
-          <div className="w-full max-w-[440px] overflow-hidden rounded-xl bg-surface shadow-lg">
-            <div className={`px-6 py-5 ${confirmar.activo ? "bg-danger-wash" : "bg-ok-wash"}`}>
-              <h3 id="estado-usuario-title" className={`text-[18px] font-semibold ${confirmar.activo ? "text-danger" : "text-ok"}`}>{confirmar.activo ? "Inactivar usuario" : "Activar usuario"}</h3>
-              <p className="mt-2 text-[13px] text-ink-soft">{confirmar.activo ? "La cuenta no podrá usar funciones protegidas aunque conserve una sesión anterior." : "La cuenta recuperará acceso a las funciones protegidas."}</p>
-            </div>
-            <div className="px-6 py-5">
-              <p className="text-[13px] text-ink-soft">Vas a {confirmar.activo ? "inactivar" : "activar"} a <strong className="text-ink">{confirmar.nombre}</strong>.</p>
-              {error && <p className="mt-4 rounded-md bg-danger-wash px-3 py-2 text-[13px] text-danger">{error}</p>}
-              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <button type="button" disabled={procesandoId === confirmar.id_usuario} onClick={() => setConfirmar(null)} className={btnSecondary}>Cancelar</button>
-                <button type="button" disabled={procesandoId === confirmar.id_usuario} onClick={() => void cambiarEstado(confirmar).then(() => setConfirmar(null)).catch(() => undefined)} className={confirmar.activo ? btnDanger : btnPrimary}>{procesandoId === confirmar.id_usuario ? <Loader size={14} className="animate-spin" /> : confirmar.activo ? <UserX size={14} /> : <UserCheck size={14} />}{confirmar.activo ? "Sí, inactivar" : "Sí, activar"}</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Confirmar
+          titulo={confirmar.activo ? "Inactivar usuario" : "Activar usuario"}
+          tono={confirmar.activo ? "peligro" : "normal"}
+          confirmar={confirmar.activo ? "Sí, inactivar" : "Sí, activar"}
+          ocupado={procesandoId === confirmar.id_usuario}
+          onCancelar={() => setConfirmar(null)}
+          onConfirmar={() => void cambiarEstado(confirmar).then(() => setConfirmar(null)).catch(() => undefined)}
+          cuerpo={
+            <>
+              Vas a {confirmar.activo ? "inactivar" : "activar"} a <strong className="font-semibold text-ink">{confirmar.nombre}</strong>.{" "}
+              {confirmar.activo
+                ? "La cuenta no podrá usar funciones protegidas aunque conserve una sesión anterior."
+                : "La cuenta recuperará acceso a las funciones protegidas."}
+              {error && <span className="mt-3 block rounded-md bg-danger-wash px-3 py-2 text-danger">{error}</span>}
+            </>
+          }
+        />
       )}
     </Page>
   );

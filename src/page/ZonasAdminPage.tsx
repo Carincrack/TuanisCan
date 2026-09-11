@@ -3,11 +3,13 @@ import { ChevronLeft, ChevronRight, MapPin, Search, Trash2 } from "../lib/iconos
 import { deleteZona, getZonas } from "../services/auth.service";
 import type { Zona } from "../types/auth.types";
 import {
+  Badge,
   Confirmar,
   EmptyState,
   Page,
   PageHeader,
   Section,
+  Stat,
   Table,
   input,
 } from "../components/ui";
@@ -41,6 +43,16 @@ const ZonasAdminPage = () => {
       .catch(() => setError("No se pudo cargar el catálogo de zonas"))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalProvincias = useMemo(
+    () => new Set(zonas.map((zona) => normalizar(zona.provincia))).size,
+    [zonas],
+  );
+
+  const totalCantones = useMemo(
+    () => new Set(zonas.map((zona) => normalizar(zona.canton))).size,
+    [zonas],
+  );
 
   const provinciasFiltro = useMemo(() => {
     const provincias = zonas
@@ -166,21 +178,17 @@ const ZonasAdminPage = () => {
       <PageHeader
         title="Zonas"
         subtitle="Catálogo de zonas disponibles para perfiles y servicios."
-        action={
-          <span className="inline-flex items-center gap-2.5 rounded-full border border-border bg-surface px-3.5 py-2 text-[13px] font-semibold text-ink">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent-wash text-accent-dark">
-              <MapPin size={13} />
-            </span>
-            <span className="nums">{zonas.length}</span>
-            <span className="font-medium text-ink-mute">
-              {zonas.length === 1 ? "zona registrada" : "zonas registradas"}
-            </span>
-          </span>
-        }
+        action={<Badge tono="accent">{zonas.length} {zonas.length === 1 ? "zona" : "zonas"}</Badge>}
       />
 
+      <div className="grid gap-2.5 sm:grid-cols-3">
+        <Stat etiqueta="Zonas registradas" valor={String(zonas.length)} nota="En todo el catálogo" />
+        <Stat etiqueta="Provincias" valor={String(totalProvincias)} nota="Con al menos una zona" />
+        <Stat etiqueta="Cantones" valor={String(totalCantones)} nota="Cubiertos en el catálogo" />
+      </div>
+
       <Section
-        title="Zonas registradas"
+        title="Filtros"
         aside={
           <span className="inline-flex items-center rounded-full bg-sunken px-2.5 py-1 text-[12px] font-medium text-ink-soft">
             {visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}
@@ -246,20 +254,24 @@ const ZonasAdminPage = () => {
           {message && <p className="text-ok">{message}</p>}
           {error && <p className="text-danger">{error}</p>}
         </div>
+      </Section>
 
+      <Section bodyClass="">
         {loading ? (
           <Skeleton name="admin-tabla" loading>
             <div />
           </Skeleton>
         ) : visibles.length === 0 ? (
-          <EmptyState
-            title="No hay coincidencias"
-            hint={
-              hayFiltros
-                ? "Ajustá la búsqueda o cambiá los filtros."
-                : "Todavía no hay zonas en el catálogo."
-            }
-          />
+          <div className="px-4 py-4 sm:px-5">
+            <EmptyState
+              title="No hay coincidencias"
+              hint={
+                hayFiltros
+                  ? "Ajustá la búsqueda o cambiá los filtros."
+                  : "Todavía no hay zonas en el catálogo."
+              }
+            />
+          </div>
         ) : (
           <>
             {/* Escritorio: tabla completa. */}
@@ -277,11 +289,11 @@ const ZonasAdminPage = () => {
                 {zonasPaginadas.map((zona) => (
                   <tr
                     key={zona.id_zona}
-                    className="transition-colors hover:bg-sunken"
+                    className="transition-colors hover:bg-accent-wash/40"
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent-wash text-accent-dark">
+                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent-wash text-accent-dark">
                           <MapPin size={16} />
                         </span>
                         <span className="min-w-0">
@@ -296,9 +308,7 @@ const ZonasAdminPage = () => {
                     </td>
 
                     <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center rounded-full bg-sunken px-2.5 py-1 text-[12px] font-medium text-ink-soft">
-                        {zona.provincia}
-                      </span>
+                      <Badge tono="neutral">{zona.provincia}</Badge>
                     </td>
 
                     <td className="px-5 py-3.5 text-[13px] text-ink-soft">
@@ -327,14 +337,14 @@ const ZonasAdminPage = () => {
 
             {/* Móvil: una tarjeta por zona en vez de forzar el scroll
                 horizontal de la tabla. */}
-            <ul className="grid gap-2.5 md:hidden">
+            <ul className="grid gap-2.5 p-4 md:hidden">
               {zonasPaginadas.map((zona) => (
                 <li
                   key={zona.id_zona}
-                  className="rounded-xl border border-border bg-surface p-4"
+                  className="rounded-[14px] border border-border bg-surface p-4"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent-wash text-accent-dark">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent-wash text-accent-dark">
                       <MapPin size={16} />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -352,7 +362,6 @@ const ZonasAdminPage = () => {
                       aria-label={`Eliminar ${zona.nombre}`}
                     >
                       <Trash2 size={13} />
-                      Eliminar
                     </button>
                   </div>
 
@@ -379,60 +388,62 @@ const ZonasAdminPage = () => {
                 </li>
               ))}
             </ul>
-
-            <div className="mt-3 flex flex-col gap-3 border-t border-border px-1 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[12px] text-ink-mute">
-                Mostrando{" "}
-                <span className="font-medium text-ink-soft">{inicio + 1}</span>–
-                <span className="font-medium text-ink-soft">
-                  {Math.min(fin, visibles.length)}
-                </span>{" "}
-                de{" "}
-                <span className="font-medium text-ink-soft">
-                  {visibles.length}
-                </span>{" "}
-                zonas
-              </p>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={paginaActual === 1}
-                  onClick={() =>
-                    setPaginaActual((pagina) => Math.max(1, pagina - 1))
-                  }
-                  className={btnPaso}
-                >
-                  <ChevronLeft size={14} />
-                  Anterior
-                </button>
-
-                <span className="px-2 text-[12.5px] text-ink-mute">
-                  Página{" "}
-                  <span className="font-medium text-ink-soft">
-                    {paginaActual}
-                  </span>{" "}
-                  de {Math.max(totalPaginas, 1)}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={paginaActual >= totalPaginas || totalPaginas === 0}
-                  onClick={() =>
-                    setPaginaActual((pagina) =>
-                      Math.min(totalPaginas, pagina + 1),
-                    )
-                  }
-                  className={btnPaso}
-                >
-                  Siguiente
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
           </>
         )}
       </Section>
+
+      {!loading && visibles.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[12px] text-ink-mute">
+            Mostrando{" "}
+            <span className="font-medium text-ink-soft">{inicio + 1}</span>–
+            <span className="font-medium text-ink-soft">
+              {Math.min(fin, visibles.length)}
+            </span>{" "}
+            de{" "}
+            <span className="font-medium text-ink-soft">
+              {visibles.length}
+            </span>{" "}
+            zonas
+          </p>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={paginaActual === 1}
+              onClick={() =>
+                setPaginaActual((pagina) => Math.max(1, pagina - 1))
+              }
+              className={btnPaso}
+            >
+              <ChevronLeft size={14} />
+              Anterior
+            </button>
+
+            <span className="px-2 text-[12.5px] text-ink-mute">
+              Página{" "}
+              <span className="font-medium text-ink-soft">
+                {paginaActual}
+              </span>{" "}
+              de {Math.max(totalPaginas, 1)}
+            </span>
+
+            <button
+              type="button"
+              disabled={paginaActual >= totalPaginas || totalPaginas === 0}
+              onClick={() =>
+                setPaginaActual((pagina) =>
+                  Math.min(totalPaginas, pagina + 1),
+                )
+              }
+              className={btnPaso}
+            >
+              Siguiente
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Antes era un `window.confirm` con "Eliminar Carrizal,
           Alajuela?" y nada más. La consecuencia real —que puede haber
