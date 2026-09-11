@@ -1,5 +1,12 @@
 export type CardBrand = "Visa" | "Mastercard";
 
+/** Lo que se escribe en "nombre del titular" mientras se escribe: solo
+    letras (con acentos), espacios, apóstrofes y guiones -lo que trae un
+    nombre real-. Nada de dígitos ni símbolos, que ahí no aportan y sí
+    hacen pasar por válido un campo que no es un nombre. */
+export const sanitizeCardholderName = (value: string) =>
+  value.replace(/[^\p{L}\s'-]/gu, "");
+
 export const CARD_NUMBER_LENGTH = 16;
 
 export const cardDigits = (value: string) =>

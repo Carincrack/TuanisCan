@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Skeleton } from "boneyard-js/react";
 import {
   AlertTriangle,
@@ -9,29 +10,17 @@ import {
   Download,
   Loader,
   PawPrint,
-  Plus,
   Repeat,
   Search,
   ShieldCheck,
-  Star,
   TrendingUp,
   Wallet,
 } from "../lib/iconos";
 import { aviso, motivo } from "../lib/aviso";
 import {
-  CARD_NUMBER_LENGTH,
-  cardBrand,
-  cardDigits,
-  formatCardNumber,
-  isValidCardNumber,
-  parseExpiry,
-  type CardBrand,
-} from "../lib/payment-card";
-import {
   listOwnerPayments,
   listPaymentMethods,
   processPayment,
-  registerPaymentMethod,
   type PaymentMethod,
   type PaymentMovement,
   type PaymentStatus,
@@ -41,6 +30,7 @@ import {
   Dialog,
   EmptyState,
   FilterTabs,
+  NotificationButtonContext,
   Page,
   PageHeader,
   Section,
@@ -48,9 +38,8 @@ import {
   btnPrimary,
   btnSecondary,
   colones,
-  fieldLabel,
-  input,
 } from "./ui";
+import { SelloTarjeta } from "./tarjetaVisual";
 
 /* ─────────────────────────────────────────────────────────────
    GESTIÓN DE PAGOS
@@ -113,214 +102,6 @@ const estadoConfig: Record<
   // de 115 px y la palabra larga no cabe sin partirse.
   reembolsado: { label: "Reembolso", tono: "accent", icon: Repeat },
 };
-
-/* ── La tarjeta ──────────────────────────────────────────────── */
-
-/** El grabado. Dos rosetones descentrados más una trama diagonal: al
-    superponerse dan el moiré del torno de grabar. Va como valor y no
-    como clase porque son tres capas con posiciones y pasos distintos,
-    que es justo lo que una utilidad no puede expresar. */
-const GUILLOCHE = [
-  "repeating-radial-gradient(circle at 82% 14%, rgba(255,255,255,0.07) 0 1px, transparent 1px 6px)",
-  "repeating-radial-gradient(circle at 16% 88%, rgba(255,255,255,0.055) 0 1px, transparent 1px 8px)",
-  "repeating-linear-gradient(64deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 5px)",
-].join(", ");
-
-/** El brillo del plástico. Una sola banda ancha en diagonal. Se
-    desplaza al pasar el puntero, y eso no es adorno: en el diálogo de
-    pago la tarjeta se elige, y el brillo es lo que dice que responde. */
-const BRILLO =
-  "linear-gradient(104deg, transparent 20%, rgba(255,255,255,0.14) 42%, rgba(255,255,255,0.03) 54%, transparent 72%)";
-
-/** El repujado de los números. Luz arriba, sombra abajo: un píxel
-    cada una, que es lo que hace la máquina de repujar. */
-const REPUJADO = {
-  textShadow: "0 1px 0 rgba(255,255,255,0.26), 0 -1px 1px rgba(0,0,0,0.5)",
-};
-
-interface TemaTarjeta {
-  fondo: string;
-  filete: string;
-  logo: React.ReactNode;
-}
-
-const temaDe = (marca: string): TemaTarjeta => {
-  const nombre = (marca || "").trim().toLowerCase();
-
-  if (nombre.includes("visa")) {
-    return {
-      fondo: "bg-[linear-gradient(135deg,#0b2033_0%,#16405e_52%,#1f5e86_100%)]",
-      filete: "ring-sky-300/25",
-      logo: (
-        <span className="select-none text-[19px] font-black italic tracking-wider text-white">
-          VISA
-        </span>
-      ),
-    };
-  }
-
-  if (nombre.includes("mastercard")) {
-    return {
-      fondo: "bg-[linear-gradient(135deg,#1a181c_0%,#2b262d_50%,#3d2e28_100%)]",
-      filete: "ring-amber-300/25",
-      logo: (
-        <span className="flex select-none items-center -space-x-2.5" aria-label="Mastercard">
-          <span className="h-6 w-6 rounded-full bg-[#eb001b] opacity-90" />
-          <span className="h-6 w-6 rounded-full bg-[#f79e1b] opacity-90" />
-        </span>
-      ),
-    };
-  }
-
-  /* La de la casa: el navy del riel abriendo al celeste del login. */
-  return {
-    fondo: "bg-[linear-gradient(135deg,#0f2a3a_0%,#1a4257_50%,#2e6584_100%)]",
-    filete: "ring-accent/30",
-    logo: (
-      <span className="titular select-none text-[15px] font-bold tracking-tight text-white">
-        TuanisCan
-      </span>
-    ),
-  };
-};
-
-/** El chip EMV. Seis contactos en dos columnas con un puente al
-    centro, que es el trazado real de la norma ISO/IEC 7816. */
-const ChipEmv = () => (
-  <span
-    className="relative block h-[26px] w-[34px] overflow-hidden rounded-[5px] bg-[linear-gradient(135deg,#f6e3ac_0%,#dcbc72_45%,#a8843c_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_1px_2px_rgba(0,0,0,0.35)]"
-    aria-hidden="true"
-  >
-    <svg
-      viewBox="0 0 34 26"
-      className="absolute inset-0 h-full w-full text-[#6d5219]/55"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1"
-    >
-      <path d="M0 8h11M23 8h11M0 18h11M23 18h11M11 0v26M23 0v26M11 13h12" />
-    </svg>
-  </span>
-);
-
-const TarjetaVisual = ({
-  marca,
-  numero,
-  titular,
-  vencimiento,
-  esPrincipal = false,
-  className = "",
-}: {
-  marca: CardBrand | string;
-  numero: string;
-  titular: string;
-  vencimiento: string;
-  esPrincipal?: boolean;
-  className?: string;
-}) => {
-  const tema = temaDe(marca);
-
-  return (
-    <div
-      className={`group relative flex aspect-[1.586/1] w-full max-w-[360px] flex-col justify-between overflow-hidden rounded-[20px] p-5 text-white ring-1 ${tema.filete} ${tema.fondo} shadow-[0_14px_30px_rgba(15,35,55,0.24)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_22px_44px_rgba(15,35,55,0.3)] ${className}`}
-    >
-      {/* El grabado */}
-      <span
-        className="pointer-events-none absolute inset-0 mix-blend-overlay"
-        style={{ backgroundImage: GUILLOCHE }}
-        aria-hidden="true"
-      />
-
-      {/* El brillo, que se corre al pasar el puntero */}
-      <span
-        className="pointer-events-none absolute -inset-x-1/3 inset-y-0 transition-transform duration-700 ease-out group-hover:translate-x-[16%]"
-        style={{ backgroundImage: BRILLO }}
-        aria-hidden="true"
-      />
-
-      {/* Chip, contactless y marca */}
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <ChipEmv />
-          <svg
-            className="h-5 w-5 text-white/70"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            <path d="M8.5 16.5a5 5 0 0 1 0-7" />
-            <path d="M12 19a8.5 8.5 0 0 1 0-14" />
-            <path d="M15.5 21.5a12 12 0 0 1 0-19" />
-          </svg>
-        </div>
-
-        <div className="flex flex-col items-end gap-1.5">
-          {tema.logo}
-          {esPrincipal && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-white ring-1 ring-white/25 backdrop-blur-sm">
-              <Star size={9} className="fill-[#f2c14e] text-[#f2c14e]" />
-              Principal
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* El número, repujado */}
-      <p
-        className="nums relative my-auto pt-2 text-[18px] font-medium tracking-[0.14em] text-white/95 sm:text-[20px]"
-        style={REPUJADO}
-      >
-        {numero || "•••• •••• •••• ••••"}
-      </p>
-
-      {/* Titular y vencimiento */}
-      <div className="relative flex items-end justify-between gap-4">
-        <div className="min-w-0 max-w-[70%]">
-          <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-white/55">
-            Titular
-          </p>
-          <p
-            className="mt-0.5 truncate text-[12px] font-semibold uppercase tracking-[0.06em] text-white"
-            style={REPUJADO}
-          >
-            {titular || "Nombre del titular"}
-          </p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-white/55">
-            Vence
-          </p>
-          <p
-            className="nums mt-0.5 text-[12px] font-semibold tracking-wider text-white"
-            style={REPUJADO}
-          >
-            {vencimiento || "MM/AA"}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/** La misma tarjeta en chico. Lleva el chip porque a este tamaño es
-    lo único que la hace reconocible como tarjeta y no como cuadrito. */
-const SelloTarjeta = ({
-  marca,
-  className = "h-6 w-9",
-}: {
-  marca: string;
-  className?: string;
-}) => (
-  <span
-    className={`relative inline-block shrink-0 overflow-hidden rounded-[4px] ring-1 ring-inset ring-white/15 ${temaDe(marca).fondo} ${className}`}
-    aria-hidden="true"
-  >
-    <span className="absolute left-[14%] top-[26%] h-[30%] w-[22%] rounded-[1.5px] bg-[linear-gradient(135deg,#f6e3ac,#a8843c)]" />
-  </span>
-);
 
 /* ── Utilidades ──────────────────────────────────────────────── */
 
@@ -414,13 +195,6 @@ const MetodoBreve = ({ metodo }: { metodo: string }) => {
 const btnPagar =
   "inline-flex items-center gap-1.5 rounded-full bg-rail px-3 py-1 text-[11.5px] font-semibold text-white transition-[filter,transform] duration-150 ease-out hover:brightness-125 active:scale-[0.97]";
 
-const formatExpiryInput = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 4);
-  return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
-};
-
-type CampoTarjeta = "titular" | "numero" | "vencimiento" | "cvv";
-
 /* ── La pantalla ─────────────────────────────────────────────── */
 
 const Pagos = () => {
@@ -432,12 +206,9 @@ const Pagos = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [dialogError, setDialogError] = useState("");
-  const [mostrarTarjeta, setMostrarTarjeta] = useState(false);
   const [pagoSeleccionado, setPagoSeleccionado] = useState<PaymentMovement | null>(null);
   const [detalleMovimiento, setDetalleMovimiento] = useState<PaymentMovement | null>(null);
   const [metodoSeleccionado, setMetodoSeleccionado] = useState("");
-  const [form, setForm] = useState({ titular: "", numero: "", vencimiento: "", cvv: "" });
-  const [tocado, setTocado] = useState<Partial<Record<CampoTarjeta, boolean>>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -519,53 +290,6 @@ const Pagos = () => {
     };
   }, [movimientos]);
 
-  /* Validación de la tarjeta. `payment-card.ts` ya traía Luhn y el
-     control de vencimiento exportados y nadie los llamaba: la pantalla
-     solo contaba dieciséis dígitos, así que un número inventado que
-     empezara con 4 pasaba de largo y el error llegaba del servidor
-     cuando ya era tarde. Va acá, pegado al campo, porque un aviso
-     flotante no puede señalar cuál de los cuatro está mal. */
-  const errores = useMemo(() => {
-    const digitos = cardDigits(form.numero);
-    const marca = cardBrand(form.numero);
-
-    return {
-      titular:
-        form.titular.trim().length < 3 ? "Escribí el nombre como aparece en la tarjeta." : "",
-      numero:
-        digitos.length !== CARD_NUMBER_LENGTH
-          ? `Faltan ${CARD_NUMBER_LENGTH - digitos.length} dígitos.`
-          : !marca
-            ? "Solo aceptamos Visa y Mastercard."
-            : !isValidCardNumber(form.numero)
-              ? "Ese número no existe. Revisá los dígitos."
-              : "",
-      vencimiento: !parseExpiry(form.vencimiento)
-        ? "Fecha inválida o ya vencida. Usá MM/AA."
-        : "",
-      cvv: !/^\d{3,4}$/.test(form.cvv) ? "Son los tres dígitos del reverso." : "",
-    } satisfies Record<CampoTarjeta, string>;
-  }, [form]);
-
-  const formValido = !Object.values(errores).some(Boolean);
-
-  const marcar = (campo: CampoTarjeta) => () =>
-    setTocado((prev) => ({ ...prev, [campo]: true }));
-
-  const fallo = (campo: CampoTarjeta) => (tocado[campo] ? errores[campo] : "");
-
-  const cerrarFormulario = () => {
-    setMostrarTarjeta(false);
-    setTocado({});
-    setDialogError("");
-  };
-
-  const abrirFormulario = () => {
-    setDialogError("");
-    setTocado({});
-    setMostrarTarjeta(true);
-  };
-
   /** Abrir el cobro de una fila. Estaba en línea dentro del botón de
       la tabla; ahora lo llaman la tabla y la lista de mano, así que
       vive una sola vez. Llega elegida la tarjeta principal, que es la
@@ -576,28 +300,6 @@ const Pagos = () => {
     setMetodoSeleccionado(
       metodos.find((m) => m.es_principal)?.id_metodo_pago ?? metodos[0]?.id_metodo_pago ?? "",
     );
-  };
-
-  const saveCard = async () => {
-    setTocado({ titular: true, numero: true, vencimiento: true, cvv: true });
-    if (!formValido) return;
-
-    setSaving(true);
-    setDialogError("");
-    try {
-      await aviso.proceso(registerPaymentMethod(form), {
-        esperando: "Registrando la tarjeta…",
-        bien: "Tarjeta registrada",
-        mal: "No se pudo registrar la tarjeta.",
-      });
-      setForm({ titular: "", numero: "", vencimiento: "", cvv: "" });
-      cerrarFormulario();
-      await load();
-    } catch (cause) {
-      setDialogError(motivo(cause));
-    } finally {
-      setSaving(false);
-    }
   };
 
   const pay = async () => {
@@ -669,20 +371,21 @@ const Pagos = () => {
     );
   };
 
-  const previewBrand = cardBrand(form.numero) ?? "";
-  const previewNumber = formatCardNumber(form.numero);
-  const digitosPuestos = cardDigits(form.numero).length;
+  const botonNotificaciones = useContext(NotificationButtonContext);
 
   return (
-    <Page>
+    <Page wide>
       <PageHeader
         title="Gestión de pagos"
-        subtitle="Monitoreá tus comprobantes, aboná paseos pendientes y administrá tus métodos de pago."
+        subtitle="Monitoreá tus comprobantes y aboná paseos pendientes."
         action={
-          <button type="button" className={btnPrimary} onClick={abrirFormulario}>
-            <Plus size={15} strokeWidth={2} />
-            Agregar tarjeta
-          </button>
+          <div className="flex items-center gap-2.5">
+            <Link to="/pagos/tarjetas" className={btnPrimary}>
+              <CreditCard size={15} strokeWidth={2} />
+              Gestionar tarjetas
+            </Link>
+            {botonNotificaciones}
+          </div>
         }
       />
 
@@ -696,16 +399,19 @@ const Pagos = () => {
         </div>
       )}
 
-      {/* ── Las tres cifras ── */}
-      <div className="grid gap-2.5 sm:grid-cols-3">
-        <div className="rounded-[18px] bg-surface px-6 py-5">
+      {/* ── Las tres cifras ──
+          Antes a `py-5`, con el ícono y el importe compitiendo por
+          altura. A `py-4` y con el importe un punto más chico caben
+          las tres sin dejar de leerse de un vistazo. */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-[18px] bg-surface px-5 py-4">
           <div className="flex items-center justify-between gap-2">
             <p className="rotulo text-ink-mute">Gasto de {stats.mesNombre}</p>
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent-wash text-accent-deep">
-              <Wallet size={16} />
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+              <Wallet size={15} />
             </span>
           </div>
-          <p className="nums mt-2 text-[27px] font-semibold leading-none tracking-[-0.02em] text-ink">
+          <p className="nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] text-ink">
             {colones(stats.spent)}
           </p>
           <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-soft">
@@ -714,25 +420,26 @@ const Pagos = () => {
           </p>
         </div>
 
-        {/* La única que puede pedir algo. Con deuda se levanta con el
-            filete cálido; en cero se calla y se ve como las otras dos. */}
+        {/* La única que puede pedir algo. Con deuda se levanta con un
+            filete cálido apenas visible; en cero se calla y se ve como
+            las otras dos. */}
         <div
-          className={`rounded-[18px] px-6 py-5 ${
-            stats.pending > 0 ? "bg-warn-wash ring-1 ring-warn/25" : "bg-surface"
+          className={`rounded-[18px] px-5 py-4 ${
+            stats.pending > 0 ? "bg-warn-wash/60 ring-1 ring-warn/20" : "bg-surface"
           }`}
         >
           <div className="flex items-center justify-between gap-2">
             <p className="rotulo text-ink-mute">Pendiente de cobro</p>
             <span
-              className={`grid h-8 w-8 place-items-center rounded-full ${
+              className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${
                 stats.pending > 0 ? "bg-warn text-white" : "bg-sunken text-ink-mute"
               }`}
             >
-              <Clock size={16} />
+              <Clock size={15} />
             </span>
           </div>
           <p
-            className={`nums mt-2 text-[27px] font-semibold leading-none tracking-[-0.02em] ${
+            className={`nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] ${
               stats.pending > 0 ? "text-warn" : "text-ink"
             }`}
           >
@@ -745,14 +452,14 @@ const Pagos = () => {
           </p>
         </div>
 
-        <div className="rounded-[18px] bg-surface px-6 py-5">
+        <div className="rounded-[18px] bg-surface px-5 py-4">
           <div className="flex items-center justify-between gap-2">
             <p className="rotulo text-ink-mute">Total reembolsado</p>
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-ok-wash text-ok">
-              <Banknote size={16} />
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ok-wash text-ok">
+              <Banknote size={15} />
             </span>
           </div>
-          <p className="nums mt-2 text-[27px] font-semibold leading-none tracking-[-0.02em] text-ok">
+          <p className="nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] text-ok">
             {colones(stats.refunded)}
           </p>
           <p className="mt-1.5 text-[12px] text-ink-soft">
@@ -763,60 +470,69 @@ const Pagos = () => {
         </div>
       </div>
 
-      {/* ── Las tarjetas ── */}
-      <Section
-        title="Tarjetas guardadas"
-        aside={
-          metodos.length > 0 && (
-            <span className="text-[12px] text-ink-soft">
-              {metodos.length} {metodos.length === 1 ? "tarjeta activa" : "tarjetas activas"}
-            </span>
-          )
-        }
-      >
+      {/* ── Las tarjetas ──
+          Ya no se gestionan acá: la tarjeta grande, el guilloché y el
+          formulario de alta viven en `/pagos/tarjetas`, su propia
+          pantalla. Esta fila es solo un resumen —los sellos de lo que
+          hay guardado— con la salida hacia allá; cargar el formulario
+          entero para quien solo viene a ver el historial era el peso
+          de más que esta pantalla no necesitaba. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-surface px-5 py-3.5">
         {loading ? (
           <Skeleton name="mascotas-rejilla" loading>
             <div />
           </Skeleton>
         ) : metodos.length ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {metodos.map((method) => (
-              <TarjetaVisual
-                key={method.id_metodo_pago}
-                marca={method.marca}
-                numero={`•••• •••• •••• ${method.ultimos4}`}
-                titular={method.titular}
-                vencimiento={`${String(method.exp_mes).padStart(2, "0")}/${String(method.exp_ano).slice(-2)}`}
-                esPrincipal={method.es_principal}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-ink-soft">
+                {metodos.length} {metodos.length === 1 ? "tarjeta guardada" : "tarjetas guardadas"}
+              </span>
+              <div className="flex -space-x-1.5">
+                {metodos.map((method) => (
+                  <SelloTarjeta
+                    key={method.id_metodo_pago}
+                    marca={method.marca}
+                    className="h-6 w-9 ring-2 ring-surface"
+                  />
+                ))}
+              </div>
+            </div>
+            <Link to="/pagos/tarjetas" className={btnSecondary}>
+              <CreditCard size={14} strokeWidth={1.9} />
+              Gestionar tarjetas
+            </Link>
+          </>
         ) : (
-          <EmptyState
-            title="Todavía no tenés tarjetas"
-            hint="Agregá una Visa o una Mastercard para abonar los paseos de tus mascotas."
-            action={
-              <button type="button" className={btnPrimary} onClick={abrirFormulario}>
-                <Plus size={15} strokeWidth={2} />
-                Registrar la primera
-              </button>
-            }
-          />
+          <>
+            <span className="text-[13px] text-ink-soft">Todavía no tenés tarjetas guardadas.</span>
+            <Link to="/pagos/tarjetas" className={btnPrimary}>
+              <CreditCard size={15} strokeWidth={2} />
+              Agregar tarjeta
+            </Link>
+          </>
         )}
-      </Section>
+      </div>
 
-      {/* ── Filtros y búsqueda ── */}
-      <div className="flex flex-col gap-3 rounded-[18px] bg-surface p-4 md:flex-row md:items-center md:justify-between">
-        <FilterTabs
-          label="Filtrar movimientos"
-          options={["Todos", "Pagados", "Pendientes", "Reembolsos"]}
-          value={filtro}
-          onChange={(v) => setFiltro(v as FiltroTipo)}
-          cuentas={contadores}
-        />
+      {/* ── Filtros y búsqueda ──
+          Los cuatro filtros a `w-fit` no piden más que su contenido:
+          es el buscador el que crece y se lleva el ancho que sobra. En
+          `lg` para arriba entran los seis controles en una sola fila;
+          antes de eso se reparten en dos, y en móvil las pestañas
+          ruedan de lado en vez de partirse. */}
+      <div className="flex flex-col gap-3 rounded-[18px] bg-surface p-3.5 lg:flex-row lg:items-center lg:gap-4">
+        <div className="-mx-3.5 overflow-x-auto px-3.5 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
+          <FilterTabs
+            label="Filtrar movimientos"
+            options={["Todos", "Pagados", "Pendientes", "Reembolsos"]}
+            value={filtro}
+            onChange={(v) => setFiltro(v as FiltroTipo)}
+            cuentas={contadores}
+          />
+        </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="relative min-w-[200px] flex-1 sm:w-64">
+        <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:flex-nowrap lg:justify-end">
+          <div className="relative min-w-[200px] flex-1">
             <Search
               size={14}
               className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-mute"
@@ -832,7 +548,7 @@ const Pagos = () => {
 
           <button
             type="button"
-            className={btnSecondary}
+            className={`${btnSecondary} shrink-0`}
             onClick={exportCsv}
             disabled={!visibles.length}
             title="Descargar el historial en formato CSV"
@@ -877,18 +593,22 @@ const Pagos = () => {
           </Skeleton>
         ) : visibles.length ? (
           <>
-            {/* ── De lg para arriba: la tabla ── */}
-            <div className="hidden lg:block">
+            {/* ── De md para arriba: la tabla ── El carril ancho le
+                deja a `main` bastante más de los 650 px originales,
+                así que la tabla entra desde `md` y no solo desde
+                `lg`. Filas a `py-2.5`: un dato por línea no necesita
+                los 12 px de antes para respirar. */}
+            <div className="hidden md:block">
               <Table
                 caption="Historial de movimientos de pago"
-                min="min-w-[640px]"
+                min="min-w-[720px]"
                 padX="px-4"
                 columnas={[
-                  { label: "Transacción", ancho: "w-[30%]" },
-                  { label: "Fecha", ancho: "w-[13%]" },
-                  { label: "Método", ancho: "w-[17%]" },
-                  { label: "Estado", ancho: "w-[23%]" },
-                  { label: "Monto", ancho: "w-[17%]", align: "right" },
+                  { label: "Transacción", ancho: "w-[32%]" },
+                  { label: "Fecha", ancho: "w-[12%]" },
+                  { label: "Método", ancho: "w-[16%]" },
+                  { label: "Estado", ancho: "w-[16%]" },
+                  { label: "Monto", ancho: "w-[24%]", align: "right" },
                 ]}
               >
                 {visibles.map((movement) => (
@@ -896,7 +616,7 @@ const Pagos = () => {
                     key={movement.id_pago}
                     className="group transition-colors duration-150 hover:bg-accent-wash/40"
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2.5">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
                           <PawPrint size={15} />
@@ -919,20 +639,20 @@ const Pagos = () => {
                       </div>
                     </td>
 
-                    <td className="nums px-4 py-3 text-[12px] whitespace-nowrap text-ink-soft">
+                    <td className="nums px-4 py-2.5 text-[12px] whitespace-nowrap text-ink-soft">
                       {fechaCorta(movement.fecha)}
                     </td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <MetodoBreve metodo={movement.metodo_pago} />
                     </td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <EstadoInsignia estado={movement.estado_pago} />
                     </td>
 
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col items-end gap-1.5">
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-end gap-3">
                         <Importe monto={movement.monto} estado={movement.estado_pago} />
 
                         {movement.estado_pago === "pendiente" && (
@@ -952,8 +672,8 @@ const Pagos = () => {
               </Table>
             </div>
 
-            {/* ── Debajo de lg: la misma información, apilada ── */}
-            <ul className="lg:hidden [&>li:nth-child(even)]:bg-sunken/60">
+            {/* ── Debajo de md: la misma información, apilada ── */}
+            <ul className="md:hidden [&>li:nth-child(even)]:bg-sunken/60">
               {visibles.map((movement) => (
                 <li key={movement.id_pago} className="px-5 py-4">
                   <div className="flex items-start gap-3">
@@ -1017,173 +737,6 @@ const Pagos = () => {
           />
         )}
       </Section>
-
-      {/* ── Registrar tarjeta ── */}
-      {mostrarTarjeta && (
-        <Dialog title="Registrar método de pago" ancho="max-w-[780px]" onClose={cerrarFormulario}>
-          <div className="grid gap-6 p-6 md:grid-cols-[1fr_1.1fr] md:items-start">
-            {/* La vista previa se arma sola mientras se escribe: es la
-                forma más rápida de ver que el número quedó bien. */}
-            <div>
-              <p className="rotulo mb-3 text-ink-mute">Vista previa</p>
-              <TarjetaVisual
-                marca={previewBrand}
-                numero={previewNumber}
-                titular={form.titular}
-                vencimiento={form.vencimiento}
-                className="max-w-none"
-              />
-              <p className="mt-4 flex items-center gap-2 text-[12px] text-ink-soft">
-                <ShieldCheck size={16} className="text-ok" />
-                Guardamos solo la marca y los últimos cuatro dígitos.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[14px] bg-accent-wash px-4 py-3 text-[12px] leading-relaxed text-accent-deep sm:col-span-2">
-                <p className="mb-1 flex items-center gap-1.5 font-semibold">
-                  <CreditCard size={14} />
-                  Tarjetas aceptadas
-                </p>
-                <p className="text-[11.5px] text-ink-soft">
-                  <strong>Visa</strong> (empieza con 4) y <strong>Mastercard</strong> (51-55 o
-                  2221-2720).
-                </p>
-              </div>
-
-              <label className={`${fieldLabel} sm:col-span-2`}>
-                Nombre del titular
-                <input
-                  autoComplete="cc-name"
-                  className={input}
-                  placeholder="Como aparece en la tarjeta"
-                  value={form.titular}
-                  onBlur={marcar("titular")}
-                  onChange={(event) => setForm({ ...form, titular: event.target.value })}
-                />
-                {fallo("titular") && (
-                  <span className="mt-1 block text-[11.5px] font-medium text-danger">
-                    {fallo("titular")}
-                  </span>
-                )}
-              </label>
-
-              <label className={`${fieldLabel} sm:col-span-2`}>
-                <span className="flex items-center justify-between">
-                  Número de tarjeta
-                  <span className="nums text-[11px] font-medium normal-case text-ink-soft">
-                    {digitosPuestos}/{CARD_NUMBER_LENGTH}
-                  </span>
-                </span>
-                <span className="relative block">
-                  <input
-                    inputMode="numeric"
-                    autoComplete="cc-number"
-                    maxLength={19}
-                    className={`${input} pr-24`}
-                    placeholder="•••• •••• •••• ••••"
-                    value={form.numero}
-                    onBlur={marcar("numero")}
-                    onChange={(event) =>
-                      setForm({ ...form, numero: formatCardNumber(event.target.value) })
-                    }
-                    onPaste={(event) => {
-                      event.preventDefault();
-                      const pegado = event.clipboardData.getData("text");
-                      setForm((prev) => ({ ...prev, numero: formatCardNumber(pegado) }));
-                    }}
-                  />
-                  {previewBrand && (
-                    <span className="pointer-events-none absolute right-3.5 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-[11px] font-semibold text-accent-deep">
-                      <SelloTarjeta marca={previewBrand} className="h-4 w-[26px]" />
-                      {previewBrand}
-                    </span>
-                  )}
-                </span>
-                {fallo("numero") && (
-                  <span className="mt-1 block text-[11.5px] font-medium text-danger">
-                    {fallo("numero")}
-                  </span>
-                )}
-              </label>
-
-              <label className={fieldLabel}>
-                Vencimiento
-                <input
-                  inputMode="numeric"
-                  autoComplete="cc-exp"
-                  maxLength={5}
-                  className={input}
-                  placeholder="MM/AA"
-                  value={form.vencimiento}
-                  onBlur={marcar("vencimiento")}
-                  onChange={(event) =>
-                    setForm({ ...form, vencimiento: formatExpiryInput(event.target.value) })
-                  }
-                />
-                {fallo("vencimiento") && (
-                  <span className="mt-1 block text-[11.5px] font-medium text-danger">
-                    {fallo("vencimiento")}
-                  </span>
-                )}
-              </label>
-
-              <label className={fieldLabel}>
-                Código de seguridad
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="cc-csc"
-                  maxLength={4}
-                  className={input}
-                  placeholder="123"
-                  value={form.cvv}
-                  onBlur={marcar("cvv")}
-                  onChange={(event) =>
-                    setForm({ ...form, cvv: event.target.value.replace(/\D/g, "").slice(0, 4) })
-                  }
-                />
-                {fallo("cvv") && (
-                  <span className="mt-1 block text-[11.5px] font-medium text-danger">
-                    {fallo("cvv")}
-                  </span>
-                )}
-              </label>
-
-              <p className="flex items-start gap-2 text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
-                <ShieldCheck size={14} className="mt-px shrink-0" />
-                El número completo y el código se comprueban en tu dispositivo. No viajan ni se
-                guardan.
-              </p>
-
-              {dialogError && (
-                <p
-                  role="alert"
-                  className="flex items-center gap-2 rounded-[14px] bg-danger-wash px-4 py-2.5 text-[12px] font-medium text-danger sm:col-span-2"
-                >
-                  <AlertTriangle size={14} className="shrink-0" />
-                  {dialogError}
-                </p>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
-                <button type="button" className={btnSecondary} onClick={cerrarFormulario}>
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className={btnPrimary}
-                  disabled={saving}
-                  onClick={() => void saveCard()}
-                >
-                  {saving && <Loader size={14} className="animate-spin" />}
-                  Guardar tarjeta
-                </button>
-              </div>
-            </div>
-          </div>
-        </Dialog>
-      )}
 
       {/* ── Confirmar el pago ── */}
       {pagoSeleccionado && (
@@ -1308,16 +861,13 @@ const Pagos = () => {
                     Pagar {colones(pagoSeleccionado.monto)}
                   </button>
                 ) : (
-                  <button
-                    type="button"
+                  <Link
+                    to="/pagos/tarjetas"
                     className={btnPrimary}
-                    onClick={() => {
-                      setPagoSeleccionado(null);
-                      abrirFormulario();
-                    }}
+                    onClick={() => setPagoSeleccionado(null)}
                   >
                     Agregar tarjeta
-                  </button>
+                  </Link>
                 )}
               </div>
             </div>

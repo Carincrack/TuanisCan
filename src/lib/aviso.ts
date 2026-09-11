@@ -92,16 +92,26 @@ export const aviso = {
 
   /** Para lo que tarda. Un solo aviso que pasa de "guardando" a
       "guardado" o a la falla, sin que la pantalla tenga que llevar su
-      propio estado de "ocupado" para contarlo. */
+      propio estado de "ocupado" para contarlo.
+
+      `gooeyToast.promise` devuelve el id del toast, no la promesa: un
+      `await aviso.proceso(...)` no esperaba el resultado real y quien
+      llamaba seguía de largo —a recargar la lista, a cerrar el
+      diálogo— antes de que la operación hubiera terminado en el
+      servidor. Acá se dispara el toast y se devuelve la promesa
+      original, para que el await sí espere y el catch sí reciba el
+      error si algo sale mal. */
   proceso: <T>(
     promesa: Promise<T>,
     textos: { esperando: string; bien: string | ((dato: T) => string); mal?: string },
-  ) =>
+  ): Promise<T> => {
     gooeyToast.promise(promesa, {
       loading: textos.esperando,
       success: textos.bien,
       error: (causa) => motivo(causa, textos.mal),
-    }),
+    });
+    return promesa;
+  },
 
   /** Cierra uno, varios por tipo, o todos. */
   cerrar: gooeyToast.dismiss,

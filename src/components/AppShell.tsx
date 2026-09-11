@@ -54,10 +54,13 @@ interface AppShellProps {
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname } = useLocation();
-  /* Esta pantalla pide su propio botón de notificaciones —ver
+  /* Estas pantallas piden su propio botón de notificaciones —ver
      `NotificationButtonContext` más abajo— y con eso la franja
-     superior le queda vacía: se pliega solo para ella. */
-  const esUsuarios = pathname === "/acceso-interno/usuarios";
+     superior les queda vacía: se pliega solo para ellas. */
+  const conEncabezadoPropio =
+    pathname === "/acceso-interno/usuarios" ||
+    pathname === "/pagos" ||
+    pathname === "/pagos/tarjetas";
   const navigate = useNavigate();
   const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -259,7 +262,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             justo debajo de su propia esquina redonda. */}
         <header
           className={`anim-rise relative z-[80] flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 lg:px-4 ${
-            esUsuarios ? "md:h-0 md:overflow-hidden md:px-0 md:opacity-0" : ""
+            conEncabezadoPropio ? "md:h-0 md:overflow-hidden md:px-0 md:opacity-0" : ""
           }`}
         >
           <button
@@ -272,18 +275,18 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             <Menu size={19} />
           </button>
 
-          {!esUsuarios && (
+          {!conEncabezadoPropio && (
             <h1 className="titular min-w-0 flex-1 truncate text-[20px] text-ink">
               {tituloDeRuta(rol, pathname)}
             </h1>
           )}
-          {esUsuarios && <div className="min-w-0 flex-1" />}
+          {conEncabezadoPropio && <div className="min-w-0 flex-1" />}
 
           <div className="relative">
             {/* En "Usuarios" este botón se pinta desde su propio
                 encabezado —vía `NotificationButtonContext`— y no acá,
                 para no tener dos disparadores del mismo panel a la vez. */}
-            {!esUsuarios && botonNotificaciones}
+            {!conEncabezadoPropio && botonNotificaciones}
 
             {notificacionesAbiertas && (
               <div className="flota pointer-events-auto fixed top-[76px] right-4 z-[120] w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl lg:right-8">
@@ -430,7 +433,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
               className={`anim-rise mx-auto w-full ${contenidoAncho ? "max-w-[1600px]" : "max-w-[900px]"}`}
             >
               <PageWidthContext.Provider value={setContenidoAncho}>
-                <NotificationButtonContext.Provider value={esUsuarios ? botonNotificaciones : null}>
+                <NotificationButtonContext.Provider value={conEncabezadoPropio ? botonNotificaciones : null}>
                   {children}
                 </NotificationButtonContext.Provider>
               </PageWidthContext.Provider>
