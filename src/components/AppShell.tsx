@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, Check, Menu, ShieldAlert, Trash2 } from "../lib/iconos";
 
 import { tituloDeRuta, type Rol } from "../lib/nav";
+import { NotificationButtonContext, PageWidthContext } from "./ui";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
 import { GooeyToaster } from "goey-toast";
@@ -53,9 +54,14 @@ interface AppShellProps {
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname } = useLocation();
+  /* Esta pantalla pide su propio botón de notificaciones —ver
+     `NotificationButtonContext` más abajo— y con eso la franja
+     superior le queda vacía: se pliega solo para ella. */
+  const esUsuarios = pathname === "/acceso-interno/usuarios";
   const navigate = useNavigate();
   const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [contenidoAncho, setContenidoAncho] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [notificaciones, setNotificaciones] = useState<Notification[]>([]);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
@@ -175,6 +181,24 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     onLogout,
   };
 
+  /* Mismo botón, dos posibles domicilios: acá si la página no pide lo
+     contrario, o dentro de su propio `PageHeader` cuando sí —ver
+     `NotificationButtonContext`—. El estado y el panel no se mueven. */
+  const botonNotificaciones = (
+    <button
+      type="button"
+      aria-label="Notificaciones"
+      aria-expanded={notificacionesAbiertas}
+      onClick={() => void abrirNotificaciones()}
+      className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
+    >
+      <Bell size={18} strokeWidth={1.9} />
+      {pendientes > 0 && (
+        <span aria-hidden className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent" />
+      )}
+    </button>
+  );
+
   return (
     <div className="suave flex h-dvh w-full gap-2.5 overflow-hidden bg-suelo p-2.5">
       {/* El avisador se monta acá y no en `main.tsx` a propósito: el
@@ -233,7 +257,11 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             sube hasta el borde y solo flotan encima el título y los
             controles. Una franja blanca partiría el lienzo en dos
             justo debajo de su propia esquina redonda. */}
-        <header className="anim-rise relative z-[80] flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 lg:px-4">
+        <header
+          className={`anim-rise relative z-[80] flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 lg:px-4 ${
+            esUsuarios ? "md:h-0 md:overflow-hidden md:px-0 md:opacity-0" : ""
+          }`}
+        >
           <button
             type="button"
             onClick={() => setMenuAbierto(true)}
@@ -244,26 +272,18 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             <Menu size={19} />
           </button>
 
-          <h1 className="titular min-w-0 flex-1 truncate text-[20px] text-ink">
-            {tituloDeRuta(rol, pathname)}
-          </h1>
+          {!esUsuarios && (
+            <h1 className="titular min-w-0 flex-1 truncate text-[20px] text-ink">
+              {tituloDeRuta(rol, pathname)}
+            </h1>
+          )}
+          {esUsuarios && <div className="min-w-0 flex-1" />}
 
           <div className="relative">
-            <button
-              type="button"
-              aria-label="Notificaciones"
-              aria-expanded={notificacionesAbiertas}
-              onClick={() => void abrirNotificaciones()}
-              className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
-            >
-              <Bell size={18} strokeWidth={1.9} />
-              {pendientes > 0 && (
-                <span
-                  aria-hidden
-                  className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"
-                />
-              )}
-            </button>
+            {/* En "Usuarios" este botón se pinta desde su propio
+                encabezado —vía `NotificationButtonContext`— y no acá,
+                para no tener dos disparadores del mismo panel a la vez. */}
+            {!esUsuarios && botonNotificaciones}
 
             {notificacionesAbiertas && (
               <div className="flota pointer-events-auto fixed top-[76px] right-4 z-[120] w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl lg:right-8">
@@ -405,8 +425,15 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-4">
             {/* La clave remonta el contenido en cada ruta: así la entrada
                 se reproduce al navegar, no solo al cargar la página. */}
-            <div key={pathname} className="anim-rise mx-auto w-full max-w-[900px]">
-              {children}
+            <div
+              key={pathname}
+              className={`anim-rise mx-auto w-full ${contenidoAncho ? "max-w-[1600px]" : "max-w-[900px]"}`}
+            >
+              <PageWidthContext.Provider value={setContenidoAncho}>
+                <NotificationButtonContext.Provider value={esUsuarios ? botonNotificaciones : null}>
+                  {children}
+                </NotificationButtonContext.Provider>
+              </PageWidthContext.Provider>
             </div>
           </main>
 

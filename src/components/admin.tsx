@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, RefreshCw, Search, ShieldCheck, UserCheck, UserX, X } from "../lib/iconos";
+import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, PawPrint, RefreshCw, Search, ShieldCheck, UserCheck, UserX, Users, X } from "../lib/iconos";
+import type { Icono } from "../lib/iconos";
 import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
@@ -18,6 +19,7 @@ import {
   Confirmar,
   EmptyState,
   FilterTabs,
+  NotificationButtonContext,
   Page,
   PageHeader,
   Section,
@@ -29,6 +31,7 @@ import {
   btnSecondary,
   colones,
   input,
+  surface,
 } from "./ui";
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
@@ -1270,8 +1273,45 @@ const perfilSinRol = (estado: AdminUser["estado_paseador"]) =>
       : estado === "aprobado"
         ? { label: "Falta rol paseador", className: "bg-danger-wash text-danger" }
         : { label: "Sin rol", className: "bg-sunken text-ink-mute" };
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 5;
 const dateFormatter = new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" });
+
+/** Variante compacta de `Stat`, solo para el directorio de usuarios:
+    `Stat` es la tira de métricas que ya usan Finanzas, Zonas y el
+    panel de dueño/paseador, así que cambiar su apariencia ahí
+    afectaría todas esas pantallas. Esta vive nada más acá. */
+const statTono: Record<"neutral" | "ok" | "accent", string> = {
+  neutral: "bg-sunken text-ink-soft",
+  ok: "bg-ok-wash text-ok",
+  accent: "bg-accent-wash text-accent-dark",
+};
+
+const StatUsuarios = ({
+  icono: Icon,
+  tono,
+  etiqueta,
+  valor,
+  nota,
+}: {
+  icono: Icono;
+  tono: keyof typeof statTono;
+  etiqueta: string;
+  valor: string;
+  nota: string;
+}) => (
+  <div className={`${surface} flex items-center gap-3 border border-border/60 px-4 py-3.5`}>
+    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${statTono[tono]}`}>
+      <Icon size={16} strokeWidth={1.9} />
+    </span>
+    <div className="min-w-0">
+      <p className="truncate text-[11.5px] font-medium text-ink-mute">{etiqueta}</p>
+      <p className="mt-0.5 flex items-baseline gap-1.5">
+        <span className="nums text-[19px] leading-none font-semibold tracking-[-0.01em] text-ink">{valor}</span>
+        <span className="truncate text-[11px] text-ink-soft">{nota}</span>
+      </p>
+    </div>
+  </div>
+);
 
 export const UsuariosAdmin = () => {
   const { user } = useAuth();
@@ -1288,7 +1328,9 @@ export const UsuariosAdmin = () => {
   }), [busqueda, filtroEstado, filtroRol, usuarios]);
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
-  const paginaUsuarios = visibles.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE);
+  const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
+  const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
+  const paginaUsuarios = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
   const activos = usuarios.filter((usuario) => usuario.activo).length;
   const duenos = usuarios.filter((usuario) => usuario.roles.includes("dueno")).length;
   const cambiarFiltroRol = (value: "todos" | Rol) => { setFiltroRol(value); setPagina(1); };
@@ -1308,7 +1350,9 @@ export const UsuariosAdmin = () => {
   const btnFila =
     "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-[background-color,color,transform,box-shadow] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
   const btnPaginacion =
-    "inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-ink-soft transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
+    "inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium text-ink-soft transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
+  const btnPaginaNum = (activa: boolean) =>
+    `inline-flex h-10 w-10 items-center justify-center rounded-lg text-[12.5px] font-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${activa ? "bg-rail text-white" : "text-ink-soft hover:bg-sunken"}`;
   const chipRol =
     "inline-flex h-6 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full px-2.5 text-[10px] font-semibold uppercase leading-none tracking-wide";
   const chipRolTono: Record<Rol, string> = {
@@ -1318,26 +1362,31 @@ export const UsuariosAdmin = () => {
     admin: "bg-sunken text-accent-deep",
   };
 
+  const botonNotificaciones = useContext(NotificationButtonContext);
+
   return (
-    <Page>
+    <Page wide>
       <PageHeader
         title="Usuarios"
         subtitle="Directorio general de las personas y negocios registrados."
         action={
-          <button
-            type="button"
-            onClick={exportar}
-            className={`${btnSecondary} shadow-sm hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30`}
-          >
-            <Download size={14} strokeWidth={1.9} /> Exportar vista
-          </button>
+          <div className="flex w-full items-center gap-2.5 sm:w-auto">
+            <button
+              type="button"
+              onClick={exportar}
+              className={`${btnSecondary} flex-1 justify-center shadow-sm hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 sm:flex-none`}
+            >
+              <Download size={14} strokeWidth={1.9} /> Exportar vista
+            </button>
+            {botonNotificaciones}
+          </div>
         }
       />
 
-      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas" />
-        <Stat etiqueta="Cuentas activas" valor={String(activos)} nota={`${usuarios.length ? Math.round((activos / usuarios.length) * 100) : 0}% del total`} />
-        <Stat etiqueta="Dueños de mascotas" valor={String(duenos)} nota="Segmento principal" />
+      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <StatUsuarios icono={Users} tono="neutral" etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas" />
+        <StatUsuarios icono={UserCheck} tono="ok" etiqueta="Cuentas activas" valor={String(activos)} nota={`${usuarios.length ? Math.round((activos / usuarios.length) * 100) : 0}% del total`} />
+        <StatUsuarios icono={PawPrint} tono="accent" etiqueta="Dueños de mascotas" valor={String(duenos)} nota="Segmento principal" />
       </div>
 
       <div className="min-w-0">
@@ -1385,6 +1434,7 @@ export const UsuariosAdmin = () => {
               <div className="hidden overflow-x-auto md:block">
                 <Table
                   caption="Directorio de usuarios"
+                  padX="px-5"
                   columnas={[
                     { label: "Usuario" },
                     { label: "Roles" },
@@ -1392,7 +1442,7 @@ export const UsuariosAdmin = () => {
                     { label: "Zona" },
                     { label: "Registro" },
                     { label: "Estado" },
-                    { label: "", align: "right" },
+                    { label: "Acciones", align: "right" },
                   ]}
                 >
                   {paginaUsuarios.map((usuario) => {
@@ -1524,24 +1574,63 @@ export const UsuariosAdmin = () => {
                   );
                 })}
               </ul>
+
+              {/* Paginación: franja blanca cosida a la tabla, con un
+                  filete arriba en vez de vivir como bloque aparte. Se ve
+                  aun con una sola página, para que el conteo de
+                  resultados no desaparezca y reaparezca al filtrar. */}
+              <nav
+                aria-label="Paginación de usuarios"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3.5 sm:px-6"
+              >
+                <p className="text-[12px] text-ink-mute">
+                  Mostrando <span className="font-medium text-ink-soft">{inicioPagina + 1}</span>–<span className="font-medium text-ink-soft">{finPagina}</span> de{" "}
+                  <span className="font-medium text-ink-soft">{visibles.length}</span> {visibles.length === 1 ? "usuario" : "usuarios"}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={paginaActual === 1}
+                    onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
+                    className={btnPaginacion}
+                  >
+                    <ChevronLeft size={15} />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </button>
+
+                  <span className="px-1 text-[12.5px] text-ink-mute sm:hidden">
+                    Página <span className="font-medium text-ink-soft">{paginaActual}</span> de {totalPaginas}
+                  </span>
+
+                  <div className="hidden items-center gap-1 sm:flex">
+                    {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((numero) => (
+                      <button
+                        key={numero}
+                        type="button"
+                        aria-current={numero === paginaActual ? "page" : undefined}
+                        onClick={() => setPagina(numero)}
+                        className={btnPaginaNum(numero === paginaActual)}
+                      >
+                        {numero}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={paginaActual === totalPaginas}
+                    onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))}
+                    className={btnPaginacion}
+                  >
+                    <span className="hidden sm:inline">Siguiente</span>
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </nav>
             </>
           )}
         </Section>
       </div>
-
-      {!loading && visibles.length > PAGE_SIZE && (
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
-          <span className="text-[12px] text-ink-mute">Página <span className="font-medium text-ink-soft">{paginaActual}</span> de {totalPaginas}</span>
-          <div className="flex gap-2">
-            <button type="button" disabled={paginaActual === 1} onClick={() => setPagina((actual) => Math.max(1, actual - 1))} className={btnPaginacion}>
-              <ChevronLeft size={14} /> Anterior
-            </button>
-            <button type="button" disabled={paginaActual === totalPaginas} onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))} className={btnPaginacion}>
-              Siguiente <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
 
       {confirmar && (
         <Confirmar
