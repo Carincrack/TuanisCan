@@ -152,7 +152,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
            El escalonado es corto —35 ms— porque son nueve letras: a
            50 ms la última entraría medio segundo después que la
            primera y dejaría de leerse como una sola palabra. */
-        q("[data-anim='marca']").forEach((marca) => {
+        q("[data-anim='marca']").forEach((marca: HTMLElement) => {
           entrada.from(
             marca.querySelectorAll(".letra"),
             { yPercent: 110, duration: 1.05, ease: TITULAR, stagger: 0.035 },
@@ -183,7 +183,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
            escritorio ese contenedor es `absolute` contra la banda, así
            que moverlo movería las dos esquinas a la vez. Por dentro,
            cada una llega por su lado. */
-        q("[data-entra='pildoras']").forEach((cont) => {
+        q("[data-entra='pildoras']").forEach((cont: HTMLElement) => {
           entrada.from(
             cont.children,
             { y: 16, opacity: 0, duration: 0.7, stagger: 0.09 },
@@ -201,7 +201,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
 
            `y` arranca en `REPOSO` para que el primer repintado
            salga del mismo sitio donde el navegador ya lo dejó. */
-        q("[data-anim='onda']").forEach((path) => {
+        q("[data-anim='onda']").forEach((path: SVGPathElement) => {
           const escena = path.closest(BANDA);
           if (!escena) return;
 
@@ -260,7 +260,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
            Va simétrico —de `-x` a `+x`— para que el punto medio
            del recorrido sea el sitio donde el navegador ya pintó
            el elemento. */
-        q("[data-par]").forEach((el) => {
+        q("[data-par]").forEach((el: Element) => {
           const caja = el as HTMLElement;
           const recorrido = Number(caja.dataset.par);
           if (!recorrido) return;
@@ -303,10 +303,10 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
            de la palabra, que cambia con el cuerpo de la letra en
            cada breakpoint. En píxeles, en móvil las palabras
            arrancarían desde demasiado abajo. */
-        q("[data-anim='titular']").forEach((titular) => {
+        q("[data-anim='titular']").forEach((titular: HTMLElement) => {
           const lineas = titular.querySelectorAll("[data-anim='linea']");
 
-          lineas.forEach((linea, indice) => {
+          lineas.forEach((linea: Element, indice: number) => {
             gsap.from(linea.querySelectorAll(".palabra"), {
               yPercent: 110,
               duration: 0.9,
@@ -331,7 +331,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
           }
         });
 
-        q("[data-anim='ante']").forEach((el) => {
+        q("[data-anim='ante']").forEach((el: Element) => {
           gsap.from(el, {
             y: 16,
             opacity: 0,
@@ -341,7 +341,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
           });
         });
 
-        q("[data-anim='apoyo']").forEach((el) => {
+        q("[data-anim='apoyo']").forEach((el: Element) => {
           gsap.from(el, {
             y: 18,
             opacity: 0,
@@ -365,7 +365,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
 
            Escala y opacidad, nunca `y`: el desplazamiento es del
            parallax que corre en la `img` de adentro. */
-        q("[data-anim='ficha']").forEach((el) => {
+        q("[data-anim='ficha']").forEach((el: Element) => {
           gsap.fromTo(
             el,
             { scale: 0.9, opacity: 0.45 },
@@ -389,7 +389,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
            cascada dibuja el mismo escalonado que ya tienen en reposo
            por CSS (`md:mt-*`). Nada de línea divisoria — el aire
            entre columnas ya separa una cosa de la otra. */
-        q("[data-anim='modulos']").forEach((lista) => {
+        q("[data-anim='modulos']").forEach((lista: HTMLElement) => {
           gsap.from(lista.querySelectorAll("[data-anim='modulo']"), {
             y: 34,
             opacity: 0,
@@ -407,7 +407,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
            justo después. Ambos por fila, así que la lista se lee
            fila por fila y no como dos columnas que entran por
            separado. */
-        q("[data-anim='ruta']").forEach((cont) => {
+        q("[data-anim='ruta']").forEach((cont: HTMLElement) => {
           const tl = gsap.timeline({
             scrollTrigger: { trigger: cont, start: "top 80%" },
           });
@@ -428,7 +428,7 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
         /* ── Cierre ───────────────────────────────────────────
            La correa cruza el fondo dibujándose durante todo el
            bloque; el texto sube encima mientras tanto. */
-        q("[data-anim='cierre']").forEach((cont) => {
+        q("[data-anim='cierre']").forEach((cont: HTMLElement) => {
           const tl = gsap.timeline({
             scrollTrigger: { trigger: cont, start: "top 72%" },
           });

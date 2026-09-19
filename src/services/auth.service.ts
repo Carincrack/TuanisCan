@@ -67,6 +67,21 @@ export const getNegocios = async (): Promise<NegocioProfile[]> => {
   })) as NegocioProfile[];
 };
 
+export const getNegociosCercanos = async (latitud: number, longitud: number): Promise<NegocioProfile[]> => {
+  const { data, error } = await supabase.rpc("buscar_negocios_cercanos", {
+    p_latitud: latitud,
+    p_longitud: longitud,
+    p_radio_km: 10,
+    p_tipo: null,
+  });
+  if (error) throw error;
+  return (data ?? []).map((negocio: NegocioProfile) => ({
+    ...negocio,
+    latitud: negocio.latitud === null ? null : Number(negocio.latitud),
+    longitud: negocio.longitud === null ? null : Number(negocio.longitud),
+  })) as NegocioProfile[];
+};
+
 export const createZona = async (zona: ZonaInput): Promise<Zona> => {
   const { data, error } = await supabase
     .from("zonas")

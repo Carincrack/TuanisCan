@@ -16,7 +16,7 @@ import {
   Stethoscope,
   Store,
 } from "../lib/iconos";
-import { getNegocios, getZonas } from "../services/auth.service";
+import { getNegocios, getNegociosCercanos, getZonas } from "../services/auth.service";
 import type { NegocioProfile, Zona } from "../types/auth.types";
 import {
   Badge,
@@ -47,6 +47,7 @@ const detalleTipo: Record<TipoNegocio, { label: string; Icon: typeof Store }> = 
   tienda: { label: "Tienda", Icon: Store },
   refugio: { label: "Refugio", Icon: HeartHandshake },
 };
+type UbicacionActual = { latitud: number; longitud: number };
 
 const tieneUbicacion = (negocio: NegocioProfile) =>
   Number.isFinite(negocio.latitud) && Number.isFinite(negocio.longitud);
@@ -165,6 +166,8 @@ const Directorio = () => {
   const [error, setError] = useState("");
   const [intento, setIntento] = useState(0);
   const [mapaAmpliado, setMapaAmpliado] = useState(false);
+  const [ubicacion, setUbicacion] = useState<UbicacionActual | null>(null);
+  const [buscandoCerca, setBuscandoCerca] = useState(false);
   const contenedorMapa = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -172,7 +175,10 @@ const Directorio = () => {
     setCargando(true);
     setError("");
 
-    Promise.all([getNegocios(), getZonas()])
+    const consultaNegocios = ubicacion
+      ? getNegociosCercanos(ubicacion.latitud, ubicacion.longitud)
+      : getNegocios();
+    Promise.all([consultaNegocios, getZonas()])
       .then(([negociosData, zonasData]) => {
         if (!vigente) return;
         setNegocios(negociosData);
@@ -190,7 +196,7 @@ const Directorio = () => {
     return () => {
       vigente = false;
     };
-  }, [intento]);
+  }, [intento, ubicacion]);
 
   useEffect(() => {
     const actualizarPantallaCompleta = () =>
@@ -262,11 +268,32 @@ const Directorio = () => {
     else await contenedorMapa.current?.requestFullscreen();
   };
 
+  const buscarCerca = () => {
+    if (!navigator.geolocation) {
+      setError("Este navegador no permite usar tu ubicación.");
+      return;
+    }
+    setBuscandoCerca(true);
+    navigator.geolocation.getCurrentPosition(
+      (posicion) => {
+        setSeleccionadoId(null);
+        setUbicacion({ latitud: posicion.coords.latitude, longitud: posicion.coords.longitude });
+        setBuscandoCerca(false);
+      },
+      () => {
+        setError("No pudimos obtener tu ubicación. Revisa el permiso del navegador.");
+        setBuscandoCerca(false);
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
   return (
     <Page>
       <PageHeader
         title="Directorio"
-        subtitle="Veterinarias, tiendas y refugios de tu zona en un solo lugar."
+        subtitle={ubicacion ? "Negocios ubicados a menos de 10 km de ti." : "Veterinarias, tiendas y refugios de tu zona en un solo lugar."}
+        action={<button type="button" onClick={ubicacion ? () => setUbicacion(null) : buscarCerca} disabled={buscandoCerca} className={`${btnSecondary} disabled:cursor-wait disabled:opacity-60`}><Navigation size={15} />{ubicacion ? "Ver todo" : buscandoCerca ? "Buscando…" : "Cerca de mí"}</button>}
       />
 
       <section aria-label="Filtros del directorio" className="bg-surface p-4 sm:p-5">

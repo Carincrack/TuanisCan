@@ -1,208 +1,31 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Star } from "../lib/iconos";
-import {
-  Avatar,
-  EmptyState,
-  FilterTabs,
-  Page,
-  PageHeader,
-  Section,
-  btnPrimary,
-  btnSecondary,
-} from "./ui";
+import { useAuth } from "../hooks/useAuth";
+import { guardarResena, listResenasDelDueno, type Resena } from "../services/resenas.service";
+import type { WalkWithRelations } from "../services/walks.service";
+import { Avatar, EmptyState, FilterTabs, Page, PageHeader, Section, btnPrimary, btnSecondary, input } from "./ui";
 
-interface Resena {
-  id: string;
-  paseador: string;
-  mascota: string;
-  fecha: string;
-  estrellas: number;
-  texto: string;
-}
-
-const escritas: Resena[] = [
-  {
-    id: "RS-088",
-    paseador: "Carolina Mora",
-    mascota: "Luna",
-    fecha: "17 ago",
-    estrellas: 5,
-    texto:
-      "Puntual y muy atenta. Mandó fotos durante todo el paseo y Luna volvió cansadísima, justo lo que necesitaba.",
-  },
-  {
-    id: "RS-084",
-    paseador: "María Fernández",
-    mascota: "Rocky",
-    fecha: "15 ago",
-    estrellas: 5,
-    texto: "Ya es la quinta vez que pasea a Rocky. Confianza total.",
-  },
-  {
-    id: "RS-079",
-    paseador: "Luis Rojas",
-    mascota: "Michi",
-    fecha: "8 ago",
-    estrellas: 4,
-    texto:
-      "Buen trato, pero llegó 10 minutos tarde. Avisó por el chat, así que tampoco fue problema.",
-  },
-];
-
-const pendientes = [
-  { id: "PN-01", paseador: "María Fernández", mascota: "Rocky", fecha: "Hoy" },
-  { id: "PN-02", paseador: "Luis Rojas", mascota: "Luna", fecha: "10 ago" },
-];
-
-const distribucion = [
-  { estrellas: 5, cantidad: 2 },
-  { estrellas: 4, cantidad: 1 },
-  { estrellas: 3, cantidad: 0 },
-  { estrellas: 2, cantidad: 0 },
-  { estrellas: 1, cantidad: 0 },
-];
-
-const total = distribucion.reduce((s, d) => s + d.cantidad, 0);
-const promedio = distribucion.reduce((s, d) => s + d.estrellas * d.cantidad, 0) / total;
-
-/* El valor numérico acompaña siempre a las estrellas: la forma sola no
-   comunica la calificación. */
-const Estrellas = ({ valor }: { valor: number }) => (
-  <span className="flex gap-0.5" aria-label={`${valor} de 5 estrellas`}>
-    {[1, 2, 3, 4, 5].map((n) => (
-      <Star
-        key={n}
-        size={13}
-        aria-hidden
-        className={
-          n <= valor ? "fill-warn text-warn" : "fill-neutral-wash text-neutral-wash"
-        }
-      />
-    ))}
-  </span>
-);
-
-const filtros = ["Escritas", "Pendientes"];
+const Stars = ({ value, onChange }: { value: number; onChange?: (value: number) => void }) => <span className="flex gap-0.5" aria-label={`${value} de 5 estrellas`}>{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" disabled={!onChange} onClick={() => onChange?.(n)} className={onChange ? "cursor-pointer" : ""} aria-label={`Calificar con ${n} estrellas`}><Star size={15} aria-hidden className={n <= value ? "fill-warn text-warn" : "fill-neutral-wash text-neutral-wash"} /></button>)}</span>;
+const walkerName = (walk: WalkWithRelations | null) => walk?.paseador?.nombre || "Paseador";
+const date = (value: string) => new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
+type Written = Resena & { paseo: WalkWithRelations | null };
 
 const Resenas = () => {
-  const [filtro, setFiltro] = useState("Escritas");
-
-  return (
-    <Page>
-      <PageHeader
-        title="Reseñas"
-        subtitle="Tu historial de calificaciones a paseadores y las que quedan pendientes."
-      />
-
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Section title="Promedio que has dado" bodyClass="px-6 pb-6">
-          <p className="nums text-[38px] leading-none font-semibold text-ink">
-            {promedio.toFixed(1)}
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <Estrellas valor={Math.round(promedio)} />
-            <span className="nums text-[12px] text-ink-soft">
-              {total} reseñas · {pendientes.length} pendientes
-            </span>
-          </div>
-
-          <ul className="mt-5 flex flex-col gap-2">
-            {distribucion.map((d) => (
-              <li key={d.estrellas} className="flex items-center gap-3">
-                <span className="nums w-7 flex-shrink-0 text-[12px] text-ink-soft">
-                  {d.estrellas} ★
-                </span>
-                <span className="h-2 flex-1 bg-sunken">
-                  <span
-                    className="block h-full bg-accent"
-                    style={{ width: total ? `${(d.cantidad / total) * 100}%` : "0%" }}
-                  />
-                </span>
-                <span className="nums w-4 flex-shrink-0 text-right text-[12px] text-ink-mute">
-                  {d.cantidad}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Section>
-
-        <div className="flex flex-col gap-3 lg:col-span-2">
-          <div className="bg-surface">
-            <FilterTabs
-              label="Filtrar reseñas"
-              options={filtros}
-              value={filtro}
-              onChange={setFiltro}
-            />
-          </div>
-
-          {filtro === "Escritas" &&
-            escritas.map((r) => (
-              <article key={r.id} className="bg-surface px-6 py-5">
-                <div className="flex items-start gap-4">
-                  <Avatar nombre={r.paseador} size={40} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h3 className="text-[14px] font-semibold text-ink">
-                        {r.paseador}
-                      </h3>
-                      <span className="nums text-[11.5px] text-ink-mute">
-                        {r.fecha}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[12px] text-ink-soft">
-                      Paseo de {r.mascota}
-                    </p>
-
-                    <div className="mt-2 flex items-center gap-2">
-                      <Estrellas valor={r.estrellas} />
-                      <span className="nums text-[12px] font-medium text-ink-soft">
-                        {r.estrellas}.0
-                      </span>
-                    </div>
-
-                    <p className="mt-3 text-[12.5px] leading-relaxed text-ink-soft">
-                      {r.texto}
-                    </p>
-
-                    <button type="button" className={`${btnSecondary} mt-4`}>
-                      Editar reseña
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
-
-          {filtro === "Pendientes" &&
-            pendientes.map((p) => (
-              <article
-                key={p.id}
-                className="flex flex-wrap items-center gap-4 bg-surface px-6 py-5"
-              >
-                <Avatar nombre={p.paseador} size={40} />
-                <div className="min-w-[140px] flex-1">
-                  <h3 className="text-[14px] font-semibold text-ink">{p.paseador}</h3>
-                  <p className="nums mt-0.5 text-[12.5px] text-ink-soft">
-                    Paseo de {p.mascota} · {p.fecha}
-                  </p>
-                </div>
-                <button type="button" className={`${btnPrimary} ml-auto`}>
-                  <Star size={14} strokeWidth={2} />
-                  Calificar
-                </button>
-              </article>
-            ))}
-
-          {filtro === "Pendientes" && pendientes.length === 0 && (
-            <EmptyState
-              title="No tienes reseñas pendientes"
-              hint="Cuando termine un paseo, aparecerá aquí para calificarlo."
-            />
-          )}
-        </div>
-      </div>
-    </Page>
-  );
+  const { user } = useAuth();
+  const [filter, setFilter] = useState("Escritas");
+  const [written, setWritten] = useState<Written[]>([]);
+  const [pending, setPending] = useState<WalkWithRelations[]>([]);
+  const [selected, setSelected] = useState<Written | WalkWithRelations | null>(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(async () => { if (!user) return; try { const data = await listResenasDelDueno(user.id); setWritten(data.escritas); setPending(data.pendientes); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudieron cargar las reseñas."); } }, [user]);
+  useEffect(() => { void load(); }, [load]);
+  const avg = useMemo(() => written.length ? written.reduce((sum, r) => sum + r.calificacion, 0) / written.length : 0, [written]);
+  const open = (item: Written | WalkWithRelations) => { setSelected(item); setRating("id_resena" in item ? item.calificacion : 5); setComment("id_resena" in item ? item.comentario ?? "" : ""); setError(""); };
+  const save = async () => { if (!user || !selected) return; const walk = "id_resena" in selected ? selected.paseo : selected; if (!walk?.id_paseador) return; setSaving(true); try { await guardarResena({ id_resena: "id_resena" in selected ? selected.id_resena : undefined, id_paseo: walk.id_paseo, id_autor: user.id, id_receptor: walk.id_paseador, calificacion: rating, comentario: comment }); setSelected(null); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar la reseña."); } finally { setSaving(false); } };
+  const distribution = [5, 4, 3, 2, 1].map((stars) => ({ stars, count: written.filter((r) => r.calificacion === stars).length }));
+  return <Page><PageHeader title="Reseñas" subtitle="Califica los paseos finalizados y consulta tu historial." /><div className="grid gap-3 lg:grid-cols-3"><Section title="Promedio que has dado" bodyClass="px-6 pb-6"><p className="nums text-[38px] leading-none font-semibold text-ink">{avg.toFixed(1)}</p><div className="mt-2 flex items-center gap-2"><Stars value={Math.round(avg)} /><span className="nums text-[12px] text-ink-soft">{written.length} reseñas · {pending.length} pendientes</span></div><ul className="mt-5 flex flex-col gap-2">{distribution.map((d) => <li key={d.stars} className="flex items-center gap-3"><span className="nums w-7 text-[12px] text-ink-soft">{d.stars} ★</span><span className="h-2 flex-1 bg-sunken"><span className="block h-full bg-accent" style={{ width: written.length ? `${d.count / written.length * 100}%` : "0%" }} /></span><span className="nums w-4 text-right text-[12px] text-ink-mute">{d.count}</span></li>)}</ul></Section><div className="flex flex-col gap-3 lg:col-span-2"><div className="bg-surface"><FilterTabs label="Filtrar reseñas" options={["Escritas", "Pendientes"]} value={filter} onChange={setFilter} /></div>{error && <p role="alert" className="bg-danger-wash px-4 py-3 text-danger">{error}</p>}{filter === "Escritas" && (written.length ? written.map((r) => <article key={r.id_resena} className="bg-surface px-6 py-5"><div className="flex gap-4"><Avatar nombre={walkerName(r.paseo)} size={40} /><div className="min-w-0 flex-1"><div className="flex justify-between gap-2"><h3 className="font-semibold text-ink">{walkerName(r.paseo)}</h3><span className="nums text-[11.5px] text-ink-mute">{date(r.fecha)}</span></div><p className="mt-0.5 text-[12px] text-ink-soft">Paseo de {r.paseo?.mascota?.nombre ?? "tu mascota"}</p><div className="mt-2 flex items-center gap-2"><Stars value={r.calificacion} /><span className="nums text-[12px] text-ink-soft">{r.calificacion}.0</span></div>{r.comentario && <p className="mt-3 text-[12.5px] text-ink-soft">{r.comentario}</p>}<button type="button" onClick={() => open(r)} className={`${btnSecondary} mt-4`}>Editar reseña</button></div></div></article>) : <EmptyState title="Aún no has escrito reseñas" hint="Cuando termine un paseo aparecerá aquí para calificarlo." />)}{filter === "Pendientes" && (pending.length ? pending.map((walk) => <article key={walk.id_paseo} className="flex flex-wrap items-center gap-4 bg-surface px-6 py-5"><Avatar nombre={walkerName(walk)} size={40} /><div className="min-w-[140px] flex-1"><h3 className="font-semibold text-ink">{walkerName(walk)}</h3><p className="text-[12.5px] text-ink-soft">Paseo de {walk.mascota?.nombre ?? "tu mascota"}</p></div><button type="button" onClick={() => open(walk)} className={`${btnPrimary} ml-auto`}><Star size={14} />Calificar</button></article>) : <EmptyState title="No tienes reseñas pendientes" hint="Todas tus reseñas están al día." />)}</div></div>{selected && <section className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-4" role="dialog" aria-modal="true" aria-label="Calificar paseo"><form onSubmit={(event) => { event.preventDefault(); void save(); }} className="w-full max-w-md bg-surface p-6 shadow-xl"><h2 className="text-lg font-semibold text-ink">Calificar a {walkerName("id_resena" in selected ? selected.paseo : selected)}</h2><div className="mt-4"><Stars value={rating} onChange={setRating} /></div><label className="mt-4 block text-[13px] text-ink-soft">Comentario opcional<textarea value={comment} onChange={(event) => setComment(event.target.value)} maxLength={1000} className={`${input} mt-1 min-h-28 w-full`} /></label><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setSelected(null)} className={btnSecondary}>Cancelar</button><button disabled={saving} className={btnPrimary}>{saving ? "Guardando…" : "Guardar reseña"}</button></div></form></section>}</Page>;
 };
-
 export default Resenas;

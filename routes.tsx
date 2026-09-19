@@ -97,10 +97,10 @@ const paseador = () => import("./src/components/paseador");
 const PanelPaseador = perezoso(nombrada(paseador, "PanelPaseador"), "panel-metricas");
 const SolicitudesPaseador = perezoso(nombrada(paseador, "SolicitudesPaseador"), "paseador-solicitudes");
 const AgendaPaseador = perezoso(nombrada(paseador, "AgendaPaseador"));
-const PaseoActivoPaseador = perezoso(nombrada(paseador, "PaseoActivoPaseador"));
+const PaseoActivoPaseador = perezoso(() => import("./src/components/PaseoActivoPaseador"));
 const GananciasPaseador = perezoso(nombrada(paseador, "GananciasPaseador"));
-const PerfilPaseador = perezoso(nombrada(paseador, "PerfilPaseador"));
-const ResenasPaseador = perezoso(nombrada(paseador, "ResenasPaseador"));
+const PerfilPaseador = perezoso(() => import("./src/components/PerfilPaseador"));
+const ResenasPaseador = perezoso(() => import("./src/components/ResenasPaseador"));
 
 /* ── El árbol ───────────────────────────────────────────────────── */
 
