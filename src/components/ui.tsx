@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Loader, X } from "../lib/iconos";
+import { ChevronLeft, ChevronRight, Loader, X } from "../lib/iconos";
 
 /* ─────────────────────────────────────────────────────────────
    Piezas compartidas del sistema.
@@ -230,15 +230,24 @@ export const Badge = ({ tono, children }: { tono: Tono; children: ReactNode }) =
   </span>
 );
 
-/** Dato etiquetado. Se usa en las tiras de métricas. */
+/** Dato etiquetado. Se usa en las tiras de métricas.
+
+    `parte` es opcional y dibuja un filete debajo con la proporción
+    —un número entre 0 y 1—. Es para el dato que es PARTE de otro:
+    «9 cuentas activas de 9» merece verse como una barra llena, y
+    «3 dueños de 9» como un tercio. Un total no lo lleva, porque un
+    total no es parte de nada. Turquesa porque es un filete, que es
+    donde vive el turquesa en esta casa. */
 export const Stat = ({
   etiqueta,
   valor,
   nota,
+  parte,
 }: {
   etiqueta: string;
   valor: string;
   nota?: string;
+  parte?: number;
 }) => (
   <div className={`${surface} px-6 py-5`}>
     <p className="rotulo text-ink-mute">{etiqueta}</p>
@@ -246,7 +255,66 @@ export const Stat = ({
       {valor}
     </p>
     {nota && <p className="mt-1.5 text-[12px] text-ink-soft">{nota}</p>}
+    {parte !== undefined && (
+      <div className="mt-3.5 h-[3px] w-full overflow-hidden rounded-full bg-sunken" aria-hidden="true">
+        <div
+          className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-500 ease-out"
+          style={{ transform: `scaleX(${Math.min(1, Math.max(0, parte))})` }}
+        />
+      </div>
+    )}
   </div>
+);
+
+/* ── Interruptor ─────────────────────────────────────────────── */
+
+/** Un interruptor de dos posiciones. Para lo que está encendido o
+    apagado y nada más: una cuenta activa, un aviso que se manda o no.
+
+    Es un `<button role="switch">` y no un `<input type="checkbox">`
+    disfrazado: el estado lo pone quien lo usa y el clic solo AVISA.
+    Así quien lo monta puede meter una confirmación en medio —para
+    inactivar una cuenta hay que preguntar— sin que el interruptor se
+    mueva antes de tiempo y luego tenga que volver.
+
+    Mide 38 × 22. La perilla viaja 16 px con la curva del cajón de
+    iOS, que frena suave al llegar: la misma que usa `anim-slide-left`.
+    Encendido es navy, el mismo de la píldora activa de `FilterTabs`
+    y de la paginación: en esta casa lo que está elegido o encendido
+    es navy, sin excepción. Apagado es el lavado neutro. */
+export const Interruptor = ({
+  activo,
+  etiqueta,
+  onCambio,
+  deshabilitado = false,
+  ocupado = false,
+}: {
+  activo: boolean;
+  /** Para el lector de pantalla y el tooltip. Decí QUÉ enciende. */
+  etiqueta: string;
+  onCambio: () => void;
+  deshabilitado?: boolean;
+  /** Mientras el cambio viaja al servidor. Se apaga y late. */
+  ocupado?: boolean;
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={activo}
+    aria-label={etiqueta}
+    title={etiqueta}
+    disabled={deshabilitado || ocupado}
+    onClick={onCambio}
+    className={`relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-[3px] transition-[background-color,transform] duration-200 ease-out active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:active:scale-100 ${
+      activo ? "bg-rail" : "bg-neutral-wash"
+    } ${deshabilitado ? "opacity-45" : ""} ${ocupado ? "animate-pulse cursor-wait" : ""}`}
+  >
+    <span
+      className={`h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(20,36,46,0.28)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+        activo ? "translate-x-4" : "translate-x-0"
+      }`}
+    />
+  </button>
 );
 
 /** El vacío. `action` es opcional y sirve para el vacío que tiene
@@ -338,6 +406,147 @@ export const Table = ({
         <tbody className="[&>tr:nth-child(even)]:bg-sunken/60">{children}</tbody>
       </table>
     </div>
+  );
+};
+
+/* ── Paginación ──────────────────────────────────────────────── */
+
+/** Qué números de página se muestran. Hasta siete, todos. Con más,
+    la primera, la última y la actual con una vecina a cada lado; los
+    huecos se marcan con puntos suspensivos. Quinientas zonas son
+    cincuenta páginas, y cincuenta píldoras en fila no son una
+    paginación, son una regla. */
+const paginasVisibles = (actual: number, total: number): (number | "…")[] => {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const cerca = new Set([1, total, actual - 1, actual, actual + 1]);
+  const lista: (number | "…")[] = [];
+
+  for (let n = 1; n <= total; n++) {
+    if (cerca.has(n)) lista.push(n);
+    else if (lista[lista.length - 1] !== "…") lista.push("…");
+  }
+
+  return lista;
+};
+
+/** Disco de Anterior / Siguiente. */
+const btnPaso =
+  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sunken text-ink transition-[background-color,transform,filter] duration-150 ease-out hover:brightness-[0.97] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
+
+/** Píldora de número dentro de la pista. */
+const btnNumero = (activa: boolean) =>
+  `nums inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[12.5px] font-semibold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${
+    activa ? "bg-rail text-white" : "text-ink-soft hover:bg-white/70 hover:text-ink"
+  }`;
+
+/** El pie de una tabla paginada.
+
+    Va cosido a la tabla: se monta como ÚLTIMO hijo de una `Section`
+    con `bodyClass=""` y toma la cabecera hundida como fondo, con las
+    esquinas de abajo redondeadas para cerrar la tarjeta. No es un
+    bloque aparte, porque el conteo y los números son parte de la
+    tabla, no otra cosa que vive debajo.
+
+    Anterior y Siguiente son discos. Los números viven en una pista
+    hundida con píldoras, igual que `FilterTabs`: un solo control con
+    una sola respuesta, y la activa en navy como todo lo que está
+    elegido en esta casa. En mano, la pista se cambia por «3 / 12».
+
+    Se muestra aun con una sola página, para que el conteo no
+    desaparezca y reaparezca al filtrar. */
+export const Paginacion = ({
+  actual,
+  total,
+  onCambiar,
+  desde,
+  hasta,
+  cuantos,
+  nombre,
+  etiqueta,
+}: {
+  /** Página actual, desde 1. */
+  actual: number;
+  /** Cuántas páginas hay. */
+  total: number;
+  onCambiar: (pagina: number) => void;
+  /** Primer y último elemento visibles, desde 1, y el total de la
+      lista: «1–8 de 203». */
+  desde: number;
+  hasta: number;
+  cuantos: number;
+  /** Singular y plural de lo que se cuenta: `["usuario", "usuarios"]`. */
+  nombre: [string, string];
+  /** Para el lector de pantalla: «Paginación de usuarios». */
+  etiqueta: string;
+}) => {
+  const ultima = Math.max(1, total);
+  const pagina = Math.min(Math.max(1, actual), ultima);
+
+  return (
+    <nav
+      aria-label={etiqueta}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-b-[18px] bg-sunken/50 px-4 py-3 sm:px-5"
+    >
+      <p className="nums text-[12px] text-ink-mute">
+        <span className="font-medium text-ink-soft">
+          {cuantos ? desde : 0}–{hasta}
+        </span>{" "}
+        de <span className="font-medium text-ink-soft">{cuantos}</span>{" "}
+        {cuantos === 1 ? nombre[0] : nombre[1]}
+      </p>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Página anterior"
+          disabled={pagina === 1}
+          onClick={() => onCambiar(pagina - 1)}
+          className={btnPaso}
+        >
+          <ChevronLeft size={16} strokeWidth={2} />
+        </button>
+
+        <span className="nums px-1 text-[12.5px] text-ink-mute sm:hidden">
+          <span className="font-medium text-ink-soft">{pagina}</span> / {ultima}
+        </span>
+
+        <div className="hidden items-center gap-1 rounded-full bg-sunken p-1 sm:inline-flex">
+          {paginasVisibles(pagina, ultima).map((numero, i) =>
+            numero === "…" ? (
+              <span
+                key={`hueco-${i}`}
+                className="inline-flex h-7 w-7 items-center justify-center text-[12.5px] text-ink-mute"
+                aria-hidden="true"
+              >
+                …
+              </span>
+            ) : (
+              <button
+                key={numero}
+                type="button"
+                aria-current={numero === pagina ? "page" : undefined}
+                aria-label={`Página ${numero}`}
+                onClick={() => onCambiar(numero)}
+                className={btnNumero(numero === pagina)}
+              >
+                {numero}
+              </button>
+            ),
+          )}
+        </div>
+
+        <button
+          type="button"
+          aria-label="Página siguiente"
+          disabled={pagina === ultima}
+          onClick={() => onCambiar(pagina + 1)}
+          className={btnPaso}
+        >
+          <ChevronRight size={16} strokeWidth={2} />
+        </button>
+      </div>
+    </nav>
   );
 };
 
