@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, Search, Trash2 } from "../lib/iconos";
+import { MapPin, Search, Trash2 } from "../lib/iconos";
 import { deleteZona, getZonas } from "../services/auth.service";
 import type { Zona } from "../types/auth.types";
 import {
@@ -8,6 +8,7 @@ import {
   EmptyState,
   Page,
   PageHeader,
+  Paginacion,
   Section,
   Stat,
   Table,
@@ -168,10 +169,13 @@ const ZonasAdminPage = () => {
     cantonFiltro !== "Todos" ||
     distritoFiltro !== "Todos";
 
-  const btnPaso =
-    "inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-ink-soft transition-colors hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+  /* Borrar es la única acción de la fila, así que no necesita gritar:
+     un disco callado, gris hasta que el cursor lo toca y entonces
+     rojo. Sin borde —`border-border` apuntaba a un token que no
+     existe y salía un píxel navy alrededor— y sin palabra, porque la
+     papelera ya la dice y la confirmación la repite entera. */
   const btnEliminar =
-    "inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-ink-soft transition-colors hover:bg-danger-wash hover:text-danger";
+    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-danger-wash hover:text-danger active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger";
 
   return (
     <Page>
@@ -274,60 +278,62 @@ const ZonasAdminPage = () => {
           </div>
         ) : (
           <>
-            {/* Escritorio: tabla completa. */}
-            <div className="hidden overflow-x-auto md:block">
+            {/* ── De lg para arriba: la tabla ──
+                Reparto fijo, cuatro columnas de dato y una de acción.
+                La fila ya no repite «Carrizal, Alajuela» debajo del
+                nombre: cantón y distrito tienen su columna al lado y
+                decirlo dos veces en la misma fila no es información,
+                es ruido. */}
+            <div className="hidden lg:block">
               <Table
                 caption="Zonas registradas"
+                min="min-w-[640px]"
+                padX="px-4"
                 columnas={[
-                  { label: "Zona" },
-                  { label: "Provincia" },
-                  { label: "Cantón" },
-                  { label: "Distrito" },
-                  { label: "", align: "right" },
+                  { label: "Zona", ancho: "w-[32%]" },
+                  { label: "Provincia", ancho: "w-[20%]" },
+                  { label: "Cantón", ancho: "w-[20%]" },
+                  { label: "Distrito", ancho: "w-[20%]" },
+                  { label: "Acciones", ancho: "w-[8%]", align: "right", muda: true },
                 ]}
               >
                 {zonasPaginadas.map((zona) => (
                   <tr
                     key={zona.id_zona}
-                    className="transition-colors hover:bg-accent-wash/40"
+                    className="transition-colors duration-150 hover:bg-accent-wash/40"
                   >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent-wash text-accent-dark">
-                          <MapPin size={16} />
+                    <td className="px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                          <MapPin size={15} />
                         </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-[13.5px] font-semibold text-ink">
-                            {zona.nombre}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[12px] text-ink-mute">
-                            {distritoDe(zona)}, {zona.canton}
-                          </span>
+                        <span className="block truncate text-[13.5px] font-semibold text-ink" title={zona.nombre}>
+                          {zona.nombre}
                         </span>
                       </div>
                     </td>
 
-                    <td className="px-5 py-3.5">
+                    <td className="px-4 py-3">
                       <Badge tono="neutral">{zona.provincia}</Badge>
                     </td>
 
-                    <td className="px-5 py-3.5 text-[13px] text-ink-soft">
+                    <td className="truncate px-4 py-3 text-[12.5px] text-ink-soft" title={zona.canton}>
                       {zona.canton}
                     </td>
 
-                    <td className="px-5 py-3.5 text-[13px] text-ink-soft">
+                    <td className="truncate px-4 py-3 text-[12.5px] text-ink-soft" title={distritoDe(zona)}>
                       {distritoDe(zona)}
                     </td>
 
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-4 py-3 text-right">
                       <button
                         type="button"
                         onClick={() => setPorEliminar(zona)}
                         className={btnEliminar}
                         aria-label={`Eliminar ${zona.nombre}`}
+                        title={`Eliminar ${zona.nombre}`}
                       >
-                        <Trash2 size={13} />
-                        <span className="hidden lg:inline">Eliminar</span>
+                        <Trash2 size={15} strokeWidth={1.9} />
                       </button>
                     </td>
                   </tr>
@@ -335,115 +341,51 @@ const ZonasAdminPage = () => {
               </Table>
             </div>
 
-            {/* Móvil: una tarjeta por zona en vez de forzar el scroll
-                horizontal de la tabla. */}
-            <ul className="grid gap-2.5 p-4 md:hidden">
+            {/* ── Debajo de lg: fichas ──
+                Nombre y, debajo, la jerarquía completa en una línea.
+                Sin tabla de tres celdas repitiendo lo mismo. */}
+            <ul className="grid gap-2.5 p-4 lg:hidden">
               {zonasPaginadas.map((zona) => (
                 <li
                   key={zona.id_zona}
-                  className="rounded-[14px] border border-border bg-surface p-4"
+                  className="flex min-w-0 items-center gap-3 rounded-[14px] bg-sunken/60 p-4"
                 >
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent-wash text-accent-dark">
-                      <MapPin size={16} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-semibold text-ink">
-                        {zona.nombre}
-                      </p>
-                      <p className="mt-0.5 text-[12px] text-ink-mute">
-                        {distritoDe(zona)}, {zona.canton}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPorEliminar(zona)}
-                      className={btnEliminar}
-                      aria-label={`Eliminar ${zona.nombre}`}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                    <MapPin size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-semibold text-ink">
+                      {zona.nombre}
+                    </p>
+                    <p className="mt-0.5 truncate text-[12px] text-ink-soft">
+                      {distritoDe(zona)} · {zona.canton} · {zona.provincia}
+                    </p>
                   </div>
-
-                  <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3 text-[12px]">
-                    <div>
-                      <dt className="text-ink-mute">Provincia</dt>
-                      <dd className="mt-0.5 font-medium text-ink-soft">
-                        {zona.provincia}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-ink-mute">Cantón</dt>
-                      <dd className="mt-0.5 font-medium text-ink-soft">
-                        {zona.canton}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-ink-mute">Distrito</dt>
-                      <dd className="mt-0.5 font-medium text-ink-soft">
-                        {distritoDe(zona)}
-                      </dd>
-                    </div>
-                  </dl>
+                  <button
+                    type="button"
+                    onClick={() => setPorEliminar(zona)}
+                    className={btnEliminar}
+                    aria-label={`Eliminar ${zona.nombre}`}
+                  >
+                    <Trash2 size={15} strokeWidth={1.9} />
+                  </button>
                 </li>
               ))}
             </ul>
+
+            <Paginacion
+              etiqueta="Paginación de zonas"
+              actual={paginaActual}
+              total={totalPaginas}
+              onCambiar={setPaginaActual}
+              desde={inicio + 1}
+              hasta={Math.min(fin, visibles.length)}
+              cuantos={visibles.length}
+              nombre={["zona", "zonas"]}
+            />
           </>
         )}
       </Section>
-
-      {!loading && visibles.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[12px] text-ink-mute">
-            Mostrando{" "}
-            <span className="font-medium text-ink-soft">{inicio + 1}</span>–
-            <span className="font-medium text-ink-soft">
-              {Math.min(fin, visibles.length)}
-            </span>{" "}
-            de{" "}
-            <span className="font-medium text-ink-soft">
-              {visibles.length}
-            </span>{" "}
-            zonas
-          </p>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={paginaActual === 1}
-              onClick={() =>
-                setPaginaActual((pagina) => Math.max(1, pagina - 1))
-              }
-              className={btnPaso}
-            >
-              <ChevronLeft size={14} />
-              Anterior
-            </button>
-
-            <span className="px-2 text-[12.5px] text-ink-mute">
-              Página{" "}
-              <span className="font-medium text-ink-soft">
-                {paginaActual}
-              </span>{" "}
-              de {Math.max(totalPaginas, 1)}
-            </span>
-
-            <button
-              type="button"
-              disabled={paginaActual >= totalPaginas || totalPaginas === 0}
-              onClick={() =>
-                setPaginaActual((pagina) =>
-                  Math.min(totalPaginas, pagina + 1),
-                )
-              }
-              className={btnPaso}
-            >
-              Siguiente
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Antes era un `window.confirm` con "Eliminar Carrizal,
           Alajuela?" y nada más. La consecuencia real —que puede haber
