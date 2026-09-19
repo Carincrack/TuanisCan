@@ -45,18 +45,25 @@ import type { Rol } from "../lib/nav";
    ninguna pantalla pública.
    ───────────────────────────────────────────────────────────── */
 
-const mesesIngreso = [
-  { mes: "Mar", bruto: 1840000 },
-  { mes: "Abr", bruto: 2120000 },
-  { mes: "May", bruto: 2460000 },
-  { mes: "Jun", bruto: 2890000 },
-  { mes: "Jul", bruto: 3240000 },
-  { mes: "Ago", bruto: 3680000 },
-];
-
-const maxIngreso = Math.max(...mesesIngreso.map((m) => m.bruto));
-
-export const PanelAdmin = () => (
+export const PanelAdmin = () => {
+  const { usuarios } = useAdminUsuarios();
+  const { paseadores } = useAdminPaseadores();
+  const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
+  useEffect(() => { void listAdminFinances().then(setMovimientos).catch(() => setMovimientos([])); }, []);
+  const now = new Date();
+  const key = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
+  const pagados = movimientos.filter((item) => item.estado_pago === "pagado");
+  const mesesIngreso = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
+    return { mes: new Intl.DateTimeFormat("es-CR", { month: "short" }).format(date).replace(".", ""), bruto: pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(date)).reduce((sum, item) => sum + item.bruto, 0) };
+  });
+  const maxIngreso = Math.max(1, ...mesesIngreso.map((item) => item.bruto));
+  const actuales = pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(now));
+  const top = Object.values(actuales.reduce<Record<string, { n: string; p: number; g: number }>>((all, item) => { const row = all[item.paseador] ?? { n: item.paseador, p: 0, g: 0 }; row.p++; row.g += item.bruto; all[item.paseador] = row; return all; }, {})).sort((a, b) => b.p - a.p).slice(0, 4);
+  const zonas = Object.values(paseadores.filter((item) => item.estado === "activo").reduce<Record<string, { z: string; n: number }>>((all, item) => { const row = all[item.zona] ?? { z: item.zona, n: 0 }; row.n++; all[item.zona] = row; return all; }, {})).sort((a, b) => b.n - a.n).slice(0, 6);
+  const maxZona = Math.max(1, ...zonas.map((item) => item.n));
+  return <Page><PageHeader title="Panel general" subtitle="Datos reales de la plataforma" action={<Badge tono="accent">Acceso interno</Badge>} /><div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4"><Stat etiqueta="Comisión del mes" valor={colones(actuales.reduce((sum, item) => sum + item.comision, 0))} nota={`${actuales.length} pagos confirmados`} /><Stat etiqueta="Paseos del mes" valor={String(actuales.length)} nota="Pagos confirmados" /><Stat etiqueta="Paseadores activos" valor={String(paseadores.filter((item) => item.estado === "activo").length)} nota={`de ${paseadores.length} registrados`} /><Stat etiqueta="Dueños activos" valor={String(new Set(actuales.map((item) => item.dueno)).size)} nota={`${usuarios.filter((item) => item.activo).length} cuentas activas`} /></div><Section title="Volumen bruto por mes" bodyClass="px-6 pt-5 pb-6"><ul className="flex h-[180px] items-end gap-3">{mesesIngreso.map((item) => <li key={item.mes} className="flex flex-1 flex-col items-center gap-2"><span className="nums text-[11px] text-ink-soft">{colones(item.bruto)}</span><span style={{ height: `${item.bruto / maxIngreso * 100}%` }} className="w-full bg-accent" /><span className="text-[11px] text-ink-mute">{item.mes}</span></li>)}</ul></Section><div className="grid gap-3 lg:grid-cols-2"><Section title="Top paseadores del mes" bodyClass="">{top.length ? <Table caption="Paseadores con pagos confirmados" columnas={[{ label: "Paseador" }, { label: "Paseos", align: "right" }, { label: "Generado", align: "right" }]}>{top.map((item) => <tr key={item.n}><td className="px-6 py-3.5">{item.n}</td><td className="px-6 py-3.5 text-right">{item.p}</td><td className="px-6 py-3.5 text-right">{colones(item.g)}</td></tr>)}</Table> : <EmptyState title="Sin pagos este mes" hint="Los resultados aparecerán cuando haya pagos confirmados." />}</Section><Section title="Cobertura por zona" bodyClass="px-6 pt-4 pb-6"><ul className="flex flex-col gap-3">{zonas.map((item) => <li key={item.z} className="flex items-center gap-3"><span className="w-[84px] text-[12.5px] text-ink-soft">{item.z}</span><span className="h-2.5 flex-1 bg-sunken"><span style={{ width: `${item.n / maxZona * 100}%` }} className="block h-full bg-accent" /></span><span className="nums w-8 text-right text-[12px] text-ink-mute">{item.n}</span></li>)}</ul></Section></div></Page>;
+  return (
   <Page>
     <PageHeader
       title="Panel general"
@@ -159,8 +166,9 @@ export const PanelAdmin = () => (
         </ul>
       </Section>
     </div>
-  </Page>
-);
+   </Page>
+  );
+};
 
 /* ── Finanzas ────────────────────────────────────────────────── */
 

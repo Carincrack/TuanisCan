@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, Check, Menu, ShieldAlert, Trash2 } from "../lib/iconos";
 
-import { tituloDeRuta, type Rol } from "../lib/nav";
+import { inicioDeRol, tituloDeRuta, type Rol } from "../lib/nav";
 import { NotificationButtonContext, PageWidthContext } from "./ui";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
@@ -76,6 +76,10 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   ];
 
   const cerrarMenu = useCallback(() => setMenuAbierto(false), []);
+  const cambiarRol = useCallback((rol: Rol) => {
+    setActiveRole(rol);
+    void navigate({ to: inicioDeRol[rol] });
+  }, [navigate, setActiveRole]);
 
   // Cerrar el cajón al navegar; si no, queda tapando la pantalla nueva.
   useEffect(() => setMenuAbierto(false), [pathname]);
@@ -180,7 +184,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     rol,
     profile,
     rolesDisponibles,
-    onRoleChange: setActiveRole,
+    onRoleChange: cambiarRol,
     onLogout,
   };
 
