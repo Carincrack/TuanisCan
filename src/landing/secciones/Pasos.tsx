@@ -105,8 +105,8 @@ const Pasos = () => (
     <div className="relative z-10 mx-auto max-w-[1000px]">
       <EncabezadoSeccion
         antetitulo="Cómo funciona"
-        lineas={["Tres pasos y tu perro", "ya anda"]}
-        subrayada="paseando."
+        lineas={["Todo empieza con", "un pequeño paso."]}
+        subrayada="Y de ahí, a disfrutar."
       />
 
       <ol data-anim="ruta" className="mt-16 max-w-[720px]">

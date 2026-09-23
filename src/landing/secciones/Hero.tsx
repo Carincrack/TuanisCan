@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { MARCA } from "../../lib/nav";
 import Barra from "./Barra";
 import ConmutadorPublico from "../componentes/ConmutadorPublico";
@@ -17,9 +18,43 @@ interface HeroProps extends ConAcceso {
   onAbrirMenu: () => void;
 }
 
+/** Cuánto se queda cada público antes de pasar al siguiente. Seis
+    segundos alcanzan para leer la frase de entrada sin apuro. */
+const PASO_MS = 6000;
+
 const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
   const [publico, setPublico] = useState<ClavePublico>("dueno");
+  const [quieto, setQuieto] = useState(false);
+  /* Cambia cada vez que alguien elige a mano: reinicia la cuenta, así
+     lo que eligió no se va a los dos segundos. */
+  const [vuelta, setVuelta] = useState(0);
   const actual = PUBLICOS.find((p) => p.clave === publico) ?? PUBLICOS[0];
+  const navegar = useNavigate();
+
+  /* Carrusel: pasa solo por los tres públicos, en orden, y vuelve al
+     primero. Se frena mientras el cursor o el foco están sobre los
+     botones de abajo —nadie quiere que el botón cambie justo cuando
+     lo va a tocar—, no sobre todo el hero: ocupa la pantalla entera
+     y con el cursor encima no giraría nunca. Tampoco arranca si el
+     sistema pide menos movimiento. */
+  useEffect(() => {
+    if (quieto) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const id = window.setInterval(() => {
+      setPublico((clave) => {
+        const i = PUBLICOS.findIndex((p) => p.clave === clave);
+        return PUBLICOS[(i + 1) % PUBLICOS.length].clave;
+      });
+    }, PASO_MS);
+
+    return () => window.clearInterval(id);
+  }, [quieto, vuelta]);
+
+  const elegir = (clave: ClavePublico) => {
+    setPublico(clave);
+    setVuelta((n) => n + 1);
+  };
 
   return (
     <section
@@ -106,10 +141,22 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
           al perro entero. */}
       <div
         data-entra="pildoras"
+        onPointerEnter={() => setQuieto(true)}
+        onPointerLeave={() => setQuieto(false)}
+        onFocus={() => setQuieto(true)}
+        onBlur={(evento) => {
+          if (!evento.currentTarget.contains(evento.relatedTarget)) setQuieto(false);
+        }}
         className="relative z-30 flex flex-col items-center gap-3 px-5 pt-4 pb-6 sm:px-8 sm:pb-8 lg:absolute lg:inset-x-0 lg:bottom-0 lg:flex-row lg:items-end lg:justify-between lg:pt-0"
       >
-        <PildoraCTA onClick={() => onEntrar("registro")}>{actual.cta}</PildoraCTA>
-        <ConmutadorPublico valor={publico} onCambio={setPublico} />
+        <PildoraCTA
+          onClick={() =>
+            actual.ruta ? void navegar({ to: actual.ruta }) : onEntrar("registro")
+          }
+        >
+          {actual.cta}
+        </PildoraCTA>
+        <ConmutadorPublico valor={publico} onCambio={elegir} />
       </div>
     </section>
   );
