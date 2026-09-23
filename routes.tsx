@@ -84,6 +84,7 @@ const Tarjetas = perezoso(() => import("./src/components/tarjetas"));
 const Resenas = perezoso(() => import("./src/components/resenas"));
 const ZonasAdminPage = perezoso(() => import("./src/page/ZonasAdminPage"), "admin-tabla");
 const PaginaCaptura = perezoso(() => import("./src/esqueletos/PaginaCaptura"));
+const PaginaPerdidas = perezoso(nombrada(() => import("./src/landing"), "PaginaPerdidas"));
 
 const admin = () => import("./src/components/admin");
 const PanelAdmin = perezoso(nombrada(admin, "PanelAdmin"), "panel-metricas");
@@ -139,6 +140,11 @@ const carnetRoute = ruta("/carnet", CarnetDigital);
    ningún dato: solo cajas de relleno. */
 const esqueletosRoute = ruta("/esqueletos", PaginaCaptura);
 
+/* Vitrina pública de mascotas perdidas. Se llega desde el hero y no
+   pide sesión. No confundir con /mascotas-perdidas, que es la
+   pantalla interna. */
+const perdidasRoute = ruta("/perdidas", PaginaPerdidas);
+
 /* Lado del paseador. Prefijo /p/ para que las dos mitades de la
    plataforma no se pisen ni se confundan al leer las rutas. */
 const panelPaseadorRoute = ruta("/p/panel", PanelPaseador);
@@ -163,6 +169,7 @@ const adminPaseosRoute = ruta(`${RUTA_ADMIN}/paseos`, PaseosAdmin);
 rootRoute.addChildren([
   carnetRoute,
   esqueletosRoute,
+  perdidasRoute,
   adminPanelRoute,
   adminFinanzasRoute,
   adminPaseadoresRoute,

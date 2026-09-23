@@ -261,6 +261,9 @@ const RootLayout = () => {
        medidas reales. Montarla dentro del armazón de verdad la
        encerraría dos veces. */
     "/esqueletos",
+    /* La vitrina pública de mascotas perdidas: trae la banda de la
+       portada y se ve con o sin sesión. */
+    "/perdidas",
   ].includes(pathname);
 
   /*
