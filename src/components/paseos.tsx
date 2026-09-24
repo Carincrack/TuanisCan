@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { CalendarDays } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { listPets } from "../services/pets.service";
@@ -85,6 +86,7 @@ const Paseos = () => {
   const [filtro, setFiltro] = useState("Próximos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [detalleId, setDetalleId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -189,10 +191,10 @@ const Paseos = () => {
                 : "Agenda, seguimiento e historial de los paseos de tus mascotas."
         }
         action={
-          <button type="button" className={btnPrimary}>
+          <Link to="/paseadores" className={btnPrimary}>
             <CalendarDays size={15} strokeWidth={2} />
             Agendar paseo
-          </button>
+          </Link>
         }
       />
 
@@ -283,7 +285,8 @@ const Paseos = () => {
                   ]}
                 >
                   {filteredWalks.map((p) => (
-                    <tr key={p.id_paseo}>
+                    <Fragment key={p.id_paseo}>
+                    <tr>
                       <td className="px-6 py-3.5">
                         <div className="flex items-center gap-3">
                           {p.mascota?.fotoUrl ? (
@@ -351,13 +354,43 @@ const Paseos = () => {
                         {colones(p.precio)}
                       </td>
                       <td className="px-6 py-3.5 text-right">
-                        <button type="button" className={btnSecondary}>
-                          {p.estado === "en_curso"
-                            ? "Ver en vivo"
-                            : "Detalle"}
-                        </button>
+                        {p.estado === "en_curso" ? (
+                          <Link to="/paseo-en-vivo" className={btnSecondary}>
+                            Ver en vivo
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            className={btnSecondary}
+                            aria-expanded={detalleId === p.id_paseo}
+                            onClick={() => setDetalleId((current) => (current === p.id_paseo ? null : p.id_paseo))}
+                          >
+                            {detalleId === p.id_paseo ? "Ocultar" : "Detalle"}
+                          </button>
+                        )}
                       </td>
                     </tr>
+                    {detalleId === p.id_paseo && (
+                      <tr>
+                        <td colSpan={7} className="bg-sunken px-6 py-4">
+                          <dl className="grid gap-3 sm:grid-cols-3">
+                            <div>
+                              <dt className="rotulo text-ink-mute">Punto de encuentro</dt>
+                              <dd className="mt-1 text-[12.5px] text-ink">{p.direccion_encuentro}</dd>
+                            </div>
+                            <div>
+                              <dt className="rotulo text-ink-mute">Hora de fin</dt>
+                              <dd className="nums mt-1 text-[12.5px] text-ink">{p.hora_fin ? p.hora_fin.slice(0, 5) : "Aún no finaliza"}</dd>
+                            </div>
+                            <div>
+                              <dt className="rotulo text-ink-mute">Código de paseo</dt>
+                              <dd className="nums mt-1 text-[12.5px] text-ink">{p.id_paseo}</dd>
+                            </div>
+                          </dl>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </Table>
 

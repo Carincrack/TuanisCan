@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
@@ -68,6 +68,15 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [notificaciones, setNotificaciones] = useState<Notification[]>([]);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
+  /* El botón vive en dos sitios posibles —ver `NotificationButtonContext`
+     más abajo—, así que el panel no puede colgarse de una posición fija
+     en pantalla: en las páginas de "encabezado propio" (`/pagos`, por
+     ejemplo, que además pide el carril ancho) el botón real queda lejos
+     del borde derecho de la ventana, y un panel anclado a ese borde se
+     abre en un sitio que no tiene nada que ver con lo que se tocó. Se
+     mide la posición del botón al abrir y el panel se ancla ahí. */
+  const notifBotonRef = useRef<HTMLButtonElement>(null);
+  const [notifPanelPos, setNotifPanelPos] = useState<{ top: number; right: number } | null>(null);
   const [notificacionesError, setNotificacionesError] = useState<string | null>(null);
   const [accionNotificacion, setAccionNotificacion] = useState<string | null>(null);
   const rolesDisponibles: Rol[] = [
@@ -104,12 +113,28 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
   const pendientes = notificaciones.filter((n) => !n.leido).length;
 
+  const medirPosicionPanel = useCallback(() => {
+    const rect = notifBotonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setNotifPanelPos({
+      top: rect.bottom + 8,
+      right: Math.max(16, window.innerWidth - rect.right),
+    });
+  }, []);
+
   const abrirNotificaciones = async () => {
     const seAbre = !notificacionesAbiertas;
+    if (seAbre) medirPosicionPanel();
     setNotificacionesAbiertas(seAbre);
     setNotificacionesError(null);
     if (seAbre) await cargarNotificaciones();
   };
+
+  useEffect(() => {
+    if (!notificacionesAbiertas) return;
+    window.addEventListener("resize", medirPosicionPanel);
+    return () => window.removeEventListener("resize", medirPosicionPanel);
+  }, [notificacionesAbiertas, medirPosicionPanel]);
 
   const leerNotificacion = async (id: string) => {
     setNotificacionesError(null);
@@ -193,6 +218,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
      `NotificationButtonContext`—. El estado y el panel no se mueven. */
   const botonNotificaciones = (
     <button
+      ref={notifBotonRef}
       type="button"
       aria-label="Notificaciones"
       aria-expanded={notificacionesAbiertas}
@@ -292,8 +318,18 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                 para no tener dos disparadores del mismo panel a la vez. */}
             {!conEncabezadoPropio && botonNotificaciones}
 
-            {notificacionesAbiertas && (
-              <div className="flota pointer-events-auto fixed top-[76px] right-4 z-[120] w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl lg:right-8">
+            {notificacionesAbiertas && createPortal(
+              <>
+                <button
+                  type="button"
+                  aria-label="Cerrar notificaciones"
+                  onClick={() => setNotificacionesAbiertas(false)}
+                  className="fixed inset-0 z-[110] cursor-default"
+                />
+                <div
+                  className="flota pointer-events-auto fixed z-[120] w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl"
+                  style={{ top: notifPanelPos?.top ?? 76, right: notifPanelPos?.right ?? 16 }}
+                >
                 <div className="flex items-center justify-between gap-3 border-b border-sunken px-4 py-3">
                   <h2 className="rotulo text-ink-mute">Notificaciones</h2>
                   {notificaciones.length > 0 && (
@@ -397,7 +433,9 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                     ))
                   )}
                 </div>
-              </div>
+                </div>
+              </>,
+              document.body,
             )}
           </div>
         </header>
