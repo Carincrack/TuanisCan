@@ -29,6 +29,14 @@ export const listActiveWalkers = async (): Promise<PublicWalker[]> => {
   }));
 };
 
+export const toggleWalkerAvailability = async (userId: string, disponible: boolean) => {
+  const { error } = await supabase
+    .from("paseadores")
+    .update({ disponible })
+    .eq("id_usuario", userId);
+  if (error) throw error;
+};
+
 export const requestWalk = async (input: WalkRequestInput) => {
   const { data, error } = await supabase.rpc("solicitar_paseo", {
     p_id_mascota: input.id_mascota,

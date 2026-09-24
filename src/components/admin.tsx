@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, RefreshCw, Search, ShieldCheck, X } from "../lib/iconos";
+import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, RefreshCw, Search, X } from "../lib/iconos";
 import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
@@ -63,111 +63,6 @@ export const PanelAdmin = () => {
   const zonas = Object.values(paseadores.filter((item) => item.estado === "activo").reduce<Record<string, { z: string; n: number }>>((all, item) => { const row = all[item.zona] ?? { z: item.zona, n: 0 }; row.n++; all[item.zona] = row; return all; }, {})).sort((a, b) => b.n - a.n).slice(0, 6);
   const maxZona = Math.max(1, ...zonas.map((item) => item.n));
   return <Page><PageHeader title="Panel general" subtitle="Datos reales de la plataforma" action={<Badge tono="accent">Acceso interno</Badge>} /><div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4"><Stat etiqueta="Comisión del mes" valor={colones(actuales.reduce((sum, item) => sum + item.comision, 0))} nota={`${actuales.length} pagos confirmados`} /><Stat etiqueta="Paseos del mes" valor={String(actuales.length)} nota="Pagos confirmados" /><Stat etiqueta="Paseadores activos" valor={String(paseadores.filter((item) => item.estado === "activo").length)} nota={`de ${paseadores.length} registrados`} /><Stat etiqueta="Dueños activos" valor={String(new Set(actuales.map((item) => item.dueno)).size)} nota={`${usuarios.filter((item) => item.activo).length} cuentas activas`} /></div><Section title="Volumen bruto por mes" bodyClass="px-6 pt-5 pb-6"><ul className="flex h-[180px] items-end gap-3">{mesesIngreso.map((item) => <li key={item.mes} className="flex flex-1 flex-col items-center gap-2"><span className="nums text-[11px] text-ink-soft">{colones(item.bruto)}</span><span style={{ height: `${item.bruto / maxIngreso * 100}%` }} className="w-full bg-accent" /><span className="text-[11px] text-ink-mute">{item.mes}</span></li>)}</ul></Section><div className="grid gap-3 lg:grid-cols-2"><Section title="Top paseadores del mes" bodyClass="">{top.length ? <Table caption="Paseadores con pagos confirmados" columnas={[{ label: "Paseador" }, { label: "Paseos", align: "right" }, { label: "Generado", align: "right" }]}>{top.map((item) => <tr key={item.n}><td className="px-6 py-3.5">{item.n}</td><td className="px-6 py-3.5 text-right">{item.p}</td><td className="px-6 py-3.5 text-right">{colones(item.g)}</td></tr>)}</Table> : <EmptyState title="Sin pagos este mes" hint="Los resultados aparecerán cuando haya pagos confirmados." />}</Section><Section title="Cobertura por zona" bodyClass="px-6 pt-4 pb-6"><ul className="flex flex-col gap-3">{zonas.map((item) => <li key={item.z} className="flex items-center gap-3"><span className="w-[84px] text-[12.5px] text-ink-soft">{item.z}</span><span className="h-2.5 flex-1 bg-sunken"><span style={{ width: `${item.n / maxZona * 100}%` }} className="block h-full bg-accent" /></span><span className="nums w-8 text-right text-[12px] text-ink-mute">{item.n}</span></li>)}</ul></Section></div></Page>;
-  return (
-  <Page>
-    <PageHeader
-      title="Panel general"
-      subtitle="Estado de la plataforma · miércoles 19 de agosto"
-      action={
-        <span className="flex items-center gap-2 bg-accent-wash px-4 py-2.5 text-[13px] font-semibold text-accent-dark">
-          <ShieldCheck size={15} strokeWidth={1.9} aria-hidden />
-          Acceso interno
-        </span>
-      }
-    />
-
-    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-      <Stat etiqueta="Comisión del mes" valor={colones(552000)} nota="15% de 3.68 M" />
-      <Stat etiqueta="Paseos del mes" valor="1 284" nota="+13.6% vs julio" />
-      <Stat etiqueta="Paseadores activos" valor="62" nota="de 78 registrados" />
-      <Stat etiqueta="Dueños activos" valor="418" nota="+37 este mes" />
-    </div>
-
-    <Section title="Volumen bruto por mes" bodyClass="px-6 pt-5 pb-6">
-      {/* Barras en CSS: no vale la pena una librería de gráficos para una maqueta. */}
-      <ul className="flex h-[180px] items-end gap-3">
-        {mesesIngreso.map((m, i) => (
-          <li key={m.mes} className="flex flex-1 flex-col items-center gap-2">
-            <span className="nums text-[11px] text-ink-soft">
-              {(m.bruto / 1_000_000).toFixed(2)} M
-            </span>
-            <span
-              style={{
-                height: `${(m.bruto / maxIngreso) * 100}%`,
-                animationDelay: `${i * 60}ms`,
-              }}
-              className="anim-rise w-full bg-accent"
-            />
-            <span className="text-[11px] font-medium text-ink-mute">{m.mes}</span>
-          </li>
-        ))}
-      </ul>
-    </Section>
-
-    <div className="grid gap-3 lg:grid-cols-2">
-      <Section title="Top paseadores del mes" bodyClass="">
-        <Table
-          caption="Paseadores con más paseos completados"
-          columnas={[
-            { label: "Paseador" },
-            { label: "Paseos", align: "right" },
-            { label: "Generado", align: "right" },
-          ]}
-        >
-          {[
-            { n: "María Fernández", p: 68, g: 306000 },
-            { n: "Carolina Mora", p: 54, g: 280800 },
-            { n: "Luis Rojas", p: 49, g: 186200 },
-            { n: "Valeria Chacón", p: 41, g: 196800 },
-          ].map((w) => (
-            <tr key={w.n}>
-              <td className="px-6 py-3.5">
-                <div className="flex items-center gap-3">
-                  <Avatar nombre={w.n} size={30} />
-                  <span className="text-[13px] font-medium text-ink">{w.n}</span>
-                </div>
-              </td>
-              <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
-                {w.p}
-              </td>
-              <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                {colones(w.g)}
-              </td>
-            </tr>
-          ))}
-        </Table>
-      </Section>
-
-      <Section title="Cobertura por zona" bodyClass="px-6 pt-4 pb-6">
-        <ul className="flex flex-col gap-3">
-          {[
-            { z: "Curridabat", n: 18, pct: 100 },
-            { z: "Escazú", n: 14, pct: 78 },
-            { z: "San Pedro", n: 11, pct: 61 },
-            { z: "Heredia", n: 9, pct: 50 },
-            { z: "Cartago", n: 6, pct: 33 },
-            { z: "Alajuela", n: 4, pct: 22 },
-          ].map((z, i) => (
-            <li key={z.z} className="flex items-center gap-3">
-              <span className="w-[84px] flex-shrink-0 text-[12.5px] text-ink-soft">
-                {z.z}
-              </span>
-              <span className="h-2.5 flex-1 bg-sunken">
-                <span
-                  style={{ width: `${z.pct}%`, animationDelay: `${i * 50}ms` }}
-                  className="anim-bar block h-full bg-accent"
-                />
-              </span>
-              <span className="nums w-8 flex-shrink-0 text-right text-[12px] text-ink-mute">
-                {z.n}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Section>
-    </div>
-   </Page>
-  );
 };
 
 /* ── Finanzas ────────────────────────────────────────────────── */

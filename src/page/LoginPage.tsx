@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   User,
@@ -12,7 +12,7 @@ import {
   Footprints,
   Store,
   MapPin,
-  Image,
+  Camera,
   FileText,
   Banknote,
   Clock,
@@ -24,7 +24,13 @@ import { useAuth } from "../hooks/useAuth";
 import { getZonas } from "../services/auth.service";
 import { Combo } from "../components/Combo";
 import type { RolPublico, Zona } from "../types/auth.types";
-import { isValidProfilePhotoUrl } from "../lib/profile";
+
+/* Leaflet pesa ~150 kB y solo hace falta en el paso de negocio del
+   registro: se carga aparte para no sumarle peso al arranque de toda
+   la app, que monta LoginPage sin importar el rol. */
+const SelectorUbicacion = lazy(() =>
+  import("../components/SelectorUbicacion").then((m) => ({ default: m.SelectorUbicacion }))
+);
 
 /** Rol elegido en el login. El administrador entra por /acceso-interno. */
 interface LoginPageProps {
@@ -170,23 +176,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regPassword, setRegPassword] = useState("");
   const [regPasswordConfirmation, setRegPasswordConfirmation] = useState("");
   const [regTelefono, setRegTelefono] = useState("");
-  const [regFotoPerfil, setRegFotoPerfil] = useState("");
-
-  /* La foto de perfil se pide como enlace, no como archivo, y hasta
-     ahora no había forma de saber si el enlace servía: se escribía a
-     ciegas y el error, si lo había, aparecía al enviar el formulario
-     entero. Esto la mira antes.
-
-     `urlMirada` va con retardo a propósito. Ligar la vista previa
-     directamente a lo que se teclea dispara una petición por letra
-     —y por cada trozo de dirección a medio escribir, que además
-     siempre falla— así que se espera medio segundo de quietud antes
-     de pedir nada. */
-  const [urlMirada, setUrlMirada] = useState("");
-  const [estadoFoto, setEstadoFoto] = useState<
-    "vacio" | "cargando" | "lista" | "rota"
-  >("vacio");
-  const [medidaFoto, setMedidaFoto] = useState("");
   const [regZonaId, setRegZonaId] = useState("");
   const [regDescripcion, setRegDescripcion] = useState("");
   const [regTarifa, setRegTarifa] = useState("");
@@ -222,41 +211,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
       })
       .finally(() => setZonasLoading(false));
   }, []);
-
-
-  useEffect(() => {
-    const limpia = regFotoPerfil.trim();
-
-    if (!limpia) {
-      setUrlMirada("");
-      setEstadoFoto("vacio");
-      return;
-    }
-
-    /* Base64 ni se intenta: el perfil solo acepta http o https, así
-       que pedirla sería gastar el intento para acabar en el mismo
-       error. Se dice de una vez y con la razón. */
-    if (!isValidProfilePhotoUrl(limpia)) {
-      setUrlMirada("");
-      setEstadoFoto("rota");
-      return;
-    }
-
-    const reloj = setTimeout(() => {
-      /* Si la dirección es la misma de antes no hay nada que volver a
-         pedir, y sobre todo no hay que ponerse en "cargando": la clave
-         del `<img>` no cambiaría, el elemento no se volvería a montar,
-         no llegaría ningún `onLoad` y el aviso se quedaría girando
-         para siempre. Pasa con solo añadir un espacio al final. */
-      if (limpia === urlMirada) return;
-
-      setEstadoFoto("cargando");
-      setMedidaFoto("");
-      setUrlMirada(limpia);
-    }, 500);
-
-    return () => clearTimeout(reloj);
-  }, [regFotoPerfil, urlMirada]);
 
   /* Antes esto era un solo campo de texto contra el catálogo entero.
      Buscar así exige saber ya cómo se llama la zona, y el catálogo
@@ -402,12 +356,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
-    if (!isValidProfilePhotoUrl(regFotoPerfil.trim())) {
-      setError("La foto debe ser una URL https, no una imagen Base64");
-      setShowError(true);
-      return;
-    }
-
     if (regPassword.length < 8) {
       setError("La contraseña debe tener al menos 8 caracteres");
       setShowError(true);
@@ -432,7 +380,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
         {
           nombre: regUsername.trim(),
           telefono: regTelefono.trim(),
-          foto_perfil: regFotoPerfil.trim() || undefined,
           zona_id: regZonaId,
           tipo_usuario: rol,
           roles: [rol],
@@ -485,11 +432,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
     if (registrationStep === 3) {
       if (!regZonaId) {
         setError("Selecciona tu zona");
-        setShowError(true);
-        return;
-      }
-      if (!isValidProfilePhotoUrl(regFotoPerfil.trim())) {
-        setError("La foto debe ser una URL https, no una imagen Base64");
         setShowError(true);
         return;
       }
@@ -836,14 +778,14 @@ const LoginPage: React.FC<LoginPageProps> = ({
           {/* ─── El pie va después en el documento; ver más abajo ─── */}
           {/* ─── CAPA z-10: formulario (lo tapa la media luna) ─── */}
           <div
-            className={`relative z-10 px-5 py-6 sm:px-8 sm:py-10 lg:absolute lg:top-0 lg:h-full lg:w-1/2 lg:px-12 lg:py-0 ${
+            className={`relative z-10 px-5 py-6 sm:px-8 sm:py-10 lg:absolute lg:top-0 lg:h-full lg:w-1/2 lg:overflow-y-auto lg:overscroll-contain lg:px-12 lg:py-8 ${
               isSignUp ? "lg:left-0" : "lg:left-1/2"
             }`}
           >
             <div
               /* Igual que arriba: el padding extra va del lado de la curva */
               key={`cara-${mode}`}
-              className={`@container animate-[tsc-fade_240ms_ease-out] flex h-full flex-col justify-center lg:animate-none ${
+              className={`@container animate-[tsc-fade_240ms_ease-out] flex h-full flex-col justify-center-safe lg:animate-none ${
                 isSignUp ? "lg:pr-10" : "lg:pl-10"
               }`}
               style={formStyle}
@@ -943,103 +885,17 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           }))}
                         />
                       </div>
-                      <div>
-                        <div className="relative">
-                          <Image className={iconBase} size={18} />
-                          <input
-                            type="url"
-                            placeholder="URL https de foto (opcional, no Base64)"
-                            value={regFotoPerfil}
-                            onChange={(e) => setRegFotoPerfil(e.target.value)}
-                            className={inputBase}
-                            maxLength={2048}
-                          />
-                        </div>
-
-                        {/* La vista previa. Redonda y del tamaño en el
-                            que la foto se va a ver de verdad —el avatar
-                            del riel mide 32 px—, no un cuadro grande:
-                            lo que hay que comprobar acá no es la foto,
-                            es si el enlace trae una. */}
-                        {estadoFoto !== "vacio" && (
-                          <div
-                            aria-live="polite"
-                            className="mt-3 flex items-center gap-3 pl-2"
-                          >
-                            <span
-                              className={`grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full ${
-                                estadoFoto === "rota"
-                                  ? "bg-red-50 text-red-400"
-                                  : "bg-slate-100 text-slate-400"
-                              }`}
-                            >
-                              {estadoFoto === "rota" ? (
-                                <AlertCircle size={18} aria-hidden />
-                              ) : (
-                                urlMirada && (
-                                  /* La clave fuerza un elemento nuevo
-                                     por dirección. Sin ella el
-                                     navegador reaprovecha el mismo
-                                     `<img>` y no vuelve a avisar de
-                                     que cargó cuando la dirección
-                                     nueva ya estaba en la caché. */
-                                  <img
-                                    key={urlMirada}
-                                    src={urlMirada}
-                                    alt=""
-                                    onLoad={(evento) => {
-                                      setMedidaFoto(
-                                        `${evento.currentTarget.naturalWidth} × ${evento.currentTarget.naturalHeight}`,
-                                      );
-                                      setEstadoFoto("lista");
-                                    }}
-                                    onError={() => setEstadoFoto("rota")}
-                                    className={`h-full w-full object-cover transition-opacity duration-200 ${
-                                      estadoFoto === "lista"
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    }`}
-                                  />
-                                )
-                              )}
-                            </span>
-
-                            <p className="min-w-0 text-[11.5px] leading-snug">
-                              {estadoFoto === "cargando" && (
-                                <span className="text-slate-500">
-                                  Buscando la imagen…
-                                </span>
-                              )}
-
-                              {estadoFoto === "lista" && (
-                                <>
-                                  <span className="font-semibold text-[#14A3B8]">
-                                    La imagen carga
-                                  </span>
-                                  <span className="block text-slate-400">
-                                    {medidaFoto} px · así se va a ver
-                                  </span>
-                                </>
-                              )}
-
-                              {estadoFoto === "rota" && (
-                                <>
-                                  <span className="font-semibold text-red-500">
-                                    {regFotoPerfil.trim().startsWith("data:")
-                                      ? "Base64 no sirve acá"
-                                      : "No se pudo cargar"}
-                                  </span>
-                                  <span className="block text-slate-400">
-                                    {regFotoPerfil.trim().startsWith("data:")
-                                      ? "Hace falta un enlace https a la imagen."
-                                      : "El enlace tiene que llevar directo a la imagen, no a la página que la muestra."}
-                                  </span>
-                                </>
-                              )}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      {/* La foto ya no se pide acá: durante el registro todavía
+                          no hay sesión ni bucket propio donde subir un
+                          archivo, así que antes se pedía como enlace https
+                          (y Base64 quedaba bloqueado por el límite del JWT).
+                          Ahora se sube como archivo real, pero eso solo es
+                          posible una vez adentro —desde el perfil, con
+                          sesión activa—, así que acá solo se avisa. */}
+                      <p className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-[11.5px] leading-snug text-slate-500">
+                        <Camera className="flex-shrink-0 text-[#14A3B8]" size={16} aria-hidden />
+                        Podrás subir tu foto de perfil como archivo apenas entres, desde tu perfil.
+                      </p>
 
                       {rol === "paseador" && (
                         <>
@@ -1066,10 +922,22 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           </div>
                           <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder="Dirección exacta *" value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
                           <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder="Horario de atención *" value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>
-                          <div className="grid gap-3 @sm:grid-cols-2">
-                            <input type="number" min="-90" max="90" step="any" placeholder="Latitud (opcional)" value={regLatitud} onChange={(e) => setRegLatitud(e.target.value)} className={`${inputBase} px-5`} />
-                            <input type="number" min="-180" max="180" step="any" placeholder="Longitud (opcional)" value={regLongitud} onChange={(e) => setRegLongitud(e.target.value)} className={`${inputBase} px-5`} />
-                          </div>
+                          <Suspense
+                            fallback={
+                              <div className="flex h-[200px] w-full items-center justify-center rounded-2xl bg-slate-50 text-[11.5px] text-slate-400">
+                                Cargando mapa…
+                              </div>
+                            }
+                          >
+                            <SelectorUbicacion
+                              latitud={regLatitud}
+                              longitud={regLongitud}
+                              onChange={(lat, lng) => {
+                                setRegLatitud(String(lat));
+                                setRegLongitud(String(lng));
+                              }}
+                            />
+                          </Suspense>
                         </>
                       )}
                     </div>

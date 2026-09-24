@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   Check,
   Clock,
@@ -32,10 +33,13 @@ import {
   respondWalkRequest,
   type WalkerRequest,
 } from "../services/walk-requests.service";
+import { listarAgendaPaseador, type CitaAgendaPaseador } from "../services/walker-agenda.service";
 import { useAuth } from "../hooks/useAuth";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 import { listWalkerEarnings, type WalkerEarning } from "../services/payments.service";
+import { listarResenasPaseador } from "../services/resenas-paseador.service";
+import { toggleWalkerAvailability } from "../services/walkers.service";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -43,78 +47,91 @@ import { listWalkerEarnings, type WalkerEarning } from "../services/payments.ser
    y cobra. Todo con datos de maqueta.
    ───────────────────────────────────────────────────────────── */
 
-interface Solicitud {
-  id: string;
-  dueno: string;
-  mascota: string;
-  raza: string;
-  foto: string;
-  cuando: string;
-  duracion: string;
-  zona: string;
-  distancia: string;
-  pago: number;
-  nota: string;
-}
-
-const solicitudes: Solicitud[] = [
-  {
-    id: "SOL-311",
-    dueno: "Ana Corrales",
-    mascota: "Rocky",
-    raza: "Labrador Retriever",
-    foto: "/mock/dog-rocky.jpg",
-    cuando: "Hoy · 16:00",
-    duracion: "45 min",
-    zona: "Curridabat",
-    distancia: "1.2 km de ti",
-    pago: 4500,
-    nota: "Tira un poco de la correa al inicio. Muy sociable.",
-  },
-  {
-    id: "SOL-310",
-    dueno: "Diego Solís",
-    mascota: "Kira",
-    raza: "Jack Russell Terrier",
-    foto: "/mock/dog-kira.jpg",
-    cuando: "Mañana · 07:30",
-    duracion: "60 min",
-    zona: "Curridabat",
-    distancia: "2.4 km de ti",
-    pago: 5200,
-    nota: "Necesita paseo largo. Ya conoce la ruta del parque.",
-  },
-  {
-    id: "SOL-308",
-    dueno: "Laura Vega",
-    mascota: "Nube",
-    raza: "Bulldog Francés",
-    foto: "/mock/dog-nube.jpg",
-    cuando: "22 ago · 10:00",
-    duracion: "30 min",
-    zona: "San Pedro",
-    distancia: "3.8 km de ti",
-    pago: 3800,
-    nota: "Primera vez con la plataforma. Perro pequeño y tranquilo.",
-  },
-];
-
 /* ── Panel ───────────────────────────────────────────────────── */
 
+const hoyISO = () => new Date().toISOString().slice(0, 10);
+
+const subtituloPanel = new Intl.DateTimeFormat("es-CR", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+}).format(new Date());
+
 export const PanelPaseador = () => {
-  const [disponible, setDisponible] = useState(true);
+  const { user, getProfile } = useAuth();
+  const [disponible, setDisponible] = useState(false);
+  const [calificacion, setCalificacion] = useState(0);
+  const [totalResenas, setTotalResenas] = useState(0);
+  const [agenda, setAgenda] = useState<CitaAgendaPaseador[]>([]);
+  const [pendientes, setPendientes] = useState<WalkerRequest[]>([]);
+  const [ganancias, setGanancias] = useState<WalkerEarning[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [cambiandoDisponibilidad, setCambiandoDisponibilidad] = useState(false);
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [perfil, citas, solicitudes, ingresos, resenas] = await Promise.all([
+        getProfile(),
+        listarAgendaPaseador(),
+        listWalkerRequests(),
+        listWalkerEarnings(),
+        listarResenasPaseador(),
+      ]);
+      setDisponible(perfil?.paseador?.disponible ?? false);
+      setCalificacion(perfil?.paseador?.calificacion_promedio ?? 0);
+      setTotalResenas(resenas.length);
+      setAgenda(citas);
+      setPendientes(solicitudes);
+      setGanancias(ingresos);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo cargar el panel.");
+    } finally {
+      setLoading(false);
+    }
+  }, [getProfile]);
+
+  useEffect(() => {
+    void cargar();
+  }, [cargar]);
+
+  const cambiarDisponibilidad = async () => {
+    if (!user) return;
+    setCambiandoDisponibilidad(true);
+    try {
+      await toggleWalkerAvailability(user.id, !disponible);
+      setDisponible(!disponible);
+    } catch (cause) {
+      aviso.error(cause, { respaldo: "No se pudo cambiar tu disponibilidad." });
+    } finally {
+      setCambiandoDisponibilidad(false);
+    }
+  };
+
+  const hoy = hoyISO();
+  const citasHoy = agenda.filter((c) => c.fecha === hoy);
+  const paseoEnCurso = agenda.find((c) => c.estado === "en_curso");
+  const gananciaHoy = ganancias
+    .filter((g) => g.fecha === hoy)
+    .reduce((sum, g) => sum + g.bruto, 0);
+  const inicioSemana = new Date();
+  inicioSemana.setDate(inicioSemana.getDate() - 6);
+  const gananciaSemana = ganancias.filter((g) => new Date(`${g.fecha}T00:00:00`) >= inicioSemana);
 
   return (
     <Page>
       <PageHeader
         title="Panel del paseador"
-        subtitle="Miércoles 19 de agosto · Curridabat y alrededores"
+        subtitle={subtituloPanel}
         action={
           <button
             type="button"
-            onClick={() => setDisponible(!disponible)}
+            onClick={() => void cambiarDisponibilidad()}
+            disabled={cambiandoDisponibilidad}
             aria-pressed={disponible}
-            className={disponible ? btnSecondary : btnPrimary}
+            className={`${disponible ? btnSecondary : btnPrimary} disabled:cursor-wait disabled:opacity-60`}
           >
             {disponible ? (
               <>
@@ -144,79 +161,119 @@ export const PanelPaseador = () => {
         </div>
       </div>
 
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat etiqueta="Paseos hoy" valor="3" nota="1 en curso" />
-        <Stat etiqueta="Ganado hoy" valor={colones(13700)} nota="antes de comisión" />
-        <Stat etiqueta="Esta semana" valor={colones(38400)} nota="9 paseos" />
-        <Stat etiqueta="Calificación" valor="4.9" nota="214 reseñas" />
-      </div>
-
-      <Section title="Paseo en curso" bodyClass="">
-        <div className="flex flex-wrap items-center gap-5 px-6 pt-4 pb-6">
-          <MockPhoto
-            src="/mock/dog-rocky.jpg"
-            alt="Foto de Rocky"
-            className="h-20 w-20 flex-shrink-0"
-          />
-          <div className="min-w-[180px] flex-1">
-            <p className="text-[16px] font-semibold text-ink">Rocky</p>
-            <p className="mt-1 text-[12.5px] text-ink-soft">
-              Ana Corrales · Labrador Retriever
-            </p>
-            <div className="nums mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] text-ink-soft">
-              <span className="flex items-center gap-1.5">
-                <Clock size={13} strokeWidth={1.9} aria-hidden />
-                28 de 45 min
-              </span>
-              <span className="flex items-center gap-1.5">
-                <MapPin size={13} strokeWidth={1.9} aria-hidden />
-                Parque de Curridabat
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button type="button" className={btnSecondary}>
-              Enviar foto
-            </button>
-            <button type="button" className={btnPrimary}>
-              Finalizar paseo
-            </button>
-          </div>
+      {error && (
+        <div role="alert" className="bg-danger-wash px-6 py-3 text-[13px] text-danger">
+          {error}
         </div>
-      </Section>
+      )}
 
-      <Section title="Próximas solicitudes" bodyClass="">
-        <Table
-          caption="Solicitudes pendientes de responder"
-          columnas={[
-            { label: "Dueño y mascota" },
-            { label: "Cuándo" },
-            { label: "Zona" },
-            { label: "Pago", align: "right" },
-          ]}
-        >
-          {solicitudes.map((s) => (
-            <tr key={s.id}>
-              <td className="px-6 py-3.5">
-                <div className="flex items-center gap-3">
-                  <Avatar nombre={s.dueno} size={32} />
-                  <div>
-                    <p className="text-[13px] font-medium text-ink">{s.mascota}</p>
-                    <p className="text-[11.5px] text-ink-soft">{s.dueno}</p>
+      {loading ? (
+        <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
+          <Loader size={16} className="animate-spin" /> Cargando panel…
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat
+              etiqueta="Paseos hoy"
+              valor={String(citasHoy.length)}
+              nota={paseoEnCurso ? "1 en curso" : undefined}
+            />
+            <Stat etiqueta="Ganado hoy" valor={colones(gananciaHoy)} nota="antes de comisión" />
+            <Stat
+              etiqueta="Esta semana"
+              valor={colones(gananciaSemana.reduce((sum, g) => sum + g.bruto, 0))}
+              nota={`${gananciaSemana.length} paseos`}
+            />
+            <Stat
+              etiqueta="Calificación"
+              valor={calificacion.toFixed(1)}
+              nota={`${totalResenas} reseñas`}
+            />
+          </div>
+
+          <Section title="Paseo en curso" bodyClass="">
+            {paseoEnCurso ? (
+              <div className="flex flex-wrap items-center gap-5 px-6 pt-4 pb-6">
+                {paseoEnCurso.foto ? (
+                  <MockPhoto
+                    src={paseoEnCurso.foto}
+                    alt={`Foto de ${paseoEnCurso.mascota}`}
+                    className="h-20 w-20 flex-shrink-0"
+                  />
+                ) : (
+                  <Avatar nombre={paseoEnCurso.mascota} size={80} />
+                )}
+                <div className="min-w-[180px] flex-1">
+                  <p className="text-[16px] font-semibold text-ink">{paseoEnCurso.mascota}</p>
+                  <p className="mt-1 text-[12.5px] text-ink-soft">{paseoEnCurso.dueno}</p>
+                  <div className="nums mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] text-ink-soft">
+                    <span className="flex items-center gap-1.5">
+                      <Clock size={13} strokeWidth={1.9} aria-hidden />
+                      {paseoEnCurso.duracion_min} min
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <MapPin size={13} strokeWidth={1.9} aria-hidden />
+                      {paseoEnCurso.zona}
+                    </span>
                   </div>
                 </div>
-              </td>
-              <td className="nums px-6 py-3.5 text-[12.5px] text-ink-soft">
-                {s.cuando}
-              </td>
-              <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">{s.zona}</td>
-              <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                {colones(s.pago)}
-              </td>
-            </tr>
-          ))}
-        </Table>
-      </Section>
+                <Link to="/p/paseo-activo" className={btnPrimary}>
+                  Ir al seguimiento
+                </Link>
+              </div>
+            ) : (
+              <EmptyState
+                title="No tienes paseos en curso"
+                hint="Cuando inicies un paseo confirmado, aparecerá aquí."
+              />
+            )}
+          </Section>
+
+          <Section title="Próximas solicitudes" bodyClass="">
+            {pendientes.length ? (
+              <Table
+                caption="Solicitudes pendientes de responder"
+                columnas={[
+                  { label: "Dueño y mascota" },
+                  { label: "Cuándo" },
+                  { label: "Zona" },
+                  { label: "Pago", align: "right" },
+                ]}
+              >
+                {pendientes.slice(0, 5).map((s) => (
+                  <tr key={s.id_paseo}>
+                    <td className="px-6 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <Avatar nombre={s.dueno} size={32} />
+                        <div>
+                          <p className="text-[13px] font-medium text-ink">{s.mascota}</p>
+                          <p className="text-[11.5px] text-ink-soft">{s.dueno}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="nums px-6 py-3.5 text-[12.5px] text-ink-soft">
+                      {new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(
+                        new Date(`${s.fecha}T00:00:00`),
+                      )}{" "}
+                      · {s.hora_inicio.slice(0, 5)}
+                    </td>
+                    <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">{s.zona}</td>
+                    <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
+                      {colones(s.precio)}
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            ) : (
+              <EmptyState
+                title="No tienes solicitudes pendientes"
+                hint="Cuando un dueño de tu zona te elija, la solicitud aparece aquí."
+              />
+            )}
+          </Section>
+        </>
+      )}
     </Page>
   );
 };
@@ -441,87 +498,56 @@ export const SolicitudesPaseador = () => {
 
 /* ── Agenda ──────────────────────────────────────────────────── */
 
-interface Cita {
-  hora: string;
-  mascota: string;
-  dueno: string;
-  zona: string;
-  duracion: string;
-  pago: number;
-  estado: "Confirmado" | "En curso" | "Completado";
-}
+const tonoCita = (estado: CitaAgendaPaseador["estado"]) =>
+  estado === "en_curso" ? "accent" : "ok";
 
-const agenda: Record<string, Cita[]> = {
-  Hoy: [
-    {
-      hora: "09:00",
-      mascota: "Nube",
-      dueno: "Laura Vega",
-      zona: "San Pedro",
-      duracion: "30 min",
-      pago: 3800,
-      estado: "Completado",
-    },
-    {
-      hora: "11:30",
-      mascota: "Kira",
-      dueno: "Diego Solís",
-      zona: "Curridabat",
-      duracion: "60 min",
-      pago: 5200,
-      estado: "Completado",
-    },
-    {
-      hora: "16:00",
-      mascota: "Rocky",
-      dueno: "Ana Corrales",
-      zona: "Curridabat",
-      duracion: "45 min",
-      pago: 4500,
-      estado: "En curso",
-    },
-  ],
-  Mañana: [
-    {
-      hora: "07:30",
-      mascota: "Kira",
-      dueno: "Diego Solís",
-      zona: "Curridabat",
-      duracion: "60 min",
-      pago: 5200,
-      estado: "Confirmado",
-    },
-    {
-      hora: "15:00",
-      mascota: "Luna",
-      dueno: "Ana Corrales",
-      zona: "Escazú",
-      duracion: "60 min",
-      pago: 5200,
-      estado: "Confirmado",
-    },
-  ],
-  "Viernes 21": [
-    {
-      hora: "08:00",
-      mascota: "Rocky",
-      dueno: "Ana Corrales",
-      zona: "Curridabat",
-      duracion: "45 min",
-      pago: 4500,
-      estado: "Confirmado",
-    },
-  ],
+const labelCita = (estado: CitaAgendaPaseador["estado"]) =>
+  estado === "en_curso" ? "En curso" : "Confirmado";
+
+const etiquetaDia = (fechaISO: string) => {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const manana = new Date(hoy);
+  manana.setDate(hoy.getDate() + 1);
+  const fecha = new Date(`${fechaISO}T00:00:00`);
+
+  if (fecha.getTime() === hoy.getTime()) return "Hoy";
+  if (fecha.getTime() === manana.getTime()) return "Mañana";
+
+  const formato = new Intl.DateTimeFormat("es-CR", { weekday: "long", day: "numeric" }).format(fecha);
+  return formato.charAt(0).toUpperCase() + formato.slice(1);
 };
 
-const tonoCita = (estado: Cita["estado"]) =>
-  estado === "En curso" ? "accent" : estado === "Completado" ? "neutral" : "ok";
-
 export const AgendaPaseador = () => {
-  const dias = Object.keys(agenda);
-  const [dia, setDia] = useState(dias[0]);
-  const citas = agenda[dia];
-  const total = citas.reduce((s, c) => s + c.pago, 0);
+  const [citas, setCitas] = useState<CitaAgendaPaseador[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [dia, setDia] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    listarAgendaPaseador()
+      .then((data) => {
+        setCitas(data);
+        const primerDia = data[0] ? etiquetaDia(data[0].fecha) : "";
+        setDia(primerDia);
+      })
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudo cargar la agenda."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const agendaPorDia = new Map<string, CitaAgendaPaseador[]>();
+  citas.forEach((cita) => {
+    const etiqueta = etiquetaDia(cita.fecha);
+    const grupo = agendaPorDia.get(etiqueta) ?? [];
+    grupo.push(cita);
+    agendaPorDia.set(etiqueta, grupo);
+  });
+
+  const dias = [...agendaPorDia.keys()];
+  const citasDelDia = agendaPorDia.get(dia) ?? [];
+  const total = citasDelDia.reduce((s, c) => s + c.precio, 0);
 
   return (
     <Page>
@@ -530,52 +556,71 @@ export const AgendaPaseador = () => {
         subtitle="Paseos que ya aceptaste, ordenados por hora."
       />
 
-      <div className="bg-surface">
-        <FilterTabs label="Elegir día" options={dias} value={dia} onChange={setDia} />
-      </div>
-
-      <Section bodyClass="">
-        <Table
-          caption={`Paseos agendados para ${dia}`}
-          columnas={[
-            { label: "Hora" },
-            { label: "Mascota" },
-            { label: "Zona" },
-            { label: "Estado" },
-            { label: "Pago", align: "right" },
-          ]}
-        >
-          {citas.map((c) => (
-            <tr key={c.hora + c.mascota}>
-              <td className="nums px-6 py-3.5 text-[13px] font-semibold text-ink">
-                {c.hora}
-              </td>
-              <td className="px-6 py-3.5">
-                <p className="text-[13px] font-medium text-ink">{c.mascota}</p>
-                <p className="text-[11.5px] text-ink-soft">
-                  {c.dueno} · {c.duracion}
-                </p>
-              </td>
-              <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">{c.zona}</td>
-              <td className="px-6 py-3.5">
-                <Badge tono={tonoCita(c.estado)}>{c.estado}</Badge>
-              </td>
-              <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                {colones(c.pago)}
-              </td>
-            </tr>
-          ))}
-        </Table>
-
-        <div className="flex items-center justify-between bg-sunken px-6 py-3.5">
-          <span className="text-[12.5px] font-medium text-ink-soft">
-            Total de {dia.toLowerCase()}
-          </span>
-          <span className="nums text-[15px] font-semibold text-ink">
-            {colones(total)}
-          </span>
+      {error && (
+        <div role="alert" className="bg-danger-wash px-6 py-3 text-[13px] text-danger">
+          {error}
         </div>
-      </Section>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
+          <Loader size={16} className="animate-spin" /> Cargando agenda…
+        </div>
+      ) : dias.length === 0 ? (
+        <EmptyState
+          title="No tienes paseos agendados"
+          hint="Cuando aceptes una solicitud, aparecerá aquí ordenada por día."
+        />
+      ) : (
+        <>
+          <div className="bg-surface">
+            <FilterTabs label="Elegir día" options={dias} value={dia} onChange={setDia} />
+          </div>
+
+          <Section bodyClass="">
+            <Table
+              caption={`Paseos agendados para ${dia}`}
+              columnas={[
+                { label: "Hora" },
+                { label: "Mascota" },
+                { label: "Zona" },
+                { label: "Estado" },
+                { label: "Pago", align: "right" },
+              ]}
+            >
+              {citasDelDia.map((c) => (
+                <tr key={c.id_paseo}>
+                  <td className="nums px-6 py-3.5 text-[13px] font-semibold text-ink">
+                    {c.hora_inicio.slice(0, 5)}
+                  </td>
+                  <td className="px-6 py-3.5">
+                    <p className="text-[13px] font-medium text-ink">{c.mascota}</p>
+                    <p className="text-[11.5px] text-ink-soft">
+                      {c.dueno} · {c.duracion_min} min
+                    </p>
+                  </td>
+                  <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">{c.zona}</td>
+                  <td className="px-6 py-3.5">
+                    <Badge tono={tonoCita(c.estado)}>{labelCita(c.estado)}</Badge>
+                  </td>
+                  <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
+                    {colones(c.precio)}
+                  </td>
+                </tr>
+              ))}
+            </Table>
+
+            <div className="flex items-center justify-between bg-sunken px-6 py-3.5">
+              <span className="text-[12.5px] font-medium text-ink-soft">
+                Total de {dia.toLowerCase()}
+              </span>
+              <span className="nums text-[15px] font-semibold text-ink">
+                {colones(total)}
+              </span>
+            </div>
+          </Section>
+        </>
+      )}
     </Page>
   );
 };
