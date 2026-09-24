@@ -71,7 +71,6 @@ const ForgotPasswordPage = perezoso(() => import("./src/page/ForgotPasswordPage"
 const UpdatePasswordPage = perezoso(() => import("./src/page/UpdatePasswordPage"));
 
 const ProfilePage = perezoso(() => import("./src/page/ProfilePage"), "perfil-cuenta");
-const dashboardPage = perezoso(() => import("./src/page/dashboardPage"), "panel-metricas");
 const MascotasPage = perezoso(() => import("./src/page/MascotasPage"), "mascotas-rejilla");
 const PaseadoresPage = perezoso(() => import("./src/page/PaseadoresPage"), "paseadores-rejilla");
 const CarnetDigital = perezoso(() => import("./src/components/carnet"), "carnet-tarjeta");
@@ -118,7 +117,6 @@ const registerRoute = ruta("/registro", RegisterPage);
 const forgotPasswordRoute = ruta("/recuperar-contrasena", ForgotPasswordPage);
 const updatePasswordRoute = ruta("/actualizar-contrasena", UpdatePasswordPage);
 const profileRoute = ruta("/perfil", ProfilePage);
-const dashboardRoute = ruta("/dashboard", dashboardPage);
 const mascotasRoute = ruta("/mascotas", MascotasPage);
 const paseadoresRoute = ruta("/paseadores", PaseadoresPage);
 
@@ -190,7 +188,6 @@ rootRoute.addChildren([
   forgotPasswordRoute,
   updatePasswordRoute,
   profileRoute,
-  dashboardRoute,
   mascotasRoute,
   paseadoresRoute,
   paseosRoute,
