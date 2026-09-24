@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   User,
@@ -24,6 +24,13 @@ import { useAuth } from "../hooks/useAuth";
 import { getZonas } from "../services/auth.service";
 import { Combo } from "../components/Combo";
 import type { RolPublico, Zona } from "../types/auth.types";
+
+/* Leaflet pesa ~150 kB y solo hace falta en el paso de negocio del
+   registro: se carga aparte para no sumarle peso al arranque de toda
+   la app, que monta LoginPage sin importar el rol. */
+const SelectorUbicacion = lazy(() =>
+  import("../components/SelectorUbicacion").then((m) => ({ default: m.SelectorUbicacion }))
+);
 
 /** Rol elegido en el login. El administrador entra por /acceso-interno. */
 interface LoginPageProps {
@@ -771,14 +778,14 @@ const LoginPage: React.FC<LoginPageProps> = ({
           {/* ─── El pie va después en el documento; ver más abajo ─── */}
           {/* ─── CAPA z-10: formulario (lo tapa la media luna) ─── */}
           <div
-            className={`relative z-10 px-5 py-6 sm:px-8 sm:py-10 lg:absolute lg:top-0 lg:h-full lg:w-1/2 lg:px-12 lg:py-0 ${
+            className={`relative z-10 px-5 py-6 sm:px-8 sm:py-10 lg:absolute lg:top-0 lg:h-full lg:w-1/2 lg:overflow-y-auto lg:overscroll-contain lg:px-12 lg:py-8 ${
               isSignUp ? "lg:left-0" : "lg:left-1/2"
             }`}
           >
             <div
               /* Igual que arriba: el padding extra va del lado de la curva */
               key={`cara-${mode}`}
-              className={`@container animate-[tsc-fade_240ms_ease-out] flex h-full flex-col justify-center lg:animate-none ${
+              className={`@container animate-[tsc-fade_240ms_ease-out] flex h-full flex-col justify-center-safe lg:animate-none ${
                 isSignUp ? "lg:pr-10" : "lg:pl-10"
               }`}
               style={formStyle}
@@ -915,10 +922,22 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           </div>
                           <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder="Dirección exacta *" value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
                           <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder="Horario de atención *" value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>
-                          <div className="grid gap-3 @sm:grid-cols-2">
-                            <input type="number" min="-90" max="90" step="any" placeholder="Latitud (opcional)" value={regLatitud} onChange={(e) => setRegLatitud(e.target.value)} className={`${inputBase} px-5`} />
-                            <input type="number" min="-180" max="180" step="any" placeholder="Longitud (opcional)" value={regLongitud} onChange={(e) => setRegLongitud(e.target.value)} className={`${inputBase} px-5`} />
-                          </div>
+                          <Suspense
+                            fallback={
+                              <div className="flex h-[200px] w-full items-center justify-center rounded-2xl bg-slate-50 text-[11.5px] text-slate-400">
+                                Cargando mapa…
+                              </div>
+                            }
+                          >
+                            <SelectorUbicacion
+                              latitud={regLatitud}
+                              longitud={regLongitud}
+                              onChange={(lat, lng) => {
+                                setRegLatitud(String(lat));
+                                setRegLongitud(String(lng));
+                              }}
+                            />
+                          </Suspense>
                         </>
                       )}
                     </div>
