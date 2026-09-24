@@ -598,6 +598,9 @@ export const SolicitudesPaseador = () => {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo responder la solicitud.");
       aviso.error(cause, { respaldo: "No se pudo responder la solicitud." });
+      /* Puede que el dueño la haya cancelado mientras tanto: se recarga
+         para que la tarjeta no quede colgada. */
+      listWalkerRequests().then(setPendientes).catch(() => {});
     } finally {
       setSavingId(null);
     }
@@ -613,7 +616,7 @@ export const SolicitudesPaseador = () => {
     <Page>
       <PageHeader
         title="Solicitudes"
-        subtitle="Paseos que te ofrecieron los dueños de tu zona. Responde antes de 30 minutos."
+        subtitle="Paseos que te ofrecieron los dueños de tu zona. El dueño puede cancelar mientras no respondas."
       />
 
       {(error || message) && (

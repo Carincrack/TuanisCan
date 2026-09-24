@@ -1,9 +1,10 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { CalendarDays } from "../lib/iconos";
+import { CalendarDays, X } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { listPets } from "../services/pets.service";
-import { listWalksWithRelations, getWalkStats, isUpcoming } from "../services/walks.service";
+import { cancelWalkRequest, listWalksWithRelations, getWalkStats, isUpcoming } from "../services/walks.service";
+import { aviso } from "../lib/aviso";
 import { getZonas } from "../services/auth.service";
 import type { WalkWithRelations } from "../services/walks.service";
 import type { Pet } from "../types/pet.types";
@@ -11,6 +12,7 @@ import type { Zona } from "../types/auth.types";
 import {
   Avatar,
   Badge,
+  Confirmar,
   EmptyState,
   FilterTabs,
   MockPhoto,
@@ -19,6 +21,7 @@ import {
   Section,
   Stat,
   Table,
+  btnDanger,
   btnPrimary,
   btnSecondary,
   colones,
@@ -87,6 +90,8 @@ const Paseos = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [detalleId, setDetalleId] = useState<string | null>(null);
+  const [porCancelar, setPorCancelar] = useState<WalkWithRelations | null>(null);
+  const [cancelando, setCancelando] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -111,6 +116,29 @@ const Paseos = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const cancelarSolicitud = async () => {
+    if (!porCancelar) return;
+    setCancelando(true);
+    try {
+      await cancelWalkRequest(porCancelar.id_paseo);
+      setWalks((actuales) =>
+        actuales.map((w) =>
+          w.id_paseo === porCancelar.id_paseo ? { ...w, estado: "cancelado" } : w,
+        ),
+      );
+      aviso.dato(`Solicitud de ${porCancelar.mascota?.nombre ?? "tu mascota"} cancelada`, {
+        detalle: "Le avisamos al paseador.",
+      });
+      setPorCancelar(null);
+    } catch (cause) {
+      aviso.error(cause, { respaldo: "No se pudo cancelar la solicitud." });
+      setPorCancelar(null);
+      void load();
+    } finally {
+      setCancelando(false);
+    }
+  };
 
   const petOptions = useMemo(
     () => [
@@ -354,6 +382,17 @@ const Paseos = () => {
                         {colones(p.precio)}
                       </td>
                       <td className="px-6 py-3.5 text-right">
+                        <div className="flex justify-end gap-2">
+                        {p.estado === "solicitado" && (
+                          <button
+                            type="button"
+                            className={btnDanger}
+                            onClick={() => setPorCancelar(p)}
+                          >
+                            <X size={14} strokeWidth={2.2} />
+                            Cancelar
+                          </button>
+                        )}
                         {p.estado === "en_curso" ? (
                           <Link to="/paseo-en-vivo" className={btnSecondary}>
                             Ver en vivo
@@ -368,6 +407,7 @@ const Paseos = () => {
                             {detalleId === p.id_paseo ? "Ocultar" : "Detalle"}
                           </button>
                         )}
+                        </div>
                       </td>
                     </tr>
                     {detalleId === p.id_paseo && (
@@ -422,6 +462,19 @@ const Paseos = () => {
             )}
           </Section>
         </>
+      )}
+
+      {porCancelar && (
+        <Confirmar
+          titulo="¿Cancelar la solicitud?"
+          cuerpo={`${porCancelar.paseador?.nombre ?? "El paseador"} todavía no respondió. Si la cancelás, se le avisa y el paseo de ${porCancelar.mascota?.nombre ?? "tu mascota"} no se agenda.`}
+          confirmar="Cancelar solicitud"
+          cancelar="Volver"
+          tono="peligro"
+          ocupado={cancelando}
+          onConfirmar={() => void cancelarSolicitud()}
+          onCancelar={() => setPorCancelar(null)}
+        />
       )}
     </Page>
   );

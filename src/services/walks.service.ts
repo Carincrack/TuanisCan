@@ -225,6 +225,14 @@ export const listWalksByPet = async (
   return byPet;
 };
 
+/** Solo mientras el paseador no la haya respondido. */
+export const cancelWalkRequest = async (id_paseo: string) => {
+  const { error } = await supabase.rpc("cancelar_solicitud_paseo", {
+    p_id_paseo: id_paseo,
+  });
+  if (error) throw error;
+};
+
 export const isUpcoming = (walk: { estado: string }): boolean => {
   const status = walk.estado;
   return status === "solicitado" || status === "confirmado" || status === "en_curso";

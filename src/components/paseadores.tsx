@@ -282,7 +282,7 @@ const Paseadores = () => {
       await requestWalk(payload);
       setSolicitud(null);
       aviso.ok(`Solicitud enviada a ${solicitud.nombre}`, {
-        detalle: "Tiene treinta minutos para responder. Te avisamos apenas conteste.",
+        detalle: "Te avisamos apenas conteste. Mientras tanto podés cancelarla desde Paseos.",
       });
     } catch (cause) {
       setError(messageFrom(cause));
