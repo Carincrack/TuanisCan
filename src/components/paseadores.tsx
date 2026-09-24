@@ -54,6 +54,28 @@ const messageFrom = (error: unknown) => {
   return "No se pudo completar la operacion.";
 };
 
+/* Espeja la f\u00f3rmula de `calcular_precio_paseo` en Supabase: la
+   tarifa base (pensada para 45 min) escala con la duraci\u00f3n y suma
+   recargos modestos \u2014nunca se multiplican entre s\u00ed\u2014 para que el peor
+   caso combinado (mismo d\u00eda, fin de semana, horario nocturno) no pase
+   de +30%. El backend es quien de verdad cobra: esto es solo para
+   que la persona vea el total antes de confirmar. */
+const estimarPrecioPaseo = (
+  tarifaBase: number,
+  fecha: string,
+  horaInicio: string,
+  duracionMin: number
+) => {
+  const esNocturno = horaInicio < "06:00" || horaInicio >= "19:00";
+  const dia = new Date(`${fecha}T00:00:00`).getDay();
+  const esFinDeSemana = dia === 0 || dia === 6;
+  const esMismoDia = fecha === new Date().toISOString().slice(0, 10);
+  const recargo =
+    (esNocturno ? 0.08 : 0) + (esFinDeSemana ? 0.12 : 0) + (esMismoDia ? 0.1 : 0);
+  const total = Math.round(tarifaBase * (duracionMin / 45) * (1 + recargo) * 100) / 100;
+  return { total, esNocturno, esFinDeSemana, esMismoDia };
+};
+
 const normalizar = (value: string) =>
   value
     .normalize("NFD")
@@ -216,6 +238,23 @@ const Paseadores = () => {
       id_mascota: current.id_mascota || pets[0]?.id_mascota || "",
     }));
   };
+
+  const estimado = useMemo(
+    () =>
+      estimarPrecioPaseo(
+        solicitud?.tarifa_base ?? 0,
+        form.fecha,
+        form.hora_inicio,
+        Number(form.duracion_min)
+      ),
+    [solicitud, form.fecha, form.hora_inicio, form.duracion_min]
+  );
+
+  const recargosActivos = [
+    estimado.esMismoDia && "10% mismo día",
+    estimado.esFinDeSemana && "12% fin de semana",
+    estimado.esNocturno && "8% horario nocturno",
+  ].filter((item): item is string => Boolean(item));
 
   const submitRequest = async () => {
     if (!solicitud) return;
@@ -585,16 +624,17 @@ const Paseadores = () => {
               </label>
 
               <div className="rounded-[14px] bg-sunken px-4 py-3">
-                <p className="rotulo text-ink-mute">Total</p>
+                <p className="rotulo text-ink-mute">Total estimado</p>
                 <p className="nums mt-1.5 text-[20px] leading-none font-semibold text-ink">
-                  {colones(solicitud.tarifa_base ?? 0)}
+                  {colones(estimado.total)}
                 </p>
-                {/* Dicho explícito porque el campo de al lado invita a
-                    pensar lo contrario: `solicitar_paseo` copia el
-                    precio de `paseadores.tarifa_base` sin mirar
-                    `duracion_min`. */}
+                {/* El precio real lo calcula `calcular_precio_paseo` en
+                    Supabase al confirmar; esto solo adelanta el mismo
+                    resultado para que la persona lo vea antes de pedir
+                    el paseo. */}
                 <p className="mt-1.5 text-[11px] leading-snug text-ink-mute">
-                  Tarifa única del paseador. No cambia con la duración.
+                  {colones(solicitud.tarifa_base ?? 0)} base · {form.duracion_min} min
+                  {recargosActivos.length > 0 && ` · +${recargosActivos.join(", +")}`}
                 </p>
               </div>
 
