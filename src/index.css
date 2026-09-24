@@ -577,7 +577,7 @@
   border: 3px solid var(--color-surface, #ffffff);
   border-radius: 50% 50% 50% 14%;
 
-  background: var(--color-ink);
+  background: linear-gradient(160deg, var(--color-rail-hover) 0%, var(--color-rail) 65%, var(--color-accent-deep) 100%);
 
   box-shadow:
     0 6px 14px rgb(15 23 42 / 20%),
@@ -622,6 +622,26 @@
 
   background: white;
 }
+
+/* El marcador "activo" —el negocio elegido en el directorio, la
+   posición del paseador en un paseo en vivo, el punto del selector
+   de ubicación—. `directorio.tsx` y `paseoEnVivo.tsx` ya armaban el
+   HTML con la clase `is-active` puesta, pero nunca existió la regla
+   que la mirara: los tres caían siempre en el navy neutro de arriba,
+   pensado para puntos que NO son el elegido —el resto de negocios
+   del directorio, por ejemplo—. Acá se define de una vez, con el
+   turquesa de la marca y un halo del mismo color para que se
+   distinga incluso sobre mapas satelitales oscuros. Al ser una
+   regla compartida, corrige los tres lugares con un solo cambio. */
+.tsc-map-marker__pin.is-active {
+  background: linear-gradient(160deg, #1dbdd3 0%, var(--color-accent) 55%, var(--color-accent-dark) 100%);
+
+  box-shadow:
+    0 6px 14px rgb(14 129 149 / 32%),
+    0 12px 28px rgb(15 23 42 / 16%),
+    0 0 0 6px rgb(20 163 184 / 20%);
+}
+
 /* ─────────────────────────────────────────────────────────────
    Portada pública (`.portada`)
 
