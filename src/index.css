@@ -1155,10 +1155,16 @@
   }
 
   /* En papel el carné no flota sobre un lienzo: la hoja ES el lienzo.
-     Se le quitan el radio y la sombra, que solo tienen sentido cuando
-     hay un fondo del que despegarse. */
-  .carnet-hoja .carnet-pieza {
+     Los paneles blancos pierden el radio, que solo tiene sentido
+     cuando hay un fondo del que despegarse. La cédula navy es la
+     excepción: sigue siendo la imagen de una tarjeta —conserva sus
+     esquinas redondas—, solo se le quita la sombra, porque en el
+     papel no hay nada de qué despegarse. */
+  .carnet-hoja .carnet-panel {
     border-radius: 0;
+  }
+
+  .carnet-hoja .carnet-cedula {
     box-shadow: none;
   }
 

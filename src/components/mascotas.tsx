@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
@@ -258,6 +258,15 @@ const Mascotas = () => {
   useEffect(() => { void load(); }, [load]);
   const selected = pets.find((pet) => pet.id_mascota === selectedId) ?? null;
 
+  /* "Gestionar perfil" abre el panel debajo de la cuadrícula, y en
+     pantallas chicas o con varias mascotas eso puede quedar fuera de
+     la vista: se toca el botón y no pasa nada visible. Se lleva la
+     vista hasta el panel apenas aparece. */
+  const gestionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selectedId) gestionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedId]);
+
   /* Un solo estado para las dos confirmaciones: nunca hay dos
      abiertas a la vez, y así el diálogo se monta una sola vez. */
   const [porBorrar, setPorBorrar] = useState<
@@ -328,7 +337,7 @@ const Mascotas = () => {
 
       {selected && (
         <>
-          <div className="anim-rise flex flex-wrap items-center gap-4 bg-rail px-5 py-4" aria-label={`Gestión de ${selected.nombre}`}>
+          <div ref={gestionRef} className="anim-rise scroll-mt-4 flex flex-wrap items-center gap-4 bg-rail px-5 py-4" aria-label={`Gestión de ${selected.nombre}`}>
             <PetPhoto pet={selected} className="h-14 w-14 flex-shrink-0" />
             <div className="min-w-0"><h3 className="truncate text-[18px] font-semibold text-white">{selected.nombre}</h3><p className="text-[12px] text-rail-text">{selected.especie} · {selected.raza}</p></div>
             <div className="ml-auto flex flex-wrap gap-1">

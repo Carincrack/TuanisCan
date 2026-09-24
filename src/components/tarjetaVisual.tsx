@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components -- GUILLOCHE, REPUJADO
+   y el oro del chip son constantes compartidas, no componentes; ver carnet.tsx. */
 import { Star } from "../lib/iconos";
 import type { CardBrand } from "../lib/payment-card";
 
@@ -42,7 +44,7 @@ import type { CardBrand } from "../lib/payment-card";
     superponerse dan el moiré del torno de grabar. Va como valor y no
     como clase porque son tres capas con posiciones y pasos distintos,
     que es justo lo que una utilidad no puede expresar. */
-const GUILLOCHE = [
+export const GUILLOCHE = [
   "repeating-radial-gradient(circle at 82% 14%, rgba(255,255,255,0.07) 0 1px, transparent 1px 6px)",
   "repeating-radial-gradient(circle at 16% 88%, rgba(255,255,255,0.055) 0 1px, transparent 1px 8px)",
   "repeating-linear-gradient(64deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 5px)",
@@ -56,9 +58,16 @@ const BRILLO =
 
 /** El repujado de los números. Luz arriba, sombra abajo: un píxel
     cada una, que es lo que hace la máquina de repujar. */
-const REPUJADO = {
+export const REPUJADO = {
   textShadow: "0 1px 0 rgba(255,255,255,0.26), 0 -1px 1px rgba(0,0,0,0.5)",
 };
+
+/** El gradiente dorado del chip EMV, suelto para que otras piezas —el
+    sello del carné, por ejemplo— lo usen sin ser una tarjeta de pago. */
+export const GRADIENTE_ORO =
+  "linear-gradient(135deg,#fbeec4 0%,#e4c780 38%,#c69a4a 68%,#8f6a2a 100%)";
+export const RELIEVE_ORO =
+  "inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.4)";
 
 interface TemaTarjeta {
   fondo: string;
