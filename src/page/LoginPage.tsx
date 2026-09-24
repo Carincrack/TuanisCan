@@ -23,6 +23,8 @@ import { inicioDeRol, MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
 import { getZonas } from "../services/auth.service";
 import { Combo } from "../components/Combo";
+import { Dialog } from "../components/ui";
+import TerminosCondiciones from "../components/TerminosCondiciones";
 import type { RolPublico, Zona } from "../types/auth.types";
 
 /* Leaflet pesa ~150 kB y solo hace falta en el paso de negocio del
@@ -187,6 +189,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regLongitud, setRegLongitud] = useState("");
   const [regHorario, setRegHorario] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
+  const [verTerminos, setVerTerminos] = useState(false);
   const [registrationStep, setRegistrationStep] = useState(1);
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [zonasLoading, setZonasLoading] = useState(true);
@@ -364,6 +368,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
     if (regPassword !== regPasswordConfirmation) {
       setError("Las contraseñas no coinciden");
+      setShowError(true);
+      return;
+    }
+
+    if (!aceptaTerminos) {
+      setError("Tenés que aceptar los términos y condiciones para crear la cuenta");
       setShowError(true);
       return;
     }
@@ -958,6 +968,26 @@ const LoginPage: React.FC<LoginPageProps> = ({
                         <Lock className={iconBase} size={18} />
                         <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder="Confirmar contraseña *" value={regPasswordConfirmation} onChange={(e) => setRegPasswordConfirmation(e.target.value)} className={inputBase} minLength={8} required />
                       </div>
+
+                      <label className="flex items-start gap-2.5 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={aceptaTerminos}
+                          onChange={(e) => setAceptaTerminos(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[#14A3B8]"
+                        />
+                        <span>
+                          Leí y acepto los{" "}
+                          <button
+                            type="button"
+                            onClick={() => setVerTerminos(true)}
+                            className="font-semibold text-[#14A3B8] underline underline-offset-2 hover:text-[#0e8195]"
+                          >
+                            términos y condiciones
+                          </button>{" "}
+                          de {MARCA.completo}.
+                        </span>
+                      </label>
                     </div>
                   )}
 
@@ -987,7 +1017,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     {registrationStep < 4 ? (
                       <button type="button" onClick={nextRegistrationStep} className={primaryBtn}>SIGUIENTE <ChevronRight size={16} /></button>
                     ) : (
-                      <button type="submit" disabled={isLoading || Boolean(success)} className={primaryBtn}>{isLoading ? "CREANDO..." : "CREAR CUENTA"}</button>
+                      <button type="submit" disabled={isLoading || Boolean(success) || !aceptaTerminos} className={primaryBtn}>{isLoading ? "CREANDO..." : "CREAR CUENTA"}</button>
                     )}
                   </div>
                 </form>
@@ -1097,6 +1127,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
           </div>
         </div>
       </div>
+
+      {verTerminos && (
+        <Dialog title="Términos y condiciones" onClose={() => setVerTerminos(false)} ancho="max-w-[680px]">
+          <TerminosCondiciones />
+        </Dialog>
+      )}
     </div>
   );
 };
