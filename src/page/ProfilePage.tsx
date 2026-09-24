@@ -1110,7 +1110,6 @@ const ProfilePage = () => {
   const requiredVerificationDocuments: VerificationDocumentType[] =
     [
       "cedula_frente",
-      "cedula_reverso",
 
       ...(profile.paseador
         ? ([
