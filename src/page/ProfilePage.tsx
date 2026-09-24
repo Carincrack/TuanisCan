@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
@@ -29,6 +29,13 @@ import {
 import ProfileAvatar from "../components/ProfileAvatar";
 import SelloVerificado from "../components/SelloVerificado";
 import Visor from "../components/Visor";
+
+/* Leaflet pesa ~150 kB y solo hace falta en las pestañas de negocio:
+   se carga aparte para no sumarle peso al perfil de cuentas que nunca
+   tocan un mapa. Mismo criterio que en el registro. */
+const SelectorUbicacion = lazy(() =>
+  import("../components/SelectorUbicacion").then((m) => ({ default: m.SelectorUbicacion }))
+);
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 
@@ -2047,8 +2054,18 @@ const ProfilePage = () => {
       )}
 
       {/* =====================================================
-          PERFIL ACTUAL: PASEADOR
+          PERFIL ACTUAL: PASEADOR Y NEGOCIO
+
+          Las dos tarjetas de acá abajo tenían campos editables —tarifa,
+          disponibilidad, dirección, mapa, horario— sin ningún botón que
+          los guardara: se podía cambiar el mapa del negocio y no pasaba
+          nada al salir de la pantalla. El `<form>` las envuelve a las
+          dos y comparte el mismo `save` que ya usa "Mis datos" —ya sabe
+          incluir paseador o negocio según el rol activo, así que no
+          hace falta otra función.
          ===================================================== */}
+
+      <form onSubmit={save}>
 
       {role === "paseador" &&
         profile.paseador && (
@@ -2384,68 +2401,26 @@ const ProfilePage = () => {
                 />
               </div>
 
-              <div>
-                <label
-                  htmlFor="negocio-latitud"
-                  className={
-                    labelClass
+              <div className="sm:col-span-2">
+                <span className={labelClass}>
+                  Ubicación en el mapa
+                </span>
+                <Suspense
+                  fallback={
+                    <div className="flex h-[200px] w-full items-center justify-center rounded-2xl bg-slate-50 text-[11.5px] text-slate-400">
+                      Cargando mapa…
+                    </div>
                   }
                 >
-                  Latitud
-                </label>
-
-                <input
-                  id="negocio-latitud"
-                  type="number"
-                  min="-90"
-                  max="90"
-                  step="any"
-                  value={
-                    form.latitud
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setField(
-                      "latitud",
-                      event.target
-                        .value,
-                    )
-                  }
-                  className={`${fieldClass} nums`}
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="negocio-longitud"
-                  className={
-                    labelClass
-                  }
-                >
-                  Longitud
-                </label>
-
-                <input
-                  id="negocio-longitud"
-                  type="number"
-                  min="-180"
-                  max="180"
-                  step="any"
-                  value={
-                    form.longitud
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setField(
-                      "longitud",
-                      event.target
-                        .value,
-                    )
-                  }
-                  className={`${fieldClass} nums`}
-                />
+                  <SelectorUbicacion
+                    latitud={form.latitud}
+                    longitud={form.longitud}
+                    onChange={(lat, lng) => {
+                      setField("latitud", String(lat));
+                      setField("longitud", String(lng));
+                    }}
+                  />
+                </Suspense>
               </div>
 
               <div className="sm:col-span-2">
@@ -2481,6 +2456,21 @@ const ProfilePage = () => {
             </div>
           </div>
         )}
+
+      {(role === "paseador" || role === "negocio") && (
+        <div className="flex justify-end border-t border-black/[0.05] pt-5">
+          <button
+            type="submit"
+            disabled={saving}
+            className={`${btnPrimary} w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            <Save size={15} />
+            {saving ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </div>
+      )}
+
+      </form>
 
       {/* =====================================================
           AGREGAR OTRO PERFIL
@@ -3316,70 +3306,23 @@ const ProfilePage = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="activar-negocio-latitud"
-                    className={
-                      labelClass
+                <div className="sm:col-span-2">
+                  <Suspense
+                    fallback={
+                      <div className="flex h-[200px] w-full items-center justify-center rounded-2xl bg-slate-50 text-[11.5px] text-slate-400">
+                        Cargando mapa…
+                      </div>
                     }
                   >
-                    Latitud
-                  </label>
-
-                  <input
-                    id="activar-negocio-latitud"
-                    type="number"
-                    min="-90"
-                    max="90"
-                    step="any"
-                    value={
-                      form.latitud
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setField(
-                        "latitud",
-                        event.target
-                          .value,
-                      )
-                    }
-                    className={`${fieldClass} nums`}
-                    placeholder="10.000000"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="activar-negocio-longitud"
-                    className={
-                      labelClass
-                    }
-                  >
-                    Longitud
-                  </label>
-
-                  <input
-                    id="activar-negocio-longitud"
-                    type="number"
-                    min="-180"
-                    max="180"
-                    step="any"
-                    value={
-                      form.longitud
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setField(
-                        "longitud",
-                        event.target
-                          .value,
-                      )
-                    }
-                    className={`${fieldClass} nums`}
-                    placeholder="-85.000000"
-                  />
+                    <SelectorUbicacion
+                      latitud={form.latitud}
+                      longitud={form.longitud}
+                      onChange={(lat, lng) => {
+                        setField("latitud", String(lat));
+                        setField("longitud", String(lng));
+                      }}
+                    />
+                  </Suspense>
                 </div>
 
                 <div className="flex justify-end border-t border-black/[0.05] pt-5 sm:col-span-2">
