@@ -99,6 +99,7 @@ const SolicitudesPaseador = perezoso(nombrada(paseador, "SolicitudesPaseador"), 
 const AgendaPaseador = perezoso(nombrada(paseador, "AgendaPaseador"));
 const PaseoActivoPaseador = perezoso(() => import("./src/components/PaseoActivoPaseador"));
 const GananciasPaseador = perezoso(nombrada(paseador, "GananciasPaseador"));
+const TarifasPaseador = perezoso(() => import("./src/components/TarifasPaseador"));
 const PerfilPaseador = perezoso(() => import("./src/components/PerfilPaseador"));
 const ResenasPaseador = perezoso(() => import("./src/components/ResenasPaseador"));
 
@@ -150,6 +151,7 @@ const solicitudesRoute = ruta("/p/solicitudes", SolicitudesPaseador);
 const agendaRoute = ruta("/p/agenda", AgendaPaseador);
 const paseoActivoRoute = ruta("/p/paseo-activo", PaseoActivoPaseador);
 const gananciasRoute = ruta("/p/ganancias", GananciasPaseador);
+const tarifasRoute = ruta("/p/tarifas", TarifasPaseador);
 const perfilPaseadorRoute = ruta("/p/perfil", PerfilPaseador);
 const resenasPaseadorRoute = ruta("/p/resenas", ResenasPaseador);
 
@@ -180,6 +182,7 @@ rootRoute.addChildren([
   agendaRoute,
   paseoActivoRoute,
   gananciasRoute,
+  tarifasRoute,
   perfilPaseadorRoute,
   resenasPaseadorRoute,
   homeRoute,

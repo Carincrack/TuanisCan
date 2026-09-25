@@ -1,13 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
+  AlertTriangle,
+  CalendarDays,
   Check,
   Clock,
   Loader,
   MapPin,
+  Navigation,
   Pause,
+  PawPrint,
   Play,
+  ShieldCheck,
   Star,
+  Stethoscope,
+  Syringe,
+  Timer,
   Wallet,
   X,
 } from "../lib/iconos";
@@ -27,6 +35,7 @@ import {
   btnSecondary,
   colones,
   input,
+  surface,
 } from "./ui";
 import {
   listWalkerRequests,
@@ -40,6 +49,7 @@ import { aviso } from "../lib/aviso";
 import { listWalkerEarnings, type WalkerEarning } from "../services/payments.service";
 import { listarResenasPaseador } from "../services/resenas-paseador.service";
 import { toggleWalkerAvailability } from "../services/walkers.service";
+import { formatDate, petAge, vaccineStatus } from "../lib/pets";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -280,6 +290,285 @@ export const PanelPaseador = () => {
 
 /* ── Solicitudes ─────────────────────────────────────────────── */
 
+const fechaSolicitud = (fecha: string) =>
+  new Intl.DateTimeFormat("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${fecha}T00:00:00`));
+
+const rangoHoras = (hora: string, minutos: number) => {
+  const [h, m] = hora.split(":").map(Number);
+  const fin = h * 60 + m + minutos;
+  const dosDigitos = (n: number) => String(n).padStart(2, "0");
+  return `${hora.slice(0, 5)}–${dosDigitos(Math.floor(fin / 60) % 24)}:${dosDigitos(fin % 60)}`;
+};
+
+/* La foto es lo primero que el paseador necesita: así va a reconocer
+   a la mascota en el punto de encuentro. Tocarla la abre en grande. */
+const FotoMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) =>
+  s.fotoUrl ? (
+    <a
+      href={s.fotoUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="block overflow-hidden rounded-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      aria-label={`Ver la foto de ${s.mascota} en tamaño completo`}
+    >
+      <img
+        src={s.fotoUrl}
+        alt={`Foto de ${s.mascota}`}
+        loading="lazy"
+        className="aspect-[4/3] w-full bg-sunken object-cover transition-transform duration-300 hover:scale-[1.03] md:aspect-[4/5]"
+      />
+    </a>
+  ) : (
+    <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-[14px] bg-accent-wash text-accent-deep md:aspect-[4/5]">
+      <PawPrint size={36} strokeWidth={1.6} aria-hidden />
+      <span className="text-[12px]">Sin foto</span>
+    </div>
+  );
+
+const Dato = ({ rotulo, valor }: { rotulo: string; valor: string }) => (
+  <div className="min-w-0">
+    <dt className="text-[12px] text-ink-mute">{rotulo}</dt>
+    <dd className="mt-0.5 break-words text-[13.5px] text-ink">{valor}</dd>
+  </div>
+);
+
+/* Todo lo que el dueño registró de la mascota, ordenado por lo que
+   pesa en la decisión: primero la salud, después cómo es y al final
+   las notas sueltas. */
+const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
+  const datos = [
+    ["Peso", s.peso !== null ? `${s.peso} kg` : null],
+    ["Color", s.color],
+    ["Esterilizado", s.esterilizado === null ? null : s.esterilizado ? "Sí" : "No"],
+    ["Microchip", s.microchip],
+    ["Veterinaria", s.veterinaria],
+  ].filter((dato): dato is [string, string] => Boolean(dato[1]));
+
+  return (
+    <div className="mt-6 flex flex-col gap-5">
+      {s.alergias ? (
+        <p className="flex gap-3 rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] leading-snug text-danger">
+          <AlertTriangle size={17} strokeWidth={2} aria-hidden className="mt-px shrink-0" />
+          <span>
+            <span className="font-semibold">Alergias: </span>
+            {s.alergias}
+          </span>
+        </p>
+      ) : (
+        <p className="flex items-center gap-2.5 text-[13px] text-ok">
+          <ShieldCheck size={16} strokeWidth={2} aria-hidden className="shrink-0" />
+          {s.padecimientos.length ? "Sin alergias registradas" : "Sin alergias ni enfermedades registradas"}
+        </p>
+      )}
+
+      {s.padecimientos.length > 0 && (
+        <div className="rounded-[14px] bg-warn-wash px-4 py-3">
+          <h4 className="flex items-center gap-2 text-[13px] font-semibold text-warn">
+            <Stethoscope size={16} strokeWidth={2} aria-hidden className="shrink-0" />
+            {s.padecimientos.length === 1 ? "Tiene una enfermedad" : `Tiene ${s.padecimientos.length} enfermedades`}
+          </h4>
+          <ul className="mt-2 flex flex-col gap-2.5">
+            {s.padecimientos.map((p) => (
+              <li key={p.nombre} className="pl-6 text-[13px] leading-snug">
+                <span className="font-semibold text-ink">{p.nombre}</span>
+                {p.fecha_diagnostico && (
+                  <span className="nums text-ink-mute"> · desde {formatDate(p.fecha_diagnostico)}</span>
+                )}
+                {p.cuidados && <p className="mt-0.5 whitespace-pre-wrap text-ink-soft">{p.cuidados}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {datos.length > 0 && (
+        <dl className="nums grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+          {datos.map(([rotulo, valor]) => (
+            <Dato key={rotulo} rotulo={rotulo} valor={valor} />
+          ))}
+        </dl>
+      )}
+
+      <div>
+        <h4 className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+          <Syringe size={15} strokeWidth={1.8} aria-hidden className="text-ink-mute" />
+          Vacunas
+        </h4>
+        {s.vacunas.length === 0 ? (
+          <p className="mt-1.5 text-[13px] text-ink-soft">El dueño no registró vacunas.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-sunken">
+            {s.vacunas.map((v) => {
+              const estado = vaccineStatus(v.fecha_vencimiento);
+              return (
+                <li
+                  key={`${v.nombre_vacuna}-${v.fecha_aplicacion}`}
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-[13px]"
+                >
+                  <span className="text-ink">{v.nombre_vacuna}</span>
+                  <span className="flex items-center gap-3">
+                    <span className="nums text-ink-mute">vence {formatDate(v.fecha_vencimiento)}</span>
+                    <Badge tono={estado === "vigente" ? "ok" : estado === "pendiente" ? "warn" : "danger"}>
+                      {estado === "pendiente" ? "Por vencer" : estado}
+                    </Badge>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {s.notas && (
+        <blockquote className="border-l-2 border-accent pl-4 text-[13px] leading-relaxed text-ink-soft">
+          <p className="mb-1 font-semibold text-ink">Lo que el dueño quiere que sepas</p>
+          {s.notas}
+        </blockquote>
+      )}
+    </div>
+  );
+};
+
+const TarjetaSolicitud = ({
+  solicitud: s,
+  comentario,
+  onComentario,
+  guardando,
+  onResponder,
+}: {
+  solicitud: WalkerRequest;
+  comentario: string;
+  onComentario: (valor: string) => void;
+  guardando: boolean;
+  onResponder: (aprobada: boolean) => void;
+}) => {
+  const esOferta = s.precio !== s.precio_tarifa;
+  const diferencia = s.precio_tarifa > 0 ? Math.round(((s.precio - s.precio_tarifa) / s.precio_tarifa) * 100) : 0;
+
+  const rasgos = [
+    s.especie,
+    s.raza,
+    s.sexo === "macho" ? "Macho" : s.sexo === "hembra" ? "Hembra" : null,
+    s.fecha_nacimiento ? petAge(s.fecha_nacimiento) : null,
+  ].filter(Boolean) as string[];
+
+  return (
+    <article className={`${surface} overflow-hidden`} aria-labelledby={`solicitud-${s.id_paseo}`}>
+      <div className="grid gap-6 p-5 sm:p-6 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4">
+          <FotoMascota solicitud={s} />
+          <div className="flex items-center gap-3">
+            <Avatar nombre={s.dueno} size={34} />
+            <div className="min-w-0">
+              <p className="text-[12px] text-ink-mute">Dueño</p>
+              <p className="truncate text-[13.5px] font-medium text-ink">{s.dueno}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <header className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h3 id={`solicitud-${s.id_paseo}`} className="titular text-[26px] leading-tight text-ink">
+                {s.mascota}
+              </h3>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {rasgos.map((rasgo) => (
+                  <li key={rasgo} className="rounded-full bg-sunken px-3 py-1 text-[12px] text-ink-soft">
+                    {rasgo}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {esOferta ? (
+              <div className="rounded-[14px] bg-accent-wash px-4 py-2.5 text-right">
+                <p className="text-[12px] font-semibold text-accent-deep">Oferta del dueño</p>
+                <p className="nums text-[26px] font-semibold leading-tight text-ink">{colones(s.precio)}</p>
+                <p className="nums text-[12px] text-ink-soft">
+                  Tu tarifa: <span className="line-through">{colones(s.precio_tarifa)}</span>
+                  <span className={`ml-1.5 font-semibold ${diferencia > 0 ? "text-ok" : "text-warn"}`}>
+                    {diferencia > 0 ? "+" : ""}{diferencia}%
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div className="text-right">
+                <p className="nums text-[26px] font-semibold leading-tight text-ink">{colones(s.precio)}</p>
+                <p className="text-[12px] text-ink-mute">Te pagan por este paseo</p>
+              </div>
+            )}
+          </header>
+
+          <dl className="nums mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-suelo sm:grid-cols-4">
+            {[
+              { icono: CalendarDays, rotulo: "Día", valor: fechaSolicitud(s.fecha) },
+              { icono: Clock, rotulo: "Horario", valor: rangoHoras(s.hora_inicio, s.duracion_min) },
+              { icono: Timer, rotulo: "Duración", valor: `${s.duracion_min} min` },
+              { icono: MapPin, rotulo: "Zona", valor: s.zona },
+            ].map(({ icono: Icono, rotulo, valor }) => (
+              <div key={rotulo} className="bg-sunken px-4 py-3">
+                <dt className="flex items-center gap-1.5 text-[12px] text-ink-mute">
+                  <Icono size={13} strokeWidth={1.8} aria-hidden />
+                  {rotulo}
+                </dt>
+                <dd className="mt-1 text-[13.5px] font-medium first-letter:uppercase text-ink">{valor}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <p className="mt-3 flex gap-2.5 text-[13px] leading-snug text-ink-soft">
+            <Navigation size={15} strokeWidth={1.8} aria-hidden className="mt-0.5 shrink-0 text-accent-dark" />
+            <span>
+              <span className="text-ink">Punto de encuentro: </span>
+              {s.direccion_encuentro}
+            </span>
+          </p>
+
+          <FichaMascota solicitud={s} />
+        </div>
+      </div>
+
+      <footer className="flex flex-col gap-3 border-t border-sunken bg-canvas/60 px-5 py-4 sm:px-6 md:flex-row md:items-end">
+        <label className="block flex-1">
+          <span className="text-[12px] text-ink-mute">Mensaje para {s.dueno} (opcional)</span>
+          <textarea
+            rows={2}
+            maxLength={500}
+            value={comentario}
+            onChange={(e) => onComentario(e.target.value)}
+            className={`${input} mt-1.5 resize-y bg-surface`}
+            placeholder="Ej.: Llego 5 minutos antes con correa extra."
+          />
+        </label>
+        <div className="flex gap-2 md:pb-0.5">
+          <button
+            type="button"
+            disabled={guardando}
+            onClick={() => onResponder(false)}
+            className={`${btnDanger} flex-1 md:flex-none`}
+          >
+            <X size={15} strokeWidth={2.2} />
+            Rechazar
+          </button>
+          <button
+            type="button"
+            disabled={guardando}
+            onClick={() => onResponder(true)}
+            className={`${btnPrimary} flex-1 md:flex-none`}
+          >
+            <Check size={15} strokeWidth={2.2} />
+            {guardando ? "Guardando..." : esOferta ? `Aceptar ${colones(s.precio)}` : "Aceptar paseo"}
+          </button>
+        </div>
+      </footer>
+    </article>
+  );
+};
+
 export const SolicitudesPaseador = () => {
   const { getProfile, isAdmin } = useAuth();
   const [pendientes, setPendientes] = useState<WalkerRequest[]>([]);
@@ -346,6 +635,9 @@ export const SolicitudesPaseador = () => {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo responder la solicitud.");
       aviso.error(cause, { respaldo: "No se pudo responder la solicitud." });
+      /* Puede que el dueño la haya cancelado mientras tanto: se recarga
+         para que la tarjeta no quede colgada. */
+      listWalkerRequests().then(setPendientes).catch(() => {});
     } finally {
       setSavingId(null);
     }
@@ -361,7 +653,7 @@ export const SolicitudesPaseador = () => {
     <Page>
       <PageHeader
         title="Solicitudes"
-        subtitle="Paseos que te ofrecieron los dueños de tu zona. Responde antes de 30 minutos."
+        subtitle="Paseos que te ofrecieron los dueños de tu zona. El dueño puede cancelar mientras no respondas."
       />
 
       {(error || message) && (
@@ -377,105 +669,16 @@ export const SolicitudesPaseador = () => {
       )}
 
       {!loading && pendientes.map((s) => (
-        <article key={s.id_paseo} className="bg-surface">
-          <div className="flex flex-wrap gap-5 px-6 py-5">
-            {s.fotoUrl ? (
-              <MockPhoto
-                src={s.fotoUrl}
-                alt={`Foto de ${s.mascota}`}
-                className="h-28 w-28 flex-shrink-0"
-              />
-            ) : (
-              <Avatar nombre={s.mascota} size={112} />
-            )}
-
-            <div className="min-w-[220px] flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-[16px] font-semibold text-ink">{s.mascota}</h3>
-                <Badge tono="warn">Pendiente</Badge>
-              </div>
-              <p className="mt-1 text-[12.5px] text-ink-soft">
-                {s.raza} · dueño: {s.dueno}
-              </p>
-
-              <dl className="nums mt-4 flex flex-wrap gap-x-8 gap-y-2 text-[12.5px]">
-                <div>
-                  <dt className="rotulo text-ink-mute">
-                    Cuándo
-                  </dt>
-                  <dd className="mt-0.5 text-ink">{formatoFecha(s.fecha, s.hora_inicio)}</dd>
-                </div>
-                <div>
-                  <dt className="rotulo text-ink-mute">
-                    Duración
-                  </dt>
-                  <dd className="mt-0.5 text-ink">{s.duracion_min} min</dd>
-                </div>
-                <div>
-                  <dt className="rotulo text-ink-mute">
-                    Zona
-                  </dt>
-                  <dd className="mt-0.5 text-ink">
-                    {s.zona}
-                  </dd>
-                </div>
-              </dl>
-
-              <p className="mt-4 bg-sunken px-4 py-3 text-[12.5px] leading-snug text-ink-soft">
-                {s.direccion_encuentro}
-              </p>
-
-              <label className="mt-4 block">
-                <span className="rotulo text-ink-mute">Comentario para el dueño</span>
-                <textarea
-                  rows={2}
-                  maxLength={500}
-                  value={comentarios[s.id_paseo] ?? ""}
-                  onChange={(e) =>
-                    setComentarios({
-                      ...comentarios,
-                      [s.id_paseo]: e.target.value,
-                    })
-                  }
-                  className={`${input} mt-2 resize-y`}
-                  placeholder="Opcional al aprobar o rechazar"
-                />
-              </label>
-            </div>
-
-            <div className="flex w-full flex-col justify-between gap-4 sm:w-[200px]">
-              <div className="bg-sunken px-4 py-3 text-right">
-                <p className="rotulo text-ink-mute">
-                  Pago
-                </p>
-                <p className="nums mt-1 text-[22px] font-semibold text-ink">
-                  {colones(s.precio)}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={savingId === s.id_paseo}
-                  onClick={() => void responder(s, true)}
-                  className={`${btnPrimary} w-full`}
-                >
-                  <Check size={15} strokeWidth={2.2} />
-                  {savingId === s.id_paseo ? "Guardando..." : "Aceptar"}
-                </button>
-                <button
-                  type="button"
-                  disabled={savingId === s.id_paseo}
-                  onClick={() => void responder(s, false)}
-                  className={`${btnDanger} w-full`}
-                >
-                  <X size={15} strokeWidth={2.2} />
-                  Rechazar
-                </button>
-              </div>
-            </div>
-          </div>
-        </article>
+        <TarjetaSolicitud
+          key={s.id_paseo}
+          solicitud={s}
+          comentario={comentarios[s.id_paseo] ?? ""}
+          onComentario={(valor) =>
+            setComentarios({ ...comentarios, [s.id_paseo]: valor })
+          }
+          guardando={savingId === s.id_paseo}
+          onResponder={(aprobada) => void responder(s, aprobada)}
+        />
       ))}
 
       {!loading && pendientes.length === 0 && (

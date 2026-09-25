@@ -13,18 +13,46 @@ export interface WalkerRequest {
   especie: string;
   foto: string | null;
   fotoUrl: string | null;
+  sexo: "macho" | "hembra" | null;
+  fecha_nacimiento: string | null;
+  peso: number | null;
+  color: string | null;
+  esterilizado: boolean | null;
+  microchip: string | null;
+  alergias: string | null;
+  veterinaria: string | null;
+  notas: string | null;
+  vacunas: WalkerRequestVaccine[];
+  padecimientos: WalkerRequestCondition[];
   zona: string;
   fecha: string;
   hora_inicio: string;
   duracion_min: number;
   direccion_encuentro: string;
+  /** Lo que se cobra si acepta: la oferta del dueño o la tarifa. */
   precio: number;
+  /** Lo que habría costado según la tarifa del paseador. */
+  precio_tarifa: number;
   estado: "solicitado" | "confirmado" | "en_curso" | "finalizado" | "cancelado";
   comentario_respuesta: string | null;
 }
 
-type WalkerRequestRow = Omit<WalkerRequest, "precio" | "fotoUrl"> & {
+export interface WalkerRequestVaccine {
+  nombre_vacuna: string;
+  fecha_aplicacion: string;
+  fecha_vencimiento: string;
+}
+
+export interface WalkerRequestCondition {
+  nombre: string;
+  cuidados: string | null;
+  fecha_diagnostico: string | null;
+}
+
+type WalkerRequestRow = Omit<WalkerRequest, "precio" | "precio_tarifa" | "peso" | "fotoUrl"> & {
   precio: number | string;
+  precio_tarifa: number | string;
+  peso: number | string | null;
 };
 
 const photoUrl = async (path: string | null) => {
@@ -43,6 +71,8 @@ export const listWalkerRequests = async (): Promise<WalkerRequest[]> => {
     ((data ?? []) as WalkerRequestRow[]).map(async (request) => ({
       ...request,
       precio: Number(request.precio),
+      precio_tarifa: Number(request.precio_tarifa),
+      peso: request.peso === null ? null : Number(request.peso),
       fotoUrl: await photoUrl(request.foto),
     })),
   );

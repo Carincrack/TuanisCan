@@ -29,7 +29,10 @@ export interface Walk {
   hora_fin: string | null;
   duracion_min: number;
   estado: WalkStatus;
+  /** Lo que se cobra: la oferta del dueño o, sin oferta, la tarifa. */
   precio: number;
+  /** Lo que costaba según la tarifa del paseador al pedirlo. */
+  precio_tarifa: number;
   direccion_encuentro: string;
 }
 

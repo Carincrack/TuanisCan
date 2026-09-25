@@ -57,6 +57,9 @@ export const btnQuiet = `${pulsable} px-4 py-2 text-[13px] font-medium text-ink-
 
 export const btnDanger = `${pulsable} bg-danger-wash px-5 py-2.5 text-[13px] text-danger hover:brightness-[0.97]`;
 
+/** Peligro compacto: la pareja de `btnSecondaryCompacto` en una fila. */
+export const btnDangerCompacto = `${pulsable} bg-danger-wash px-3 py-2 text-[12px] text-danger hover:brightness-[0.97]`;
+
 /* ── Campos ──────────────────────────────────────────────────── */
 
 export const input =
