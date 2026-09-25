@@ -1,5 +1,6 @@
 import type { Session, User } from "@supabase/supabase-js";
 import type { Rol } from "../lib/nav";
+import type { RecargosPaseador } from "../lib/precios";
 
 export type RolPublico = Exclude<Rol, "admin">;
 export type UserRole = RolPublico;
@@ -38,7 +39,7 @@ export interface Zona {
 
 export type ZonaInput = Omit<Zona, "id_zona">;
 
-export interface PaseadorProfile {
+export interface PaseadorProfile extends RecargosPaseador {
   descripcion: string | null;
   tarifa_base: number | null;
   calificacion_promedio: number;
@@ -134,7 +135,7 @@ export interface AdminWalker {
   estado: "activo" | "inactivo" | "suspendido";
 }
 
-export interface PublicWalker {
+export interface PublicWalker extends RecargosPaseador {
   id_usuario: string;
   nombre: string;
   foto_perfil: string | null;
@@ -164,7 +165,8 @@ export interface ProfileUpdate {
   telefono: string | null;
   foto_perfil: string | null;
   zona_id: string | null;
-  paseador?: Pick<PaseadorProfile, "descripcion" | "tarifa_base" | "disponible">;
+  /** La tarifa y los recargos se guardan aparte, desde Tarifas. */
+  paseador?: Pick<PaseadorProfile, "descripcion" | "disponible">;
   negocio?: Pick<
     NegocioProfile,
     "zona_id" | "nombre" | "tipo" | "direccion" | "latitud" | "longitud" | "telefono" | "horario"

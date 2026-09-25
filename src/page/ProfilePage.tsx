@@ -561,13 +561,6 @@ const ProfilePage = () => {
           form.descripcion.trim() ||
           null,
 
-        tarifa_base:
-          form.tarifa_base
-            ? Number(
-                form.tarifa_base,
-              )
-            : null,
-
         disponible:
           form.disponible,
       };
@@ -655,20 +648,6 @@ const ProfilePage = () => {
 
     if (personalError) {
       setError(personalError);
-      return;
-    }
-
-    if (
-      role === "paseador" &&
-      form.tarifa_base &&
-      Number(
-        form.tarifa_base,
-      ) < 0
-    ) {
-      setError(
-        "La tarifa no puede ser negativa.",
-      );
-
       return;
     }
 
@@ -2122,42 +2101,38 @@ const ProfilePage = () => {
                 />
               </div>
 
-              <div>
-                <label
-                  htmlFor="perfil-tarifa"
-                  className={
-                    labelClass
+              {/* La tarifa y los recargos se configuran en su propia
+                  vista (/p/tarifas): acá solo se muestra la tarifa y se
+                  lleva hasta allá, para no tener el precio editable en
+                  dos lugares. */}
+              <div className={`${softCardClass} flex items-center justify-between gap-3 p-4`}>
+                <div>
+                  <p className={labelClass}>
+                    Tarifa base por paseo
+                  </p>
+
+                  <p className="nums text-[18px] font-semibold tracking-tight text-ink">
+                    {profile.paseador.tarifa_base
+                      ? `₡${profile.paseador.tarifa_base.toLocaleString("es-CR")}`
+                      : "Sin definir"}
+                  </p>
+
+                  <p className="mt-0.5 text-[10.5px] text-ink-mute">
+                    Recargos y horarios en Tarifas.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className={btnSecondary}
+                  onClick={() =>
+                    void navigate({
+                      to: "/p/tarifas",
+                    })
                   }
                 >
-                  Tarifa base por
-                  paseo
-                </label>
-
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-ink-mute">
-                    ₡
-                  </span>
-
-                  <input
-                    id="perfil-tarifa"
-                    type="number"
-                    min="0"
-                    step="100"
-                    value={
-                      form.tarifa_base
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setField(
-                        "tarifa_base",
-                        event.target
-                          .value,
-                      )
-                    }
-                    className={`${fieldClass} nums pl-7`}
-                  />
-                </div>
+                  Configurar
+                </button>
               </div>
 
               <label

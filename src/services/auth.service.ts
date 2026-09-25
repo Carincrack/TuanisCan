@@ -1,5 +1,6 @@
 import type { AuthResponse, Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { normalizarRecargos } from "../lib/precios";
 import type {
   NegocioProfile,
   PaseadorProfile,
@@ -113,7 +114,7 @@ export const getUserProfile = async (
     usuario.zona_id
       ? supabase.from("zonas").select("id_zona, nombre, canton, provincia").eq("id_zona", usuario.zona_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    supabase.from("paseadores").select("descripcion, tarifa_base, calificacion_promedio, estado_verificacion, disponible").eq("id_usuario", userId).maybeSingle(),
+    supabase.from("paseadores").select("descripcion, tarifa_base, calificacion_promedio, estado_verificacion, disponible, recargo_nocturno, recargo_fin_semana, recargo_mismo_dia, nocturno_desde, nocturno_hasta").eq("id_usuario", userId).maybeSingle(),
     roles.includes("paseador")
       ? supabase.from("documentos_paseador").select("id_documento, ruta_storage, fecha_subida").eq("id_usuario", userId).order("fecha_subida", { ascending: false })
       : Promise.resolve({ data: null, error: null }),
@@ -155,6 +156,7 @@ export const getUserProfile = async (
     paseador: paseadorResult.data
       ? {
           ...paseadorResult.data,
+          ...normalizarRecargos(paseadorResult.data),
           documentos: (documentosResult.data ?? []) as DocumentoPaseador[],
         } as PaseadorProfile
       : null,

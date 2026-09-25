@@ -10,6 +10,7 @@ import {
 } from "../lib/iconos";
 import { listPets } from "../services/pets.service";
 import { listActiveWalkers, requestWalk } from "../services/walkers.service";
+import { estimarPrecioPaseo, RECARGOS_POR_DEFECTO } from "../lib/precios";
 import { useAuth } from "../hooks/useAuth";
 import type { PublicWalker, WalkRequestInput } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
@@ -56,28 +57,6 @@ const messageFrom = (error: unknown) => {
     return String(error.message);
   }
   return "No se pudo completar la operacion.";
-};
-
-/* Espeja la f\u00f3rmula de `calcular_precio_paseo` en Supabase: la
-   tarifa base (pensada para 45 min) escala con la duraci\u00f3n y suma
-   recargos modestos \u2014nunca se multiplican entre s\u00ed\u2014 para que el peor
-   caso combinado (mismo d\u00eda, fin de semana, horario nocturno) no pase
-   de +30%. El backend es quien de verdad cobra: esto es solo para
-   que la persona vea el total antes de confirmar. */
-const estimarPrecioPaseo = (
-  tarifaBase: number,
-  fecha: string,
-  horaInicio: string,
-  duracionMin: number
-) => {
-  const esNocturno = horaInicio < "06:00" || horaInicio >= "19:00";
-  const dia = new Date(`${fecha}T00:00:00`).getDay();
-  const esFinDeSemana = dia === 0 || dia === 6;
-  const esMismoDia = fecha === new Date().toISOString().slice(0, 10);
-  const recargo =
-    (esNocturno ? 0.08 : 0) + (esFinDeSemana ? 0.12 : 0) + (esMismoDia ? 0.1 : 0);
-  const total = Math.round(tarifaBase * (duracionMin / 45) * (1 + recargo) * 100) / 100;
-  return { total, esNocturno, esFinDeSemana, esMismoDia };
 };
 
 const normalizar = (value: string) =>
@@ -247,6 +226,7 @@ const Paseadores = () => {
     () =>
       estimarPrecioPaseo(
         solicitud?.tarifa_base ?? 0,
+        solicitud ?? RECARGOS_POR_DEFECTO,
         form.fecha,
         form.hora_inicio,
         Number(form.duracion_min)
@@ -263,11 +243,9 @@ const Paseadores = () => {
     oferta !== null && estimado.total > 0 ? Math.round(((oferta - estimado.total) / estimado.total) * 100) : 0;
   const sugerencias = [10, 25, 50].map((pct) => Math.round((estimado.total * (1 + pct / 100)) / 100) * 100);
 
-  const recargosActivos = [
-    estimado.esMismoDia && "10% mismo día",
-    estimado.esFinDeSemana && "12% fin de semana",
-    estimado.esNocturno && "8% horario nocturno",
-  ].filter((item): item is string => Boolean(item));
+  /* Los porcentajes son los que eligió ESTE paseador; si puso 0 en
+     alguno, ese recargo ni aparece. */
+  const recargosActivos = estimado.aplicados.map((r) => `${r.porcentaje}% ${r.nombre}`);
 
   const submitRequest = async () => {
     if (!solicitud) return;
@@ -539,6 +517,21 @@ const Paseadores = () => {
                   anunciaba como disponible. */}
               <Disponibilidad disponible={perfil.disponible} />
             </div>
+
+            <dl className="nums mt-2.5 grid grid-cols-3 gap-2 text-center">
+              {[
+                { rotulo: `Nocturno ${perfil.nocturno_desde}–${perfil.nocturno_hasta}`, valor: perfil.recargo_nocturno },
+                { rotulo: "Fin de semana", valor: perfil.recargo_fin_semana },
+                { rotulo: "Mismo día", valor: perfil.recargo_mismo_dia },
+              ].map(({ rotulo, valor }) => (
+                <div key={rotulo} className="flex flex-col-reverse rounded-[12px] bg-sunken/60 px-2 py-2">
+                  <dt className="mt-0.5 text-[10.5px] leading-tight text-ink-mute">{rotulo}</dt>
+                  <dd className={`text-[14px] font-semibold ${valor > 0 ? "text-ink" : "text-ink-mute"}`}>
+                    {valor > 0 ? `+${valor}%` : "Sin recargo"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button

@@ -1,10 +1,11 @@
 import { supabase } from "../lib/supabase";
 import type { PublicWalker, WalkRequestInput } from "../types/auth.types";
+import { normalizarRecargos, type RecargosPaseador, type RecargosPaseadorRow } from "../lib/precios";
 
 type PublicWalkerRow = Omit<
   PublicWalker,
-  "tarifa_base" | "calificacion_promedio" | "total_resenas" | "total_paseos"
-> & {
+  "tarifa_base" | "calificacion_promedio" | "total_resenas" | "total_paseos" | keyof RecargosPaseadorRow
+> & RecargosPaseadorRow & {
   tarifa_base: number | string | null;
   calificacion_promedio: number | string;
   total_resenas: number | string;
@@ -21,6 +22,7 @@ export const listActiveWalkers = async (): Promise<PublicWalker[]> => {
 
   return ((data ?? []) as PublicWalkerRow[]).map((walker) => ({
     ...walker,
+    ...normalizarRecargos(walker),
     tarifa_base:
       walker.tarifa_base === null ? null : Number(walker.tarifa_base),
     calificacion_promedio: Number(walker.calificacion_promedio),
@@ -33,6 +35,19 @@ export const toggleWalkerAvailability = async (userId: string, disponible: boole
   const { error } = await supabase
     .from("paseadores")
     .update({ disponible })
+    .eq("id_usuario", userId);
+  if (error) throw error;
+};
+
+/** Tarifa base y recargos del paseador. La tabla valida los rangos
+    (`paseadores_recargos_validos`). */
+export const updateWalkerPricing = async (
+  userId: string,
+  pricing: RecargosPaseador & { tarifa_base: number },
+) => {
+  const { error } = await supabase
+    .from("paseadores")
+    .update(pricing)
     .eq("id_usuario", userId);
   if (error) throw error;
 };

@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  Banknote,
   BarChart3,
   CalendarCheck,
   CalendarDays,
@@ -118,6 +119,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       titulo: "Mi cuenta",
       items: [
         { to: "/p/ganancias", label: "Ganancias", Icon: Wallet },
+        { to: "/p/tarifas", label: "Tarifas", Icon: Banknote },
         { to: "/perfil", label: "Mi perfil", Icon: UserCircle },
         { to: "/p/perfil", label: "Perfil público", Icon: UserCircle },
         { to: "/p/resenas", label: "Reseñas recibidas", Icon: Star },
