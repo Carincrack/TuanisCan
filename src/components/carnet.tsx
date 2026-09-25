@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
 import QRCode from "qrcode";
-import { Camera, Download, Share2, Syringe } from "../lib/iconos";
+import { Camera, Download, Share2, Stethoscope, Syringe } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { formatDate, petAge } from "../lib/pets";
 import { MARCA } from "../lib/nav";
@@ -52,6 +52,9 @@ const textoQR = (pet: Pet, profile: UserProfile | null, id: string) =>
     `Mascota: ${pet.nombre} (${pet.especie}, ${pet.raza})`,
     `Responsable: ${profile?.nombre || "No registrado"}`,
     `Teléfono: ${profile?.telefono || "No registrado"}`,
+    ...(pet.padecimientos.length
+      ? [`Condiciones: ${pet.padecimientos.map((p) => p.nombre).join(", ")}`]
+      : []),
     `Carné: ${id}`,
   ].join("\n");
 
@@ -245,7 +248,7 @@ const CarneMascota = ({
           </div>
         </div>
 
-        <div className="relative mt-5 flex items-center justify-between gap-4 border-t border-white/15 pt-4">
+        <div className="relative mt-5 flex flex-wrap items-center gap-2 border-t border-white/15 pt-4">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[9.5px] font-semibold text-white ring-1 ring-white/25 backdrop-blur-sm">
             <span
               aria-hidden
@@ -253,7 +256,15 @@ const CarneMascota = ({
             />
             {estado}
           </span>
-          <p className="truncate text-[10px] text-white/55">{zona}</p>
+          {pet.padecimientos.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-warn/25 px-2.5 py-1 text-[9.5px] font-semibold text-white ring-1 ring-[#e4c780]/40">
+              <Stethoscope size={11} strokeWidth={2} aria-hidden />
+              {pet.padecimientos.length === 1
+                ? "1 condición médica"
+                : `${pet.padecimientos.length} condiciones médicas`}
+            </span>
+          )}
+          <p className="ml-auto truncate text-[10px] text-white/55">{zona}</p>
         </div>
       </div>
 
@@ -296,7 +307,7 @@ const CarneMascota = ({
           />
           <Dato etiqueta="Zona" valor={zona} />
           <Dato
-            etiqueta="Alergias o condiciones"
+            etiqueta="Alergias"
             valor={pet.alergias || "Ninguna registrada"}
           />
         </Grupo>
@@ -304,6 +315,35 @@ const CarneMascota = ({
         {pet.notas && (
           <p className="mt-4 rounded-[14px] bg-accent-wash px-4 py-3 text-[12.5px] leading-snug whitespace-pre-wrap text-accent-dark">
             {pet.notas}
+          </p>
+        )}
+      </div>
+
+      <div className="carnet-panel rounded-[18px] bg-surface p-6">
+        <h4 className="rotulo mb-3 flex items-center gap-2 text-ink-mute">
+          <Stethoscope size={13} /> Enfermedades y condiciones
+        </h4>
+        {pet.padecimientos.length ? (
+          <ul className="grid gap-2.5 sm:grid-cols-2">
+            {pet.padecimientos.map((condicion) => (
+              <li key={condicion.id_padecimiento} className="rounded-[14px] bg-warn-wash/60 px-4 py-3">
+                <p className="text-[13.5px] font-semibold break-words text-ink">{condicion.nombre}</p>
+                {condicion.fecha_diagnostico && (
+                  <p className="nums mt-0.5 text-[11.5px] text-ink-mute">
+                    Diagnosticada el {formatDate(condicion.fecha_diagnostico)}
+                  </p>
+                )}
+                {condicion.cuidados && (
+                  <p className="mt-1.5 text-[12.5px] leading-snug whitespace-pre-wrap text-ink-soft">
+                    {condicion.cuidados}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[13px] text-ink-soft">
+            Sin enfermedades registradas. Se agregan desde Mis mascotas.
           </p>
         )}
       </div>

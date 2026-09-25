@@ -2,17 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
-import { Camera, IdCard, Pencil, Plus, Trash2, X } from "../lib/iconos";
+import { Camera, IdCard, Pencil, Plus, Stethoscope, Trash2, X } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { formatDate, petAge } from "../lib/pets";
 import {
+  deleteCondition,
   deletePet,
   deleteVaccine,
   listPets,
+  saveCondition,
   savePet,
   saveVaccine,
 } from "../services/pets.service";
-import type { Pet, PetInput, Vaccine, VaccineInput } from "../types/pet.types";
+import type { Condition, ConditionInput, Pet, PetInput, Vaccine, VaccineInput } from "../types/pet.types";
 import {
   Badge,
   Confirmar,
@@ -136,7 +138,7 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
         <label className={fieldLabel}>Veterinaria habitual<input className={input} maxLength={150} value={values.veterinaria} onChange={(e) => update("veterinaria", e.target.value)} /></label>
         <label className={fieldLabel}>Estado reproductivo<span className="flex min-h-10 items-center gap-2 bg-sunken px-3"><input type="checkbox" checked={values.esterilizado} onChange={(e) => update("esterilizado", e.target.checked)} />Está esterilizado/a</span></label>
       </div>
-      <label className={fieldLabel}>Alergias o condiciones médicas<textarea className={`${input} min-h-20 resize-y`} maxLength={1000} value={values.alergias} onChange={(e) => update("alergias", e.target.value)} /></label>
+      <label className={fieldLabel}>Alergias<textarea placeholder="Ej.: pollo, picadura de pulga, penicilina" className={`${input} min-h-20 resize-y`} maxLength={1000} value={values.alergias} onChange={(e) => update("alergias", e.target.value)} /></label>
       <label className={fieldLabel}>Cuidados, comportamiento y notas<textarea className={`${input} min-h-24 resize-y`} maxLength={2000} value={values.notas} onChange={(e) => update("notas", e.target.value)} /></label>
       <div className={fieldLabel}>
         Foto de perfil
@@ -218,6 +220,59 @@ const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Va
   );
 };
 
+/* Una enfermedad por registro: el nombre para reconocerla y los
+   cuidados que necesita, que es lo que el paseador lee antes de
+   aceptar el paseo. */
+const ConditionForm = ({ pet, condition, onClose, onSaved }: { pet: Pet; condition: Condition | null; onClose: () => void; onSaved: () => Promise<void> }) => {
+  const [values, setValues] = useState({
+    nombre: condition?.nombre ?? "",
+    cuidados: condition?.cuidados ?? "",
+    fecha_diagnostico: condition?.fecha_diagnostico ?? "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const payload: ConditionInput = {
+      nombre: values.nombre.trim(),
+      cuidados: values.cuidados.trim() || null,
+      fecha_diagnostico: values.fecha_diagnostico || null,
+    };
+    setBusy(true);
+    setError("");
+    try {
+      await saveCondition(pet.id_mascota, payload, condition ?? undefined);
+      await onSaved();
+      onClose();
+      aviso.ok(condition ? "Enfermedad actualizada" : "Enfermedad registrada", {
+        detalle: `${payload.nombre} · ${pet.nombre}`,
+      });
+    } catch (cause) {
+      setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo guardar la enfermedad." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="grid gap-4 p-5 sm:p-6">
+      <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
+        <label className={fieldLabel}>Enfermedad o condición *<input className={input} required maxLength={150} placeholder="Ej.: Displasia de cadera, epilepsia, diabetes" value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
+        <label className={fieldLabel}>Fecha de diagnóstico<input className={input} type="date" min={pet.fecha_nacimiento} max={new Date().toISOString().slice(0, 10)} value={values.fecha_diagnostico} onChange={(e) => update("fecha_diagnostico", e.target.value)} /></label>
+      </div>
+      <label className={fieldLabel}>
+        Cuidados durante el paseo
+        <textarea className={`${input} min-h-24 resize-y`} maxLength={1000} placeholder="Ej.: Paseos cortos y sin saltos. Si convulsiona, alejar objetos y llamar al dueño." value={values.cuidados} onChange={(e) => update("cuidados", e.target.value)} />
+        <span className="font-normal text-ink-mute">El paseador lo ve en la solicitud antes de aceptar.</span>
+      </label>
+      {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
+      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Guardando…" : "Guardar enfermedad"}</button></div>
+    </form>
+  );
+};
+
 const petHealth = (pet: Pet) => {
   if (pet.vacunas.some((item) => item.estado === "vencida")) return { label: "Vacuna vencida", tone: "danger" as const };
   if (pet.vacunas.some((item) => item.estado === "pendiente")) return { label: "Próxima a vencer", tone: "warn" as const };
@@ -238,6 +293,7 @@ const Mascotas = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingPet, setEditingPet] = useState<Pet | null | undefined>();
   const [editingVaccine, setEditingVaccine] = useState<Vaccine | null | undefined>();
+  const [editingCondition, setEditingCondition] = useState<Condition | null | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [canOperate, setCanOperate] = useState(false);
@@ -270,7 +326,10 @@ const Mascotas = () => {
   /* Un solo estado para las dos confirmaciones: nunca hay dos
      abiertas a la vez, y así el diálogo se monta una sola vez. */
   const [porBorrar, setPorBorrar] = useState<
-    { tipo: "mascota"; pet: Pet } | { tipo: "vacuna"; vaccine: Vaccine } | null
+    | { tipo: "mascota"; pet: Pet }
+    | { tipo: "vacuna"; vaccine: Vaccine }
+    | { tipo: "padecimiento"; condition: Condition }
+    | null
   >(null);
   const [borrando, setBorrando] = useState(false);
 
@@ -279,9 +338,14 @@ const Mascotas = () => {
     setBorrando(true);
     try {
       const nombreBorrado =
-        porBorrar.tipo === "mascota" ? porBorrar.pet.nombre : porBorrar.vaccine.nombre_vacuna;
+        porBorrar.tipo === "mascota"
+          ? porBorrar.pet.nombre
+          : porBorrar.tipo === "vacuna"
+            ? porBorrar.vaccine.nombre_vacuna
+            : porBorrar.condition.nombre;
       if (porBorrar.tipo === "mascota") await deletePet(porBorrar.pet);
-      else await deleteVaccine(porBorrar.vaccine.id_vacuna);
+      else if (porBorrar.tipo === "vacuna") await deleteVaccine(porBorrar.vaccine.id_vacuna);
+      else await deleteCondition(porBorrar.condition.id_padecimiento);
       setPorBorrar(null);
       await load();
       aviso.ok(`${nombreBorrado} eliminado`);
@@ -295,6 +359,7 @@ const Mascotas = () => {
 
   const removePet = (pet: Pet) => setPorBorrar({ tipo: "mascota", pet });
   const removeVaccine = (vaccine: Vaccine) => setPorBorrar({ tipo: "vacuna", vaccine });
+  const removeCondition = (condition: Condition) => setPorBorrar({ tipo: "padecimiento", condition });
   const openCard = (pet: Pet) => {
     sessionStorage.setItem("tuaniscan.carnetPetId", pet.id_mascota);
     void navigate({ to: "/carnet" });
@@ -354,9 +419,40 @@ const Mascotas = () => {
             </dl>
           </Section>
 
+          <Section
+            title="Enfermedades y condiciones"
+            aside={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingCondition(null)}><Plus size={14} /> Agregar enfermedad</button>}
+            bodyClass="p-5"
+          >
+            {selected.padecimientos.length ? (
+              <ul className="grid gap-2.5 sm:grid-cols-2">
+                {selected.padecimientos.map((condition) => (
+                  <li key={condition.id_padecimiento} className="flex gap-3 rounded-[14px] bg-warn-wash/60 p-4">
+                    <Stethoscope size={17} strokeWidth={1.8} aria-hidden className="mt-0.5 shrink-0 text-warn" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="break-words text-[14px] font-semibold text-ink">{condition.nombre}</h4>
+                          {condition.fecha_diagnostico && <p className="nums mt-0.5 text-[11.5px] text-ink-mute">Diagnosticada el {formatDate(condition.fecha_diagnostico)}</p>}
+                        </div>
+                        <span className="-mt-1 -mr-2 flex shrink-0">
+                          <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 disabled:cursor-not-allowed disabled:opacity-50`} aria-label={`Editar ${condition.nombre}`} onClick={() => setEditingCondition(condition)}><Pencil size={14} /></button>
+                          <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 text-danger disabled:cursor-not-allowed disabled:opacity-50`} aria-label={`Eliminar ${condition.nombre}`} onClick={() => removeCondition(condition)}><Trash2 size={14} /></button>
+                        </span>
+                      </div>
+                      <p className={`mt-2 whitespace-pre-wrap text-[13px] ${condition.cuidados ? "text-ink-soft" : "text-ink-mute italic"}`}>{condition.cuidados || "Sin cuidados indicados"}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState title="Sin enfermedades registradas" hint="Si tiene alguna condición de salud, regístrala para que el paseador sepa cómo cuidarla." />
+            )}
+          </Section>
+
           {(selected.alergias || selected.notas) && (
-            <Section title="Salud y cuidados" bodyClass="grid gap-2.5 p-5 sm:grid-cols-2">
-              <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">Alergias y condiciones</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || "Ninguna registrada"}</p></div>
+            <Section title="Alergias y cuidados" bodyClass="grid gap-2.5 p-5 sm:grid-cols-2">
+              <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">Alergias</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || "Ninguna registrada"}</p></div>
               <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">Cuidados y notas</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || "Sin notas"}</p></div>
             </Section>
           )}
@@ -381,6 +477,7 @@ const Mascotas = () => {
       )}
 
       {editingPet !== undefined && user && <Dialog title={editingPet ? `Editar a ${editingPet.nombre}` : "Registrar mascota"} onClose={() => setEditingPet(undefined)}><PetForm pet={editingPet} userId={user.id} onClose={() => setEditingPet(undefined)} onSaved={load} /></Dialog>}
+      {editingCondition !== undefined && selected && <Dialog title={editingCondition ? `Editar ${editingCondition.nombre}` : `Agregar enfermedad de ${selected.nombre}`} onClose={() => setEditingCondition(undefined)}><ConditionForm pet={selected} condition={editingCondition} onClose={() => setEditingCondition(undefined)} onSaved={load} /></Dialog>}
       {editingVaccine !== undefined && selected && <Dialog title={editingVaccine ? "Editar vacuna" : `Agregar vacuna de ${selected.nombre}`} onClose={() => setEditingVaccine(undefined)}><VaccineForm pet={selected} vaccine={editingVaccine} onClose={() => setEditingVaccine(undefined)} onSaved={load} /></Dialog>}
 
       {/* Reemplaza a dos `window.confirm`. El de la mascota decía
@@ -389,21 +486,26 @@ const Mascotas = () => {
       {porBorrar && (
         <Confirmar
           tono="peligro"
-          titulo={porBorrar.tipo === "mascota" ? `Eliminar a ${porBorrar.pet.nombre}` : "Eliminar registro de vacuna"}
+          titulo={porBorrar.tipo === "mascota" ? `Eliminar a ${porBorrar.pet.nombre}` : porBorrar.tipo === "vacuna" ? "Eliminar registro de vacuna" : "Eliminar enfermedad"}
           cuerpo={
             porBorrar.tipo === "mascota" ? (
               <>
                 Se borran también su carné digital y sus {porBorrar.pet.vacunas.length}{" "}
                 {porBorrar.pet.vacunas.length === 1 ? "registro de vacunación" : "registros de vacunación"}. No se puede deshacer.
               </>
-            ) : (
+            ) : porBorrar.tipo === "vacuna" ? (
               <>
                 Se borra el registro de <strong className="font-semibold text-ink">{porBorrar.vaccine.nombre_vacuna}</strong>.
                 El resto del historial no se toca.
               </>
+            ) : (
+              <>
+                Se borra <strong className="font-semibold text-ink">{porBorrar.condition.nombre}</strong> del perfil y del carné,
+                y los paseadores dejan de verla en las solicitudes.
+              </>
             )
           }
-          confirmar={porBorrar.tipo === "mascota" ? "Eliminar mascota" : "Eliminar registro"}
+          confirmar={porBorrar.tipo === "mascota" ? "Eliminar mascota" : porBorrar.tipo === "vacuna" ? "Eliminar registro" : "Eliminar enfermedad"}
           ocupado={borrando}
           onConfirmar={() => void confirmarBorrado()}
           onCancelar={() => setPorBorrar(null)}

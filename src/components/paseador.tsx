@@ -13,6 +13,7 @@ import {
   Play,
   ShieldCheck,
   Star,
+  Stethoscope,
   Syringe,
   Timer,
   Wallet,
@@ -360,8 +361,28 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
       ) : (
         <p className="flex items-center gap-2.5 text-[13px] text-ok">
           <ShieldCheck size={16} strokeWidth={2} aria-hidden className="shrink-0" />
-          Sin alergias registradas
+          {s.padecimientos.length ? "Sin alergias registradas" : "Sin alergias ni enfermedades registradas"}
         </p>
+      )}
+
+      {s.padecimientos.length > 0 && (
+        <div className="rounded-[14px] bg-warn-wash px-4 py-3">
+          <h4 className="flex items-center gap-2 text-[13px] font-semibold text-warn">
+            <Stethoscope size={16} strokeWidth={2} aria-hidden className="shrink-0" />
+            {s.padecimientos.length === 1 ? "Tiene una enfermedad" : `Tiene ${s.padecimientos.length} enfermedades`}
+          </h4>
+          <ul className="mt-2 flex flex-col gap-2.5">
+            {s.padecimientos.map((p) => (
+              <li key={p.nombre} className="pl-6 text-[13px] leading-snug">
+                <span className="font-semibold text-ink">{p.nombre}</span>
+                {p.fecha_diagnostico && (
+                  <span className="nums text-ink-mute"> · desde {formatDate(p.fecha_diagnostico)}</span>
+                )}
+                {p.cuidados && <p className="mt-0.5 whitespace-pre-wrap text-ink-soft">{p.cuidados}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {datos.length > 0 && (

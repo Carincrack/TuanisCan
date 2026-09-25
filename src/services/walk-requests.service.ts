@@ -23,6 +23,7 @@ export interface WalkerRequest {
   veterinaria: string | null;
   notas: string | null;
   vacunas: WalkerRequestVaccine[];
+  padecimientos: WalkerRequestCondition[];
   zona: string;
   fecha: string;
   hora_inicio: string;
@@ -37,6 +38,12 @@ export interface WalkerRequestVaccine {
   nombre_vacuna: string;
   fecha_aplicacion: string;
   fecha_vencimiento: string;
+}
+
+export interface WalkerRequestCondition {
+  nombre: string;
+  cuidados: string | null;
+  fecha_diagnostico: string | null;
 }
 
 type WalkerRequestRow = Omit<WalkerRequest, "precio" | "peso" | "fotoUrl"> & {
