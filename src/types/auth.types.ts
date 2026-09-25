@@ -155,6 +155,8 @@ export interface WalkRequestInput {
   hora_inicio: string;
   duracion_min: number;
   direccion_encuentro: string;
+  /** Precio que ofrece el dueño; sin él se cobra la tarifa. */
+  precio_ofrecido: number | null;
 }
 
 export interface ProfileUpdate {

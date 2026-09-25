@@ -45,6 +45,7 @@ export const requestWalk = async (input: WalkRequestInput) => {
     p_hora_inicio: input.hora_inicio,
     p_duracion_min: input.duracion_min,
     p_direccion_encuentro: input.direccion_encuentro,
+    p_precio_ofrecido: input.precio_ofrecido,
   });
   if (error) throw error;
   return data as string;

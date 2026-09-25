@@ -4,8 +4,9 @@ import type { Walk } from "../types/walk.types";
 const MASCOTA_BUCKET = "mascotas";
 const PERFIL_BUCKET = "perfiles";
 
-type WalkRow = Omit<Walk, "precio"> & {
+type WalkRow = Omit<Walk, "precio" | "precio_tarifa"> & {
   precio: string | number;
+  precio_tarifa: string | number;
 };
 
 const photoUrl = async (bucket: string, path: string | null) => {
@@ -17,8 +18,7 @@ const photoUrl = async (bucket: string, path: string | null) => {
 };
 
 const formatWalk = async (row: WalkRow) => {
-  const precio = typeof row.precio === "string" ? parseFloat(row.precio) : row.precio;
-  return { ...row, precio } as Walk;
+  return { ...row, precio: Number(row.precio), precio_tarifa: Number(row.precio_tarifa) } as Walk;
 };
 
 export const listWalksForOwner = async (userId: string): Promise<Walk[]> => {
@@ -79,6 +79,7 @@ interface RawWalk {
   duracion_min: number;
   estado: string;
   precio: string | number;
+  precio_tarifa: string | number;
   direccion_encuentro: string;
 }
 
@@ -188,6 +189,7 @@ export const listWalksWithRelations = async (
         duracion_min: row.duracion_min,
         estado: row.estado as Walk["estado"],
         precio,
+        precio_tarifa: Number(row.precio_tarifa),
         direccion_encuentro: row.direccion_encuentro,
         mascota: mascota
           ? {

@@ -446,6 +446,9 @@ const TarjetaSolicitud = ({
   guardando: boolean;
   onResponder: (aprobada: boolean) => void;
 }) => {
+  const esOferta = s.precio !== s.precio_tarifa;
+  const diferencia = s.precio_tarifa > 0 ? Math.round(((s.precio - s.precio_tarifa) / s.precio_tarifa) * 100) : 0;
+
   const rasgos = [
     s.especie,
     s.raza,
@@ -481,10 +484,23 @@ const TarjetaSolicitud = ({
                 ))}
               </ul>
             </div>
-            <div className="text-right">
-              <p className="nums text-[26px] font-semibold leading-tight text-ink">{colones(s.precio)}</p>
-              <p className="text-[12px] text-ink-mute">Te pagan por este paseo</p>
-            </div>
+            {esOferta ? (
+              <div className="rounded-[14px] bg-accent-wash px-4 py-2.5 text-right">
+                <p className="text-[12px] font-semibold text-accent-deep">Oferta del dueño</p>
+                <p className="nums text-[26px] font-semibold leading-tight text-ink">{colones(s.precio)}</p>
+                <p className="nums text-[12px] text-ink-soft">
+                  Tu tarifa: <span className="line-through">{colones(s.precio_tarifa)}</span>
+                  <span className={`ml-1.5 font-semibold ${diferencia > 0 ? "text-ok" : "text-warn"}`}>
+                    {diferencia > 0 ? "+" : ""}{diferencia}%
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div className="text-right">
+                <p className="nums text-[26px] font-semibold leading-tight text-ink">{colones(s.precio)}</p>
+                <p className="text-[12px] text-ink-mute">Te pagan por este paseo</p>
+              </div>
+            )}
           </header>
 
           <dl className="nums mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-suelo sm:grid-cols-4">
@@ -545,7 +561,7 @@ const TarjetaSolicitud = ({
             className={`${btnPrimary} flex-1 md:flex-none`}
           >
             <Check size={15} strokeWidth={2.2} />
-            {guardando ? "Guardando..." : "Aceptar paseo"}
+            {guardando ? "Guardando..." : esOferta ? `Aceptar ${colones(s.precio)}` : "Aceptar paseo"}
           </button>
         </div>
       </footer>

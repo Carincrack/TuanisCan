@@ -106,6 +106,21 @@ const Paseador = ({ paseo }: { paseo: WalkWithRelations }) =>
     <span className="text-[12.5px] text-ink-mute italic">Sin asignar</span>
   );
 
+/** El precio, y si fue una oferta, la marca y la tarifa de referencia. */
+const PrecioPaseo = ({ paseo, alinear = "derecha" }: { paseo: WalkWithRelations; alinear?: "derecha" | "izquierda" }) => {
+  const esOferta = paseo.precio !== paseo.precio_tarifa;
+  return (
+    <span className={`flex flex-col ${alinear === "derecha" ? "items-end" : "items-start"}`}>
+      <span className="text-[13px] font-semibold text-ink">{colones(paseo.precio)}</span>
+      {esOferta && (
+        <span className="mt-0.5 text-[11px] text-accent-dark" title={`Tarifa del paseador: ${colones(paseo.precio_tarifa)}`}>
+          Tu oferta · tarifa {colones(paseo.precio_tarifa)}
+        </span>
+      )}
+    </span>
+  );
+};
+
 /** Lo que no cabe en la fila: dónde se encuentran, cuándo terminó y
     el código para soporte. Igual en la tabla y en la ficha. */
 const DetallePaseo = ({ paseo }: { paseo: WalkWithRelations }) => (
@@ -418,8 +433,8 @@ const Paseos = () => {
                         <td className="px-4 py-3">
                           <ChipEstado estado={p.estado} />
                         </td>
-                        <td className="nums px-4 py-3 text-right text-[13px] font-semibold text-ink">
-                          {colones(p.precio)}
+                        <td className="nums px-4 py-3 text-right">
+                          <PrecioPaseo paseo={p} />
                         </td>
                         <td className="px-4 py-3 text-right">{accionesDe(p)}</td>
                       </tr>
@@ -460,7 +475,7 @@ const Paseos = () => {
                       </div>
                       <div>
                         <dt className="rotulo text-ink-mute">Precio</dt>
-                        <dd className="nums mt-1 font-semibold text-ink">{colones(p.precio)}</dd>
+                        <dd className="nums mt-1"><PrecioPaseo paseo={p} alinear="izquierda" /></dd>
                       </div>
                       <div className="col-span-2">
                         <dt className="rotulo text-ink-mute">Zona</dt>

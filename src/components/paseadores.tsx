@@ -22,6 +22,7 @@ import {
   PageHeader,
   btnPrimary,
   btnSecondary,
+  btnSecondaryCompacto,
   colones,
   input,
 } from "./ui";
@@ -36,6 +37,8 @@ interface RequestForm {
   hora_inicio: string;
   duracion_min: string;
   direccion_encuentro: string;
+  /** Vacío = se paga la tarifa. */
+  oferta: string;
 }
 
 const emptyRequest: RequestForm = {
@@ -44,6 +47,7 @@ const emptyRequest: RequestForm = {
   hora_inicio: "08:00",
   duracion_min: "45",
   direccion_encuentro: "",
+  oferta: "",
 };
 
 const messageFrom = (error: unknown) => {
@@ -250,6 +254,15 @@ const Paseadores = () => {
     [solicitud, form.fecha, form.hora_inicio, form.duracion_min]
   );
 
+  const oferta = form.oferta.trim() === "" ? null : Number(form.oferta);
+  const ofertaMin = Math.round(estimado.total * 0.5);
+  const ofertaMax = Math.floor(estimado.total * 5);
+  const ofertaInvalida =
+    oferta !== null && (!Number.isFinite(oferta) || oferta < ofertaMin || oferta > ofertaMax);
+  const diferenciaOferta =
+    oferta !== null && estimado.total > 0 ? Math.round(((oferta - estimado.total) / estimado.total) * 100) : 0;
+  const sugerencias = [10, 25, 50].map((pct) => Math.round((estimado.total * (1 + pct / 100)) / 100) * 100);
+
   const recargosActivos = [
     estimado.esMismoDia && "10% mismo día",
     estimado.esFinDeSemana && "12% fin de semana",
@@ -266,6 +279,10 @@ const Paseadores = () => {
       setError("Indica la direccion de encuentro.");
       return;
     }
+    if (ofertaInvalida) {
+      setError(`La oferta debe estar entre ${colones(ofertaMin)} y ${colones(ofertaMax)}.`);
+      return;
+    }
 
     const payload: WalkRequestInput = {
       id_mascota: form.id_mascota,
@@ -274,6 +291,7 @@ const Paseadores = () => {
       hora_inicio: form.hora_inicio,
       duracion_min: Number(form.duracion_min),
       direccion_encuentro: form.direccion_encuentro.trim(),
+      precio_ofrecido: oferta !== null && oferta !== estimado.total ? oferta : null,
     };
 
     setSaving(true);
@@ -282,7 +300,9 @@ const Paseadores = () => {
       await requestWalk(payload);
       setSolicitud(null);
       aviso.ok(`Solicitud enviada a ${solicitud.nombre}`, {
-        detalle: "Te avisamos apenas conteste. Mientras tanto podés cancelarla desde Paseos.",
+        detalle: payload.precio_ofrecido
+          ? `Le ofreciste ${colones(payload.precio_ofrecido)}. Te avisamos apenas conteste.`
+          : "Te avisamos apenas conteste. Mientras tanto podés cancelarla desde Paseos.",
       });
     } catch (cause) {
       setError(messageFrom(cause));
@@ -624,7 +644,7 @@ const Paseadores = () => {
               </label>
 
               <div className="rounded-[14px] bg-sunken px-4 py-3">
-                <p className="rotulo text-ink-mute">Total estimado</p>
+                <p className="rotulo text-ink-mute">Según su tarifa</p>
                 <p className="nums mt-1.5 text-[20px] leading-none font-semibold text-ink">
                   {colones(estimado.total)}
                 </p>
@@ -635,6 +655,58 @@ const Paseadores = () => {
                 <p className="mt-1.5 text-[11px] leading-snug text-ink-mute">
                   {colones(solicitud.tarifa_base ?? 0)} base · {form.duracion_min} min
                   {recargosActivos.length > 0 && ` · +${recargosActivos.join(", +")}`}
+                </p>
+              </div>
+
+              <div className="rounded-[14px] border border-dashed border-suelo px-4 py-3.5 sm:col-span-2">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <label className="min-w-[180px] flex-1">
+                    <span className="rotulo text-ink-mute">Tu oferta (opcional)</span>
+                    <span className="relative mt-2 block">
+                      <span aria-hidden className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[13.5px] text-ink-mute">₡</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={ofertaMin}
+                        max={ofertaMax}
+                        step={100}
+                        value={form.oferta}
+                        onChange={(e) => setForm({ ...form, oferta: e.target.value })}
+                        className={`${input} nums pl-8 ${ofertaInvalida ? "outline-2 -outline-offset-2 outline-danger" : ""}`}
+                        placeholder={String(Math.round(estimado.total))}
+                        aria-describedby="oferta-ayuda"
+                      />
+                    </span>
+                  </label>
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ofertas sugeridas">
+                    {sugerencias.map((monto, i) => (
+                      <button
+                        key={monto}
+                        type="button"
+                        onClick={() => setForm({ ...form, oferta: String(monto) })}
+                        aria-pressed={oferta === monto}
+                        className={`nums ${
+                          oferta === monto
+                            ? btnSecondaryCompacto.replace("bg-sunken", "bg-accent-wash").replace("text-ink", "text-accent-deep")
+                            : btnSecondaryCompacto
+                        }`}
+                      >
+                        +{[10, 25, 50][i]}%
+                      </button>
+                    ))}
+                    {form.oferta && (
+                      <button type="button" onClick={() => setForm({ ...form, oferta: "" })} className={btnSecondaryCompacto}>
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p id="oferta-ayuda" aria-live="polite" className={`mt-2 text-[12px] leading-snug ${ofertaInvalida ? "text-danger" : "text-ink-mute"}`}>
+                  {ofertaInvalida
+                    ? `Tiene que estar entre ${colones(ofertaMin)} y ${colones(ofertaMax)}.`
+                    : oferta !== null && oferta !== estimado.total
+                      ? `${solicitud.nombre} verá tu oferta de ${colones(oferta)} (${diferenciaOferta > 0 ? "+" : ""}${diferenciaOferta}% sobre su tarifa) y decide si la acepta.`
+                      : "Si la dejás vacía se paga la tarifa. Ofrecer más puede ayudar a que acepte un paseo de último momento."}
                 </p>
               </div>
 
@@ -682,7 +754,11 @@ const Paseadores = () => {
                   ) : (
                     <PawPrint size={14} />
                   )}
-                  {saving ? "Enviando..." : "Confirmar solicitud"}
+                  {saving
+                    ? "Enviando..."
+                    : oferta !== null && !ofertaInvalida && oferta !== estimado.total
+                      ? `Enviar oferta de ${colones(oferta)}`
+                      : "Confirmar solicitud"}
                 </button>
               </div>
             </div>

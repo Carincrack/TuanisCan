@@ -29,7 +29,10 @@ export interface WalkerRequest {
   hora_inicio: string;
   duracion_min: number;
   direccion_encuentro: string;
+  /** Lo que se cobra si acepta: la oferta del dueño o la tarifa. */
   precio: number;
+  /** Lo que habría costado según la tarifa del paseador. */
+  precio_tarifa: number;
   estado: "solicitado" | "confirmado" | "en_curso" | "finalizado" | "cancelado";
   comentario_respuesta: string | null;
 }
@@ -46,8 +49,9 @@ export interface WalkerRequestCondition {
   fecha_diagnostico: string | null;
 }
 
-type WalkerRequestRow = Omit<WalkerRequest, "precio" | "peso" | "fotoUrl"> & {
+type WalkerRequestRow = Omit<WalkerRequest, "precio" | "precio_tarifa" | "peso" | "fotoUrl"> & {
   precio: number | string;
+  precio_tarifa: number | string;
   peso: number | string | null;
 };
 
@@ -67,6 +71,7 @@ export const listWalkerRequests = async (): Promise<WalkerRequest[]> => {
     ((data ?? []) as WalkerRequestRow[]).map(async (request) => ({
       ...request,
       precio: Number(request.precio),
+      precio_tarifa: Number(request.precio_tarifa),
       peso: request.peso === null ? null : Number(request.peso),
       fotoUrl: await photoUrl(request.foto),
     })),
