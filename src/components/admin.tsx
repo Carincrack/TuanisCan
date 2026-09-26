@@ -1,7 +1,8 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, RefreshCw, Search, X } from "../lib/iconos";
+import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, Footprints, IdCard, Loader, MapPin, RefreshCw, Search, TrendingUp, UserCheck, Users, Wallet, X } from "../lib/iconos";
+import type { Icono } from "../lib/iconos";
 import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
@@ -45,24 +46,213 @@ import type { Rol } from "../lib/nav";
    ninguna pantalla pública.
    ───────────────────────────────────────────────────────────── */
 
+/** Métrica con ícono, para las cuatro tarjetas de arriba del panel.
+    Mismo cuerpo que `Stat` —mismo tamaño de número, misma nota, mismo
+    filete de proporción— pero con un círculo de acento a la izquierda
+    para que el panel general se distinga de las listas de abajo, que
+    ya usan `Stat` a secas. */
+const StatIcono = ({
+  icono: Icono,
+  etiqueta,
+  valor,
+  nota,
+  parte,
+}: {
+  icono: Icono;
+  etiqueta: string;
+  valor: string;
+  nota?: string;
+  parte?: number;
+}) => (
+  <div className="bg-surface px-6 py-5">
+    <div className="flex items-center gap-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-dark">
+        <Icono size={17} strokeWidth={2} aria-hidden />
+      </span>
+      <p className="rotulo text-ink-mute">{etiqueta}</p>
+    </div>
+    <p className="nums mt-3 text-[27px] leading-none font-semibold tracking-[-0.02em] text-ink">
+      {valor}
+    </p>
+    {nota && <p className="mt-1.5 text-[12px] text-ink-soft">{nota}</p>}
+    {parte !== undefined && (
+      <div className="mt-3.5 h-[3px] w-full overflow-hidden rounded-full bg-sunken" aria-hidden="true">
+        <div
+          className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-500 ease-out"
+          style={{ transform: `scaleX(${Math.min(1, Math.max(0, parte))})` }}
+        />
+      </div>
+    )}
+  </div>
+);
+
 export const PanelAdmin = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const { usuarios } = useAdminUsuarios();
   const { paseadores } = useAdminPaseadores();
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
   useEffect(() => { void listAdminFinances().then(setMovimientos).catch(() => setMovimientos([])); }, []);
+
   const now = new Date();
   const key = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
   const pagados = movimientos.filter((item) => item.estado_pago === "pagado");
+
   const mesesIngreso = Array.from({ length: 6 }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
-    return { mes: new Intl.DateTimeFormat("es-CR", { month: "short" }).format(date).replace(".", ""), bruto: pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(date)).reduce((sum, item) => sum + item.bruto, 0) };
+    return {
+      mes: new Intl.DateTimeFormat("es-CR", { month: "short" }).format(date).replace(".", ""),
+      bruto: pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(date)).reduce((sum, item) => sum + item.bruto, 0),
+      actual: key(date) === key(now),
+    };
   });
   const maxIngreso = Math.max(1, ...mesesIngreso.map((item) => item.bruto));
+
   const actuales = pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(now));
-  const top = Object.values(actuales.reduce<Record<string, { n: string; p: number; g: number }>>((all, item) => { const row = all[item.paseador] ?? { n: item.paseador, p: 0, g: 0 }; row.p++; row.g += item.bruto; all[item.paseador] = row; return all; }, {})).sort((a, b) => b.p - a.p).slice(0, 4);
-  const zonas = Object.values(paseadores.filter((item) => item.estado === "activo").reduce<Record<string, { z: string; n: number }>>((all, item) => { const row = all[item.zona] ?? { z: item.zona, n: 0 }; row.n++; all[item.zona] = row; return all; }, {})).sort((a, b) => b.n - a.n).slice(0, 6);
+  const top = Object.values(
+    actuales.reduce<Record<string, { n: string; p: number; g: number }>>((all, item) => {
+      const row = all[item.paseador] ?? { n: item.paseador, p: 0, g: 0 };
+      row.p++;
+      row.g += item.bruto;
+      all[item.paseador] = row;
+      return all;
+    }, {}),
+  ).sort((a, b) => b.p - a.p).slice(0, 4);
+
+  const paseadoresActivos = paseadores.filter((item) => item.estado === "activo");
+  const zonas = Object.values(
+    paseadoresActivos.reduce<Record<string, { z: string; n: number }>>((all, item) => {
+      const row = all[item.zona] ?? { z: item.zona, n: 0 };
+      row.n++;
+      all[item.zona] = row;
+      return all;
+    }, {}),
+  ).sort((a, b) => b.n - a.n).slice(0, 6);
   const maxZona = Math.max(1, ...zonas.map((item) => item.n));
-  return <Page><PageHeader title="Panel general" subtitle="Datos reales de la plataforma" action={<Badge tono="accent">Acceso interno</Badge>} /><div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4"><Stat etiqueta="Comisión del mes" valor={colones(actuales.reduce((sum, item) => sum + item.comision, 0))} nota={`${actuales.length} pagos confirmados`} /><Stat etiqueta="Paseos del mes" valor={String(actuales.length)} nota="Pagos confirmados" /><Stat etiqueta="Paseadores activos" valor={String(paseadores.filter((item) => item.estado === "activo").length)} nota={`de ${paseadores.length} registrados`} /><Stat etiqueta="Dueños activos" valor={String(new Set(actuales.map((item) => item.dueno)).size)} nota={`${usuarios.filter((item) => item.activo).length} cuentas activas`} /></div><Section title="Volumen bruto por mes" bodyClass="px-6 pt-5 pb-6"><ul className="flex h-[180px] items-end gap-3">{mesesIngreso.map((item) => <li key={item.mes} className="flex flex-1 flex-col items-center gap-2"><span className="nums text-[11px] text-ink-soft">{colones(item.bruto)}</span><span style={{ height: `${item.bruto / maxIngreso * 100}%` }} className="w-full bg-accent" /><span className="text-[11px] text-ink-mute">{item.mes}</span></li>)}</ul></Section><div className="grid gap-3 lg:grid-cols-2"><Section title="Top paseadores del mes" bodyClass="">{top.length ? <Table caption="Paseadores con pagos confirmados" columnas={[{ label: "Paseador" }, { label: "Paseos", align: "right" }, { label: "Generado", align: "right" }]}>{top.map((item) => <tr key={item.n}><td className="px-6 py-3.5">{item.n}</td><td className="px-6 py-3.5 text-right">{item.p}</td><td className="px-6 py-3.5 text-right">{colones(item.g)}</td></tr>)}</Table> : <EmptyState title="Sin pagos este mes" hint="Los resultados aparecerán cuando haya pagos confirmados." />}</Section><Section title="Cobertura por zona" bodyClass="px-6 pt-4 pb-6"><ul className="flex flex-col gap-3">{zonas.map((item) => <li key={item.z} className="flex items-center gap-3"><span className="w-[84px] text-[12.5px] text-ink-soft">{item.z}</span><span className="h-2.5 flex-1 bg-sunken"><span style={{ width: `${item.n / maxZona * 100}%` }} className="block h-full bg-accent" /></span><span className="nums w-8 text-right text-[12px] text-ink-mute">{item.n}</span></li>)}</ul></Section></div></Page>;
+
+  const rangoIndice = ["bg-gold-wash text-gold", "bg-accent-wash text-accent-dark", "bg-sunken text-ink-soft", "bg-sunken text-ink-soft"];
+
+  return (
+    <Page wide>
+      {botonNotificaciones && (
+        <div className="flex justify-end">{botonNotificaciones}</div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatIcono
+          icono={Wallet}
+          etiqueta="Comisión del mes"
+          valor={colones(actuales.reduce((sum, item) => sum + item.comision, 0))}
+          nota={`${actuales.length} ${actuales.length === 1 ? "pago confirmado" : "pagos confirmados"}`}
+        />
+        <StatIcono icono={Footprints} etiqueta="Paseos del mes" valor={String(actuales.length)} nota="Pagos confirmados" />
+        <StatIcono
+          icono={UserCheck}
+          etiqueta="Paseadores activos"
+          valor={String(paseadoresActivos.length)}
+          nota={`de ${paseadores.length} registrados`}
+          parte={paseadores.length ? paseadoresActivos.length / paseadores.length : undefined}
+        />
+        <StatIcono
+          icono={Users}
+          etiqueta="Dueños activos"
+          valor={String(new Set(actuales.map((item) => item.dueno)).size)}
+          nota={`${usuarios.filter((item) => item.activo).length} cuentas activas`}
+        />
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <Section
+            title="Volumen bruto por mes"
+            aside={
+              <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
+                <TrendingUp size={13} className="text-accent" aria-hidden /> Últimos 6 meses
+              </span>
+            }
+            bodyClass="px-6 pt-6 pb-7"
+          >
+            {maxIngreso > 1 ? (
+              <ul className="flex h-[240px] items-end gap-4">
+                {mesesIngreso.map((item) => (
+                  <li key={item.mes} className="group flex flex-1 flex-col items-center gap-2">
+                    <span className={`nums text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-soft"}`}>
+                      {colones(item.bruto)}
+                    </span>
+                    <span
+                      style={{ height: `${Math.max(3, (item.bruto / maxIngreso) * 100)}%` }}
+                      className={`w-full rounded-t-[8px] transition-[filter] duration-150 ease-out group-hover:brightness-110 ${
+                        item.actual ? "bg-rail" : "bg-accent"
+                      }`}
+                    />
+                    <span className={`text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-mute"}`}>
+                      {item.mes}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState title="Sin volumen todavía" hint="El gráfico se llena en cuanto haya pagos confirmados." />
+            )}
+          </Section>
+        </div>
+
+        <Section
+          title="Cobertura por zona"
+          aside={
+            <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
+              <MapPin size={13} className="text-accent" aria-hidden /> Paseadores activos
+            </span>
+          }
+          bodyClass="px-6 pt-4 pb-6"
+        >
+          {zonas.length ? (
+            <ul className="flex flex-col gap-3.5">
+              {zonas.map((item) => (
+                <li key={item.z} className="flex items-center gap-3">
+                  <span className="w-[84px] shrink-0 truncate text-[12.5px] text-ink-soft">{item.z}</span>
+                  <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-sunken">
+                    <span
+                      style={{ width: `${(item.n / maxZona) * 100}%` }}
+                      className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
+                    />
+                  </span>
+                  <span className="nums w-8 text-right text-[12px] text-ink-mute">{item.n}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title="Sin cobertura" hint="Aparecerá cuando haya paseadores activos por zona." />
+          )}
+        </Section>
+      </div>
+
+      <Section title="Top paseadores del mes">
+        {top.length ? (
+          <Table
+            caption="Paseadores con pagos confirmados"
+            columnas={[{ label: "Paseador" }, { label: "Paseos", align: "right" }, { label: "Generado", align: "right" }]}
+          >
+            {top.map((item, index) => (
+              <tr key={item.n} className="transition-colors duration-150 hover:bg-sunken">
+                <td className="px-6 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className={`nums grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${rangoIndice[index]}`}>
+                      {index + 1}
+                    </span>
+                    <span className="text-[13px] font-medium text-ink">{item.n}</span>
+                  </div>
+                </td>
+                <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">{item.p}</td>
+                <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">{colones(item.g)}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <EmptyState title="Sin pagos este mes" hint="Los resultados aparecerán cuando haya pagos confirmados." />
+        )}
+      </Section>
+    </Page>
+  );
 };
 
 /* ── Finanzas ────────────────────────────────────────────────── */
