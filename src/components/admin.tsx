@@ -258,7 +258,9 @@ export const PanelAdmin = () => {
 /* ── Finanzas ────────────────────────────────────────────────── */
 
 export const FinanzasAdmin = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const [filtro, setFiltro] = useState("Todos");
+  const [pagina, setPagina] = useState(1);
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -279,6 +281,14 @@ export const FinanzasAdmin = () => {
         : true
   );
 
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
+  const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
+  const paginaMovimientos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
+
+  const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+
   const pagados = movimientos.filter((movement) => movement.estado_pago === "pagado");
   const pendientes = movimientos.filter((movement) => movement.estado_pago === "pendiente");
   const brutoPagado = pagados.reduce((sum, movement) => sum + movement.bruto, 0);
@@ -297,31 +307,26 @@ export const FinanzasAdmin = () => {
   };
 
   return (
-    <Page>
-      <PageHeader
-        title="Finanzas"
-        subtitle="Pagos, ganancias de paseadores y comisión de la plataforma."
-        action={
-          <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
-            <Download size={14} strokeWidth={1.9} />
-            Exportar
-          </button>
-        }
-      />
+    <Page wide>
+      {botonNotificaciones && <div className="flex justify-end">{botonNotificaciones}</div>}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? "pago completado" : "pagos completados"}`} />
         <Stat etiqueta="Comisión pendiente" valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} ${pendientes.length === 1 ? "pago" : "pagos"}`} />
         <Stat etiqueta="Volumen pagado" valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} paseos` : "sin pagos"} />
       </div>
 
-      <div className="overflow-x-auto rounded-lg bg-surface p-1">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar pagos"
           options={["Todos", "Pendientes", "Pagados"]}
           value={filtro}
-          onChange={setFiltro}
+          onChange={cambiarFiltro}
         />
+        <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
+          <Download size={14} strokeWidth={1.9} />
+          Exportar
+        </button>
       </div>
 
       <Section bodyClass="">
@@ -332,47 +337,60 @@ export const FinanzasAdmin = () => {
             <Loader size={16} className="animate-spin" /> Cargando finanzas…
           </div>
         ) : visibles.length > 0 ? (
-          <Table
-            caption={`Pagos filtrados por ${filtro.toLowerCase()}`}
-            columnas={[
-              { label: "Paseo" },
-              { label: "Dueño" },
-              { label: "Paseador" },
-              { label: "Bruto", align: "right" },
-              { label: "Comisión", align: "right" },
-              { label: "Neto", align: "right" },
-              { label: "Estado" },
-            ]}
-          >
-            {visibles.map((movement) => (
-              <tr key={movement.id_pago} className="transition-colors duration-150 hover:bg-sunken">
-                <td className="px-6 py-4 align-top">
-                  <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
-                  <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{movement.fecha}</p>
-                </td>
-                <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                  {movement.dueno}
-                </td>
-                <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                  {movement.paseador}
-                </td>
-                <td className="nums px-6 py-4 text-right align-top text-[12.5px] text-ink-soft">
-                  {colones(movement.bruto)}
-                </td>
-                <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
-                  {colones(movement.comision)}
-                </td>
-                <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
-                  {colones(movement.neto_paseador)}
-                </td>
-                <td className="px-6 py-4 align-top">
-                  <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
-                    {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
-                  </Badge>
-                </td>
-              </tr>
-            ))}
-          </Table>
+          <>
+            <Table
+              caption={`Pagos filtrados por ${filtro.toLowerCase()}`}
+              columnas={[
+                { label: "Paseo" },
+                { label: "Dueño" },
+                { label: "Paseador" },
+                { label: "Bruto", align: "right" },
+                { label: "Comisión", align: "right" },
+                { label: "Neto", align: "right" },
+                { label: "Estado" },
+              ]}
+            >
+              {paginaMovimientos.map((movement) => (
+                <tr key={movement.id_pago} className="transition-colors duration-150 hover:bg-sunken">
+                  <td className="px-6 py-4 align-top">
+                    <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
+                    <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{movement.fecha}</p>
+                  </td>
+                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {movement.dueno}
+                  </td>
+                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {movement.paseador}
+                  </td>
+                  <td className="nums px-6 py-4 text-right align-top text-[12.5px] text-ink-soft">
+                    {colones(movement.bruto)}
+                  </td>
+                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
+                    {colones(movement.comision)}
+                  </td>
+                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
+                    {colones(movement.neto_paseador)}
+                  </td>
+                  <td className="px-6 py-4 align-top">
+                    <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
+                      {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+
+            <Paginacion
+              etiqueta="Paginación de pagos"
+              actual={paginaActual}
+              total={totalPaginas}
+              onCambiar={setPagina}
+              desde={inicioPagina + 1}
+              hasta={finPagina}
+              cuantos={visibles.length}
+              nombre={["pago", "pagos"]}
+            />
+          </>
         ) : (
           <EmptyState
             title="Sin pagos en este filtro"

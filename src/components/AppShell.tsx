@@ -60,6 +60,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const conEncabezadoPropio =
     pathname === RUTA_ADMIN ||
     pathname === "/acceso-interno/usuarios" ||
+    pathname === "/acceso-interno/finanzas" ||
     pathname === "/pagos" ||
     pathname === "/pagos/tarjetas";
   const navigate = useNavigate();
