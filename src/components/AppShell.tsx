@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, Check, Menu, ShieldAlert, Trash2 } from "../lib/iconos";
 
-import { inicioDeRol, tituloDeRuta, type Rol } from "../lib/nav";
+import { inicioDeRol, RUTA_ADMIN, tituloDeRuta, type Rol } from "../lib/nav";
 import { NotificationButtonContext, PageWidthContext } from "./ui";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
@@ -58,7 +58,12 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
      `NotificationButtonContext` más abajo— y con eso la franja
      superior les queda vacía: se pliega solo para ellas. */
   const conEncabezadoPropio =
+    pathname === RUTA_ADMIN ||
     pathname === "/acceso-interno/usuarios" ||
+    pathname === "/acceso-interno/finanzas" ||
+    pathname === "/acceso-interno/paseadores" ||
+    pathname === "/acceso-interno/zonas" ||
+    pathname === "/acceso-interno/paseos" ||
     pathname === "/pagos" ||
     pathname === "/pagos/tarjetas";
   const navigate = useNavigate();

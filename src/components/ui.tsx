@@ -118,15 +118,15 @@ export const PageHeader = ({
   action,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   action?: ReactNode;
 }) => (
   <header
-    className={`${surface} flex flex-wrap items-end justify-between gap-4 px-6 py-5`}
+    className={`${surface} flex flex-wrap ${subtitle ? "items-end" : "items-center"} justify-between gap-4 px-6 py-5`}
   >
     <div>
       <h2 className="titular text-[21px] text-ink">{title}</h2>
-      <p className="mt-1 text-[13px] text-ink-soft">{subtitle}</p>
+      {subtitle && <p className="mt-1 text-[13px] text-ink-soft">{subtitle}</p>}
     </div>
     {action}
   </header>

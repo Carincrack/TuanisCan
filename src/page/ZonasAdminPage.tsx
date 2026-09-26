@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { MapPin, Search, Trash2 } from "../lib/iconos";
 import { deleteZona, getZonas } from "../services/auth.service";
 import type { Zona } from "../types/auth.types";
@@ -6,6 +6,7 @@ import {
   Badge,
   Confirmar,
   EmptyState,
+  NotificationButtonContext,
   Page,
   PageHeader,
   Paginacion,
@@ -20,6 +21,7 @@ import { aviso } from "../lib/aviso";
 import { distritoDe, normalizar } from "../lib/zonas";
 
 const ZonasAdminPage = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [provinciaFiltro, setProvinciaFiltro] = useState("Todas");
@@ -178,14 +180,19 @@ const ZonasAdminPage = () => {
     "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-danger-wash hover:text-danger active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger";
 
   return (
-    <Page>
+    <Page wide>
       <PageHeader
         title="Zonas"
         subtitle="Catálogo de zonas disponibles para perfiles y servicios."
-        action={<Badge tono="accent">{zonas.length} {zonas.length === 1 ? "zona" : "zonas"}</Badge>}
+        action={
+          <div className="flex items-center gap-2.5">
+            <Badge tono="accent">{zonas.length} {zonas.length === 1 ? "zona" : "zonas"}</Badge>
+            {botonNotificaciones}
+          </div>
+        }
       />
 
-      <div className="grid gap-2.5 sm:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Zonas registradas" valor={String(zonas.length)} nota="En todo el catálogo" />
         <Stat etiqueta="Provincias" valor={String(totalProvincias)} nota="Con al menos una zona" />
         <Stat etiqueta="Cantones" valor={String(totalCantones)} nota="Cubiertos en el catálogo" />

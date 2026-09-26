@@ -1,7 +1,8 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, IdCard, Loader, RefreshCw, Search, X } from "../lib/iconos";
+import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, Footprints, IdCard, Loader, MapPin, RefreshCw, Search, TrendingUp, UserCheck, Users, Wallet, X } from "../lib/iconos";
+import type { Icono } from "../lib/iconos";
 import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
@@ -37,6 +38,7 @@ import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 import { listAdminFinances, type AdminFinanceMovement } from "../services/payments.service";
+import { listAdminWalks, type AdminWalkMovement, type EstadoPaseo } from "../services/walks.service";
 import type { Rol } from "../lib/nav";
 
 /* ─────────────────────────────────────────────────────────────
@@ -45,30 +47,223 @@ import type { Rol } from "../lib/nav";
    ninguna pantalla pública.
    ───────────────────────────────────────────────────────────── */
 
+/** Métrica con ícono, para las cuatro tarjetas de arriba del panel.
+    Mismo cuerpo que `Stat` —mismo tamaño de número, misma nota, mismo
+    filete de proporción— pero con un círculo de acento a la izquierda
+    para que el panel general se distinga de las listas de abajo, que
+    ya usan `Stat` a secas. */
+const StatIcono = ({
+  icono: Icono,
+  etiqueta,
+  valor,
+  nota,
+  parte,
+}: {
+  icono: Icono;
+  etiqueta: string;
+  valor: string;
+  nota?: string;
+  parte?: number;
+}) => (
+  <div className="bg-surface px-6 py-5">
+    <div className="flex items-center gap-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-dark">
+        <Icono size={17} strokeWidth={2} aria-hidden />
+      </span>
+      <p className="rotulo text-ink-mute">{etiqueta}</p>
+    </div>
+    <p className="nums mt-3 text-[27px] leading-none font-semibold tracking-[-0.02em] text-ink">
+      {valor}
+    </p>
+    {nota && <p className="mt-1.5 text-[12px] text-ink-soft">{nota}</p>}
+    {parte !== undefined && (
+      <div className="mt-3.5 h-[3px] w-full overflow-hidden rounded-full bg-sunken" aria-hidden="true">
+        <div
+          className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-500 ease-out"
+          style={{ transform: `scaleX(${Math.min(1, Math.max(0, parte))})` }}
+        />
+      </div>
+    )}
+  </div>
+);
+
 export const PanelAdmin = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const { usuarios } = useAdminUsuarios();
   const { paseadores } = useAdminPaseadores();
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
   useEffect(() => { void listAdminFinances().then(setMovimientos).catch(() => setMovimientos([])); }, []);
+
   const now = new Date();
   const key = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
   const pagados = movimientos.filter((item) => item.estado_pago === "pagado");
+
   const mesesIngreso = Array.from({ length: 6 }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
-    return { mes: new Intl.DateTimeFormat("es-CR", { month: "short" }).format(date).replace(".", ""), bruto: pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(date)).reduce((sum, item) => sum + item.bruto, 0) };
+    return {
+      mes: new Intl.DateTimeFormat("es-CR", { month: "short" }).format(date).replace(".", ""),
+      bruto: pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(date)).reduce((sum, item) => sum + item.bruto, 0),
+      actual: key(date) === key(now),
+    };
   });
   const maxIngreso = Math.max(1, ...mesesIngreso.map((item) => item.bruto));
+
   const actuales = pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(now));
-  const top = Object.values(actuales.reduce<Record<string, { n: string; p: number; g: number }>>((all, item) => { const row = all[item.paseador] ?? { n: item.paseador, p: 0, g: 0 }; row.p++; row.g += item.bruto; all[item.paseador] = row; return all; }, {})).sort((a, b) => b.p - a.p).slice(0, 4);
-  const zonas = Object.values(paseadores.filter((item) => item.estado === "activo").reduce<Record<string, { z: string; n: number }>>((all, item) => { const row = all[item.zona] ?? { z: item.zona, n: 0 }; row.n++; all[item.zona] = row; return all; }, {})).sort((a, b) => b.n - a.n).slice(0, 6);
+  const top = Object.values(
+    actuales.reduce<Record<string, { n: string; p: number; g: number }>>((all, item) => {
+      const row = all[item.paseador] ?? { n: item.paseador, p: 0, g: 0 };
+      row.p++;
+      row.g += item.bruto;
+      all[item.paseador] = row;
+      return all;
+    }, {}),
+  ).sort((a, b) => b.p - a.p).slice(0, 4);
+
+  const paseadoresActivos = paseadores.filter((item) => item.estado === "activo");
+  const zonas = Object.values(
+    paseadoresActivos.reduce<Record<string, { z: string; n: number }>>((all, item) => {
+      const row = all[item.zona] ?? { z: item.zona, n: 0 };
+      row.n++;
+      all[item.zona] = row;
+      return all;
+    }, {}),
+  ).sort((a, b) => b.n - a.n).slice(0, 6);
   const maxZona = Math.max(1, ...zonas.map((item) => item.n));
-  return <Page><PageHeader title="Panel general" subtitle="Datos reales de la plataforma" action={<Badge tono="accent">Acceso interno</Badge>} /><div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4"><Stat etiqueta="Comisión del mes" valor={colones(actuales.reduce((sum, item) => sum + item.comision, 0))} nota={`${actuales.length} pagos confirmados`} /><Stat etiqueta="Paseos del mes" valor={String(actuales.length)} nota="Pagos confirmados" /><Stat etiqueta="Paseadores activos" valor={String(paseadores.filter((item) => item.estado === "activo").length)} nota={`de ${paseadores.length} registrados`} /><Stat etiqueta="Dueños activos" valor={String(new Set(actuales.map((item) => item.dueno)).size)} nota={`${usuarios.filter((item) => item.activo).length} cuentas activas`} /></div><Section title="Volumen bruto por mes" bodyClass="px-6 pt-5 pb-6"><ul className="flex h-[180px] items-end gap-3">{mesesIngreso.map((item) => <li key={item.mes} className="flex flex-1 flex-col items-center gap-2"><span className="nums text-[11px] text-ink-soft">{colones(item.bruto)}</span><span style={{ height: `${item.bruto / maxIngreso * 100}%` }} className="w-full bg-accent" /><span className="text-[11px] text-ink-mute">{item.mes}</span></li>)}</ul></Section><div className="grid gap-3 lg:grid-cols-2"><Section title="Top paseadores del mes" bodyClass="">{top.length ? <Table caption="Paseadores con pagos confirmados" columnas={[{ label: "Paseador" }, { label: "Paseos", align: "right" }, { label: "Generado", align: "right" }]}>{top.map((item) => <tr key={item.n}><td className="px-6 py-3.5">{item.n}</td><td className="px-6 py-3.5 text-right">{item.p}</td><td className="px-6 py-3.5 text-right">{colones(item.g)}</td></tr>)}</Table> : <EmptyState title="Sin pagos este mes" hint="Los resultados aparecerán cuando haya pagos confirmados." />}</Section><Section title="Cobertura por zona" bodyClass="px-6 pt-4 pb-6"><ul className="flex flex-col gap-3">{zonas.map((item) => <li key={item.z} className="flex items-center gap-3"><span className="w-[84px] text-[12.5px] text-ink-soft">{item.z}</span><span className="h-2.5 flex-1 bg-sunken"><span style={{ width: `${item.n / maxZona * 100}%` }} className="block h-full bg-accent" /></span><span className="nums w-8 text-right text-[12px] text-ink-mute">{item.n}</span></li>)}</ul></Section></div></Page>;
+
+  const rangoIndice = ["bg-gold-wash text-gold", "bg-accent-wash text-accent-dark", "bg-sunken text-ink-soft", "bg-sunken text-ink-soft"];
+
+  return (
+    <Page wide>
+      <PageHeader
+        title="Resumen de actividad"
+        subtitle="Ingresos, paseadores y cobertura de la plataforma en un vistazo."
+        action={botonNotificaciones}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatIcono
+          icono={Wallet}
+          etiqueta="Comisión del mes"
+          valor={colones(actuales.reduce((sum, item) => sum + item.comision, 0))}
+          nota={`${actuales.length} ${actuales.length === 1 ? "pago confirmado" : "pagos confirmados"}`}
+        />
+        <StatIcono icono={Footprints} etiqueta="Paseos del mes" valor={String(actuales.length)} nota="Pagos confirmados" />
+        <StatIcono
+          icono={UserCheck}
+          etiqueta="Paseadores activos"
+          valor={String(paseadoresActivos.length)}
+          nota={`de ${paseadores.length} registrados`}
+          parte={paseadores.length ? paseadoresActivos.length / paseadores.length : undefined}
+        />
+        <StatIcono
+          icono={Users}
+          etiqueta="Dueños activos"
+          valor={String(new Set(actuales.map((item) => item.dueno)).size)}
+          nota={`${usuarios.filter((item) => item.activo).length} cuentas activas`}
+        />
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <Section
+            title="Volumen bruto por mes"
+            aside={
+              <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
+                <TrendingUp size={13} className="text-accent" aria-hidden /> Últimos 6 meses
+              </span>
+            }
+            bodyClass="px-6 pt-6 pb-7"
+          >
+            {maxIngreso > 1 ? (
+              <ul className="flex h-[240px] items-end gap-4">
+                {mesesIngreso.map((item) => (
+                  <li key={item.mes} className="group flex flex-1 flex-col items-center gap-2">
+                    <span className={`nums text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-soft"}`}>
+                      {colones(item.bruto)}
+                    </span>
+                    <span
+                      style={{ height: `${Math.max(3, (item.bruto / maxIngreso) * 100)}%` }}
+                      className={`w-full rounded-t-[8px] transition-[filter] duration-150 ease-out group-hover:brightness-110 ${
+                        item.actual ? "bg-rail" : "bg-accent"
+                      }`}
+                    />
+                    <span className={`text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-mute"}`}>
+                      {item.mes}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState title="Sin volumen todavía" hint="El gráfico se llena en cuanto haya pagos confirmados." />
+            )}
+          </Section>
+        </div>
+
+        <Section
+          title="Cobertura por zona"
+          aside={
+            <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
+              <MapPin size={13} className="text-accent" aria-hidden /> Paseadores activos
+            </span>
+          }
+          bodyClass="px-6 pt-4 pb-6"
+        >
+          {zonas.length ? (
+            <ul className="flex flex-col gap-3.5">
+              {zonas.map((item) => (
+                <li key={item.z} className="flex items-center gap-3">
+                  <span className="w-[84px] shrink-0 truncate text-[12.5px] text-ink-soft">{item.z}</span>
+                  <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-sunken">
+                    <span
+                      style={{ width: `${(item.n / maxZona) * 100}%` }}
+                      className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
+                    />
+                  </span>
+                  <span className="nums w-8 text-right text-[12px] text-ink-mute">{item.n}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title="Sin cobertura" hint="Aparecerá cuando haya paseadores activos por zona." />
+          )}
+        </Section>
+      </div>
+
+      <Section title="Top paseadores del mes">
+        {top.length ? (
+          <Table
+            caption="Paseadores con pagos confirmados"
+            columnas={[{ label: "Paseador" }, { label: "Paseos", align: "right" }, { label: "Generado", align: "right" }]}
+          >
+            {top.map((item, index) => (
+              <tr key={item.n} className="transition-colors duration-150 hover:bg-sunken">
+                <td className="px-6 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className={`nums grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${rangoIndice[index]}`}>
+                      {index + 1}
+                    </span>
+                    <span className="text-[13px] font-medium text-ink">{item.n}</span>
+                  </div>
+                </td>
+                <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">{item.p}</td>
+                <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">{colones(item.g)}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <EmptyState title="Sin pagos este mes" hint="Los resultados aparecerán cuando haya pagos confirmados." />
+        )}
+      </Section>
+    </Page>
+  );
 };
 
 /* ── Finanzas ────────────────────────────────────────────────── */
 
 export const FinanzasAdmin = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const [filtro, setFiltro] = useState("Todos");
+  const [pagina, setPagina] = useState(1);
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -89,6 +284,14 @@ export const FinanzasAdmin = () => {
         : true
   );
 
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
+  const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
+  const paginaMovimientos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
+
+  const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+
   const pagados = movimientos.filter((movement) => movement.estado_pago === "pagado");
   const pendientes = movimientos.filter((movement) => movement.estado_pago === "pendiente");
   const brutoPagado = pagados.reduce((sum, movement) => sum + movement.bruto, 0);
@@ -107,31 +310,30 @@ export const FinanzasAdmin = () => {
   };
 
   return (
-    <Page>
+    <Page wide>
       <PageHeader
-        title="Finanzas"
+        title="Pagos y comisiones"
         subtitle="Pagos, ganancias de paseadores y comisión de la plataforma."
-        action={
-          <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
-            <Download size={14} strokeWidth={1.9} />
-            Exportar
-          </button>
-        }
+        action={botonNotificaciones}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? "pago completado" : "pagos completados"}`} />
         <Stat etiqueta="Comisión pendiente" valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} ${pendientes.length === 1 ? "pago" : "pagos"}`} />
         <Stat etiqueta="Volumen pagado" valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} paseos` : "sin pagos"} />
       </div>
 
-      <div className="overflow-x-auto rounded-lg bg-surface p-1">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar pagos"
           options={["Todos", "Pendientes", "Pagados"]}
           value={filtro}
-          onChange={setFiltro}
+          onChange={cambiarFiltro}
         />
+        <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
+          <Download size={14} strokeWidth={1.9} />
+          Exportar
+        </button>
       </div>
 
       <Section bodyClass="">
@@ -142,47 +344,60 @@ export const FinanzasAdmin = () => {
             <Loader size={16} className="animate-spin" /> Cargando finanzas…
           </div>
         ) : visibles.length > 0 ? (
-          <Table
-            caption={`Pagos filtrados por ${filtro.toLowerCase()}`}
-            columnas={[
-              { label: "Paseo" },
-              { label: "Dueño" },
-              { label: "Paseador" },
-              { label: "Bruto", align: "right" },
-              { label: "Comisión", align: "right" },
-              { label: "Neto", align: "right" },
-              { label: "Estado" },
-            ]}
-          >
-            {visibles.map((movement) => (
-              <tr key={movement.id_pago} className="transition-colors duration-150 hover:bg-sunken">
-                <td className="px-6 py-4 align-top">
-                  <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
-                  <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{movement.fecha}</p>
-                </td>
-                <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                  {movement.dueno}
-                </td>
-                <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                  {movement.paseador}
-                </td>
-                <td className="nums px-6 py-4 text-right align-top text-[12.5px] text-ink-soft">
-                  {colones(movement.bruto)}
-                </td>
-                <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
-                  {colones(movement.comision)}
-                </td>
-                <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
-                  {colones(movement.neto_paseador)}
-                </td>
-                <td className="px-6 py-4 align-top">
-                  <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
-                    {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
-                  </Badge>
-                </td>
-              </tr>
-            ))}
-          </Table>
+          <>
+            <Table
+              caption={`Pagos filtrados por ${filtro.toLowerCase()}`}
+              columnas={[
+                { label: "Paseo" },
+                { label: "Dueño" },
+                { label: "Paseador" },
+                { label: "Bruto", align: "right" },
+                { label: "Comisión", align: "right" },
+                { label: "Neto", align: "right" },
+                { label: "Estado" },
+              ]}
+            >
+              {paginaMovimientos.map((movement) => (
+                <tr key={movement.id_pago} className="transition-colors duration-150 hover:bg-sunken">
+                  <td className="px-6 py-4 align-top">
+                    <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
+                    <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{movement.fecha}</p>
+                  </td>
+                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {movement.dueno}
+                  </td>
+                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {movement.paseador}
+                  </td>
+                  <td className="nums px-6 py-4 text-right align-top text-[12.5px] text-ink-soft">
+                    {colones(movement.bruto)}
+                  </td>
+                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
+                    {colones(movement.comision)}
+                  </td>
+                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
+                    {colones(movement.neto_paseador)}
+                  </td>
+                  <td className="px-6 py-4 align-top">
+                    <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
+                      {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+
+            <Paginacion
+              etiqueta="Paginación de pagos"
+              actual={paginaActual}
+              total={totalPaginas}
+              onCambiar={setPagina}
+              desde={inicioPagina + 1}
+              hasta={finPagina}
+              cuantos={visibles.length}
+              nombre={["pago", "pagos"]}
+            />
+          </>
         ) : (
           <EmptyState
             title="Sin pagos en este filtro"
@@ -206,8 +421,10 @@ const tonoPaseador = (estado: AdminWalker["estado"]) =>
   estado === "activo" ? "ok" : estado === "suspendido" ? "danger" : "neutral";
 
 export const PaseadoresAdmin = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const { paseadores, loading, error } = useAdminPaseadores();
   const [filtro, setFiltro] = useState("Todos");
+  const [pagina, setPagina] = useState(1);
 
   const visibles = paseadores.filter((paseador) =>
     filtro === "Todos"
@@ -219,19 +436,28 @@ export const PaseadoresAdmin = () => {
           : paseador.estado === "suspendido"
   );
 
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
+  const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
+  const paginaPaseadores = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
+
+  const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+
   return (
-    <Page>
+    <Page wide>
       <PageHeader
-        title="Paseadores"
+        title="Directorio de paseadores"
         subtitle="Todos los paseadores registrados en la plataforma."
+        action={botonNotificaciones}
       />
 
-      <div className="bg-surface">
+      <div className="bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar paseadores"
           options={["Todos", "Activos", "Inactivos", "Suspendidos"]}
           value={filtro}
-          onChange={setFiltro}
+          onChange={cambiarFiltro}
         />
       </div>
 
@@ -241,60 +467,124 @@ export const PaseadoresAdmin = () => {
         </div>
       )}
 
-      <Section bodyClass="">
-        {loading ? (
-          <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando paseadores...</p>
-        ) : visibles.length > 0 ? (
-          <Table
-            caption={`Paseadores filtrados por ${filtro.toLowerCase()}`}
-            columnas={[
-              { label: "Paseador" },
-              { label: "Zona" },
-              { label: "Paseos", align: "right" },
-              { label: "Rating", align: "right" },
-              { label: "Generado", align: "right" },
-              { label: "Estado" },
-            ]}
-          >
-            {visibles.map((p) => (
-              <tr key={p.id_usuario}>
-                <td className="px-6 py-3">
-                  <div className="flex items-center gap-3">
-                    {p.foto_perfil ? (
-                      <img
-                        src={p.foto_perfil}
-                        alt=""
-                        aria-hidden
-                        className="h-9 w-9 flex-shrink-0 bg-sunken object-cover"
-                      />
-                    ) : (
-                      <Avatar nombre={p.nombre} size={36} />
-                    )}
-                    <span className="text-[13px] font-medium text-ink">
-                      {p.nombre}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-3 text-[12.5px] text-ink-soft">{p.zona}</td>
-                <td className="nums px-6 py-3 text-right text-[12.5px] text-ink-soft">
-                  {p.paseos}
-                </td>
-                <td className="nums px-6 py-3 text-right text-[12.5px] text-ink-soft">
-                  {p.rating}
-                </td>
-                <td className="nums px-6 py-3 text-right text-[13px] font-semibold text-ink">
-                  {colones(p.generado)}
-                </td>
-                <td className="px-6 py-3">
-                  <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
-                </td>
-              </tr>
-            ))}
-          </Table>
-        ) : (
-          <EmptyState title="Sin paseadores" hint={error ? "Revisa la conexión o los permisos de administrador." : "Cambia el filtro para ver el resto."} />
-        )}
-      </Section>
+      <div className="min-w-0">
+        <Section bodyClass="">
+          {loading ? (
+            <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando paseadores...</p>
+          ) : visibles.length > 0 ? (
+            <>
+              {/* ── De lg para arriba: la tabla ── */}
+              <div className="hidden lg:block">
+                <Table
+                  caption={`Paseadores filtrados por ${filtro.toLowerCase()}`}
+                  min="min-w-[900px]"
+                  padX="px-4"
+                  columnas={[
+                    { label: "Paseador", ancho: "w-[28%]" },
+                    { label: "Zona", ancho: "w-[20%]" },
+                    { label: "Paseos", align: "right", ancho: "w-[13%]" },
+                    { label: "Rating", align: "right", ancho: "w-[13%]" },
+                    { label: "Generado", align: "right", ancho: "w-[16%]" },
+                    { label: "Estado", ancho: "w-[10%]" },
+                  ]}
+                >
+                  {paginaPaseadores.map((p) => (
+                    <tr key={p.id_usuario} className="transition-colors duration-150 hover:bg-accent-wash/25">
+                      <td className="px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          {p.foto_perfil ? (
+                            <img
+                              src={p.foto_perfil}
+                              alt=""
+                              aria-hidden
+                              className="h-9 w-9 shrink-0 rounded-full bg-sunken object-cover"
+                            />
+                          ) : (
+                            <Avatar nombre={p.nombre} size={36} />
+                          )}
+                          <span className="truncate text-[13.5px] font-semibold text-ink" title={p.nombre}>
+                            {p.nombre}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="truncate px-4 py-3 text-[12.5px] text-ink-soft" title={p.zona}>{p.zona}</td>
+                      <td className="nums px-4 py-3 text-right text-[12.5px] text-ink-soft">
+                        {p.paseos}
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-[12.5px] text-ink-soft">
+                        {p.rating}
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-[13px] font-semibold text-ink">
+                        {colones(p.generado)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+
+              {/* ── Debajo de lg: fichas ── */}
+              <ul className="grid gap-2.5 p-4 lg:hidden">
+                {paginaPaseadores.map((p) => (
+                  <li key={p.id_usuario} className="rounded-[14px] bg-sunken/60 p-4">
+                    <div className="flex items-start gap-3">
+                      {p.foto_perfil ? (
+                        <img
+                          src={p.foto_perfil}
+                          alt=""
+                          aria-hidden
+                          className="h-10 w-10 shrink-0 rounded-full bg-sunken object-cover"
+                        />
+                      ) : (
+                        <Avatar nombre={p.nombre} size={40} />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-semibold text-ink">{p.nombre}</p>
+                        <p className="truncate text-[11.5px] text-ink-mute">{p.zona}</p>
+                      </div>
+                      <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
+                    </div>
+
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
+                      <div>
+                        <dt className="rotulo text-ink-mute">Paseos</dt>
+                        <dd className="nums mt-1 text-ink-soft">{p.paseos}</dd>
+                      </div>
+                      <div>
+                        <dt className="rotulo text-ink-mute">Rating</dt>
+                        <dd className="nums mt-1 text-ink-soft">{p.rating}</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="rotulo text-ink-mute">Generado</dt>
+                        <dd className="nums mt-1 font-semibold text-ink">{colones(p.generado)}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+
+              {visibles.length > PAGE_SIZE && (
+                <Paginacion
+                  etiqueta="Paginación de paseadores"
+                  actual={paginaActual}
+                  total={totalPaginas}
+                  onCambiar={setPagina}
+                  desde={inicioPagina + 1}
+                  hasta={finPagina}
+                  cuantos={visibles.length}
+                  nombre={["paseador", "paseadores"]}
+                />
+              )}
+            </>
+          ) : (
+            <div className="px-4 py-4 sm:px-6">
+              <EmptyState title="Sin paseadores" hint={error ? "Revisa la conexión o los permisos de administrador." : "Cambia el filtro para ver el resto."} />
+            </div>
+          )}
+        </Section>
+      </div>
     </Page>
   );
 };
@@ -1526,86 +1816,143 @@ export const UsuariosAdmin = () => {
 
 /* ── Paseos de la plataforma ─────────────────────────────────── */
 
-const paseosPlataforma = [
-  { id: "PS-0148", dueno: "Ana Corrales", paseador: "María Fernández", mascota: "Rocky", fecha: "19 ago 16:00", monto: 4500, estado: "En curso" as const },
-  { id: "PS-0147", dueno: "Laura Vega", paseador: "Carolina Mora", mascota: "Nube", fecha: "19 ago 09:00", monto: 3800, estado: "Completado" as const },
-  { id: "PS-0146", dueno: "Diego Solís", paseador: "Luis Rojas", mascota: "Kira", fecha: "19 ago 11:30", monto: 5200, estado: "Completado" as const },
-  { id: "PS-0145", dueno: "Priscilla Ramírez", paseador: "Valeria Chacón", mascota: "Coco", fecha: "18 ago 15:00", monto: 4800, estado: "Incidencia" as const },
-  { id: "PS-0144", dueno: "Roberto Jiménez", paseador: "Jorge Salas", mascota: "Max", fecha: "18 ago 08:30", monto: 3900, estado: "Cancelado" as const },
-];
+const estadoPaseoLabel: Record<EstadoPaseo, string> = {
+  solicitado: "Solicitado",
+  confirmado: "Confirmado",
+  en_curso: "En curso",
+  finalizado: "Completado",
+  cancelado: "Cancelado",
+};
 
-const tonoPaseo = (e: (typeof paseosPlataforma)[number]["estado"]) =>
-  e === "En curso"
+const tonoPaseo = (estado: EstadoPaseo) =>
+  estado === "en_curso"
     ? "accent"
-    : e === "Completado"
+    : estado === "finalizado"
       ? "ok"
-      : e === "Incidencia"
-        ? "warn"
-        : "danger";
+      : estado === "confirmado"
+        ? "neutral"
+        : estado === "solicitado"
+          ? "warn"
+          : "danger";
+
+const formatoCuando = (fecha: string, hora: string) =>
+  `${new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(new Date(`${fecha}T00:00:00`))} ${hora.slice(0, 5)}`;
 
 export const PaseosAdmin = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const [filtro, setFiltro] = useState("Todos");
+  const [pagina, setPagina] = useState(1);
+  const [paseos, setPaseos] = useState<AdminWalkMovement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const visibles = paseosPlataforma.filter((p) =>
+  useEffect(() => {
+    setLoading(true);
+    listAdminWalks()
+      .then(setPaseos)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar los paseos."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const enCurso = paseos.filter((p) => p.estado === "en_curso");
+
+  /* No existe un estado propio de "incidencia" en el modelo de datos:
+     el más cercano a un paseo con problema es uno que terminó
+     cancelado. */
+  const visibles = paseos.filter((p) =>
     filtro === "Todos"
       ? true
       : filtro === "Incidencias"
-        ? p.estado === "Incidencia"
-        : p.estado === "En curso"
+        ? p.estado === "cancelado"
+        : p.estado === "en_curso"
   );
 
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
+  const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
+  const paginaPaseos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
+
+  const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+
   return (
-    <Page>
+    <Page wide>
       <PageHeader
         title="Paseos"
         subtitle="Actividad de toda la plataforma en tiempo real."
-        action={<Badge tono="accent">1 en curso</Badge>}
+        action={
+          <div className="flex items-center gap-2.5">
+            <Badge tono="accent">{enCurso.length} en curso</Badge>
+            {botonNotificaciones}
+          </div>
+        }
       />
 
-      <div className="bg-surface">
+      <div className="bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar paseos"
           options={["Todos", "En curso", "Incidencias"]}
           value={filtro}
-          onChange={setFiltro}
+          onChange={cambiarFiltro}
         />
       </div>
 
       <Section bodyClass="">
-        {visibles.length > 0 ? (
-          <Table
-            caption={`Paseos de la plataforma filtrados por ${filtro.toLowerCase()}`}
-            columnas={[
-              { label: "Paseo" },
-              { label: "Dueño" },
-              { label: "Paseador" },
-              { label: "Cuándo" },
-              { label: "Estado" },
-              { label: "Monto", align: "right" },
-            ]}
-          >
-            {visibles.map((p) => (
-              <tr key={p.id}>
-                <td className="px-6 py-3.5">
-                  <p className="text-[13px] font-medium text-ink">{p.mascota}</p>
-                  <p className="nums text-[11.5px] text-ink-mute">{p.id}</p>
-                </td>
-                <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">{p.dueno}</td>
-                <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">
-                  {p.paseador}
-                </td>
-                <td className="nums px-6 py-3.5 text-[12.5px] text-ink-soft">
-                  {p.fecha}
-                </td>
-                <td className="px-6 py-3.5">
-                  <Badge tono={tonoPaseo(p.estado)}>{p.estado}</Badge>
-                </td>
-                <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                  {colones(p.monto)}
-                </td>
-              </tr>
-            ))}
-          </Table>
+        {error ? (
+          <div role="alert" className="bg-danger-wash px-6 py-5 text-[13px] text-danger">{error}</div>
+        ) : loading ? (
+          <div className="flex items-center gap-2 px-6 py-10 text-[13px] text-ink-soft">
+            <Loader size={16} className="animate-spin" /> Cargando paseos…
+          </div>
+        ) : visibles.length > 0 ? (
+          <>
+            <Table
+              caption={`Paseos de la plataforma filtrados por ${filtro.toLowerCase()}`}
+              columnas={[
+                { label: "Paseo" },
+                { label: "Dueño" },
+                { label: "Paseador" },
+                { label: "Cuándo" },
+                { label: "Estado" },
+                { label: "Monto", align: "right" },
+              ]}
+            >
+              {paginaPaseos.map((p) => (
+                <tr key={p.id_paseo} className="transition-colors duration-150 hover:bg-sunken">
+                  <td className="px-6 py-4 align-top">
+                    <p className="text-[13px] font-medium text-ink">{p.mascota}</p>
+                    <p className="nums mt-0.5 text-[11.5px] text-ink-mute">ID {p.id_paseo.slice(0, 8)}</p>
+                  </td>
+                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {p.dueno}
+                  </td>
+                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {p.paseador}
+                  </td>
+                  <td className="nums px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {formatoCuando(p.fecha, p.hora_inicio)}
+                  </td>
+                  <td className="px-6 py-4 align-top">
+                    <Badge tono={tonoPaseo(p.estado)}>{estadoPaseoLabel[p.estado]}</Badge>
+                  </td>
+                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
+                    {colones(p.precio)}
+                  </td>
+                </tr>
+              ))}
+            </Table>
+
+            <Paginacion
+              etiqueta="Paginación de paseos"
+              actual={paginaActual}
+              total={totalPaginas}
+              onCambiar={setPagina}
+              desde={inicioPagina + 1}
+              hasta={finPagina}
+              cuantos={visibles.length}
+              nombre={["paseo", "paseos"]}
+            />
+          </>
         ) : (
           <EmptyState title="Sin paseos" hint="Cambia el filtro para ver el resto." />
         )}
