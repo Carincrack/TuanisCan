@@ -61,6 +61,9 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     pathname === RUTA_ADMIN ||
     pathname === "/acceso-interno/usuarios" ||
     pathname === "/acceso-interno/finanzas" ||
+    pathname === "/acceso-interno/paseadores" ||
+    pathname === "/acceso-interno/zonas" ||
+    pathname === "/acceso-interno/paseos" ||
     pathname === "/pagos" ||
     pathname === "/pagos/tarjetas";
   const navigate = useNavigate();

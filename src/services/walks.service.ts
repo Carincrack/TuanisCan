@@ -235,6 +235,30 @@ export const cancelWalkRequest = async (id_paseo: string) => {
   if (error) throw error;
 };
 
+export type EstadoPaseo = "solicitado" | "confirmado" | "en_curso" | "finalizado" | "cancelado";
+
+export interface AdminWalkMovement {
+  id_paseo: string;
+  mascota: string;
+  dueno: string;
+  paseador: string;
+  fecha: string;
+  hora_inicio: string;
+  duracion_min: number;
+  estado: EstadoPaseo;
+  precio: number;
+}
+
+export const listAdminWalks = async (): Promise<AdminWalkMovement[]> => {
+  const { data, error } = await supabase.rpc("listar_paseos_admin");
+  if (error) throw error;
+
+  return ((data ?? []) as Array<Omit<AdminWalkMovement, "precio"> & { precio: number | string }>).map((walk) => ({
+    ...walk,
+    precio: Number(walk.precio),
+  }));
+};
+
 export const isUpcoming = (walk: { estado: string }): boolean => {
   const status = walk.estado;
   return status === "solicitado" || status === "confirmado" || status === "en_curso";

@@ -38,6 +38,7 @@ import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 import { listAdminFinances, type AdminFinanceMovement } from "../services/payments.service";
+import { listAdminWalks, type AdminWalkMovement, type EstadoPaseo } from "../services/walks.service";
 import type { Rol } from "../lib/nav";
 
 /* ─────────────────────────────────────────────────────────────
@@ -133,9 +134,11 @@ export const PanelAdmin = () => {
 
   return (
     <Page wide>
-      {botonNotificaciones && (
-        <div className="flex justify-end">{botonNotificaciones}</div>
-      )}
+      <PageHeader
+        title="Resumen de actividad"
+        subtitle="Ingresos, paseadores y cobertura de la plataforma en un vistazo."
+        action={botonNotificaciones}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatIcono
@@ -308,7 +311,11 @@ export const FinanzasAdmin = () => {
 
   return (
     <Page wide>
-      {botonNotificaciones && <div className="flex justify-end">{botonNotificaciones}</div>}
+      <PageHeader
+        title="Pagos y comisiones"
+        subtitle="Pagos, ganancias de paseadores y comisión de la plataforma."
+        action={botonNotificaciones}
+      />
 
       <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
         <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? "pago completado" : "pagos completados"}`} />
@@ -414,8 +421,10 @@ const tonoPaseador = (estado: AdminWalker["estado"]) =>
   estado === "activo" ? "ok" : estado === "suspendido" ? "danger" : "neutral";
 
 export const PaseadoresAdmin = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const { paseadores, loading, error } = useAdminPaseadores();
   const [filtro, setFiltro] = useState("Todos");
+  const [pagina, setPagina] = useState(1);
 
   const visibles = paseadores.filter((paseador) =>
     filtro === "Todos"
@@ -427,19 +436,28 @@ export const PaseadoresAdmin = () => {
           : paseador.estado === "suspendido"
   );
 
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
+  const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
+  const paginaPaseadores = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
+
+  const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+
   return (
-    <Page>
+    <Page wide>
       <PageHeader
-        title="Paseadores"
+        title="Directorio de paseadores"
         subtitle="Todos los paseadores registrados en la plataforma."
+        action={botonNotificaciones}
       />
 
-      <div className="bg-surface">
+      <div className="bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar paseadores"
           options={["Todos", "Activos", "Inactivos", "Suspendidos"]}
           value={filtro}
-          onChange={setFiltro}
+          onChange={cambiarFiltro}
         />
       </div>
 
@@ -449,60 +467,124 @@ export const PaseadoresAdmin = () => {
         </div>
       )}
 
-      <Section bodyClass="">
-        {loading ? (
-          <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando paseadores...</p>
-        ) : visibles.length > 0 ? (
-          <Table
-            caption={`Paseadores filtrados por ${filtro.toLowerCase()}`}
-            columnas={[
-              { label: "Paseador" },
-              { label: "Zona" },
-              { label: "Paseos", align: "right" },
-              { label: "Rating", align: "right" },
-              { label: "Generado", align: "right" },
-              { label: "Estado" },
-            ]}
-          >
-            {visibles.map((p) => (
-              <tr key={p.id_usuario}>
-                <td className="px-6 py-3">
-                  <div className="flex items-center gap-3">
-                    {p.foto_perfil ? (
-                      <img
-                        src={p.foto_perfil}
-                        alt=""
-                        aria-hidden
-                        className="h-9 w-9 flex-shrink-0 bg-sunken object-cover"
-                      />
-                    ) : (
-                      <Avatar nombre={p.nombre} size={36} />
-                    )}
-                    <span className="text-[13px] font-medium text-ink">
-                      {p.nombre}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-3 text-[12.5px] text-ink-soft">{p.zona}</td>
-                <td className="nums px-6 py-3 text-right text-[12.5px] text-ink-soft">
-                  {p.paseos}
-                </td>
-                <td className="nums px-6 py-3 text-right text-[12.5px] text-ink-soft">
-                  {p.rating}
-                </td>
-                <td className="nums px-6 py-3 text-right text-[13px] font-semibold text-ink">
-                  {colones(p.generado)}
-                </td>
-                <td className="px-6 py-3">
-                  <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
-                </td>
-              </tr>
-            ))}
-          </Table>
-        ) : (
-          <EmptyState title="Sin paseadores" hint={error ? "Revisa la conexión o los permisos de administrador." : "Cambia el filtro para ver el resto."} />
-        )}
-      </Section>
+      <div className="min-w-0">
+        <Section bodyClass="">
+          {loading ? (
+            <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando paseadores...</p>
+          ) : visibles.length > 0 ? (
+            <>
+              {/* ── De lg para arriba: la tabla ── */}
+              <div className="hidden lg:block">
+                <Table
+                  caption={`Paseadores filtrados por ${filtro.toLowerCase()}`}
+                  min="min-w-[900px]"
+                  padX="px-4"
+                  columnas={[
+                    { label: "Paseador", ancho: "w-[28%]" },
+                    { label: "Zona", ancho: "w-[20%]" },
+                    { label: "Paseos", align: "right", ancho: "w-[13%]" },
+                    { label: "Rating", align: "right", ancho: "w-[13%]" },
+                    { label: "Generado", align: "right", ancho: "w-[16%]" },
+                    { label: "Estado", ancho: "w-[10%]" },
+                  ]}
+                >
+                  {paginaPaseadores.map((p) => (
+                    <tr key={p.id_usuario} className="transition-colors duration-150 hover:bg-accent-wash/25">
+                      <td className="px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          {p.foto_perfil ? (
+                            <img
+                              src={p.foto_perfil}
+                              alt=""
+                              aria-hidden
+                              className="h-9 w-9 shrink-0 rounded-full bg-sunken object-cover"
+                            />
+                          ) : (
+                            <Avatar nombre={p.nombre} size={36} />
+                          )}
+                          <span className="truncate text-[13.5px] font-semibold text-ink" title={p.nombre}>
+                            {p.nombre}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="truncate px-4 py-3 text-[12.5px] text-ink-soft" title={p.zona}>{p.zona}</td>
+                      <td className="nums px-4 py-3 text-right text-[12.5px] text-ink-soft">
+                        {p.paseos}
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-[12.5px] text-ink-soft">
+                        {p.rating}
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-[13px] font-semibold text-ink">
+                        {colones(p.generado)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+
+              {/* ── Debajo de lg: fichas ── */}
+              <ul className="grid gap-2.5 p-4 lg:hidden">
+                {paginaPaseadores.map((p) => (
+                  <li key={p.id_usuario} className="rounded-[14px] bg-sunken/60 p-4">
+                    <div className="flex items-start gap-3">
+                      {p.foto_perfil ? (
+                        <img
+                          src={p.foto_perfil}
+                          alt=""
+                          aria-hidden
+                          className="h-10 w-10 shrink-0 rounded-full bg-sunken object-cover"
+                        />
+                      ) : (
+                        <Avatar nombre={p.nombre} size={40} />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-semibold text-ink">{p.nombre}</p>
+                        <p className="truncate text-[11.5px] text-ink-mute">{p.zona}</p>
+                      </div>
+                      <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
+                    </div>
+
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
+                      <div>
+                        <dt className="rotulo text-ink-mute">Paseos</dt>
+                        <dd className="nums mt-1 text-ink-soft">{p.paseos}</dd>
+                      </div>
+                      <div>
+                        <dt className="rotulo text-ink-mute">Rating</dt>
+                        <dd className="nums mt-1 text-ink-soft">{p.rating}</dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="rotulo text-ink-mute">Generado</dt>
+                        <dd className="nums mt-1 font-semibold text-ink">{colones(p.generado)}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+
+              {visibles.length > PAGE_SIZE && (
+                <Paginacion
+                  etiqueta="Paginación de paseadores"
+                  actual={paginaActual}
+                  total={totalPaginas}
+                  onCambiar={setPagina}
+                  desde={inicioPagina + 1}
+                  hasta={finPagina}
+                  cuantos={visibles.length}
+                  nombre={["paseador", "paseadores"]}
+                />
+              )}
+            </>
+          ) : (
+            <div className="px-4 py-4 sm:px-6">
+              <EmptyState title="Sin paseadores" hint={error ? "Revisa la conexión o los permisos de administrador." : "Cambia el filtro para ver el resto."} />
+            </div>
+          )}
+        </Section>
+      </div>
     </Page>
   );
 };
@@ -1734,86 +1816,143 @@ export const UsuariosAdmin = () => {
 
 /* ── Paseos de la plataforma ─────────────────────────────────── */
 
-const paseosPlataforma = [
-  { id: "PS-0148", dueno: "Ana Corrales", paseador: "María Fernández", mascota: "Rocky", fecha: "19 ago 16:00", monto: 4500, estado: "En curso" as const },
-  { id: "PS-0147", dueno: "Laura Vega", paseador: "Carolina Mora", mascota: "Nube", fecha: "19 ago 09:00", monto: 3800, estado: "Completado" as const },
-  { id: "PS-0146", dueno: "Diego Solís", paseador: "Luis Rojas", mascota: "Kira", fecha: "19 ago 11:30", monto: 5200, estado: "Completado" as const },
-  { id: "PS-0145", dueno: "Priscilla Ramírez", paseador: "Valeria Chacón", mascota: "Coco", fecha: "18 ago 15:00", monto: 4800, estado: "Incidencia" as const },
-  { id: "PS-0144", dueno: "Roberto Jiménez", paseador: "Jorge Salas", mascota: "Max", fecha: "18 ago 08:30", monto: 3900, estado: "Cancelado" as const },
-];
+const estadoPaseoLabel: Record<EstadoPaseo, string> = {
+  solicitado: "Solicitado",
+  confirmado: "Confirmado",
+  en_curso: "En curso",
+  finalizado: "Completado",
+  cancelado: "Cancelado",
+};
 
-const tonoPaseo = (e: (typeof paseosPlataforma)[number]["estado"]) =>
-  e === "En curso"
+const tonoPaseo = (estado: EstadoPaseo) =>
+  estado === "en_curso"
     ? "accent"
-    : e === "Completado"
+    : estado === "finalizado"
       ? "ok"
-      : e === "Incidencia"
-        ? "warn"
-        : "danger";
+      : estado === "confirmado"
+        ? "neutral"
+        : estado === "solicitado"
+          ? "warn"
+          : "danger";
+
+const formatoCuando = (fecha: string, hora: string) =>
+  `${new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(new Date(`${fecha}T00:00:00`))} ${hora.slice(0, 5)}`;
 
 export const PaseosAdmin = () => {
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const [filtro, setFiltro] = useState("Todos");
+  const [pagina, setPagina] = useState(1);
+  const [paseos, setPaseos] = useState<AdminWalkMovement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const visibles = paseosPlataforma.filter((p) =>
+  useEffect(() => {
+    setLoading(true);
+    listAdminWalks()
+      .then(setPaseos)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar los paseos."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const enCurso = paseos.filter((p) => p.estado === "en_curso");
+
+  /* No existe un estado propio de "incidencia" en el modelo de datos:
+     el más cercano a un paseo con problema es uno que terminó
+     cancelado. */
+  const visibles = paseos.filter((p) =>
     filtro === "Todos"
       ? true
       : filtro === "Incidencias"
-        ? p.estado === "Incidencia"
-        : p.estado === "En curso"
+        ? p.estado === "cancelado"
+        : p.estado === "en_curso"
   );
 
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
+  const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
+  const paginaPaseos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
+
+  const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+
   return (
-    <Page>
+    <Page wide>
       <PageHeader
         title="Paseos"
         subtitle="Actividad de toda la plataforma en tiempo real."
-        action={<Badge tono="accent">1 en curso</Badge>}
+        action={
+          <div className="flex items-center gap-2.5">
+            <Badge tono="accent">{enCurso.length} en curso</Badge>
+            {botonNotificaciones}
+          </div>
+        }
       />
 
-      <div className="bg-surface">
+      <div className="bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar paseos"
           options={["Todos", "En curso", "Incidencias"]}
           value={filtro}
-          onChange={setFiltro}
+          onChange={cambiarFiltro}
         />
       </div>
 
       <Section bodyClass="">
-        {visibles.length > 0 ? (
-          <Table
-            caption={`Paseos de la plataforma filtrados por ${filtro.toLowerCase()}`}
-            columnas={[
-              { label: "Paseo" },
-              { label: "Dueño" },
-              { label: "Paseador" },
-              { label: "Cuándo" },
-              { label: "Estado" },
-              { label: "Monto", align: "right" },
-            ]}
-          >
-            {visibles.map((p) => (
-              <tr key={p.id}>
-                <td className="px-6 py-3.5">
-                  <p className="text-[13px] font-medium text-ink">{p.mascota}</p>
-                  <p className="nums text-[11.5px] text-ink-mute">{p.id}</p>
-                </td>
-                <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">{p.dueno}</td>
-                <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">
-                  {p.paseador}
-                </td>
-                <td className="nums px-6 py-3.5 text-[12.5px] text-ink-soft">
-                  {p.fecha}
-                </td>
-                <td className="px-6 py-3.5">
-                  <Badge tono={tonoPaseo(p.estado)}>{p.estado}</Badge>
-                </td>
-                <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                  {colones(p.monto)}
-                </td>
-              </tr>
-            ))}
-          </Table>
+        {error ? (
+          <div role="alert" className="bg-danger-wash px-6 py-5 text-[13px] text-danger">{error}</div>
+        ) : loading ? (
+          <div className="flex items-center gap-2 px-6 py-10 text-[13px] text-ink-soft">
+            <Loader size={16} className="animate-spin" /> Cargando paseos…
+          </div>
+        ) : visibles.length > 0 ? (
+          <>
+            <Table
+              caption={`Paseos de la plataforma filtrados por ${filtro.toLowerCase()}`}
+              columnas={[
+                { label: "Paseo" },
+                { label: "Dueño" },
+                { label: "Paseador" },
+                { label: "Cuándo" },
+                { label: "Estado" },
+                { label: "Monto", align: "right" },
+              ]}
+            >
+              {paginaPaseos.map((p) => (
+                <tr key={p.id_paseo} className="transition-colors duration-150 hover:bg-sunken">
+                  <td className="px-6 py-4 align-top">
+                    <p className="text-[13px] font-medium text-ink">{p.mascota}</p>
+                    <p className="nums mt-0.5 text-[11.5px] text-ink-mute">ID {p.id_paseo.slice(0, 8)}</p>
+                  </td>
+                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {p.dueno}
+                  </td>
+                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {p.paseador}
+                  </td>
+                  <td className="nums px-6 py-4 align-top text-[12.5px] text-ink-soft">
+                    {formatoCuando(p.fecha, p.hora_inicio)}
+                  </td>
+                  <td className="px-6 py-4 align-top">
+                    <Badge tono={tonoPaseo(p.estado)}>{estadoPaseoLabel[p.estado]}</Badge>
+                  </td>
+                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
+                    {colones(p.precio)}
+                  </td>
+                </tr>
+              ))}
+            </Table>
+
+            <Paginacion
+              etiqueta="Paginación de paseos"
+              actual={paginaActual}
+              total={totalPaginas}
+              onCambiar={setPagina}
+              desde={inicioPagina + 1}
+              hasta={finPagina}
+              cuantos={visibles.length}
+              nombre={["paseo", "paseos"]}
+            />
+          </>
         ) : (
           <EmptyState title="Sin paseos" hint="Cambia el filtro para ver el resto." />
         )}
