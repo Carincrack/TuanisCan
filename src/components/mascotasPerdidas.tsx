@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Camera, CheckCircle2, Clock, Eye, Maximize2, MapPin, Phone, Search, Siren } from "../lib/iconos";
+import { Camera, Check, CheckCircle2, Clock, Eye, Maximize2, MapPin, Phone, Search, Siren, Sparkles, X } from "../lib/iconos";
 import { getZonas } from "../services/auth.service";
 import { listPets } from "../services/pets.service";
-import { listLostPetReports, markLostPetFound, registerSighting, reportLostPet } from "../services/lost-pets.service";
+import {
+  listLostPetReports,
+  listMyPetMatches,
+  markLostPetFound,
+  registerSighting,
+  reportLostPet,
+  resolveMatch,
+} from "../services/lost-pets.service";
 import { useAuth } from "../hooks/useAuth";
 import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
 import { distritoDe, normalizar as normalizarZona } from "../lib/zonas";
 import type { Zona } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
-import type { LostPetInput, LostPetReport } from "../types/lost-pet.types";
+import type { LostPetInput, LostPetReport, PetMatch } from "../types/lost-pet.types";
 import {
   Badge,
   Confirmar,
@@ -285,6 +292,136 @@ const ReportForm = ({
   );
 };
 
+/* No pide elegir una mascota propia: es justo lo contrario del reporte
+   de arriba, alguien encontró un animal que no es suyo. Con especie,
+   zona y señas alcanza para que el sistema busque coincidencias entre
+   las mascotas perdidas registradas de esa zona (`generar_matches_reporte`)
+   y avise a un posible dueño. */
+const FoundPetForm = ({
+  userId,
+  zonas,
+  profilePhone,
+  profileZonaId,
+  onClose,
+  onSaved,
+}: {
+  userId: string;
+  zonas: Zona[];
+  profilePhone?: string | null;
+  profileZonaId?: string | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) => {
+  const [values, setValues] = useState({
+    especie: "Perro",
+    raza: "",
+    zona_id: profileZonaId ?? "",
+    contacto: profilePhone ?? "",
+    descripcion: "",
+    ubicacion: "",
+  });
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const { locating, locate } = useBrowserLocation();
+  const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const fillLocation = () =>
+    locate(
+      (coords) => setValues((current) => ({ ...current, ubicacion: coordsLabel(coords) })),
+      setError
+    );
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+    if (!values.zona_id) {
+      setError("Elige la zona donde la encontraste.");
+      return;
+    }
+    if (!photo) {
+      setError("Agrega una foto clara de la mascota.");
+      return;
+    }
+    if (!photo.type.startsWith("image/") || photo.size > 5 * 1024 * 1024) {
+      setError("La foto debe ser JPG, PNG o WebP y pesar menos de 5 MB.");
+      return;
+    }
+    const coords = parseCoords(values.ubicacion);
+    if (!coords) {
+      setError("Escribe la ubicación como latitud, longitud. Ejemplo: 10.169410, -85.541761");
+      return;
+    }
+    const payload: LostPetInput = {
+      id_mascota: null,
+      nombre: null,
+      especie: values.especie.trim(),
+      raza: values.raza.trim() || null,
+      zona_id: values.zona_id,
+      contacto: values.contacto.trim() || null,
+      descripcion: values.descripcion.trim(),
+      latitud: coords.latitud,
+      longitud: coords.longitud,
+      recompensa: null,
+    };
+    if (!payload.especie) {
+      setError("Indica la especie de la mascota.");
+      return;
+    }
+    if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
+      setError("La latitud debe ser un número entre -90 y 90.");
+      return;
+    }
+    if (!Number.isFinite(payload.longitud) || payload.longitud < -180 || payload.longitud > 180) {
+      setError("La longitud debe ser un número entre -180 y 180.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await reportLostPet(userId, payload, photo);
+      await onSaved();
+      onClose();
+      aviso.ok("Reporte publicado", {
+        detalle: "Le avisamos a quien tenga una mascota registrada parecida en esa zona.",
+      });
+    } catch (cause) {
+      setError(messageFrom(cause));
+      aviso.error(cause, { respaldo: "No se pudo publicar el reporte." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className={fieldLabel}>Especie *<input className={input} required maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
+        <label className={fieldLabel}>Raza<input className={input} maxLength={100} placeholder="Si no la sabes, déjalo en blanco" value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
+        <label className={fieldLabel}>Zona *
+          <Combo
+            required
+            value={values.zona_id}
+            onChange={(v) => update("zona_id", v)}
+            placeholder="Selecciona una zona"
+            options={zonas.map((zona) => ({
+              value: zona.id_zona,
+              label: `${zona.nombre} · ${zona.canton}`,
+            }))}
+          />
+        </label>
+        <label className={fieldLabel}>Contacto *<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
+        <label className={`${fieldLabel} sm:col-span-2`}>Ubicación *
+          <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
+        </label>
+        <label className={`${fieldLabel} sm:col-span-2`}><span className="flex items-center gap-2"><Camera size={15} /> Foto *</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
+      </div>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando…" : "Usar la ubicación donde estoy"}</button>
+      <label className={fieldLabel}>Señas, color, dónde y cómo la encontraste *<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
+      {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Publicando…" : "Publicar reporte"}</button></div>
+    </form>
+  );
+};
+
 const SightingForm = ({
   report,
   zonas,
@@ -446,11 +583,14 @@ const MascotasPerdidas = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reporting, setReporting] = useState(false);
+  const [reportingFound, setReportingFound] = useState(false);
   const [sighting, setSighting] = useState<LostPetReport | null>(null);
   const [sightingDetails, setSightingDetails] = useState<LostPetReport | null>(null);
   const [fotoAbierta, setFotoAbierta] = useState<LostPetReport | null>(null);
   const [cerrandoCaso, setCerrandoCaso] = useState<LostPetReport | null>(null);
   const [cerrandoOcupado, setCerrandoOcupado] = useState(false);
+  const [matches, setMatches] = useState<PetMatch[]>([]);
+  const [resolviendoMatch, setResolviendoMatch] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -466,6 +606,9 @@ const MascotasPerdidas = () => {
       setPets(petsData);
       setProfileZonaId(profile?.zona_id ?? null);
       setProfilePhone(profile?.telefono ?? null);
+      // Que esto falle no debe tumbar la pantalla: es un extra sobre
+      // el listado, no el listado en sí.
+      setMatches(await listMyPetMatches(petsData).catch(() => []));
     } catch (cause) {
       setError(messageFrom(cause));
     } finally {
@@ -520,6 +663,32 @@ const MascotasPerdidas = () => {
     territorio.distrito,
   ]);
 
+  const pendingMatches = useMemo(
+    () => matches.filter((match) => match.estado_match === "pendiente" && match.estado_reporte === "perdida"),
+    [matches]
+  );
+
+  const resolveMyMatch = async (match: PetMatch, estado: "confirmado" | "descartado") => {
+    setResolviendoMatch(match.id_match);
+    try {
+      await resolveMatch(match.id_match, estado);
+      await load();
+      aviso.ok(
+        estado === "confirmado" ? `¡${match.mascotaNombre} está de vuelta!` : "Coincidencia descartada",
+        {
+          detalle:
+            estado === "confirmado"
+              ? "Vinculamos el reporte con tu mascota. Coordina la entrega con quien la encontró."
+              : undefined,
+        }
+      );
+    } catch (cause) {
+      aviso.error(cause, { respaldo: "No se pudo actualizar la coincidencia." });
+    } finally {
+      setResolviendoMatch(null);
+    }
+  };
+
   const closeReport = async (report: LostPetReport) => {
     setCerrandoOcupado(true);
     try {
@@ -555,8 +724,69 @@ const MascotasPerdidas = () => {
       <PageHeader
         title="Mascotas perdidas"
         subtitle={loading ? "Cargando reportes…" : `${stats.perdidas} activas · ${stats.encontradas} encontradas · ${stats.avistamientos} avistamientos`}
-        action={<button type="button" className={btnPrimary} onClick={() => setReporting(true)} disabled={!pets.length} title={!pets.length ? "Registra primero una mascota" : undefined}><Siren size={15} strokeWidth={2} />Reportar mascota perdida</button>}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={btnSecondary} onClick={() => setReportingFound(true)}>
+              <Eye size={15} strokeWidth={2} />
+              Encontré una mascota
+            </button>
+            <button type="button" className={btnPrimary} onClick={() => setReporting(true)} disabled={!pets.length} title={!pets.length ? "Registra primero una mascota" : undefined}><Siren size={15} strokeWidth={2} />Reportar mascota perdida</button>
+          </div>
+        }
       />
+
+      {pendingMatches.length > 0 && (
+        <section aria-label="Posibles coincidencias" className="bg-accent-wash p-4 sm:p-5">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-accent-dark" aria-hidden />
+            <h3 className="text-[14px] font-semibold text-accent-deep">
+              {pendingMatches.length === 1 ? "Posible coincidencia" : "Posibles coincidencias"}
+            </h3>
+          </div>
+          <p className="mt-1 text-[12.5px] text-accent-dark">
+            Alguien reportó haber encontrado una mascota que podría ser tuya.
+          </p>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {pendingMatches.map((match) => (
+              <article key={match.id_match} className="flex gap-3 rounded-[18px] bg-surface p-3">
+                <img
+                  src={match.fotoUrl ?? "/mock/dog-nube.jpg"}
+                  alt={`Foto de la mascota encontrada, posible ${match.mascotaNombre}`}
+                  className="size-20 shrink-0 rounded-[14px] bg-sunken object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-ink">¿Es {match.mascotaNombre}?</p>
+                  <p className="mt-0.5 truncate text-[12px] text-ink-mute">
+                    {match.especie} · {zonaLabel(match.zona)}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-[12px] text-ink-soft">{match.descripcion}</p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      className={`${btnSecondaryCompacto} flex-1`}
+                      disabled={resolviendoMatch === match.id_match}
+                      onClick={() => void resolveMyMatch(match, "confirmado")}
+                    >
+                      <Check size={13} />
+                      Sí, es ella
+                    </button>
+                    <button
+                      type="button"
+                      className={`${btnQuiet} flex-1`}
+                      disabled={resolviendoMatch === match.id_match}
+                      onClick={() => void resolveMyMatch(match, "descartado")}
+                    >
+                      <X size={13} />
+                      No es
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section aria-label="Filtros de mascotas perdidas" className="bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -840,6 +1070,11 @@ const MascotasPerdidas = () => {
       {reporting && user && (
         <Dialog ancho="max-w-[760px]" title="Reportar mascota perdida" onClose={() => setReporting(false)}>
           <ReportForm userId={user.id} pets={pets} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReporting(false)} onSaved={load} />
+        </Dialog>
+      )}
+      {reportingFound && user && (
+        <Dialog ancho="max-w-[760px]" title="Encontré una mascota" onClose={() => setReportingFound(false)}>
+          <FoundPetForm userId={user.id} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReportingFound(false)} onSaved={load} />
         </Dialog>
       )}
       {sighting && (

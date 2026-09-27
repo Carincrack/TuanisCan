@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import type { Zona } from "../types/auth.types";
-import type { LostPetInput, LostPetReport, Sighting, SightingInput } from "../types/lost-pet.types";
+import type { Pet } from "../types/pet.types";
+import type { LostPetInput, LostPetReport, MatchStatus, PetMatch, Sighting, SightingInput } from "../types/lost-pet.types";
 
 const PHOTO_BUCKET = "mascotas-perdidas";
 
@@ -14,6 +15,22 @@ type LostPetRow = Omit<LostPetReport, "fotoUrl" | "latitud" | "longitud" | "reco
 type SightingRow = Omit<Sighting, "latitud" | "longitud"> & {
   latitud: string | number;
   longitud: string | number;
+};
+
+type MatchRow = {
+  id_match: string;
+  id_reporte: string;
+  especie: string;
+  descripcion: string;
+  foto: string | null;
+  zona_id: string | null;
+  latitud: string | number;
+  longitud: string | number;
+  recompensa: string | number | null;
+  fecha_reporte: string;
+  puntaje_coincidencia: string | number;
+  estado_match: MatchStatus;
+  estado_reporte: LostPetReport["estado"];
 };
 
 const photoUrl = async (path: string | null) => {
@@ -96,24 +113,26 @@ export const uploadLostPetPhoto = async (userId: string, file: File) => {
 };
 
 export const reportLostPet = async (userId: string, values: LostPetInput, photo: File) => {
-  const activeReport = await supabase
-    .from("mascotas_perdidas")
-    .select("id_mascota_perdida")
-    .eq("id_mascota", values.id_mascota)
-    .eq("estado", "perdida")
-    .maybeSingle();
-  if (activeReport.error) throw activeReport.error;
-  if (activeReport.data) {
-    throw new Error("Esta mascota ya tiene un reporte activo como perdida.");
+  if (values.id_mascota) {
+    const activeReport = await supabase
+      .from("mascotas_perdidas")
+      .select("id_mascota_perdida")
+      .eq("id_mascota", values.id_mascota)
+      .eq("estado", "perdida")
+      .maybeSingle();
+    if (activeReport.error) throw activeReport.error;
+    if (activeReport.data) {
+      throw new Error("Esta mascota ya tiene un reporte activo como perdida.");
+    }
   }
 
   const foto = await uploadLostPetPhoto(userId, photo);
   const { error } = await supabase.from("mascotas_perdidas").insert({
-    id_mascota: values.id_mascota,
+    id_mascota: values.id_mascota || null,
     id_usuario_reporta: userId,
     zona_id: values.zona_id,
     especie: values.especie,
-    nombre: values.nombre,
+    nombre: values.nombre?.trim() || "Mascota encontrada",
     raza: values.raza || "Desconocida",
     contacto: values.contacto,
     descripcion: values.descripcion,
@@ -147,6 +166,49 @@ export const registerSighting = async (values: SightingInput) => {
 export const markLostPetFound = async (reportId: string) => {
   const { error } = await supabase.rpc("marcar_mascota_encontrada", {
     p_id_reporte: reportId,
+  });
+  if (error) throw error;
+};
+
+const toMatch = async (pet: Pet, row: MatchRow): Promise<PetMatch> => ({
+  id_match: row.id_match,
+  id_reporte: row.id_reporte,
+  id_mascota: pet.id_mascota,
+  mascotaNombre: pet.nombre,
+  especie: row.especie,
+  descripcion: row.descripcion,
+  fotoUrl: await photoUrl(row.foto),
+  zona_id: row.zona_id,
+  latitud: Number(row.latitud),
+  longitud: Number(row.longitud),
+  recompensa: row.recompensa == null ? null : Number(row.recompensa),
+  fecha_reporte: row.fecha_reporte,
+  puntaje_coincidencia: Number(row.puntaje_coincidencia),
+  estado_match: row.estado_match,
+  estado_reporte: row.estado_reporte,
+});
+
+/** Las coincidencias que el sistema encontró entre reportes de
+    mascotas encontradas (sin dueño identificado) y las mascotas
+    registradas de quien consulta. */
+export const listMyPetMatches = async (pets: Pet[]): Promise<PetMatch[]> => {
+  if (!pets.length) return [];
+  const porMascota = await Promise.all(
+    pets.map(async (pet) => {
+      const { data, error } = await supabase.rpc("obtener_matches_mascota", {
+        p_id_mascota: pet.id_mascota,
+      });
+      if (error) throw error;
+      return Promise.all(((data ?? []) as MatchRow[]).map((row) => toMatch(pet, row)));
+    })
+  );
+  return porMascota.flat();
+};
+
+export const resolveMatch = async (idMatch: string, estado: "confirmado" | "descartado") => {
+  const { error } = await supabase.rpc("resolver_match", {
+    p_id_match: idMatch,
+    p_estado: estado,
   });
   if (error) throw error;
 };

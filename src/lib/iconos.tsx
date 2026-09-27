@@ -32,6 +32,7 @@ import {
   EyeOff as EyeOffVivo,
   FileText as FileTextVivo,
   Footprints as FootprintsVivo,
+  Heart as HeartVivo,
   Image as ImageVivo,
   Inbox as InboxVivo,
   LayoutDashboard as LayoutDashboardVivo,
@@ -56,6 +57,7 @@ import {
   Share as Share2Vivo,
   ShieldCheck as ShieldCheckVivo,
   Sparkles as SparklesVivo,
+  SlidersHorizontal as SlidersHorizontalVivo,
   Star as StarVivo,
   Store as StoreVivo,
   Timer as TimerVivo,
@@ -466,6 +468,7 @@ export const Eye = animado(EyeVivo);
 export const EyeOff = animado(EyeOffVivo);
 export const FileText = animado(FileTextVivo);
 export const Footprints = animado(FootprintsVivo);
+export const Heart = animado(HeartVivo);
 export const Image = animado(ImageVivo);
 export const Inbox = animado(InboxVivo);
 export const LayoutDashboard = animado(LayoutDashboardVivo);
@@ -490,6 +493,7 @@ export const Send = animado(SendVivo);
 export const Share2 = animado(Share2Vivo);
 export const ShieldCheck = animado(ShieldCheckVivo);
 export const Sparkles = animado(SparklesVivo);
+export const SlidersHorizontal = animado(SlidersHorizontalVivo);
 export const Star = animado(StarVivo);
 export const Store = animado(StoreVivo);
 export const Timer = animado(TimerVivo);
