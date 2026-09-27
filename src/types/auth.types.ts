@@ -81,6 +81,7 @@ export interface NegocioProfile {
   telefono: string | null;
   horario: string | null;
   destacado: boolean;
+  foto: string | null;
 }
 
 export interface UserProfile {
@@ -169,7 +170,7 @@ export interface ProfileUpdate {
   paseador?: Pick<PaseadorProfile, "descripcion" | "disponible">;
   negocio?: Pick<
     NegocioProfile,
-    "zona_id" | "nombre" | "tipo" | "direccion" | "latitud" | "longitud" | "telefono" | "horario"
+    "zona_id" | "nombre" | "tipo" | "direccion" | "latitud" | "longitud" | "telefono" | "horario" | "foto"
   >;
 }
 

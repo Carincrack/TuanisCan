@@ -65,7 +65,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     pathname === "/acceso-interno/zonas" ||
     pathname === "/acceso-interno/paseos" ||
     pathname === "/pagos" ||
-    pathname === "/pagos/tarjetas";
+    pathname === "/pagos/tarjetas" ||
+    pathname === "/directorio";
   const navigate = useNavigate();
   const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);

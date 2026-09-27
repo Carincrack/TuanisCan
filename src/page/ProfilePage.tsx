@@ -55,10 +55,12 @@ import { useAuth } from "../hooks/useAuth";
 
 import {
   createBusinessProfile,
+  deleteNegocioPhoto,
   deleteProfilePhoto,
   getZonas,
   refreshAuthSession,
   requestWalkerProfile,
+  uploadNegocioPhoto,
   uploadProfilePhoto,
 } from "../services/auth.service";
 
@@ -97,6 +99,7 @@ interface ProfileForm {
   longitud: string;
   telefono_negocio: string;
   horario: string;
+  foto_negocio: string;
 }
 
 /* =========================================================
@@ -121,6 +124,7 @@ const emptyForm: ProfileForm = {
   longitud: "",
   telefono_negocio: "",
   horario: "",
+  foto_negocio: "",
 };
 
 const formFromProfile = (profile: UserProfile): ProfileForm => ({
@@ -141,6 +145,7 @@ const formFromProfile = (profile: UserProfile): ProfileForm => ({
   longitud: profile.negocio?.longitud?.toString() ?? "",
   telefono_negocio: profile.negocio?.telefono ?? "",
   horario: profile.negocio?.horario ?? "",
+  foto_negocio: profile.negocio?.foto ?? "",
 });
 
 /* =========================================================
@@ -330,6 +335,15 @@ const ProfilePage = () => {
   const [removePhoto, setRemovePhoto] =
     useState(false);
 
+  const [negocioPhotoFile, setNegocioPhotoFile] =
+    useState<File | null>(null);
+
+  const [negocioPhotoPreview, setNegocioPhotoPreview] =
+    useState<string | null>(null);
+
+  const [removeNegocioPhoto, setRemoveNegocioPhoto] =
+    useState(false);
+
   const [roleSetup, setRoleSetup] =
     useState<RolPublico | null>(null);
 
@@ -479,6 +493,40 @@ const ProfilePage = () => {
     }
   };
 
+  useEffect(() => {
+    if (!negocioPhotoFile) {
+      setNegocioPhotoPreview(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(negocioPhotoFile);
+    setNegocioPhotoPreview(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [negocioPhotoFile]);
+
+  const selectNegocioPhoto = (file: File | null) => {
+    setError(null);
+
+    if (
+      file &&
+      (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024)
+    ) {
+      setError(
+        "La imagen debe ser JPG, PNG o WebP y pesar menos de 5 MB.",
+      );
+
+      setNegocioPhotoFile(null);
+      return;
+    }
+
+    setNegocioPhotoFile(file);
+
+    if (file) {
+      setRemoveNegocioPhoto(false);
+    }
+  };
+
   /* =========================================================
      VALIDACIÓN
      ========================================================= */
@@ -537,6 +585,21 @@ const ProfilePage = () => {
         );
 
       nextPhoto = uploadedUrl;
+    }
+
+    let uploadedNegocioUrl: string | null = null;
+
+    let nextNegocioFoto = removeNegocioPhoto
+      ? null
+      : form.foto_negocio || null;
+
+    if (negocioPhotoFile) {
+      uploadedNegocioUrl = await uploadNegocioPhoto(
+        user.id,
+        negocioPhotoFile,
+      );
+
+      nextNegocioFoto = uploadedNegocioUrl;
     }
 
     const changes: ProfileUpdate = {
@@ -602,6 +665,8 @@ const ProfilePage = () => {
         horario:
           form.horario.trim() ||
           null,
+
+        foto: nextNegocioFoto,
       };
     }
 
@@ -612,6 +677,10 @@ const ProfilePage = () => {
         await deleteProfilePhoto(
           uploadedUrl,
         );
+      }
+
+      if (uploadedNegocioUrl) {
+        await deleteNegocioPhoto(uploadedNegocioUrl);
       }
 
       throw cause;
@@ -627,8 +696,17 @@ const ProfilePage = () => {
       );
     }
 
+    if (
+      (uploadedNegocioUrl || removeNegocioPhoto) &&
+      profile.negocio?.foto
+    ) {
+      await deleteNegocioPhoto(profile.negocio.foto);
+    }
+
     setPhotoFile(null);
     setRemovePhoto(false);
+    setNegocioPhotoFile(null);
+    setRemoveNegocioPhoto(false);
 
     const updated =
       await getProfile();
@@ -2237,6 +2315,66 @@ const ProfilePage = () => {
             </div>
 
             <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+              <div className="sm:col-span-2">
+                <span className={labelClass}>Foto del negocio</span>
+
+                {(() => {
+                  const negocioFotoUrl = removeNegocioPhoto
+                    ? ""
+                    : negocioPhotoPreview || form.foto_negocio;
+
+                  return (
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-sunken text-accent-dark">
+                        {negocioFotoUrl ? (
+                          <img
+                            src={negocioFotoUrl}
+                            alt={`Foto de ${form.nombre_negocio || "el negocio"}`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Building2 size={26} />
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className={`${btnQuiet} cursor-pointer`}>
+                          <Camera size={14} strokeWidth={2} aria-hidden />
+                          {negocioFotoUrl ? "Cambiar foto" : "Subir foto"}
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="sr-only"
+                            onChange={(event) => {
+                              selectNegocioPhoto(event.target.files?.[0] ?? null);
+                              event.target.value = "";
+                            }}
+                          />
+                        </label>
+
+                        {negocioFotoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNegocioPhotoFile(null);
+                              setRemoveNegocioPhoto(true);
+                            }}
+                            className={btnQuiet}
+                          >
+                            <Trash2 size={14} strokeWidth={2} aria-hidden />
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <p className="mt-2 text-[11px] text-ink-mute">
+                  JPG, PNG o WebP · Máximo 5 MB. Se muestra en el directorio.
+                </p>
+              </div>
+
               <div>
                 <label
                   htmlFor="negocio-nombre"
