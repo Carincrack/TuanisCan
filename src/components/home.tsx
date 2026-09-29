@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarDays, Loader, PawPrint, Siren, Syringe } from "../lib/iconos";
+import { ArrowRight, Loader, PawPrint, Siren, Syringe } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { listPets } from "../services/pets.service";
 import { listWalksWithRelations, isUpcoming, type WalkWithRelations } from "../services/walks.service";
@@ -13,11 +13,9 @@ import {
   EmptyState,
   MockPhoto,
   Page,
-  PageHeader,
   Section,
   Stat,
   Table,
-  btnPrimary,
   btnSecondary,
   colones,
 } from "./ui";
@@ -43,12 +41,6 @@ const esEstaSemana = (fecha: string) => {
   inicio.setDate(inicio.getDate() - 6);
   return valor >= inicio;
 };
-
-const subtituloHoy = new Intl.DateTimeFormat("es-CR", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-}).format(new Date());
 
 const EmployeeHome = () => {
   const { user, getProfile } = useAuth();
@@ -141,18 +133,7 @@ const EmployeeHome = () => {
   }
 
   return (
-    <Page>
-      <PageHeader
-        title="Panel general"
-        subtitle={loading ? "Cargando..." : `${subtituloHoy} · resumen de tu cuenta`}
-        action={
-          <Link to="/paseadores" className={btnPrimary}>
-            <CalendarDays size={15} strokeWidth={2} />
-            Agendar paseo
-          </Link>
-        }
-      />
-
+    <Page wide>
       {error && (
         <div role="alert" className="bg-danger-wash px-6 py-4 text-[13px] text-danger">
           {error}
@@ -165,7 +146,7 @@ const EmployeeHome = () => {
         </div>
       ) : (
         <>
-          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               etiqueta="Mascotas"
               valor={String(mascotas.length)}
