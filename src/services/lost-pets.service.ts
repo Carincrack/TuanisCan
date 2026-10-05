@@ -56,17 +56,34 @@ const toSighting = (row: SightingRow): Sighting => ({
   longitud: Number(row.longitud),
 });
 
-export const listLostPetReports = async (): Promise<LostPetReport[]> => {
-  const { data, error } = await supabase
+export const listLostPetReports = async (filters: {
+  zonaId?: string;
+  provincia?: string;
+  canton?: string;
+  distrito?: string;
+  estado?: LostPetReport["estado"];
+} = {}): Promise<LostPetReport[]> => {
+  const filtraTerritorio = Boolean(filters.provincia || filters.canton || filters.distrito);
+  const zonaSelect = filtraTerritorio
+    ? "zona:zonas!mascotas_perdidas_zona_id_fkey!inner(id_zona, nombre, canton, provincia, distrito)"
+    : "zona:zonas!mascotas_perdidas_zona_id_fkey(id_zona, nombre, canton, provincia, distrito)";
+  let query = supabase
     .from("mascotas_perdidas")
     .select(`
       id_mascota_perdida, id_mascota, id_usuario_reporta, zona_id, estado, nombre,
       especie, raza, contacto, descripcion, foto, latitud, longitud,
       recompensa, fecha_reporte, fecha_resuelto,
-      zona:zonas!mascotas_perdidas_zona_id_fkey(id_zona, nombre, canton, provincia, distrito)
+      ${zonaSelect}
     `)
     .order("fecha_reporte", { ascending: false });
 
+  if (filters.zonaId) query = query.eq("zona_id", filters.zonaId);
+  if (filters.provincia) query = query.eq("zona.provincia", filters.provincia);
+  if (filters.canton) query = query.eq("zona.canton", filters.canton);
+  if (filters.distrito) query = query.eq("zona.distrito", filters.distrito);
+  if (filters.estado) query = query.eq("estado", filters.estado);
+
+  const { data, error } = await query;
   if (error) throw error;
   const reports = await Promise.all(((data ?? []) as unknown as LostPetRow[]).map(toReport));
   const ids = reports.map((report) => report.id_mascota_perdida);
