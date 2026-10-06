@@ -448,9 +448,9 @@ const TarifasPaseador = () => {
 
       {loading && (
         <Section>
-          <p role="status" className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-mute">
+          <div role="status" className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-mute">
             <Loader size={15} className="animate-spin" /> {t("tarifas.loadingRates")}
-          </p>
+          </div>
         </Section>
       )}
 

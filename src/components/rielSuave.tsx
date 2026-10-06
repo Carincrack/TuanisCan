@@ -184,7 +184,11 @@ const Grupo = ({
   const { pathname } = useLocation();
   const { t } = useTranslation();
   const id = `grupo-suave-${grupo.titulo.replace(/[.\s]+/g, "-").toLowerCase()}`;
-  const contieneActiva = grupo.items.some((item) => item.to === pathname);
+  /* Lo oculto (ver `NavItem.oculto`) no se dibuja, ni cuenta para el
+     punto de "acá estás" de un grupo plegado: `/perfil` vive en la
+     tarjeta del pie, y es ella la que se marca. */
+  const visibles = grupo.items.filter((item) => !item.oculto);
+  const contieneActiva = visibles.some((item) => item.to === pathname);
 
   /* Plegar solo tiene sentido con el riel abierto. Cerrado, el título
      no se lee, así que el grupo se muestra entero y la separación la
@@ -239,7 +243,7 @@ const Grupo = ({
         }`}
       >
         <div className="flex flex-col gap-0.5 overflow-hidden">
-          {grupo.items.map((item, i) => (
+          {visibles.map((item, i) => (
             <NavLink
               key={item.to}
               item={item}
@@ -548,6 +552,14 @@ const MenuRol = ({
   );
 };
 
+/* El pie del riel. La tarjeta del usuario es la puerta a su perfil:
+   antes había además un renglón "Mis datos" en el menú que llevaba al
+   mismo sitio, y quedaba repetido —y lejos de la foto y el nombre,
+   que es donde uno busca su cuenta en cualquier aplicación—.
+
+   Se porta igual que un renglón del menú: píldora, roce blanco al
+   pasar, y el lavado turquesa cuando la página abierta es el perfil.
+   Así se lee como navegación y no como un letrero. */
 const PiePerfil = ({
   profile,
   rol,
@@ -555,6 +567,7 @@ const PiePerfil = ({
   expandido,
   onRoleChange,
   onLogout,
+  onNavegar,
 }: {
   profile: UserProfile | null;
   rol: Rol;
@@ -562,17 +575,27 @@ const PiePerfil = ({
   expandido: boolean;
   onRoleChange: (rol: Rol) => void;
   onLogout?: () => void;
+  onNavegar?: () => void;
 }) => {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
   const nombre = profile?.nombre || t("common.defaultUserName");
+  const activo = pathname === "/perfil";
+  const destino = t(rol === "dueno" || rol === "admin" ? "nav.item.misDatos" : "nav.item.miPerfil");
 
   return (
     <div className="shrink-0">
       <div aria-hidden className="mx-2.5 mb-2 h-px bg-white/12" />
 
-      <div
-        className="flex h-12 items-center gap-2.5 px-2.5"
-        title={expandido ? undefined : nombre}
+      <Link
+        to="/perfil"
+        onClick={onNavegar}
+        aria-current={activo ? "page" : undefined}
+        aria-label={`${nombre} · ${destino}`}
+        title={expandido ? destino : `${nombre} · ${destino}`}
+        className={`group flex h-12 items-center gap-2.5 rounded-full px-2.5 transition-[background-color,transform] duration-200 ease-out active:scale-[0.97] ${
+          activo ? "bg-accent-wash" : "hover:bg-white/10"
+        }`}
       >
         <span className={CAJA_ICONO}>
           {profile ? (
@@ -582,16 +605,16 @@ const PiePerfil = ({
           )}
         </span>
         <Texto expandido={expandido}>
-          <span className="min-w-0">
-            <span className="block truncate text-[13px] font-semibold text-white">
+          <span className="min-w-0 transition-transform duration-300 ease-out group-hover:translate-x-0.5">
+            <span className={`block truncate text-[13px] font-semibold ${activo ? "text-rail" : "text-white"}`}>
               {nombre}
             </span>
-            <span className="block truncate text-[11.5px] text-rail-mute">
+            <span className={`block truncate text-[11.5px] ${activo ? "text-rail/70" : "text-rail-mute"}`}>
               {t(claveEtiquetaRol[rol])}
             </span>
           </span>
         </Texto>
-      </div>
+      </Link>
 
       {/* El cambio de perfil solo aparece con el riel abierto: es un
           menú de texto, cerrado no habría nada que leer. */}
@@ -698,6 +721,7 @@ const Panel = ({
         expandido={expandido}
         onRoleChange={onRoleChange}
         onLogout={onLogout}
+        onNavegar={onNavegar}
       />
     </>
   );
@@ -755,12 +779,23 @@ export const RielSuave = (props: RielProps) => {
         alEntrar();
       }}
       onPointerLeave={alSalir}
-      onFocus={() => setFoco(true)}
+      /* El foco abre el riel SOLO si llegó por teclado. Antes abría con
+         cualquier foco, y un clic también enfoca: tocar el botón de
+         desanclar, un renglón o un grupo dejaba el foco adentro, y el
+         riel se quedaba abierto al sacar el cursor hasta el próximo
+         clic en otro lado. `:focus-visible` es exactamente esa
+         distinción —el navegador la marca para Tab y no para el
+         ratón—, así que con ratón manda solo el roce y con teclado el
+         riel se abre para que se vea a dónde se está yendo. */
+      onFocus={(evento) => {
+        if ((evento.target as HTMLElement).matches(":focus-visible")) setFoco(true);
+      }}
       onBlur={(evento) => {
         if (!evento.currentTarget.contains(evento.relatedTarget as Node)) {
           setFoco(false);
         }
       }}
+      onPointerDown={() => setFoco(false)}
       style={{ width: expandido ? TARJETA_ABIERTA : TARJETA_ICONOS }}
       className="riel riel-suave relative z-10 hidden shrink-0 flex-col overflow-hidden rounded-[26px] bg-rail p-2.5 md:flex"
     >

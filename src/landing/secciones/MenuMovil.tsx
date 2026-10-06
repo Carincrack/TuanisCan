@@ -1,6 +1,6 @@
 import { X } from "../../lib/iconos";
 import BotonAccion from "../componentes/BotonAccion";
-import QuickLanguageSwitcher from "../../components/QuickLanguageSwitcher";
+import ConmutadorIdioma from "../componentes/ConmutadorIdioma";
 import { MARCA } from "../../lib/nav";
 import { ENLACES } from "../datos";
 import { AZUL, CANVAS, NAVY, TURQUESA } from "../tokens";
@@ -21,7 +21,7 @@ const MenuMovil = ({ onEntrar, onCerrar, irA }: MenuMovilProps) => {
   const { t } = useTranslation();
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto md:hidden"
+      className="fixed inset-0 z-50 overflow-y-auto lg:hidden"
       style={{ background: AZUL }}
     >
       <div className="flex min-h-full flex-col px-6 pt-5 pb-8">
@@ -33,11 +33,7 @@ const MenuMovil = ({ onEntrar, onCerrar, irA }: MenuMovilProps) => {
             className="h-11 w-11 object-contain"
           />
           <div className="flex items-center gap-2.5">
-            <QuickLanguageSwitcher
-              showCode
-              className="flex h-12 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-transform duration-150 ease-out active:scale-[0.94]"
-              style={{ background: CANVAS, color: NAVY }}
-            />
+            <ConmutadorIdioma tamano="menu" />
             <button
               type="button"
               onClick={onCerrar}

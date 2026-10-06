@@ -75,6 +75,9 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [contenidoAncho, setContenidoAncho] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  /* Solo con el perfil cargado. Ver la nota junto al aviso. */
+  const avisoVerificacion =
+    rol !== "admin" && profile !== null && profile.verificacion.estado !== "aprobado";
   const [notificaciones, setNotificaciones] = useState<Notification[]>([]);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   /* El botón vive en dos sitios posibles —ver `NotificationButtonContext`
@@ -454,35 +457,59 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           </div>
         </header>
 
-        {rol !== "admin" && profile?.verificacion.estado !== "aprobado" && (
-          <div
-            className="mx-3 flex flex-wrap items-center gap-2 rounded-[18px] bg-warn-wash px-5 py-3 text-[12.5px] text-warn lg:mx-4"
-            role="status"
-          >
-            <ShieldAlert size={16} aria-hidden className="shrink-0" />
-            <span className="min-w-[16rem] flex-1">
-              {profile?.verificacion.estado === "pendiente"
-                ? t("shell.verificationBanner.pending")
-                : profile?.verificacion.estado === "rechazado"
-                  ? t("shell.verificationBanner.rejected", {
-                      detail:
-                        profile.verificacion.observacion ??
-                        t("shell.verificationBanner.rejectedFallback"),
-                    })
-                  : t("shell.verificationBanner.none")}
-            </span>
-            {/* El fragmento no es decorativo: el perfil abre por
-                pestañas y sin él este enlace deja al usuario en "Mis
-                datos", que es justo lo que no vino a ver. */}
-            <Link
-              to="/perfil"
-              hash="verificacion"
-              className="font-semibold underline underline-offset-2"
-            >
-              {t("shell.verificationBanner.link")}
-            </Link>
+        {/* ── El aviso de verificación ──
+
+            Antes la condición era `profile?.verificacion.estado !==
+            "aprobado"`. Mientras el perfil carga, `profile` es `null`,
+            la cadena da `undefined`, y `undefined !== "aprobado"` es
+            verdadero: la app trataba como NO verificado a todo el que
+            todavía no había terminado de cargar. A quien sí estaba
+            verificado le aparecía el aviso amarillo un instante y se
+            iba, empujando la pantalla dos veces.
+
+            Ahora el aviso solo se decide con el perfil YA en la mano.
+            Mientras carga —o si la consulta falla— no se acusa a nadie.
+
+            Y cuando sí corresponde, se abre: la fila pasa de 0fr a 1fr
+            en vez de aparecer de golpe y bajar todo el contenido de un
+            salto. Es la única forma de animar a una altura que no se
+            conoce de antemano sin medirla. */}
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
+          style={{ gridTemplateRows: avisoVerificacion ? "1fr" : "0fr" }}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {avisoVerificacion && profile && (
+              <div
+                className="mx-3 flex flex-wrap items-center gap-2 rounded-[18px] bg-warn-wash px-5 py-3 text-[12.5px] text-warn lg:mx-4"
+                role="status"
+              >
+                <ShieldAlert size={16} aria-hidden className="shrink-0" />
+                <span className="min-w-[16rem] flex-1">
+                  {profile?.verificacion.estado === "pendiente"
+                    ? t("shell.verificationBanner.pending")
+                    : profile?.verificacion.estado === "rechazado"
+                      ? t("shell.verificationBanner.rejected", {
+                          detail:
+                            profile.verificacion.observacion ??
+                            t("shell.verificationBanner.rejectedFallback"),
+                        })
+                      : t("shell.verificationBanner.none")}
+                </span>
+                {/* El fragmento no es decorativo: el perfil abre por
+                    pestañas y sin él este enlace deja al usuario en "Mis
+                    datos", que es justo lo que no vino a ver. */}
+                <Link
+                  to="/perfil"
+                  hash="verificacion"
+                  className="font-semibold underline underline-offset-2"
+                >
+                  {t("shell.verificationBanner.link")}
+                </Link>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         <div className="flex min-h-0 flex-1 overflow-y-auto">
           <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-4">

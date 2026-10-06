@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Camera, IdCard, Pencil, Plus, Stethoscope, Trash2, X } from "../lib/iconos";
+import { Camera, IdCard, Pencil, Plus, Stethoscope, Trash2 } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
 import { formatDate, petAge } from "../lib/pets";
@@ -19,13 +18,15 @@ import type { Condition, ConditionInput, Pet, PetInput, Vaccine, VaccineInput } 
 import {
   Badge,
   Confirmar,
+  Dialog,
   EmptyState,
   Page,
   PageHeader,
-  Section,
   Table,
+  btnDangerCompacto,
   btnPrimary,
   btnQuiet,
+  btnSecondaryCompacto,
   fieldLabel,
   btnSecondary,
   input,
@@ -40,22 +41,11 @@ type T = I18nContextValue["t"];
 const messageFrom = (error: unknown, t: T) =>
   error instanceof Error ? error.message : t("common.genericError");
 
-const Dialog = ({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) => {
-  const { t } = useTranslation();
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
-      <button type="button" aria-label={t("common.close")} onClick={onClose} className="absolute inset-0 bg-[#0b2331]/75" />
-      <section role="dialog" aria-modal="true" aria-labelledby="pet-dialog-title" className="anim-rise relative max-h-[92dvh] w-full max-w-[720px] overflow-y-auto bg-surface">
-        <header className="sticky top-0 z-10 flex items-center justify-between bg-rail px-5 py-4">
-          <h2 id="pet-dialog-title" className="text-[16px] font-semibold text-white">{title}</h2>
-          <button type="button" onClick={onClose} aria-label={t("common.close")} className="p-2 text-rail-text hover:bg-rail-hover hover:text-white"><X size={18} /></button>
-        </header>
-        {children}
-      </section>
-    </div>,
-    document.body
-  );
-};
+/* La ventana es la del sistema (`ui.tsx`), no una copia propia. La
+   que vivía acá tenía esquinas vivas, no se cerraba con Escape y no
+   frenaba el scroll de atrás; además, ahora se apilan —la ficha abre
+   "Editar" encima— y la del sistema sabe cuál es la de arriba. */
+const ANCHO_FORMULARIO = "max-w-[720px]";
 
 const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: string; onClose: () => void; onSaved: () => Promise<void> }) => {
   const { t } = useTranslation();
@@ -328,14 +318,6 @@ const Mascotas = () => {
   useEffect(() => { void load(); }, [load]);
   const selected = pets.find((pet) => pet.id_mascota === selectedId) ?? null;
 
-  /* "Gestionar perfil" abre el panel debajo de la cuadrícula, y en
-     pantallas chicas o con varias mascotas eso puede quedar fuera de
-     la vista: se toca el botón y no pasa nada visible. Se lleva la
-     vista hasta el panel apenas aparece. */
-  const gestionRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (selectedId) gestionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [selectedId]);
 
   /* Un solo estado para las dos confirmaciones: nunca hay dos
      abiertas a la vez, y así el diálogo se monta una sola vez. */
@@ -414,92 +396,150 @@ const Mascotas = () => {
         </div>
       )}
 
+      {/* ── La ficha de la mascota ──
+
+          Antes "Gestionar perfil" no abría nada: desplegaba cinco
+          bloques DEBAJO de la cuadrícula —una barra navy con las
+          acciones, datos básicos, padecimientos, alergias y vacunas—
+          y bajaba la página hasta ahí. Con varias mascotas la ficha
+          quedaba lejos de la tarjeta que se tocó, mezclada con el
+          resto de la pantalla, y no había un borde claro de dónde
+          empezaba y terminaba.
+
+          Ahora es una ventana: se abre encima, se lee entera, y se
+          cierra con la X, con Escape o tocando afuera. Lo que se abre
+          desde acá —editar, agregar una vacuna, confirmar un borrado—
+          se apila encima, y Escape cierra solo la de arriba. */}
       {selected && (
-        <>
-          <div ref={gestionRef} className="anim-rise scroll-mt-4 flex flex-wrap items-center gap-4 bg-rail px-5 py-4" aria-label={t("mascotas.management.aria", { nombre: selected.nombre })}>
-            <PetPhoto pet={selected} className="h-14 w-14 flex-shrink-0" />
-            <div className="min-w-0"><h3 className="truncate text-[18px] font-semibold text-white">{selected.nombre}</h3><p className="text-[12px] text-rail-text">{selected.especie} · {selected.raza}</p></div>
-            <div className="ml-auto flex flex-wrap gap-1">
-              <button type="button" className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white"} onClick={() => openCard(selected)}><IdCard size={15} /> {t("mascotas.management.card")}</button>
-              <button type="button" disabled={!canOperate} className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"} onClick={() => setEditingPet(selected)}><Pencil size={15} /> {t("mascotas.management.edit")}</button>
-              <button type="button" disabled={!canOperate} className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"} onClick={() => void removePet(selected)}><Trash2 size={15} /> {t("mascotas.management.delete")}</button>
-              <button type="button" aria-label={t("mascotas.management.closeProfile")} className="p-2 text-rail-text hover:bg-rail-hover hover:text-white" onClick={() => setSelectedId(null)}><X size={18} /></button>
+        <Dialog
+          title={t("mascotas.management.aria", { nombre: selected.nombre })}
+          ancho="max-w-[880px]"
+          onClose={() => setSelectedId(null)}
+        >
+          {/* Resumen y acciones. El nombre ya está en la barra de
+              arriba; acá va lo que lo identifica de un vistazo. */}
+          <div className="flex flex-wrap items-center gap-4 border-b border-sunken px-6 py-5">
+            <PetPhoto pet={selected} className="h-16 w-16 flex-shrink-0 rounded-full" />
+            <div className="min-w-0 flex-1">
+              <p className="titular truncate text-[19px] text-ink">{selected.nombre}</p>
+              <p className="mt-0.5 text-[12.5px] text-ink-soft">
+                {selected.especie} · {selected.raza} · {petAge(selected.fecha_nacimiento, t)}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={btnSecondaryCompacto} onClick={() => openCard(selected)}>
+                <IdCard size={14} /> {t("mascotas.management.card")}
+              </button>
+              <button type="button" disabled={!canOperate} className={`${btnSecondaryCompacto} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingPet(selected)}>
+                <Pencil size={14} /> {t("mascotas.management.edit")}
+              </button>
+              <button type="button" disabled={!canOperate} className={`${btnDangerCompacto} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => void removePet(selected)}>
+                <Trash2 size={14} /> {t("mascotas.management.delete")}
+              </button>
             </div>
           </div>
 
-          <Section title={t("mascotas.basicData.title")} bodyClass="p-5">
-            <dl className="grid gap-2.5 sm:grid-cols-3">
-              {[
-                [t("mascotas.basicData.birth"), formatDate(selected.fecha_nacimiento, localeTag)],
-                [t("mascotas.basicData.sex"), selected.sexo === "macho" ? t("mascotas.basicData.male") : t("mascotas.basicData.female")],
-                [t("mascotas.basicData.color"), selected.color],
-                [t("mascotas.basicData.microchip"), selected.microchip || t("mascotas.basicData.notRegistered")],
-                [t("mascotas.basicData.sterilized"), selected.esterilizado ? t("mascotas.basicData.yes") : t("mascotas.basicData.no")],
-                [t("mascotas.basicData.vet"), selected.veterinaria || t("mascotas.basicData.notRegisteredF")],
-              ].map(([label, value]) => <div key={label} className="bg-sunken px-5 py-3"><dt className="rotulo text-ink-mute">{label}</dt><dd className="mt-1 text-[13px] text-ink">{value}</dd></div>)}
-            </dl>
-          </Section>
-
-          <Section
-            title={t("mascotas.conditions.title")}
-            aside={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingCondition(null)}><Plus size={14} /> {t("mascotas.conditions.add")}</button>}
-            bodyClass="p-5"
-          >
-            {selected.padecimientos.length ? (
-              <ul className="grid gap-2.5 sm:grid-cols-2">
-                {selected.padecimientos.map((condition) => (
-                  <li key={condition.id_padecimiento} className="flex gap-3 rounded-[14px] bg-warn-wash/60 p-4">
-                    <Stethoscope size={17} strokeWidth={1.8} aria-hidden className="mt-0.5 shrink-0 text-warn" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h4 className="break-words text-[14px] font-semibold text-ink">{condition.nombre}</h4>
-                          {condition.fecha_diagnostico && <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{t("mascotas.conditions.diagnosedOn", { fecha: formatDate(condition.fecha_diagnostico, localeTag) })}</p>}
-                        </div>
-                        <span className="-mt-1 -mr-2 flex shrink-0">
-                          <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.conditions.edit", { nombre: condition.nombre })} onClick={() => setEditingCondition(condition)}><Pencil size={14} /></button>
-                          <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 text-danger disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.conditions.delete", { nombre: condition.nombre })} onClick={() => removeCondition(condition)}><Trash2 size={14} /></button>
-                        </span>
-                      </div>
-                      <p className={`mt-2 whitespace-pre-wrap text-[13px] ${condition.cuidados ? "text-ink-soft" : "text-ink-mute italic"}`}>{condition.cuidados || t("mascotas.conditions.noCareNotes")}</p>
-                    </div>
-                  </li>
+          <div className="flex flex-col gap-7 px-6 py-6">
+            {/* Datos básicos */}
+            <section>
+              <h3 className="rotulo text-ink-mute">{t("mascotas.basicData.title")}</h3>
+              <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {[
+                  [t("mascotas.basicData.birth"), formatDate(selected.fecha_nacimiento, localeTag)],
+                  [t("mascotas.basicData.sex"), selected.sexo === "macho" ? t("mascotas.basicData.male") : t("mascotas.basicData.female")],
+                  [t("mascotas.basicData.color"), selected.color],
+                  [t("mascotas.basicData.microchip"), selected.microchip || t("mascotas.basicData.notRegistered")],
+                  [t("mascotas.basicData.sterilized"), selected.esterilizado ? t("mascotas.basicData.yes") : t("mascotas.basicData.no")],
+                  [t("mascotas.basicData.vet"), selected.veterinaria || t("mascotas.basicData.notRegisteredF")],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-[14px] bg-sunken px-4 py-3">
+                    <dt className="rotulo text-ink-mute">{label}</dt>
+                    <dd className="mt-1 break-words text-[13px] text-ink">{value}</dd>
+                  </div>
                 ))}
-              </ul>
-            ) : (
-              <EmptyState title={t("mascotas.conditions.empty.title")} hint={t("mascotas.conditions.empty.hint")} />
+              </dl>
+            </section>
+
+            {/* Padecimientos */}
+            <section>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="rotulo text-ink-mute">{t("mascotas.conditions.title")}</h3>
+                <button type="button" disabled={!canOperate} className={`${btnSecondaryCompacto} shrink-0 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingCondition(null)}>
+                  <Plus size={14} /> {t("mascotas.conditions.add")}
+                </button>
+              </div>
+              <div className="mt-3">
+                {selected.padecimientos.length ? (
+                  <ul className="grid gap-2.5 sm:grid-cols-2">
+                    {selected.padecimientos.map((condition) => (
+                      <li key={condition.id_padecimiento} className="flex gap-3 rounded-[14px] bg-warn-wash/60 p-4">
+                        <Stethoscope size={17} strokeWidth={1.8} aria-hidden className="mt-0.5 shrink-0 text-warn" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h4 className="break-words text-[14px] font-semibold text-ink">{condition.nombre}</h4>
+                              {condition.fecha_diagnostico && <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{t("mascotas.conditions.diagnosedOn", { fecha: formatDate(condition.fecha_diagnostico, localeTag) })}</p>}
+                            </div>
+                            <span className="-mt-1 -mr-2 flex shrink-0">
+                              <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.conditions.edit", { nombre: condition.nombre })} onClick={() => setEditingCondition(condition)}><Pencil size={14} /></button>
+                              <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 text-danger disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.conditions.delete", { nombre: condition.nombre })} onClick={() => removeCondition(condition)}><Trash2 size={14} /></button>
+                            </span>
+                          </div>
+                          <p className={`mt-2 whitespace-pre-wrap text-[13px] ${condition.cuidados ? "text-ink-soft" : "text-ink-mute italic"}`}>{condition.cuidados || t("mascotas.conditions.noCareNotes")}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <EmptyState title={t("mascotas.conditions.empty.title")} hint={t("mascotas.conditions.empty.hint")} />
+                )}
+              </div>
+            </section>
+
+            {/* Alergias y cuidados */}
+            {(selected.alergias || selected.notas) && (
+              <section>
+                <h3 className="rotulo text-ink-mute">{t("mascotas.allergies.title")}</h3>
+                <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                  <div className="rounded-[14px] bg-sunken p-4"><h4 className="rotulo text-ink-mute">{t("mascotas.allergies.allergiesLabel")}</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || t("mascotas.allergies.noneRegistered")}</p></div>
+                  <div className="rounded-[14px] bg-sunken p-4"><h4 className="rotulo text-ink-mute">{t("mascotas.allergies.careLabel")}</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || t("mascotas.allergies.noNotes")}</p></div>
+                </div>
+              </section>
             )}
-          </Section>
 
-          {(selected.alergias || selected.notas) && (
-            <Section title={t("mascotas.allergies.title")} bodyClass="grid gap-2.5 p-5 sm:grid-cols-2">
-              <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">{t("mascotas.allergies.allergiesLabel")}</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || t("mascotas.allergies.noneRegistered")}</p></div>
-              <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">{t("mascotas.allergies.careLabel")}</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || t("mascotas.allergies.noNotes")}</p></div>
-            </Section>
-          )}
-
-          <Section
-            title={t("mascotas.vaccineHistory.title")}
-            aside={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingVaccine(null)}><Plus size={14} /> {t("mascotas.vaccineHistory.add")}</button>}
-            bodyClass=""
-          >
-            {selected.vacunas.length ? (
-              <Table caption={t("mascotas.vaccineHistory.caption", { nombre: selected.nombre })} columnas={[{ label: t("mascotas.vaccineHistory.columns.vaccine") }, { label: t("mascotas.vaccineHistory.columns.applied") }, { label: t("mascotas.vaccineHistory.columns.expires") }, { label: t("mascotas.vaccineHistory.columns.status") }, { label: t("mascotas.vaccineHistory.columns.actions"), align: "right" }]}>
-                {selected.vacunas.map((vaccine) => <tr key={vaccine.id_vacuna}>
-                  <td className="px-6 py-3 text-[13px] font-medium text-ink"><span className="block">{vaccine.nombre_vacuna}</span>{vaccine.veterinaria && <span className="text-[11px] font-normal text-ink-mute">{vaccine.veterinaria}</span>}</td>
-                  <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_aplicacion, localeTag)}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_vencimiento, localeTag)}</td>
-                  <td className="px-6 py-3"><Badge tono={vaccine.estado === "vigente" ? "ok" : vaccine.estado === "pendiente" ? "warn" : "danger"}>{vaccine.estado === "pendiente" ? t("mascotas.vaccineHistory.statusUpcoming") : vaccine.estado}</Badge></td>
-                  <td className="px-4 py-2 text-right"><button type="button" disabled={!canOperate} className={`${btnQuiet} disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.vaccineHistory.edit", { nombre: vaccine.nombre_vacuna })} onClick={() => setEditingVaccine(vaccine)}><Pencil size={14} /></button><button type="button" disabled={!canOperate} className={btnQuiet + " text-danger disabled:cursor-not-allowed disabled:opacity-50"} aria-label={t("mascotas.vaccineHistory.delete", { nombre: vaccine.nombre_vacuna })} onClick={() => removeVaccine(vaccine)}><Trash2 size={14} /></button></td>
-                </tr>)}
-              </Table>
-            ) : <div className="px-5 pb-5"><EmptyState title={t("mascotas.vaccineHistory.empty.title")} hint={t("mascotas.vaccineHistory.empty.hint")} /></div>}
-          </Section>
-        </>
+            {/* Vacunas */}
+            <section>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="rotulo text-ink-mute">{t("mascotas.vaccineHistory.title")}</h3>
+                <button type="button" disabled={!canOperate} className={`${btnSecondaryCompacto} shrink-0 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingVaccine(null)}>
+                  <Plus size={14} /> {t("mascotas.vaccineHistory.add")}
+                </button>
+              </div>
+              <div className="mt-3">
+                {selected.vacunas.length ? (
+                  <Table caption={t("mascotas.vaccineHistory.caption", { nombre: selected.nombre })} padX="px-4" columnas={[{ label: t("mascotas.vaccineHistory.columns.vaccine") }, { label: t("mascotas.vaccineHistory.columns.applied") }, { label: t("mascotas.vaccineHistory.columns.expires") }, { label: t("mascotas.vaccineHistory.columns.status") }, { label: t("mascotas.vaccineHistory.columns.actions"), align: "right", muda: true }]}>
+                    {selected.vacunas.map((vaccine) => (
+                      <tr key={vaccine.id_vacuna}>
+                        <td className="px-4 py-3 text-[13px] font-medium text-ink"><span className="block">{vaccine.nombre_vacuna}</span>{vaccine.veterinaria && <span className="text-[11px] font-normal text-ink-mute">{vaccine.veterinaria}</span>}</td>
+                        <td className="nums px-4 py-3 text-[12.5px] whitespace-nowrap text-ink-soft">{formatDate(vaccine.fecha_aplicacion, localeTag)}</td>
+                        <td className="nums px-4 py-3 text-[12.5px] whitespace-nowrap text-ink-soft">{formatDate(vaccine.fecha_vencimiento, localeTag)}</td>
+                        <td className="px-4 py-3"><Badge tono={vaccine.estado === "vigente" ? "ok" : vaccine.estado === "pendiente" ? "warn" : "danger"}>{vaccine.estado === "pendiente" ? t("mascotas.vaccineHistory.statusUpcoming") : vaccine.estado}</Badge></td>
+                        <td className="px-2 py-2 text-right whitespace-nowrap"><button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.vaccineHistory.edit", { nombre: vaccine.nombre_vacuna })} onClick={() => setEditingVaccine(vaccine)}><Pencil size={14} /></button><button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 text-danger disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.vaccineHistory.delete", { nombre: vaccine.nombre_vacuna })} onClick={() => removeVaccine(vaccine)}><Trash2 size={14} /></button></td>
+                      </tr>
+                    ))}
+                  </Table>
+                ) : (
+                  <EmptyState title={t("mascotas.vaccineHistory.empty.title")} hint={t("mascotas.vaccineHistory.empty.hint")} />
+                )}
+              </div>
+            </section>
+          </div>
+        </Dialog>
       )}
 
-      {editingPet !== undefined && user && <Dialog title={editingPet ? t("mascotas.dialogs.editPet", { nombre: editingPet.nombre }) : t("mascotas.dialogs.registerPet")} onClose={() => setEditingPet(undefined)}><PetForm pet={editingPet} userId={user.id} onClose={() => setEditingPet(undefined)} onSaved={load} /></Dialog>}
-      {editingCondition !== undefined && selected && <Dialog title={editingCondition ? t("mascotas.dialogs.editCondition", { nombre: editingCondition.nombre }) : t("mascotas.dialogs.addCondition", { nombre: selected.nombre })} onClose={() => setEditingCondition(undefined)}><ConditionForm pet={selected} condition={editingCondition} onClose={() => setEditingCondition(undefined)} onSaved={load} /></Dialog>}
-      {editingVaccine !== undefined && selected && <Dialog title={editingVaccine ? t("mascotas.dialogs.editVaccine") : t("mascotas.dialogs.addVaccine", { nombre: selected.nombre })} onClose={() => setEditingVaccine(undefined)}><VaccineForm pet={selected} vaccine={editingVaccine} onClose={() => setEditingVaccine(undefined)} onSaved={load} /></Dialog>}
+      {editingPet !== undefined && user && <Dialog title={editingPet ? t("mascotas.dialogs.editPet", { nombre: editingPet.nombre }) : t("mascotas.dialogs.registerPet")} onClose={() => setEditingPet(undefined)} ancho={ANCHO_FORMULARIO}><PetForm pet={editingPet} userId={user.id} onClose={() => setEditingPet(undefined)} onSaved={load} /></Dialog>}
+      {editingCondition !== undefined && selected && <Dialog title={editingCondition ? t("mascotas.dialogs.editCondition", { nombre: editingCondition.nombre }) : t("mascotas.dialogs.addCondition", { nombre: selected.nombre })} onClose={() => setEditingCondition(undefined)} ancho={ANCHO_FORMULARIO}><ConditionForm pet={selected} condition={editingCondition} onClose={() => setEditingCondition(undefined)} onSaved={load} /></Dialog>}
+      {editingVaccine !== undefined && selected && <Dialog title={editingVaccine ? t("mascotas.dialogs.editVaccine") : t("mascotas.dialogs.addVaccine", { nombre: selected.nombre })} onClose={() => setEditingVaccine(undefined)} ancho={ANCHO_FORMULARIO}><VaccineForm pet={selected} vaccine={editingVaccine} onClose={() => setEditingVaccine(undefined)} onSaved={load} /></Dialog>}
 
       {/* Reemplaza a dos `window.confirm`. El de la mascota decía
           "Esta acción no se puede deshacer" y no podía decir mucho

@@ -592,6 +592,16 @@ export const Paginacion = ({
     casi siempre llega como flecha en línea, y usarla directo
     reengancharía el listener y volvería a tocar el scroll en cada
     render. */
+/* Ventanas abiertas, de la de abajo a la de arriba.
+
+   Una ventana puede abrir otra encima —la ficha de una mascota abre
+   "Editar"; cualquier ventana puede pedir una `Confirmar`—. Cada una
+   escucha Escape en el documento entero, así que sin esto un solo
+   Escape las cerraba TODAS de golpe y se perdía el trabajo de la de
+   abajo. Con la pila, Escape le corresponde solo a la de más arriba,
+   que es la que se está mirando. */
+const pilaDeVentanas: symbol[] = [];
+
 export const Dialog = ({
   title,
   onClose,
@@ -614,16 +624,22 @@ export const Dialog = ({
   });
 
   useEffect(() => {
+    const yo = Symbol("ventana");
     const devolver = document.activeElement as HTMLElement | null;
     const previo = document.body.style.overflow;
     const alTeclear = (evento: KeyboardEvent) => {
-      if (evento.key === "Escape") cerrar.current();
+      if (evento.key !== "Escape") return;
+      if (pilaDeVentanas[pilaDeVentanas.length - 1] !== yo) return;
+      cerrar.current();
     };
 
+    pilaDeVentanas.push(yo);
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", alTeclear);
 
     return () => {
+      const i = pilaDeVentanas.indexOf(yo);
+      if (i >= 0) pilaDeVentanas.splice(i, 1);
       document.body.style.overflow = previo;
       document.removeEventListener("keydown", alTeclear);
       devolver?.focus?.();

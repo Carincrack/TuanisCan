@@ -355,18 +355,18 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
   return (
     <div className="mt-6 flex flex-col gap-5">
       {s.alergias ? (
-        <p className="flex gap-3 rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] leading-snug text-danger">
+        <div className="flex gap-3 rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] leading-snug text-danger">
           <AlertTriangle size={17} strokeWidth={2} aria-hidden className="mt-px shrink-0" />
           <span>
             <span className="font-semibold">{t("paseadorPanel.requests.card.allergies")} </span>
             {s.alergias}
           </span>
-        </p>
+        </div>
       ) : (
-        <p className="flex items-center gap-2.5 text-[13px] text-ok">
+        <div className="flex items-center gap-2.5 text-[13px] text-ok">
           <ShieldCheck size={16} strokeWidth={2} aria-hidden className="shrink-0" />
           {s.padecimientos.length ? t("paseadorPanel.requests.card.noAllergiesWithConditions") : t("paseadorPanel.requests.card.noAllergiesNoConditions")}
-        </p>
+        </div>
       )}
 
       {s.padecimientos.length > 0 && (
@@ -525,13 +525,13 @@ const TarjetaSolicitud = ({
             ))}
           </dl>
 
-          <p className="mt-3 flex gap-2.5 text-[13px] leading-snug text-ink-soft">
+          <div className="mt-3 flex gap-2.5 text-[13px] leading-snug text-ink-soft">
             <Navigation size={15} strokeWidth={1.8} aria-hidden className="mt-0.5 shrink-0 text-accent-dark" />
             <span>
               <span className="text-ink">{t("paseadorPanel.requests.card.meetingPoint")} </span>
               {s.direccion_encuentro}
             </span>
-          </p>
+          </div>
 
           <FichaMascota solicitud={s} />
         </div>

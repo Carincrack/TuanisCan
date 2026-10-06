@@ -13,6 +13,7 @@ import LoginPage from "../page/LoginPage";
 import AppShell from "./AppShell";
 import Landing from "../landing";
 import Splash from "./Splash";
+import { levantarCortina } from "../lib/cortina";
 
 import {
   MARCA,
@@ -244,6 +245,7 @@ const RootLayout = () => {
     isAdmin,
     logout,
     setActiveRole,
+    loading: cargandoSesion,
   } = useAuth();
 
   /* ============================================================
@@ -353,6 +355,13 @@ const RootLayout = () => {
     zonaAdmin,
   ]);
 
+  /* La cortina de `index.html` se levanta apenas se sabe qué mostrar:
+     cuando la sesión terminó de resolverse, o enseguida en las rutas
+     que no dependen de ella. */
+  useEffect(() => {
+    if (esRutaAuth || !cargandoSesion) levantarCortina();
+  }, [esRutaAuth, cargandoSesion]);
+
   /* ============================================================
      CERRAR SESIÓN
      ============================================================ */
@@ -461,10 +470,15 @@ const RootLayout = () => {
             <Splash onFin={cerrarSplash} />
           )}
 
-          <div
-            key={splash ? "cargando" : "listo"}
-            className="anim-app-in"
-          >
+          {/* Sin `key`. Antes llevaba `key={splash ? "cargando" : "listo"}`,
+              o sea que al irse el splash la aplicación entera se
+              desmontaba y se volvía a montar: la cortina se levantaba
+              justo mientras todo debajo se rompía y se rearmaba —
+              esqueletos otra vez, la entrada otra vez, cada pantalla
+              pidiendo sus datos dos veces—. Ese era el parpadeo. Ahora
+              la aplicación se arma UNA vez debajo de la cortina y la
+              cortina se va sobre algo que ya está quieto. */}
+          <div className="anim-app-in">
             {rolActual && (
               <AppShell
                 rol={rolActual}

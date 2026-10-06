@@ -179,24 +179,68 @@ export const PanelAdmin = () => {
             }
             bodyClass="px-6 pt-6 pb-7"
           >
+            {/* Las barras no se veían. Cada una medía `height: N%`, pero
+                el `<li>` que la contenía no tenía altura propia —crecía
+                con su contenido—, y un porcentaje de una altura que
+                depende del contenido vale cero. Quedaban solo el monto
+                arriba y el mes abajo.
+
+                Ahora cada columna tiene un área de dibujo con altura
+                real (la del `<ul>` menos el renglón del mes) y la barra
+                va pegada a su piso con posición absoluta: el porcentaje
+                ya tiene contra qué medirse. El monto viaja encima de su
+                barra en vez de quedarse arriba del todo.
+
+                Un mes en cero no inventa una barra de 3 % —parecía que
+                había algo—: queda solo el piso. Su monto no se escribe,
+                salvo el del mes en curso, que en cero también es dato. */}
             {maxIngreso > 1 ? (
-              <ul className="flex h-[240px] items-end gap-4">
-                {mesesIngreso.map((item) => (
-                  <li key={item.mes} className="group flex flex-1 flex-col items-center gap-2">
-                    <span className={`nums text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-soft"}`}>
-                      {colones(item.bruto)}
-                    </span>
-                    <span
-                      style={{ height: `${Math.max(3, (item.bruto / maxIngreso) * 100)}%` }}
-                      className={`w-full rounded-t-[8px] transition-[filter] duration-150 ease-out group-hover:brightness-110 ${
-                        item.actual ? "bg-rail" : "bg-accent"
-                      }`}
-                    />
-                    <span className={`text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-mute"}`}>
-                      {item.mes}
-                    </span>
-                  </li>
-                ))}
+              <ul className="grid h-[240px] grid-cols-6" aria-label={t("admin.panel.grossVolume")}>
+                {mesesIngreso.map((item) => {
+                  const alto = (item.bruto / maxIngreso) * 100;
+                  const conMonto = item.bruto > 0 || item.actual;
+                  return (
+                    <li
+                      key={item.mes}
+                      aria-label={`${item.mes}: ${colones(item.bruto)}`}
+                      className="group flex h-full min-w-0 flex-col"
+                    >
+                      {/* El área de dibujo. `pt-6` deja lugar al monto de la
+                          barra más alta; el filete de abajo es el piso
+                          común, continuo de punta a punta porque las
+                          columnas no tienen separación entre sí. */}
+                      <div className="relative min-h-0 flex-1 border-b border-sunken px-2 pt-6 sm:px-3">
+                        <div className="relative h-full">
+                          {item.bruto > 0 && (
+                            <span
+                              style={{ height: `${alto}%` }}
+                              className={`absolute inset-x-0 bottom-0 rounded-t-[8px] transition-[filter] duration-150 ease-out group-hover:brightness-110 ${
+                                item.actual ? "bg-rail" : "bg-accent"
+                              }`}
+                            />
+                          )}
+                          {conMonto && (
+                            <span
+                              aria-hidden
+                              style={{ bottom: `calc(${alto}% + 6px)` }}
+                              className={`nums absolute inset-x-0 text-center text-[11.5px] whitespace-nowrap ${
+                                item.actual ? "font-semibold text-ink" : "text-ink-soft"
+                              }`}
+                            >
+                              {colones(item.bruto)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        aria-hidden
+                        className={`pt-2 text-center text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-mute"}`}
+                      >
+                        {item.mes}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <EmptyState title={t("admin.panel.noVolume.title")} hint={t("admin.panel.noVolume.hint")} />
@@ -1143,9 +1187,9 @@ const VisorDocumentos = ({
               className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-sunken"
             >
               {cargando && (
-                <p className="flex items-center gap-2 text-[13px] text-ink-soft">
+                <div className="flex items-center gap-2 text-[13px] text-ink-soft">
                   <Loader size={16} className="animate-spin" /> {t("admin.verifications.viewer.opening")}
-                </p>
+                </div>
               )}
 
               {!cargando && fallo && (

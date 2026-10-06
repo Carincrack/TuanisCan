@@ -143,32 +143,40 @@
   }
 }
 
-/* Splash: la marca se acerca y la plataforma queda detrás. */
+/* Splash. Una cortina navy con la marca, y nada más.
+
+   Antes la marca entraba desde 0.86 y salía creciendo hasta 1.7,
+   como si se acercara a la cámara. Es un gesto de presentación de
+   producto, no de una herramienta a la que se entra veinte veces por
+   día, y a 1.7 el logo se pixelaba en el último cuadro.
+
+   Ahora:
+     · la cortina aparece con un fundido corto —no salta de golpe
+       sobre la pantalla anterior, que era el primer parpadeo—;
+     · la marca sube seis píxeles mientras aparece, el mismo gesto
+       que el resto de las entradas del sistema;
+     · al irse, se va TODO junto con un fundido: cortina y marca a la
+       vez, sin que la marca quede flotando sobre la aplicación. */
+@keyframes tsc-splash-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes tsc-brand-in {
   from {
     opacity: 0;
-    transform: scale(0.86);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 
-@keyframes tsc-brand-out {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.7);
-  }
-}
-
-/* La cortina del splash se va con la misma duración que el zoom del
-   logo. Antes usaba un fade invertido de 350 ms y el fondo desaparecía
-   antes que la marca, dejándola flotando sobre la aplicación. */
 @keyframes tsc-splash-out {
   from {
     opacity: 1;
@@ -264,14 +272,23 @@
   .anim-nav-in {
     animation: tsc-nav-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .anim-brand-in {
-    animation: tsc-brand-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  .anim-splash-in {
+    animation: tsc-splash-in 0.2s ease-out both;
   }
-  .anim-brand-out {
-    animation: tsc-brand-out 0.62s cubic-bezier(0.7, 0, 0.84, 0) both;
+  .anim-brand-in {
+    animation: tsc-brand-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.08s both;
   }
   .anim-splash-out {
-    animation: tsc-splash-out 0.62s cubic-bezier(0.7, 0, 0.84, 0) both;
+    animation: tsc-splash-out 0.4s cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+  /* La línea del splash. Clase propia y no `anim-bar` con duración
+     arbitraria encima: el `animation:` de `anim-bar` es un atajo que
+     pisa cualquier `animation-duration` suelta, así que la línea se
+     llenaba en 0.7 s y se quedaba quieta el resto del splash. Curva
+     pareja, porque una que frena al final parece trabada. */
+  .anim-splash-bar {
+    animation: tsc-bar 0.9s cubic-bezier(0.65, 0, 0.35, 1) both;
+    transform-origin: left;
   }
   .anim-app-in {
     animation: tsc-app-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -546,9 +563,10 @@
   .anim-slide-left,
   .anim-cajon-out,
   .anim-nav-in,
+  .anim-splash-in,
   .anim-brand-in,
-  .anim-brand-out,
   .anim-splash-out,
+  .anim-splash-bar,
   .anim-app-in,
   .anim-bar,
   .anim-menu-in,

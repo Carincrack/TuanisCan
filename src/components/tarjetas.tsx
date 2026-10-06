@@ -312,18 +312,18 @@ const Tarjetas = () => {
                 vencimiento={form.vencimiento}
                 className="max-w-none"
               />
-              <p className="mt-4 flex items-center gap-2 text-[12px] text-ink-soft">
+              <div className="mt-4 flex items-center gap-2 text-[12px] text-ink-soft">
                 <ShieldCheck size={16} className="text-ok" />
                 {t("tarjetas.form.storageNotice")}
-              </p>
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[14px] bg-accent-wash px-4 py-3 text-[12px] leading-relaxed text-accent-deep sm:col-span-2">
-                <p className="mb-1 flex items-center gap-1.5 font-semibold">
+                <div className="mb-1 flex items-center gap-1.5 font-semibold">
                   <CreditCard size={14} />
                   {t("tarjetas.form.acceptedCards")}
-                </p>
+                </div>
                 <p className="text-[11.5px] text-ink-soft">
                   {t("tarjetas.form.acceptedCardsDetail")}
                 </p>
@@ -433,19 +433,19 @@ const Tarjetas = () => {
                 )}
               </label>
 
-              <p className="flex items-start gap-2 text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
+              <div className="flex items-start gap-2 text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
                 <ShieldCheck size={14} className="mt-px shrink-0" />
                 {t("tarjetas.form.clientSideNotice")}
-              </p>
+              </div>
 
               {dialogError && (
-                <p
+                <div
                   role="alert"
                   className="flex items-center gap-2 rounded-[14px] bg-danger-wash px-4 py-2.5 text-[12px] font-medium text-danger sm:col-span-2"
                 >
                   <AlertTriangle size={14} className="shrink-0" />
                   {dialogError}
-                </p>
+                </div>
               )}
 
               <div className="flex justify-end gap-2 pt-2 sm:col-span-2">

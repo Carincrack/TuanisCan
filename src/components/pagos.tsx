@@ -384,10 +384,10 @@ const Pagos = () => {
           <p className="nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] text-ink">
             {colones(stats.spent)}
           </p>
-          <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-soft">
+          <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-soft">
             <TrendingUp size={13} className="text-ok" />
             {stats.count} {t(stats.count === 1 ? "pagos.stats.paymentSingular" : "pagos.stats.paymentPlural")}
-          </p>
+          </div>
         </div>
 
         {/* La única que puede pedir algo. Con deuda se levanta con un
@@ -758,13 +758,13 @@ const Pagos = () => {
             )}
 
             {dialogError && (
-              <p
+              <div
                 role="alert"
                 className="mt-4 flex items-center gap-2 rounded-[14px] bg-danger-wash px-4 py-2.5 text-[12px] font-medium text-danger"
               >
                 <AlertTriangle size={14} className="shrink-0" />
                 {dialogError}
-              </p>
+              </div>
             )}
 
             <div className="mt-6 flex items-center justify-between gap-3 border-t border-sunken pt-4">

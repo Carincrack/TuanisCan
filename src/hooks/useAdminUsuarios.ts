@@ -29,7 +29,11 @@ export const useAdminUsuarios = () => {
       setUsuarios(await getAdminUsuarios());
     } catch (cause) {
       setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo cargar el directorio de usuarios." });
+      /* Sin aviso flotante. Un aviso cuenta el desenlace de algo que
+         la persona HIZO (ver `aviso.ts`); que una lista no cargue no
+         lo es, y la pantalla ya lo dice en su lugar con `error`. Con
+         aviso, el panel general —que pide usuarios y paseadores solo
+         para contar— soltaba dos errores rojos por cada montaje. */
     } finally {
       setLoading(false);
     }

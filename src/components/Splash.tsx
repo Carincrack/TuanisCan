@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
-import { MARCA } from "../lib/nav";
 import { useTranslation } from "../hooks/useTranslation";
 
-/* Pantalla de entrada después del login. La marca aparece, se sostiene
-   un instante y se acerca hasta salir de cuadro; debajo queda la
-   plataforma ya montada. Dura 1.5 s en total: suficiente para que se
-   lea, corto para que no estorbe en una demo. */
+/* Pantalla de entrada después del login. La cortina aparece, la marca
+   sube a su lugar, la línea se llena, y todo se va junto con un
+   fundido. Debajo, la plataforma ya está armada y quieta: la cortina
+   se levanta sobre algo terminado (ver la nota en `RootLayout`).
 
-const APARECE_MS = 600;
-const SOSTIENE_MS = 480;
-const SALE_MS = 620;
+   Dura 1.3 s. Lo que manda es la línea: se llena durante lo que la
+   marca está a la vista y la cortina se va apenas termina, así la
+   espera se lee como progreso y no como adorno. */
+
+const APARECE_MS = 500;
+const SOSTIENE_MS = 400;
+const SALE_MS = 400;
 
 export const DURACION_SPLASH = APARECE_MS + SOSTIENE_MS + SALE_MS;
 
@@ -31,24 +34,23 @@ const Splash = ({ onFin }: { onFin: () => void }) => {
       role="status"
       aria-live="polite"
       className={`plano fixed inset-0 z-[200] flex items-center justify-center bg-rail ${
-        saliendo ? "anim-splash-out" : ""
+        saliendo ? "anim-splash-out" : "anim-splash-in"
       }`}
     >
-      <div
-        className={`flex flex-col items-center gap-6 ${
-          saliendo ? "anim-brand-out" : "anim-brand-in"
-        }`}
-      >
+      <div className="anim-brand-in flex flex-col items-center gap-7">
         {/* El lockup ya trae el nombre: no se repite como texto. */}
         <img
-          src={MARCA.logoSistema}
+          src="/logo-sistema.webp" /* el de `MARCA.logoSistema`, a 480 px: 43 KB y no 608 */
           alt=""
           aria-hidden
           className="h-28 w-auto object-contain md:h-40"
         />
 
-        <span className="h-0.5 w-40 overflow-hidden bg-rail-hover">
-          <span className="anim-bar block h-full bg-accent [animation-duration:1080ms]" />
+        {/* La línea se llena en el tiempo exacto que la marca está a
+            la vista (APARECE + SOSTIENE) y la cortina se va apenas
+            termina. */}
+        <span className="h-[2px] w-36 overflow-hidden rounded-full bg-white/10">
+          <span className="anim-splash-bar block h-full rounded-full bg-accent" />
         </span>
 
         <span className="sr-only">{t("common.loadingPlatform")}</span>

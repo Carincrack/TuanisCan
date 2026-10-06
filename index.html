@@ -11,8 +11,86 @@
       rel="stylesheet"
     />
     <title>TuanisCan</title>
+    <link rel="preload" as="image" href="/logo-sistema.webp" type="image/webp" />
+    <!--
+      La cortina de entrada. Vive acá, en el HTML, y no en React a
+      propósito: es lo único que se puede pintar desde el primer byte,
+      antes de que llegue una sola línea de JavaScript. Sin ella la
+      pantalla salía vacía y gris mientras la app averiguaba si había
+      sesión, y después saltaba de golpe a la portada o al panel.
+
+      Es el mismo dibujo que el splash de `Splash.tsx` —mismo navy,
+      mismo logo, a la misma altura—, así que si después del login
+      sigue el splash, una cortina se cambia por la otra sin que se
+      note el corte.
+
+      El logo entra con un retraso de 250 ms: si la app está lista
+      antes, solo se ve el navy irse, sin un logo que aparece y
+      desaparece en el mismo instante. La levanta `levantarCortina`
+      (src/lib/cortina.ts) cuando ya se sabe qué mostrar.
+    -->
+    <style>
+      #cortina {
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        display: grid;
+        place-items: center;
+        background: #1a4257;
+        transition: opacity 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      #cortina[data-fuera] {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #cortina .marca {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
+        opacity: 0;
+        transform: translateY(6px);
+        animation: cortina-marca 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.25s forwards;
+      }
+      #cortina img {
+        height: 112px;
+        width: auto;
+      }
+      #cortina .hueco {
+        height: 2px;
+      }
+      @media (min-width: 768px) {
+        #cortina img {
+          height: 160px;
+        }
+      }
+      @keyframes cortina-marca {
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #cortina {
+          transition: none;
+        }
+        #cortina .marca {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="cortina" role="status" aria-label="Cargando TuanisCan">
+      <div class="marca">
+        <img src="/logo-sistema.webp" alt="" width="168" height="112" />
+        <!-- Ocupa lo que la línea de progreso en el splash, así el logo
+             queda exactamente en el mismo lugar en los dos. -->
+        <span class="hueco"></span>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

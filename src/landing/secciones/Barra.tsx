@@ -1,6 +1,6 @@
 import { Menu } from "../../lib/iconos";
 import BotonAccion from "../componentes/BotonAccion";
-import QuickLanguageSwitcher from "../../components/QuickLanguageSwitcher";
+import ConmutadorIdioma from "../componentes/ConmutadorIdioma";
 import { MARCA } from "../../lib/nav";
 import { ENLACES } from "../datos";
 import { CANVAS, NAVY, TINTA } from "../tokens";
@@ -58,15 +58,18 @@ const Barra = ({ onEntrar, onAbrirMenu }: BarraProps) => {
         <BotonAccion tamano="sm" onClick={() => onEntrar("registro")}>
           {t("landing.barra.signup")}
         </BotonAccion>
-        <QuickLanguageSwitcher
-          className="grid h-11 w-11 place-items-center rounded-full transition-transform duration-150 ease-out active:scale-[0.94]"
-          style={{ background: CANVAS, color: NAVY }}
-        />
+        {/* El idioma, con la misma pista que el conmutador del hero.
+            Desde `lg`. Medido: a 768 px, con el idioma en la barra,
+            "Iniciar sesión" se metía 23 px debajo del símbolo
+            centrado. Por debajo de `lg` el idioma vive en el menú, y
+            por eso el botón de menú llega ahora hasta `lg` y no
+            hasta `md`. */}
+        <ConmutadorIdioma className="ml-1 hidden lg:flex" />
         <button
           type="button"
           onClick={onAbrirMenu}
           aria-label={t("landing.barra.menuAria")}
-          className="grid h-11 w-11 place-items-center rounded-full transition-transform duration-150 ease-out active:scale-[0.94] md:hidden"
+          className="grid h-11 w-11 place-items-center rounded-full transition-transform duration-150 ease-out active:scale-[0.94] lg:hidden"
           style={{ background: CANVAS, color: NAVY }}
         >
           <Menu size={19} strokeWidth={2.3} />

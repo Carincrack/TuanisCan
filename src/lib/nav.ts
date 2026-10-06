@@ -62,6 +62,16 @@ export interface NavItem {
   Icon: ElementType;
   /** Contador que se pinta a la derecha del ítem. */
   badge?: number;
+  /** Ruta que pertenece al rol pero no se dibuja en el menú.
+
+      Existe por `/perfil`: se llega tocando la tarjeta del usuario al
+      pie del riel, así que como renglón del menú estaba repetida. Pero
+      NO se puede borrar de esta lista: `RootLayout` decide qué rol
+      puede entrar a cada ruta mirando justamente estas listas, y sin
+      la entrada `/perfil` dejaría de pertenecer a nadie —al admin lo
+      echaba de su propio perfil—. Oculta, sigue contando para los
+      permisos y para el título de la página. */
+  oculto?: boolean;
 }
 
 export interface NavGroup {
@@ -97,7 +107,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       items: [
         { to: "/pagos", label: "nav.item.pagos", Icon: CreditCard },
         { to: "/resenas", label: "nav.item.resenas", Icon: Star },
-        { to: "/perfil", label: "nav.item.misDatos", Icon: UserCircle },
+        { to: "/perfil", label: "nav.item.misDatos", Icon: UserCircle, oculto: true },
       ],
     },
     {
@@ -125,7 +135,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       items: [
         { to: "/p/ganancias", label: "nav.item.ganancias", Icon: Wallet },
         { to: "/p/tarifas", label: "nav.item.tarifas", Icon: Banknote },
-        { to: "/perfil", label: "nav.item.miPerfil", Icon: UserCircle },
+        { to: "/perfil", label: "nav.item.miPerfil", Icon: UserCircle, oculto: true },
         { to: "/p/perfil", label: "nav.item.perfilPublico", Icon: UserCircle },
         { to: "/p/resenas", label: "nav.item.resenasRecibidas", Icon: Star },
       ],
@@ -137,7 +147,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       titulo: "nav.group.miNegocio",
       items: [
         { to: "/directorio", label: "nav.item.directorio", Icon: Store },
-        { to: "/perfil", label: "nav.item.miPerfil", Icon: UserCircle },
+        { to: "/perfil", label: "nav.item.miPerfil", Icon: UserCircle, oculto: true },
       ],
     },
   ],
@@ -148,7 +158,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       items: [
         { to: RUTA_ADMIN, label: "nav.item.panelGeneral", Icon: BarChart3 },
         { to: `${RUTA_ADMIN}/finanzas`, label: "nav.item.finanzas", Icon: Wallet },
-        { to: "/perfil", label: "nav.item.misDatos", Icon: UserCircle },
+        { to: "/perfil", label: "nav.item.misDatos", Icon: UserCircle, oculto: true },
       ],
     },
     {
