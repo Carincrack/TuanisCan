@@ -46,6 +46,7 @@
   },
   "errors": {
     "generic": "Could not complete the operation.",
+    "verificationMigrationMissing": "The verification migration hasn't been applied in Supabase yet, so documents can't be uploaded.",
     "nameRequired": "Full name is required.",
     "phoneRequiredForRole": "Add your phone before activating another profile.",
     "zoneRequiredForRole": "Select your zone before activating another profile.",

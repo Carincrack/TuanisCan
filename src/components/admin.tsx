@@ -764,7 +764,7 @@ const VisorDocumentos = ({
     let vivo = true;
     setCargando(true);
     setFallo(null);
-    getVerificationDocumentUrl(documento)
+    getVerificationDocumentUrl(documento, t)
       .then((firmada) => {
         if (vivo) {
           setUrls((actuales) => ({
@@ -824,7 +824,7 @@ const VisorDocumentos = ({
     setDescargando(true);
     setFallo(null);
     try {
-      await downloadVerificationDocument(documento);
+      await downloadVerificationDocument(documento, t);
       aviso.ok(t("admin.verifications.viewer.downloaded"), { detalle: documento.nombre_archivo });
     } catch (cause) {
       setFallo(errorMessage(cause, t));

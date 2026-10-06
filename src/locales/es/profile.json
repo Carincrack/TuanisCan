@@ -46,6 +46,7 @@
   },
   "errors": {
     "generic": "No se pudo completar la operación.",
+    "verificationMigrationMissing": "Falta aplicar la migración de verificación en Supabase antes de cargar documentos.",
     "nameRequired": "El nombre completo es obligatorio.",
     "phoneRequiredForRole": "Agrega tu teléfono antes de activar otro perfil.",
     "zoneRequiredForRole": "Selecciona tu zona antes de activar otro perfil.",
