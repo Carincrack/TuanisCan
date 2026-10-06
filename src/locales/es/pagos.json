@@ -1,0 +1,108 @@
+{
+  "title": "Gestión de pagos",
+  "subtitle": "Monitoreá tus comprobantes y aboná paseos pendientes.",
+  "manageCards": "Gestionar tarjetas",
+  "status": {
+    "paid": "Pagado",
+    "pending": "Pendiente",
+    "failed": "Fallido",
+    "refunded": "Reembolso"
+  },
+  "filters": {
+    "label": "Filtrar movimientos",
+    "all": "Todos",
+    "paid": "Pagados",
+    "pending": "Pendientes",
+    "refunds": "Reembolsos"
+  },
+  "stats": {
+    "spentThisMonth": "Gasto de {{mes}}",
+    "paymentSingular": "pago realizado",
+    "paymentPlural": "pagos realizados",
+    "pendingToCollect": "Pendiente de cobro",
+    "walkSingularDue": "paseo por abonar",
+    "walkPluralDue": "paseos por abonar",
+    "allUpToDate": "Al día con todos los paseos",
+    "totalRefunded": "Total reembolsado",
+    "refundSingular": "reembolso emitido",
+    "refundPlural": "reembolsos emitidos",
+    "noRefunds": "Sin reembolsos registrados"
+  },
+  "cards": {
+    "savedSingular": "tarjeta guardada",
+    "savedPlural": "tarjetas guardadas",
+    "none": "Todavía no tenés tarjetas guardadas.",
+    "addCard": "Agregar tarjeta"
+  },
+  "searchPlaceholder": "Buscar por mascota o paseador…",
+  "exportCsv": "Exportar CSV",
+  "exportCsvTitle": "Descargar el historial en formato CSV",
+  "exported": {
+    "singular": "movimiento exportado",
+    "plural": "movimientos exportados",
+    "detail": "Se descargó {{nombre}}."
+  },
+  "csv": {
+    "transactionId": "ID Transacción",
+    "service": "Servicio",
+    "walkOf": "Paseo ({{duracion}} min)",
+    "pet": "Mascota",
+    "walker": "Paseador",
+    "date": "Fecha",
+    "method": "Método",
+    "status": "Estado",
+    "amount": "Monto CRC"
+  },
+  "table": {
+    "caption": "Historial de movimientos de pago",
+    "transaction": "Transacción",
+    "date": "Fecha",
+    "method": "Método",
+    "status": "Estado",
+    "amount": "Monto",
+    "walkWith": "Paseo con {{mascota}}",
+    "viewReceiptTitle": "Ver el comprobante · Paseo con {{mascota}}",
+    "pay": "Pagar"
+  },
+  "empty": {
+    "title": "Sin movimientos en este filtro",
+    "withSearch": "Ningún movimiento coincide con lo que buscaste.",
+    "withoutSearch": "Los cobros y los paseos van a aparecer registrados acá."
+  },
+  "payDialog": {
+    "title": "Confirmar pago del paseo",
+    "dogWalk": "Paseo canino",
+    "withWalker": "Con {{paseador}} · {{duracion}} minutos",
+    "totalToPay": "Total a abonar",
+    "toWalker": "Al paseador {{monto}}",
+    "commission": "Comisión {{monto}}",
+    "whichCard": "Con cuál cobramos",
+    "principal": "Principal",
+    "noCards": {
+      "title": "No tenés ninguna tarjeta activa",
+      "hint": "Registrá una para poder abonar el paseo."
+    },
+    "secureTransaction": "Transacción segura",
+    "cancel": "Cancelar",
+    "payAmount": "Pagar {{monto}}",
+    "addCard": "Agregar tarjeta",
+    "paying": "Cobrando {{monto}}…",
+    "paid": "Pago de {{monto}} completado",
+    "payFailed": "No se pudo procesar el pago."
+  },
+  "receipt": {
+    "title": "Comprobante",
+    "walker": "Paseador",
+    "serviceDate": "Fecha del servicio",
+    "duration": "Duración",
+    "durationMinutes": "{{duracion}} minutos",
+    "methodUsed": "Método utilizado",
+    "walkerRate": "Tarifa del paseador",
+    "commission": "Comisión TuanisCan",
+    "totalAmount": "Monto total",
+    "close": "Cerrar"
+  },
+  "errors": {
+    "loadFailed": "No se pudieron cargar tus pagos."
+  }
+}

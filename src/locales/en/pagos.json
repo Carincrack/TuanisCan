@@ -1,0 +1,108 @@
+{
+  "title": "Payment management",
+  "subtitle": "Monitor your receipts and pay pending walks.",
+  "manageCards": "Manage cards",
+  "status": {
+    "paid": "Paid",
+    "pending": "Pending",
+    "failed": "Failed",
+    "refunded": "Refund"
+  },
+  "filters": {
+    "label": "Filter movements",
+    "all": "All",
+    "paid": "Paid",
+    "pending": "Pending",
+    "refunds": "Refunds"
+  },
+  "stats": {
+    "spentThisMonth": "{{mes}} spend",
+    "paymentSingular": "payment made",
+    "paymentPlural": "payments made",
+    "pendingToCollect": "Pending collection",
+    "walkSingularDue": "walk due",
+    "walkPluralDue": "walks due",
+    "allUpToDate": "Up to date with all walks",
+    "totalRefunded": "Total refunded",
+    "refundSingular": "refund issued",
+    "refundPlural": "refunds issued",
+    "noRefunds": "No refunds recorded"
+  },
+  "cards": {
+    "savedSingular": "saved card",
+    "savedPlural": "saved cards",
+    "none": "You don't have any saved cards yet.",
+    "addCard": "Add card"
+  },
+  "searchPlaceholder": "Search by pet or walker…",
+  "exportCsv": "Export CSV",
+  "exportCsvTitle": "Download the history as CSV",
+  "exported": {
+    "singular": "movement exported",
+    "plural": "movements exported",
+    "detail": "{{nombre}} was downloaded."
+  },
+  "csv": {
+    "transactionId": "Transaction ID",
+    "service": "Service",
+    "walkOf": "Walk ({{duracion}} min)",
+    "pet": "Pet",
+    "walker": "Walker",
+    "date": "Date",
+    "method": "Method",
+    "status": "Status",
+    "amount": "Amount CRC"
+  },
+  "table": {
+    "caption": "Payment movement history",
+    "transaction": "Transaction",
+    "date": "Date",
+    "method": "Method",
+    "status": "Status",
+    "amount": "Amount",
+    "walkWith": "Walk with {{mascota}}",
+    "viewReceiptTitle": "View the receipt · Walk with {{mascota}}",
+    "pay": "Pay"
+  },
+  "empty": {
+    "title": "No movements for this filter",
+    "withSearch": "No movement matches your search.",
+    "withoutSearch": "Charges and walks will show up recorded here."
+  },
+  "payDialog": {
+    "title": "Confirm walk payment",
+    "dogWalk": "Dog walk",
+    "withWalker": "With {{paseador}} · {{duracion}} minutes",
+    "totalToPay": "Total to pay",
+    "toWalker": "To the walker {{monto}}",
+    "commission": "Commission {{monto}}",
+    "whichCard": "Which card to charge",
+    "principal": "Primary",
+    "noCards": {
+      "title": "You don't have any active card",
+      "hint": "Register one to be able to pay for the walk."
+    },
+    "secureTransaction": "Secure transaction",
+    "cancel": "Cancel",
+    "payAmount": "Pay {{monto}}",
+    "addCard": "Add card",
+    "paying": "Charging {{monto}}…",
+    "paid": "Payment of {{monto}} completed",
+    "payFailed": "Could not process the payment."
+  },
+  "receipt": {
+    "title": "Receipt",
+    "walker": "Walker",
+    "serviceDate": "Service date",
+    "duration": "Duration",
+    "durationMinutes": "{{duracion}} minutes",
+    "methodUsed": "Method used",
+    "walkerRate": "Walker's rate",
+    "commission": "TuanisCan commission",
+    "totalAmount": "Total amount",
+    "close": "Close"
+  },
+  "errors": {
+    "loadFailed": "Could not load your payments."
+  }
+}
