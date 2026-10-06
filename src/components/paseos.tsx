@@ -1,80 +1,120 @@
-import { Fragment, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { CalendarDays, ChevronDown, Search, X } from "../lib/iconos";
+import {
+  AlertCircle,
+  CalendarCheck,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Footprints,
+  Search,
+  Wallet,
+  X,
+} from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
 import type { I18nContextValue } from "../context/i18n-context";
 import { listPets } from "../services/pets.service";
-import { cancelWalkRequest, listWalksWithRelations, getWalkStats, isUpcoming } from "../services/walks.service";
+import {
+  cancelWalkRequest,
+  finPrevisto,
+  isOverdue,
+  isUpcoming,
+  listWalksWithRelations,
+} from "../services/walks.service";
 import { aviso } from "../lib/aviso";
-import { getZonas } from "../services/auth.service";
 import type { WalkWithRelations } from "../services/walks.service";
 import type { Pet } from "../types/pet.types";
-import type { Zona } from "../types/auth.types";
 import {
   Avatar,
   Badge,
   Confirmar,
+  Dialog,
   EmptyState,
+  FilterTabs,
   NotificationButtonContext,
   Page,
   PageHeader,
   Paginacion,
   Section,
-  Stat,
   Table,
   btnDangerCompacto,
   btnPrimary,
+  btnQuiet,
   btnSecondary,
   btnSecondaryCompacto,
   colones,
-  input,
 } from "./ui";
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 
 type T = I18nContextValue["t"];
 
-/* Misma casa que el directorio de Usuarios: métricas con `Stat`, una
-   sección de filtros con buscador y combos, la tabla de reparto fijo
-   de `lg` para arriba y fichas apiladas debajo, con paginación. Las
-   filas que ya no van a pasar —canceladas— se atenúan en vez de
-   necesitar la palabra. */
+/* ─────────────────────────────────────────────────────────────
+   PASEOS DEL DUEÑO
+
+   La misma casa que Gestión de pagos: tres cifras blancas, una tira
+   con las pestañas y el buscador, la tabla de reparto fijo de `lg`
+   para arriba y la lista de mano debajo. El detalle de un paseo se
+   abre en la ventana compartida, como el comprobante de un pago: se
+   desplegaba como una fila extra dentro de la tabla, y esa fila
+   corría la cebra de todas las de abajo.
+   ───────────────────────────────────────────────────────────── */
 
 type Vista = "proximos" | "historial" | "todos";
 
+/** El estado que se MUESTRA. «vencido» no existe en la base: es un
+    paseo solicitado o confirmado cuya hora ya pasó sin que arrancara. */
+type EstadoVisible = WalkWithRelations["estado"] | "vencido";
+
+type Tono = "ok" | "warn" | "danger" | "accent" | "neutral";
+
 const PAGE_SIZE = 8;
 
-const chipEstado =
-  "inline-flex h-6 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[10px] font-semibold uppercase leading-none tracking-wide";
-
-const claveEstado: Record<string, string> = {
-  solicitado: "paseos.status.requested",
-  confirmado: "paseos.status.confirmed",
-  en_curso: "paseos.status.inCourse",
-  finalizado: "paseos.status.completed",
-  cancelado: "paseos.status.cancelled",
+const estadoConfig: Record<EstadoVisible, { clave: string; tono: Tono; icon: typeof Clock }> = {
+  solicitado: { clave: "paseos.status.requested", tono: "warn", icon: Clock },
+  confirmado: { clave: "paseos.status.confirmed", tono: "ok", icon: CalendarCheck },
+  en_curso: { clave: "paseos.status.inCourse", tono: "accent", icon: Footprints },
+  finalizado: { clave: "paseos.status.completed", tono: "neutral", icon: CheckCircle2 },
+  cancelado: { clave: "paseos.status.cancelled", tono: "danger", icon: X },
+  vencido: { clave: "paseos.status.overdue", tono: "neutral", icon: AlertCircle },
 };
 
-const estadosClase: Record<string, string> = {
-  solicitado: "bg-warn-wash text-warn",
-  confirmado: "bg-ok-wash text-ok",
-  en_curso: "bg-accent-wash text-accent-dark",
-  finalizado: "bg-neutral-wash text-ink-soft",
-  cancelado: "bg-danger-wash text-danger",
+const estadoDe = (paseo: WalkWithRelations): EstadoVisible =>
+  isOverdue(paseo) ? "vencido" : paseo.estado;
+
+/** Lo que ya no va a pasar se atenúa en vez de necesitar la palabra. */
+const apagado = (paseo: WalkWithRelations) => {
+  const estado = estadoDe(paseo);
+  return estado === "cancelado" || estado === "vencido";
 };
 
-const ChipEstado = ({ estado }: { estado: string }) => {
+const EstadoInsignia = ({ paseo }: { paseo: WalkWithRelations }) => {
   const { t } = useTranslation();
-  const className = estadosClase[estado] ?? "bg-sunken text-ink-mute";
-  const label = claveEstado[estado] ? t(claveEstado[estado]) : estado;
-  return <span className={`${chipEstado} ${className}`}>{label}</span>;
+  const config = estadoConfig[estadoDe(paseo)];
+  const Icono = config.icon;
+
+  return (
+    <Badge tono={config.tono}>
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+        <Icono size={12} className="shrink-0" />
+        {t(config.clave)}
+      </span>
+    </Badge>
+  );
 };
 
-const zonaLabel = (zona: WalkWithRelations["zona"] | Zona | null) =>
-  zona
-    ? [zona.provincia, zona.canton, zona.distrito ?? zona.nombre].filter(Boolean).join(", ")
-    : "";
+/** «Guanacaste, Santa Cruz, Tamarindo» no cabe en una columna y se
+    cortaba en «Guanacaste, Santa Cruz,…»: justo se perdía lo único que
+    distingue un lugar de otro. Se parte en dos renglones: el distrito
+    arriba, que es lo específico, y cantón y provincia debajo. */
+const lugarDe = (zona: WalkWithRelations["zona"]) => {
+  if (!zona) return null;
+  const principal = zona.distrito ?? zona.nombre;
+  const resto = [zona.canton, zona.provincia].filter((parte) => parte && parte !== principal).join(", ");
+  return { principal, resto, completo: [zona.provincia, zona.canton, principal].filter(Boolean).join(", ") };
+};
 
 const messageFrom = (cause: unknown, t: T) =>
   cause instanceof Error
@@ -83,88 +123,116 @@ const messageFrom = (cause: unknown, t: T) =>
       ? String((cause as { message: string }).message)
       : t("paseos.loadError");
 
-const FotoMascota = ({ paseo, size }: { paseo: WalkWithRelations; size: number }) =>
-  paseo.mascota?.fotoUrl ? (
+/** La foto de la mascota. Si la URL firmada falla —venció, se borró el
+    archivo— quedaba un círculo vacío con el borde de la imagen rota;
+    ahora cae a las iniciales, como cuando no hay foto. */
+const FotoMascota = ({ paseo, size }: { paseo: WalkWithRelations; size: number }) => {
+  const [rota, setRota] = useState(false);
+  const url = paseo.mascota?.fotoUrl;
+
+  return url && !rota ? (
     <img
-      src={paseo.mascota.fotoUrl}
+      src={url}
       alt=""
       width={size}
       height={size}
+      onError={() => setRota(true)}
       className="shrink-0 rounded-full bg-sunken object-cover"
       style={{ width: size, height: size }}
     />
   ) : (
     <Avatar nombre={paseo.mascota?.nombre ?? "M"} size={size} />
   );
+};
 
 const Paseador = ({ paseo }: { paseo: WalkWithRelations }) => {
   const { t } = useTranslation();
-  return paseo.paseador ? (
+  const [rota, setRota] = useState(false);
+
+  if (!paseo.paseador) {
+    return <span className="text-[12.5px] text-ink-mute italic">{t("paseos.unassigned")}</span>;
+  }
+
+  const nombre = paseo.paseador.nombre ?? t("paseos.walkerFallback");
+
+  return (
     <span className="flex min-w-0 items-center gap-2">
-      {paseo.paseador.fotoUrl ? (
-        <img src={paseo.paseador.fotoUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+      {paseo.paseador.fotoUrl && !rota ? (
+        <img
+          src={paseo.paseador.fotoUrl}
+          alt=""
+          onError={() => setRota(true)}
+          className="h-7 w-7 shrink-0 rounded-full bg-sunken object-cover"
+        />
       ) : (
-        <Avatar nombre={paseo.paseador.nombre ?? "P"} size={28} />
+        <Avatar nombre={nombre} size={28} />
       )}
-      <span className="truncate text-[12.5px] font-medium text-ink" title={paseo.paseador.nombre ?? undefined}>
-        {paseo.paseador.nombre ?? t("paseos.noName")}
+      <span className="truncate text-[12.5px] font-medium text-ink" title={nombre}>
+        {nombre}
       </span>
     </span>
-  ) : (
-    <span className="text-[12.5px] text-ink-mute italic">{t("paseos.unassigned")}</span>
   );
 };
 
-/** El precio, y si fue una oferta, la marca y la tarifa de referencia. */
+/** El precio. Si fue una oferta lo dice en dos palabras; la tarifa de
+    referencia queda en el tooltip y en el detalle, porque en la
+    columna «Tu oferta · tarifa ₡10 000» no entraba sin partirse. */
 const PrecioPaseo = ({ paseo, alinear = "derecha" }: { paseo: WalkWithRelations; alinear?: "derecha" | "izquierda" }) => {
   const { t } = useTranslation();
   const esOferta = paseo.precio !== paseo.precio_tarifa;
+
   return (
     <span className={`flex flex-col ${alinear === "derecha" ? "items-end" : "items-start"}`}>
-      <span className="text-[13px] font-semibold text-ink">{colones(paseo.precio)}</span>
+      <span className="nums text-[13.5px] font-semibold text-ink">{colones(paseo.precio)}</span>
       {esOferta && (
-        <span className="mt-0.5 text-[11px] text-accent-dark" title={t("paseos.walkerRateTitle", { tarifa: colones(paseo.precio_tarifa) })}>
-          {t("paseos.yourOffer", { tarifa: colones(paseo.precio_tarifa) })}
+        <span
+          className="mt-0.5 text-[11px] font-medium text-accent-deep"
+          title={t("paseos.walkerRateTitle", { tarifa: colones(paseo.precio_tarifa) })}
+        >
+          {t("paseos.yourOfferShort")}
         </span>
       )}
     </span>
   );
 };
 
-/** Lo que no cabe en la fila: dónde se encuentran, cuándo terminó y
-    el código para soporte. Igual en la tabla y en la ficha. */
-const DetallePaseo = ({ paseo }: { paseo: WalkWithRelations }) => {
-  const { t } = useTranslation();
-  return (
-    <dl className="grid gap-x-6 gap-y-3 text-[12.5px] sm:grid-cols-3">
-      <div className="min-w-0">
-        <dt className="rotulo text-ink-mute">{t("paseos.meetingPoint")}</dt>
-        <dd className="mt-1 break-words text-ink">{paseo.direccion_encuentro}</dd>
-      </div>
-      <div>
-        <dt className="rotulo text-ink-mute">{t("paseos.endTime")}</dt>
-        <dd className="nums mt-1 text-ink">{paseo.hora_fin ? paseo.hora_fin.slice(0, 5) : t("paseos.notFinishedYet")}</dd>
-      </div>
-      <div className="min-w-0">
-        <dt className="rotulo text-ink-mute">{t("paseos.walkCode")}</dt>
-        <dd className="nums mt-1 break-all text-ink">{paseo.id_paseo}</dd>
-      </div>
-    </dl>
-  );
-};
+/** Una cifra de arriba. Las mismas de Gestión de pagos: blancas, el
+    ícono en un disco gris y el monto en tinta.
+
+    En el teléfono van las tres en una fila, sin disco ni nota: apiladas
+    a lo ancho ocupaban casi una pantalla entera antes del primer paseo.
+    El rótulo puede partirse en dos renglones; la cifra se ancla abajo
+    para que las tres queden a la misma altura igual. */
+const Cifra = ({
+  etiqueta,
+  valor,
+  nota,
+  Icono,
+}: {
+  etiqueta: string;
+  valor: string;
+  nota: string;
+  Icono: typeof Clock;
+}) => (
+  <div className="flex min-w-0 flex-col rounded-[18px] bg-surface px-3.5 py-3.5 sm:px-5 sm:py-4">
+    <div className="flex items-center justify-between gap-2">
+      <p className="rotulo leading-snug text-ink-mute">{etiqueta}</p>
+      <span className="hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-sunken text-ink-soft sm:grid">
+        <Icono size={15} />
+      </span>
+    </div>
+    <p className="nums mt-auto pt-2 text-[18px] leading-none font-semibold tracking-[-0.02em] whitespace-nowrap text-ink sm:text-[24px]">
+      {valor}
+    </p>
+    <p className="mt-1.5 hidden truncate text-[12px] text-ink-soft first-letter:uppercase sm:block">{nota}</p>
+  </div>
+);
 
 const Paseos = () => {
   const { user } = useAuth();
   const { t, localeTag } = useTranslation();
-  const formatoFecha = (fecha: string) =>
-    new Intl.DateTimeFormat(localeTag, {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    }).format(new Date(`${fecha}T00:00:00`));
   const [walks, setWalks] = useState<WalkWithRelations[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
-  const [zonas, setZonas] = useState<Zona[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [selectedPetId, setSelectedPetId] = useState("");
   const [selectedZonaId, setSelectedZonaId] = useState("");
@@ -177,25 +245,43 @@ const Paseos = () => {
   const [cancelando, setCancelando] = useState(false);
   const botonNotificaciones = useContext(NotificationButtonContext);
 
+  const fechaCorta = (fecha: string) =>
+    new Intl.DateTimeFormat(localeTag, { weekday: "short", day: "numeric", month: "short" }).format(
+      new Date(`${fecha}T00:00:00`),
+    );
+  const fechaLarga = (fecha: string) =>
+    new Intl.DateTimeFormat(localeTag, { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(
+      new Date(`${fecha}T00:00:00`),
+    );
+  const hora = (valor: string) => valor.slice(0, 5);
+  /** La hora en que termina: inicio más duración. No se usa `hora_fin`
+      aunque exista: `finalizar_paseo` la guarda con `localtime` del
+      servidor, que corre en UTC, y un paseo de 08:00 salía «08:00 –
+      03:56». Hasta que la base la guarde en hora de Costa Rica, el
+      horario agendado es el dato confiable. */
+  const horaFin = (paseo: WalkWithRelations) => {
+    const fin = finPrevisto(paseo);
+    return `${String(fin.getHours()).padStart(2, "0")}:${String(fin.getMinutes()).padStart(2, "0")}`;
+  };
+
+  /* Las zonas ya no se piden aparte. Antes se cargaban TODAS las del
+     país para el combo y el filtro volvía a pedir los paseos al
+     servidor; ahora salen de los propios paseos —son las únicas en
+     las que hay algo que filtrar— y se filtra en el cliente. */
   const load = useCallback(async () => {
     if (!user) return;
     setError("");
     setLoading(true);
     try {
-      const [walksData, petsData, zonasData] = await Promise.all([
-        listWalksWithRelations(user.id, { zonaId: selectedZonaId || null }),
-        listPets(),
-        getZonas(),
-      ]);
+      const [walksData, petsData] = await Promise.all([listWalksWithRelations(user.id), listPets()]);
       setWalks(walksData);
       setPets(petsData);
-      setZonas(zonasData);
     } catch (cause) {
       setError(messageFrom(cause, t));
     } finally {
       setLoading(false);
     }
-  }, [user, selectedZonaId, t]);
+  }, [user, t]);
 
   useEffect(() => {
     void load();
@@ -207,9 +293,7 @@ const Paseos = () => {
     try {
       await cancelWalkRequest(porCancelar.id_paseo);
       setWalks((actuales) =>
-        actuales.map((w) =>
-          w.id_paseo === porCancelar.id_paseo ? { ...w, estado: "cancelado" } : w,
-        ),
+        actuales.map((w) => (w.id_paseo === porCancelar.id_paseo ? { ...w, estado: "cancelado" } : w)),
       );
       aviso.dato(t("paseos.cancelled", { mascota: porCancelar.mascota?.nombre ?? t("home.defaultPet") }), {
         detalle: t("paseos.cancelledDetail"),
@@ -224,42 +308,79 @@ const Paseos = () => {
     }
   };
 
+  /* ── Opciones de los combos ──
+     El de mascotas solo aparece con dos o más: con una sola, «Todas mis
+     mascotas» y «Oso» son la misma lista. Lo mismo las zonas. */
   const petOptions = useMemo(
-    () => [
-      { value: "", label: t("paseos.allMyPets") },
-      ...pets.map((p) => ({ value: p.id_mascota, label: p.nombre })),
-    ],
+    () => [{ value: "", label: t("paseos.allMyPets") }, ...pets.map((p) => ({ value: p.id_mascota, label: p.nombre }))],
     [pets, t],
   );
 
-  const zonaOptions = useMemo(
-    () => [
-      { value: "", label: t("paseos.allZones") },
-      ...zonas.map((z) => ({ value: z.id_zona, label: zonaLabel(z) })),
-    ],
-    [zonas, t],
-  );
-
-  const dePaseos = useMemo(
-    () => (selectedPetId ? walks.filter((w) => w.mascota?.id_mascota === selectedPetId) : walks),
-    [selectedPetId, walks],
-  );
-
-  const visibles = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
-    return dePaseos.filter((w) => {
-      if (vista === "proximos" && !isUpcoming(w)) return false;
-      if (vista === "historial" && isUpcoming(w)) return false;
-      if (!texto) return true;
-      return `${w.mascota?.nombre ?? ""} ${w.paseador?.nombre ?? ""} ${zonaLabel(w.zona)} ${w.direccion_encuentro} ${w.id_paseo}`
-        .toLowerCase()
-        .includes(texto);
+  const zonaOptions = useMemo(() => {
+    const vistas = new Map<string, string>();
+    walks.forEach((w) => {
+      const lugar = lugarDe(w.zona);
+      if (w.zona && lugar) vistas.set(w.zona.id_zona, lugar.principal);
     });
-  }, [busqueda, dePaseos, vista]);
+    return [
+      { value: "", label: t("paseos.allZones") },
+      ...[...vistas].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label)),
+    ];
+  }, [walks, t]);
 
-  const stats = useMemo(() => getWalkStats(dePaseos), [dePaseos]);
-  const parte = (n: number) => (stats.total ? n / stats.total : 0);
-  const porcentaje = (n: number) => Math.round(parte(n) * 100);
+  /* ── Los filtros, en capas ──
+     `base`: mascota y zona. Sobre eso se cuentan las cifras de arriba.
+     `buscados`: más el texto. Sobre eso se cuentan las pestañas.
+     `visibles`: más la pestaña. Eso es la tabla. */
+  const base = useMemo(
+    () =>
+      walks.filter(
+        (w) =>
+          (!selectedPetId || w.mascota?.id_mascota === selectedPetId) &&
+          (!selectedZonaId || w.zona?.id_zona === selectedZonaId),
+      ),
+    [walks, selectedPetId, selectedZonaId],
+  );
+
+  const buscados = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    if (!texto) return base;
+    return base.filter((w) =>
+      `${w.mascota?.nombre ?? ""} ${w.paseador?.nombre ?? ""} ${lugarDe(w.zona)?.completo ?? ""} ${w.direccion_encuentro} ${w.id_paseo}`
+        .toLowerCase()
+        .includes(texto),
+    );
+  }, [base, busqueda]);
+
+  /* Próximos en orden de llegada —el de mañana arriba—; el historial,
+     del más reciente al más viejo. */
+  const visibles = useMemo(() => {
+    const clave = (w: WalkWithRelations) => `${w.fecha}T${w.hora_inicio}`;
+    if (vista === "proximos") {
+      return buscados.filter(isUpcoming).sort((a, b) => clave(a).localeCompare(clave(b)));
+    }
+    const lista = vista === "historial" ? buscados.filter((w) => !isUpcoming(w)) : [...buscados];
+    return lista.sort((a, b) => clave(b).localeCompare(clave(a)));
+  }, [buscados, vista]);
+
+  const cuentas = useMemo(() => {
+    const proximos = buscados.filter(isUpcoming).length;
+    return { proximos, historial: buscados.length - proximos, todos: buscados.length };
+  }, [buscados]);
+
+  const cifras = useMemo(() => {
+    const proximos = base
+      .filter(isUpcoming)
+      .sort((a, b) => `${a.fecha}${a.hora_inicio}`.localeCompare(`${b.fecha}${b.hora_inicio}`));
+    const completados = base.filter((w) => w.estado === "finalizado");
+    return {
+      proximos: proximos.length,
+      siguiente: proximos[0] ?? null,
+      completados: completados.length,
+      gastado: completados.reduce((suma, w) => suma + w.precio, 0),
+      total: base.length,
+    };
+  }, [base]);
 
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -267,48 +388,51 @@ const Paseos = () => {
   const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
   const paginaPaseos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
 
-  const hayFiltros = Boolean(busqueda || selectedPetId || selectedZonaId || vista !== "proximos");
-  const conFiltro = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPagina(1); };
+  /* La pestaña no es un filtro: «Limpiar» deja la que esté elegida. */
+  const hayFiltros = Boolean(busqueda || selectedPetId || selectedZonaId);
+  const conFiltro =
+    <V,>(set: (v: V) => void) =>
+    (v: V) => {
+      set(v);
+      setPagina(1);
+    };
   const limpiar = () => {
     setBusqueda("");
     setSelectedPetId("");
     setSelectedZonaId("");
-    setVista("proximos");
     setPagina(1);
   };
-  const alternarDetalle = (id: string) => setDetalleId((actual) => (actual === id ? null : id));
 
-  /** Las acciones de un paseo. Cancelar solo existe mientras el
-      paseador no respondió; en curso se sigue en vivo. */
-  const accionesDe = (p: WalkWithRelations) => (
-    <div className="flex flex-wrap justify-end gap-1.5">
-      {p.estado === "solicitado" && (
-        <button type="button" className={btnDangerCompacto} onClick={() => setPorCancelar(p)}>
-          <X size={13} strokeWidth={2.2} />
-          {t("paseos.cancel")}
-        </button>
-      )}
-      {p.estado === "en_curso" ? (
-        <Link to="/paseo-en-vivo" className={btnSecondaryCompacto}>
-          {t("paseos.watchLive")}
-        </Link>
-      ) : (
-        <button
-          type="button"
-          className={btnSecondaryCompacto}
-          aria-expanded={detalleId === p.id_paseo}
-          onClick={() => alternarDetalle(p.id_paseo)}
-        >
-          {t("paseos.details")}
-          <ChevronDown
-            size={13}
-            strokeWidth={2.2}
-            aria-hidden
-            className={`transition-transform duration-200 ${detalleId === p.id_paseo ? "rotate-180" : ""}`}
-          />
-        </button>
-      )}
-    </div>
+  const detalle = detalleId ? walks.find((w) => w.id_paseo === detalleId) ?? null : null;
+
+  /** La acción que urge, si la hay: cancelar mientras el paseador no
+      respondió, o seguirlo en vivo mientras camina. */
+  const accionDe = (p: WalkWithRelations) =>
+    p.estado === "solicitado" ? (
+      <button type="button" className={btnDangerCompacto} onClick={() => setPorCancelar(p)}>
+        <X size={13} strokeWidth={2.2} />
+        {t("paseos.cancel")}
+      </button>
+    ) : p.estado === "en_curso" ? (
+      <Link to="/paseo-en-vivo" className={btnSecondaryCompacto}>
+        <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+        {t("paseos.watchLive")}
+      </Link>
+    ) : null;
+
+  const nombreMascota = (p: WalkWithRelations) => p.mascota?.nombre ?? t("paseos.noName");
+
+  /** El nombre abre el detalle. Subrayado al pasar por la fila, como
+      el «Paseo con…» de Gestión de pagos. */
+  const abrirDetalle = (paseo: WalkWithRelations, className: string) => (
+    <button
+      type="button"
+      onClick={() => setDetalleId(paseo.id_paseo)}
+      title={t("paseos.detail.open", { mascota: nombreMascota(paseo) })}
+      className={`block max-w-full truncate text-left font-semibold text-ink underline-offset-[3px] transition-colors duration-150 hover:text-accent-deep ${className}`}
+    >
+      {nombreMascota(paseo)}
+    </button>
   );
 
   return (
@@ -327,207 +451,358 @@ const Paseos = () => {
         }
       />
 
-      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat etiqueta={t("paseos.stats.total")} valor={String(stats.total)} nota={t("paseos.stats.totalHint")} />
-        <Stat
+      {/* ── Las tres cifras ──
+          Eran cuatro, con «40 % del total» y una barra debajo de
+          próximos y completados: una proporción que no le dice nada a
+          quien tiene un perro. Ahora cada nota dice algo que sirve: cuál
+          es el siguiente paseo, de cuántos agendados salieron los
+          completados y en cuántos se fue lo gastado. El total suelto se
+          va: lo cuenta la pestaña «Todos». */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <Cifra
           etiqueta={t("paseos.stats.upcoming")}
-          valor={String(stats.upcoming)}
-          nota={t("paseos.stats.percentOfTotal", { pct: porcentaje(stats.upcoming) })}
-          parte={parte(stats.upcoming)}
+          valor={String(cifras.proximos)}
+          Icono={CalendarDays}
+          nota={
+            cifras.siguiente
+              ? t("paseos.stats.nextOne", {
+                  cuando: `${fechaCorta(cifras.siguiente.fecha)} · ${hora(cifras.siguiente.hora_inicio)}`,
+                })
+              : t("paseos.stats.nothingScheduled")
+          }
         />
-        <Stat
+        <Cifra
           etiqueta={t("paseos.stats.completed")}
-          valor={String(stats.completed)}
-          nota={t("paseos.stats.percentOfTotal", { pct: porcentaje(stats.completed) })}
-          parte={parte(stats.completed)}
+          valor={String(cifras.completados)}
+          Icono={CheckCircle2}
+          nota={t(cifras.total === 1 ? "paseos.stats.ofScheduledOne" : "paseos.stats.ofScheduled", { total: cifras.total })}
         />
-        <Stat etiqueta={t("paseos.stats.totalSpent")} valor={colones(stats.totalSpent)} nota={t("paseos.stats.totalSpentHint")} />
+        <Cifra
+          etiqueta={t("paseos.stats.totalSpent")}
+          valor={colones(cifras.gastado)}
+          Icono={Wallet}
+          nota={
+            cifras.completados === 0
+              ? t("paseos.stats.noneCompleted")
+              : t(cifras.completados === 1 ? "paseos.stats.spentInOne" : "paseos.stats.spentIn", { n: cifras.completados })
+          }
+        />
       </div>
 
-      <div className="min-w-0">
-        <Section
-          title={t("paseos.filters.title")}
-          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? t("paseos.filters.resultSingular") : t("paseos.filters.resultPlural")}</Badge>}
-          bodyClass="px-4 py-4 sm:px-6"
-        >
-          <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.6fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_auto]">
-            <label className="relative block sm:col-span-2 lg:col-span-1">
-              <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" aria-hidden />
-              <span className="sr-only">{t("paseos.filters.searchAria")}</span>
-              <input
-                value={busqueda}
-                onChange={(event) => conFiltro(setBusqueda)(event.target.value)}
-                className={`${input} pl-10`}
-                placeholder={t("paseos.filters.searchPlaceholder")}
-              />
-            </label>
-            <Combo value={selectedPetId} onChange={conFiltro(setSelectedPetId)} aria-label={t("paseos.filters.petAria")} options={petOptions} />
-            <Combo value={selectedZonaId} onChange={conFiltro(setSelectedZonaId)} aria-label={t("paseos.filters.zoneAria")} options={zonaOptions} />
-            <Combo
-              value={vista}
-              onChange={(v) => conFiltro(setVista)(v as Vista)}
-              aria-label={t("paseos.filters.statusAria")}
-              options={[
-                { value: "proximos", label: t("paseos.filters.upcoming") },
-                { value: "historial", label: t("paseos.filters.history") },
-                { value: "todos", label: t("paseos.filters.all") },
-              ]}
+      {/* ── Pestañas y búsqueda ──
+          Una sola tira, como en Pagos. La vista era un combo más entre
+          los filtros, con el mismo peso que «Todas las zonas»; es lo
+          primero que se elige y ahora se ve como tal, con cuántos hay
+          en cada una. */}
+      <div className="flex flex-col gap-3 rounded-[18px] bg-surface p-3.5 xl:flex-row xl:items-center xl:gap-4">
+        <div className="-mx-3.5 overflow-x-auto px-3.5 xl:mx-0 xl:shrink-0 xl:overflow-visible xl:px-0">
+          <FilterTabs
+            label={t("paseos.filters.label")}
+            options={[
+              { value: "proximos", label: t("paseos.filters.upcoming") },
+              { value: "historial", label: t("paseos.filters.history") },
+              { value: "todos", label: t("paseos.filters.all") },
+            ]}
+            value={vista}
+            onChange={(v) => conFiltro(setVista)(v as Vista)}
+            cuentas={cuentas}
+          />
+        </div>
+
+        <div className="flex flex-1 flex-wrap items-center gap-2.5 sm:flex-nowrap xl:justify-end">
+          <label className="relative block min-w-[200px] flex-1 basis-full sm:basis-auto xl:max-w-[320px]">
+            <span className="sr-only">{t("paseos.filters.searchAria")}</span>
+            <Search
+              size={14}
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-mute"
             />
-            {hayFiltros && (
-              <button type="button" className={`${btnSecondary} sm:col-span-2 lg:col-span-1`} onClick={limpiar}>
-                {t("paseos.filters.clear")}
-              </button>
-            )}
-          </div>
-        </Section>
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(event) => conFiltro(setBusqueda)(event.target.value)}
+              placeholder={t("paseos.filters.searchPlaceholder")}
+              className="h-10 w-full rounded-full bg-sunken pr-3 pl-9 text-[12.5px] text-ink placeholder:text-ink-mute focus:bg-white focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
+            />
+          </label>
+
+          {pets.length > 1 && (
+            <div className="min-w-[140px] flex-1 sm:w-[180px] sm:flex-none">
+              <Combo
+                value={selectedPetId}
+                onChange={conFiltro(setSelectedPetId)}
+                aria-label={t("paseos.filters.petAria")}
+                options={petOptions}
+                className="h-10 rounded-full py-0 text-[12.5px]"
+              />
+            </div>
+          )}
+
+          {zonaOptions.length > 2 && (
+            <div className="min-w-[140px] flex-1 sm:w-[180px] sm:flex-none">
+              <Combo
+                value={selectedZonaId}
+                onChange={conFiltro(setSelectedZonaId)}
+                aria-label={t("paseos.filters.zoneAria")}
+                options={zonaOptions}
+                className="h-10 rounded-full py-0 text-[12.5px]"
+              />
+            </div>
+          )}
+
+          {hayFiltros && (
+            <button type="button" className={`${btnQuiet} shrink-0 px-3.5 py-2 text-[12.5px]`} onClick={limpiar}>
+              <X size={13} strokeWidth={2.2} />
+              {t("paseos.filters.clear")}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
-        <div role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger"
+        >
           {error}
+          <button type="button" className={btnDangerCompacto} onClick={() => void load()}>
+            {t("paseos.retry")}
+          </button>
         </div>
       )}
 
-      <div className="min-w-0">
-        <Section bodyClass="">
-          {loading ? (
-            <Skeleton name="paseos-lista" loading><div /></Skeleton>
-          ) : visibles.length === 0 ? (
-            <div className="px-4 py-4 sm:px-6">
-              <EmptyState
-                title={t("paseos.empty.title")}
-                hint={hayFiltros ? t("paseos.empty.withFilters") : t("paseos.empty.withoutFilters")}
-                action={
-                  hayFiltros ? (
-                    <button type="button" className={btnSecondary} onClick={limpiar}>{t("paseos.empty.clearFilters")}</button>
-                  ) : (
-                    <Link to="/paseadores" className={btnPrimary}>{t("paseos.scheduleWalk")}</Link>
-                  )
-                }
-              />
+      {/* ── Los paseos ── */}
+      <Section bodyClass="p-0">
+        {loading ? (
+          <Skeleton name="paseos-lista" loading>
+            <div />
+          </Skeleton>
+        ) : visibles.length === 0 ? (
+          <div className="p-4">
+            <EmptyState
+              title={vista === "proximos" && !hayFiltros ? t("paseos.empty.noUpcoming") : t("paseos.empty.title")}
+              hint={hayFiltros ? t("paseos.empty.withFilters") : t("paseos.empty.withoutFilters")}
+              action={
+                hayFiltros ? (
+                  <button type="button" className={btnSecondary} onClick={limpiar}>
+                    {t("paseos.empty.clearFilters")}
+                  </button>
+                ) : (
+                  <Link to="/paseadores" className={btnPrimary}>
+                    <CalendarDays size={15} strokeWidth={2} />
+                    {t("paseos.scheduleWalk")}
+                  </Link>
+                )
+              }
+            />
+          </div>
+        ) : (
+          <>
+            {/* ── De lg para arriba: la tabla ── */}
+            <div className="hidden lg:block">
+              <Table
+                caption={t("paseos.table.caption")}
+                min="min-w-[860px]"
+                padX="px-4"
+                columnas={[
+                  { label: t("paseos.table.pet"), ancho: "w-[16%]" },
+                  { label: t("paseos.table.when"), ancho: "w-[14%]" },
+                  { label: t("paseos.table.walker"), ancho: "w-[17%]" },
+                  { label: t("paseos.table.place"), ancho: "w-[16%]" },
+                  { label: t("paseos.table.status"), ancho: "w-[15%]" },
+                  { label: t("paseos.table.price"), ancho: "w-[11%]", align: "right" },
+                  { label: t("paseos.table.actions"), ancho: "w-[11%]", align: "right", muda: true },
+                ]}
+              >
+                {paginaPaseos.map((p) => {
+                  const lugar = lugarDe(p.zona);
+                  const accion = accionDe(p);
+                  return (
+                    <tr key={p.id_paseo} className="group transition-colors duration-150 hover:bg-accent-wash/40">
+                      <td className="px-4 py-3">
+                        <div
+                          className={`flex min-w-0 items-center gap-3 transition-opacity duration-200 ${apagado(p) ? "opacity-55" : ""}`}
+                        >
+                          <FotoMascota paseo={p} size={36} />
+                          {abrirDetalle(p, "text-[13.5px] group-hover:underline")}
+                        </div>
+                      </td>
+                      <td className="nums px-4 py-3 whitespace-nowrap">
+                        <span className="block text-[12.5px] font-medium text-ink first-letter:uppercase">
+                          {fechaCorta(p.fecha)}
+                        </span>
+                        <span className="mt-0.5 block text-[11.5px] text-ink-mute">
+                          {hora(p.hora_inicio)} · {p.duracion_min} min
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Paseador paseo={p} />
+                      </td>
+                      <td className="px-4 py-3" title={lugar?.completo}>
+                        {lugar ? (
+                          <>
+                            <span className="block truncate text-[12.5px] font-medium text-ink">{lugar.principal}</span>
+                            {lugar.resto && (
+                              <span className="mt-0.5 block truncate text-[11.5px] text-ink-mute">{lugar.resto}</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-[12.5px] text-ink-mute italic">{t("paseos.table.noZone")}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <EstadoInsignia paseo={p} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <PrecioPaseo paseo={p} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          {accion}
+                          <button
+                            type="button"
+                            onClick={() => setDetalleId(p.id_paseo)}
+                            aria-label={t("paseos.detail.open", { mascota: nombreMascota(p) })}
+                            title={t("paseos.detail.open", { mascota: nombreMascota(p) })}
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken hover:text-ink active:scale-[0.94]"
+                          >
+                            <ChevronRight size={16} strokeWidth={2} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </Table>
             </div>
-          ) : (
-            <>
-              {/* ── De lg para arriba: la tabla ── */}
-              <div className="hidden lg:block">
-                <Table
-                  caption={t("paseos.table.caption")}
-                  min="min-w-[900px]"
-                  padX="px-4"
-                  columnas={[
-                    { label: t("paseos.table.pet"), ancho: "w-[20%]" },
-                    { label: t("paseos.table.walker"), ancho: "w-[17%]" },
-                    { label: t("paseos.table.when"), ancho: "w-[14%]" },
-                    { label: t("paseos.table.zone"), ancho: "w-[16%]" },
-                    { label: t("paseos.table.status"), ancho: "w-[11%]" },
-                    { label: t("paseos.table.price"), ancho: "w-[9%]", align: "right" },
-                    { label: t("paseos.table.actions"), ancho: "w-[13%]", align: "right", muda: true },
-                  ]}
-                >
-                  {paginaPaseos.map((p) => (
-                    <Fragment key={p.id_paseo}>
-                      <tr className="transition-colors duration-150 hover:bg-accent-wash/25">
-                        <td className="px-4 py-3">
-                          <div className={`flex min-w-0 items-center gap-3 transition-opacity duration-200 ${p.estado === "cancelado" ? "opacity-55" : ""}`}>
-                            <FotoMascota paseo={p} size={36} />
-                            <span className="min-w-0">
-                              <span className="block truncate text-[13.5px] font-semibold text-ink" title={p.mascota?.nombre}>
-                                {p.mascota?.nombre ?? t("paseos.noName")}
-                              </span>
-                              <span className="nums mt-0.5 block text-[11px] text-ink-mute">ID {p.id_paseo.slice(0, 8)}</span>
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Paseador paseo={p} />
-                        </td>
-                        <td className="nums px-4 py-3 whitespace-nowrap">
-                          <span className="block text-[12.5px] font-medium text-ink first-letter:uppercase">{formatoFecha(p.fecha)}</span>
-                          <span className="mt-0.5 block text-[11.5px] text-ink-mute">
-                            {p.hora_inicio.slice(0, 5)} · {p.duracion_min} min
-                          </span>
-                        </td>
-                        <td className={`truncate px-4 py-3 text-[12.5px] ${p.zona ? "text-ink-soft" : "text-ink-mute italic"}`} title={zonaLabel(p.zona)}>
-                          {zonaLabel(p.zona) || t("paseos.table.noZone")}
-                        </td>
-                        <td className="px-4 py-3">
-                          <ChipEstado estado={p.estado} />
-                        </td>
-                        <td className="nums px-4 py-3 text-right">
-                          <PrecioPaseo paseo={p} />
-                        </td>
-                        <td className="px-4 py-3 text-right">{accionesDe(p)}</td>
-                      </tr>
-                      {detalleId === p.id_paseo && (
-                        <tr>
-                          <td colSpan={7} className="bg-sunken/60 px-4 py-4">
-                            <DetallePaseo paseo={p} />
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  ))}
-                </Table>
-              </div>
 
-              {/* ── Debajo de lg: fichas ── */}
-              <ul className="grid gap-2.5 p-4 lg:hidden">
-                {paginaPaseos.map((p) => (
-                  <li key={p.id_paseo} className="rounded-[14px] bg-sunken/60 p-4">
-                    <div className={`flex items-start gap-3 transition-opacity duration-200 ${p.estado === "cancelado" ? "opacity-55" : ""}`}>
-                      <FotoMascota paseo={p} size={40} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-semibold text-ink">{p.mascota?.nombre ?? t("paseos.noName")}</p>
-                        <p className="nums mt-0.5 text-[11px] text-ink-mute">ID {p.id_paseo.slice(0, 8)}</p>
+            {/* ── Debajo de lg: la lista de mano ──
+                Filas cebra como la lista de Pagos, no tarjetas sueltas:
+                la tabla y la lista son la misma cosa a distinto ancho. */}
+            <ul className="lg:hidden [&>li:nth-child(even)]:bg-sunken/60">
+              {paginaPaseos.map((p) => {
+                const accion = accionDe(p);
+                return (
+                  <li key={p.id_paseo} className="px-4 py-4 sm:px-5">
+                    <div className="flex items-start gap-3">
+                      <div className={`transition-opacity duration-200 ${apagado(p) ? "opacity-55" : ""}`}>
+                        <FotoMascota paseo={p} size={40} />
                       </div>
-                      <ChipEstado estado={p.estado} />
+                      <div className="min-w-0 flex-1">
+                        {abrirDetalle(p, "text-[14px]")}
+                        <p className="nums mt-0.5 truncate text-[11.5px] text-ink-soft first-letter:uppercase">
+                          {fechaCorta(p.fecha)} · {hora(p.hora_inicio)} · {p.duracion_min} min
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        <PrecioPaseo paseo={p} />
+                      </div>
                     </div>
 
-                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
-                      <div className="col-span-2">
-                        <dt className="rotulo text-ink-mute">{t("paseos.table.walker")}</dt>
-                        <dd className="mt-1"><Paseador paseo={p} /></dd>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 pl-[52px]">
+                      <EstadoInsignia paseo={p} />
+                      <div className="min-w-0 max-w-full">
+                        <Paseador paseo={p} />
                       </div>
-                      <div>
-                        <dt className="rotulo text-ink-mute">{t("paseos.table.when")}</dt>
-                        <dd className="nums mt-1 text-ink first-letter:uppercase">{formatoFecha(p.fecha)}</dd>
-                        <dd className="nums mt-0.5 text-ink-mute">{p.hora_inicio.slice(0, 5)} · {p.duracion_min} min</dd>
-                      </div>
-                      <div>
-                        <dt className="rotulo text-ink-mute">{t("paseos.table.price")}</dt>
-                        <dd className="nums mt-1"><PrecioPaseo paseo={p} alinear="izquierda" /></dd>
-                      </div>
-                      <div className="col-span-2">
-                        <dt className="rotulo text-ink-mute">{t("paseos.table.zone")}</dt>
-                        <dd className={`mt-1 break-words ${p.zona ? "text-ink-soft" : "text-ink-mute italic"}`}>{zonaLabel(p.zona) || t("paseos.table.noZone")}</dd>
-                      </div>
-                    </dl>
-
-                    {detalleId === p.id_paseo && (
-                      <div className="mt-3 rounded-[12px] bg-surface p-3.5">
-                        <DetallePaseo paseo={p} />
-                      </div>
-                    )}
-
-                    <div className="mt-3.5">{accionesDe(p)}</div>
+                      {accion && <div className="ml-auto">{accion}</div>}
+                    </div>
                   </li>
-                ))}
-              </ul>
+                );
+              })}
+            </ul>
 
-              <Paginacion
-                etiqueta={t("paseos.pagination.label")}
-                actual={paginaActual}
-                total={totalPaginas}
-                onCambiar={setPagina}
-                desde={inicioPagina + 1}
-                hasta={finPagina}
-                cuantos={visibles.length}
-                nombre={[t("paseos.pagination.singular"), t("paseos.pagination.plural")]}
-              />
-            </>
-          )}
-        </Section>
-      </div>
+            <Paginacion
+              etiqueta={t("paseos.pagination.label")}
+              actual={paginaActual}
+              total={totalPaginas}
+              onCambiar={setPagina}
+              desde={inicioPagina + 1}
+              hasta={finPagina}
+              cuantos={visibles.length}
+              nombre={[t("paseos.pagination.singular"), t("paseos.pagination.plural")]}
+            />
+          </>
+        )}
+      </Section>
+
+      {/* ── El detalle ──
+          Con la forma del comprobante de Pagos: cabecera con quién y
+          cuándo, renglones con los datos y el precio al pie. */}
+      {detalle && (
+        <Dialog title={t("paseos.detail.title")} onClose={() => setDetalleId(null)}>
+          <div className="p-6">
+            <div className="flex items-start gap-3.5 border-b border-sunken pb-4">
+              <FotoMascota paseo={detalle} size={44} />
+              <div className="min-w-0 flex-1">
+                <h4 className="titular truncate text-[17px] text-ink">
+                  {t("paseos.detail.walkOf", { mascota: nombreMascota(detalle) })}
+                </h4>
+                <p className="mt-0.5 text-[12.5px] text-ink-soft first-letter:uppercase">{fechaLarga(detalle.fecha)}</p>
+                {/* En móvil la insignia va debajo: a la derecha le robaba
+                    el ancho a la fecha y la partía en dos renglones. */}
+                <div className="mt-2 sm:hidden">
+                  <EstadoInsignia paseo={detalle} />
+                </div>
+              </div>
+              <div className="hidden shrink-0 sm:block">
+                <EstadoInsignia paseo={detalle} />
+              </div>
+            </div>
+
+            {estadoDe(detalle) === "vencido" && (
+              <div className="mt-4 flex items-start gap-2 rounded-[12px] bg-sunken px-3.5 py-2.5 text-[12.5px] text-ink-soft">
+                <AlertCircle size={15} className="mt-px shrink-0 text-ink-mute" />
+                {t(detalle.estado === "solicitado" ? "paseos.detail.overdueRequested" : "paseos.detail.overdueConfirmed")}
+              </div>
+            )}
+
+            <dl className="mt-3 text-[13px]">
+              {[
+                [t("paseos.detail.walker"), detalle.paseador ? <Paseador paseo={detalle} /> : t("paseos.unassigned")],
+                [
+                  t("paseos.detail.schedule"),
+                  <span className="nums">
+                    {hora(detalle.hora_inicio)} – {horaFin(detalle)} · {detalle.duracion_min} min
+                  </span>,
+                ],
+                [t("paseos.detail.meetingPoint"), detalle.direccion_encuentro],
+                [t("paseos.detail.zone"), lugarDe(detalle.zona)?.completo ?? t("paseos.table.noZone")],
+                [t("paseos.detail.code"), <span className="nums text-[12px] break-all text-ink-soft">{detalle.id_paseo}</span>],
+              ].map(([etiqueta, valor]) => (
+                <div key={String(etiqueta)} className="flex items-start justify-between gap-6 border-b border-sunken py-2.5">
+                  <dt className="shrink-0 text-ink-soft">{etiqueta}</dt>
+                  <dd className="flex min-w-0 justify-end text-right font-medium break-words text-ink">{valor}</dd>
+                </div>
+              ))}
+              <div className="flex items-baseline justify-between gap-4 pt-3">
+                <dt className="rotulo text-ink-mute">{t("paseos.detail.price")}</dt>
+                <dd className="nums text-[22px] font-semibold tracking-[-0.02em] text-ink">{colones(detalle.precio)}</dd>
+              </div>
+              {detalle.precio !== detalle.precio_tarifa && (
+                <p className="mt-1 text-right text-[12px] text-ink-soft">
+                  {t("paseos.detail.offerNote", { tarifa: colones(detalle.precio_tarifa) })}
+                </p>
+              )}
+            </dl>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-sunken pt-4">
+              {detalle.estado === "solicitado" && (
+                <button type="button" className={`${btnQuiet} text-danger hover:bg-danger-wash hover:text-danger`} onClick={() => setPorCancelar(detalle)}>
+                  {t("paseos.cancelDialog.confirm")}
+                </button>
+              )}
+              {detalle.estado === "en_curso" && (
+                <Link to="/paseo-en-vivo" className={btnSecondary}>
+                  {t("paseos.watchLive")}
+                </Link>
+              )}
+              <button type="button" className={btnPrimary} onClick={() => setDetalleId(null)}>
+                {t("paseos.detail.close")}
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
 
       {porCancelar && (
         <Confirmar
