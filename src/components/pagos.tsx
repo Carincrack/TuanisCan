@@ -17,6 +17,7 @@ import {
   Wallet,
 } from "../lib/iconos";
 import { aviso, motivo } from "../lib/aviso";
+import { useTranslation } from "../hooks/useTranslation";
 import {
   listOwnerPayments,
   listPaymentMethods,
@@ -55,36 +56,6 @@ import { SelloTarjeta } from "./tarjetaVisual";
    Todo eso vuelve a las piezas compartidas. Lo único que se queda
    como pieza propia es la tarjeta, porque es la única de verdad:
    ninguna otra pantalla dibuja un objeto físico.
-
-   ── La tarjeta ──
-
-   Un rectángulo con degradado y esquinas redondas es lo que sale por
-   defecto y se nota. Lo que hace que una tarjeta se lea como tarjeta
-   son cuatro cosas que sí están en las de verdad:
-
-     · El guilloché. El grabado de líneas finas que llevan las
-       tarjetas y los billetes desde que existe la imprenta de
-       seguridad. Acá son dos rosetones y una trama diagonal a muy
-       poca opacidad: al cruzarse dan el moiré, que es exactamente lo
-       que hace el torno de grabar.
-     · La proporción. ID-1 de la norma ISO/IEC 7810 es 85,60 × 53,98
-       mm, o sea 1,586. Antes estaba en 1,62 —la proporción áurea—,
-       que es parecida pero no es la de ninguna tarjeta del mundo.
-     · El chip. Un chip EMV tiene seis contactos en dos columnas con
-       un puente al centro, no una cruz.
-     · El relieve. Los números van repujados: luz arriba, sombra
-       abajo. Dos sombras de texto de un píxel.
-
-   El turquesa de la casa aparece donde aparece siempre —un filete,
-   nada más—, y el navy es el mismo `--color-rail` del riel. La
-   tarjeta se ve cara sin dejar de ser de este producto.
-
-   ── Un objeto, tres tamaños ──
-
-   La misma tarjeta aparece completa en la sección de métodos, en
-   sello mediano al elegir con qué pagar, y en sello chico dentro de
-   la tabla. Es lo que ata la pantalla: quien ve el sello chico en una
-   fila reconoce cuál de sus tarjetas cobró.
    ───────────────────────────────────────────────────────────── */
 
 type FiltroTipo = "Todos" | "Pagados" | "Pendientes" | "Reembolsos";
@@ -93,21 +64,21 @@ type Tono = "ok" | "warn" | "danger" | "accent" | "neutral";
 
 const estadoConfig: Record<
   PaymentStatus,
-  { label: string; tono: Tono; icon: typeof CheckCircle2 }
+  { claveLabel: string; tono: Tono; icon: typeof CheckCircle2 }
 > = {
-  pagado: { label: "Pagado", tono: "ok", icon: CheckCircle2 },
-  pendiente: { label: "Pendiente", tono: "warn", icon: Clock },
-  fallido: { label: "Fallido", tono: "danger", icon: AlertTriangle },
+  pagado: { claveLabel: "pagos.status.paid", tono: "ok", icon: CheckCircle2 },
+  pendiente: { claveLabel: "pagos.status.pending", tono: "warn", icon: Clock },
+  fallido: { claveLabel: "pagos.status.failed", tono: "danger", icon: AlertTriangle },
   // «Reembolso» y no «Reembolsado»: la insignia vive en una columna
   // de 115 px y la palabra larga no cabe sin partirse.
-  reembolsado: { label: "Reembolso", tono: "accent", icon: Repeat },
+  reembolsado: { claveLabel: "pagos.status.refunded", tono: "accent", icon: Repeat },
 };
 
 /* ── Utilidades ──────────────────────────────────────────────── */
 
-const fechaFormateada = (fecha: string) => {
+const fechaFormateada = (fecha: string, localeTag: string) => {
   try {
-    return new Intl.DateTimeFormat("es-CR", {
+    return new Intl.DateTimeFormat(localeTag, {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -120,11 +91,11 @@ const fechaFormateada = (fecha: string) => {
 /** Fecha de fila. El año solo sale cuando NO es el corriente: en un
     historial donde casi todo pasó este año, repetir «2026» en cada
     fila es ruido, y además es el ancho que necesita el día. */
-const fechaCorta = (fecha: string) => {
+const fechaCorta = (fecha: string, localeTag: string) => {
   const dia = new Date(`${fecha}T00:00:00`);
   if (Number.isNaN(dia.getTime())) return fecha;
 
-  return new Intl.DateTimeFormat("es-CR", {
+  return new Intl.DateTimeFormat(localeTag, {
     day: "numeric",
     month: "short",
     ...(dia.getFullYear() === new Date().getFullYear() ? {} : { year: "2-digit" }),
@@ -140,6 +111,7 @@ const ultimos4De = (metodo: string) => metodo.match(/(\d{4})\s*$/)?.[1] ?? "";
 /** El estado, con su ícono. Se repite igual en la tabla y en la lista
     de mano, así que vive una sola vez. */
 const EstadoInsignia = ({ estado }: { estado: PaymentStatus }) => {
+  const { t } = useTranslation();
   const config = estadoConfig[estado];
   const Icono = config.icon;
 
@@ -147,7 +119,7 @@ const EstadoInsignia = ({ estado }: { estado: PaymentStatus }) => {
     <Badge tono={config.tono}>
       <span className="inline-flex items-center gap-1.5">
         <Icono size={12} className="shrink-0" />
-        {config.label}
+        {t(config.claveLabel)}
       </span>
     </Badge>
   );
@@ -198,6 +170,7 @@ const btnPagar =
 /* ── La pantalla ─────────────────────────────────────────────── */
 
 const Pagos = () => {
+  const { t, localeTag } = useTranslation();
   const [metodos, setMetodos] = useState<PaymentMethod[]>([]);
   const [movimientos, setMovimientos] = useState<PaymentMovement[]>([]);
   const [filtro, setFiltro] = useState<FiltroTipo>("Todos");
@@ -229,11 +202,11 @@ const Pagos = () => {
       });
     } catch (cause) {
       setError(motivo(cause));
-      aviso.error(cause, { respaldo: "No se pudieron cargar tus pagos." });
+      aviso.error(cause, { respaldo: t("pagos.errors.loadFailed") });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -277,7 +250,7 @@ const Pagos = () => {
 
     const pendingMovements = movimientos.filter((m) => m.estado_pago === "pendiente");
     const refundedMovements = movimientos.filter((m) => m.estado_pago === "reembolsado");
-    const nombreMes = new Intl.DateTimeFormat("es-CR", { month: "long" }).format(today);
+    const nombreMes = new Intl.DateTimeFormat(localeTag, { month: "long" }).format(today);
 
     return {
       spent: paidThisMonth.reduce((sum, movement) => sum + movement.monto, 0),
@@ -288,7 +261,7 @@ const Pagos = () => {
       refunded: refundedMovements.reduce((sum, movement) => sum + movement.monto, 0),
       refundedCount: refundedMovements.length,
     };
-  }, [movimientos]);
+  }, [movimientos, localeTag]);
 
   /** Abrir el cobro de una fila. Estaba en línea dentro del botón de
       la tabla; ahora lo llaman la tabla y la lista de mano, así que
@@ -310,9 +283,9 @@ const Pagos = () => {
     try {
       const monto = pagoSeleccionado.monto;
       await aviso.proceso(processPayment(pagoSeleccionado.id_paseo, metodoSeleccionado), {
-        esperando: `Cobrando ${colones(monto)}…`,
-        bien: `Pago de ${colones(monto)} completado`,
-        mal: "No se pudo procesar el pago.",
+        esperando: t("pagos.payDialog.paying", { monto: colones(monto) }),
+        bien: t("pagos.payDialog.paid", { monto: colones(monto) }),
+        mal: t("pagos.payDialog.payFailed"),
       });
       setPagoSeleccionado(null);
       await load();
@@ -326,23 +299,23 @@ const Pagos = () => {
   const exportCsv = () => {
     const rows = [
       [
-        "ID Transacción",
-        "Servicio",
-        "Mascota",
-        "Paseador",
-        "Fecha",
-        "Método",
-        "Estado",
-        "Monto CRC",
+        t("pagos.csv.transactionId"),
+        t("pagos.csv.service"),
+        t("pagos.csv.pet"),
+        t("pagos.csv.walker"),
+        t("pagos.csv.date"),
+        t("pagos.csv.method"),
+        t("pagos.csv.status"),
+        t("pagos.csv.amount"),
       ],
       ...visibles.map((movement) => [
         movement.id_pago,
-        `Paseo (${movement.duracion_min} min)`,
+        t("pagos.csv.walkOf", { duracion: movement.duracion_min }),
         movement.mascota,
         movement.paseador,
         movement.fecha,
         movement.metodo_pago,
-        estadoConfig[movement.estado_pago].label,
+        t(estadoConfig[movement.estado_pago].claveLabel),
         String(movement.monto),
       ]),
     ];
@@ -366,8 +339,8 @@ const Pagos = () => {
     URL.revokeObjectURL(url);
 
     aviso.ok(
-      `${visibles.length} ${visibles.length === 1 ? "movimiento exportado" : "movimientos exportados"}`,
-      { detalle: `Se descargó ${nombre}.` },
+      `${visibles.length} ${t(visibles.length === 1 ? "pagos.exported.singular" : "pagos.exported.plural")}`,
+      { detalle: t("pagos.exported.detail", { nombre }) },
     );
   };
 
@@ -376,13 +349,13 @@ const Pagos = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Gestión de pagos"
-        subtitle="Monitoreá tus comprobantes y aboná paseos pendientes."
+        title={t("pagos.title")}
+        subtitle={t("pagos.subtitle")}
         action={
           <div className="flex items-center gap-2.5">
             <Link to="/pagos/tarjetas" className={btnPrimary}>
               <CreditCard size={15} strokeWidth={2} />
-              Gestionar tarjetas
+              {t("pagos.manageCards")}
             </Link>
             {botonNotificaciones}
           </div>
@@ -399,14 +372,11 @@ const Pagos = () => {
         </div>
       )}
 
-      {/* ── Las tres cifras ──
-          Antes a `py-5`, con el ícono y el importe compitiendo por
-          altura. A `py-4` y con el importe un punto más chico caben
-          las tres sin dejar de leerse de un vistazo. */}
+      {/* ── Las tres cifras ── */}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-[18px] bg-surface px-5 py-4">
           <div className="flex items-center justify-between gap-2">
-            <p className="rotulo text-ink-mute">Gasto de {stats.mesNombre}</p>
+            <p className="rotulo text-ink-mute">{t("pagos.stats.spentThisMonth", { mes: stats.mesNombre })}</p>
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
               <Wallet size={15} />
             </span>
@@ -416,7 +386,7 @@ const Pagos = () => {
           </p>
           <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-soft">
             <TrendingUp size={13} className="text-ok" />
-            {stats.count} {stats.count === 1 ? "pago realizado" : "pagos realizados"}
+            {stats.count} {t(stats.count === 1 ? "pagos.stats.paymentSingular" : "pagos.stats.paymentPlural")}
           </p>
         </div>
 
@@ -429,7 +399,7 @@ const Pagos = () => {
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <p className="rotulo text-ink-mute">Pendiente de cobro</p>
+            <p className="rotulo text-ink-mute">{t("pagos.stats.pendingToCollect")}</p>
             <span
               className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${
                 stats.pending > 0 ? "bg-warn text-white" : "bg-sunken text-ink-mute"
@@ -447,14 +417,14 @@ const Pagos = () => {
           </p>
           <p className="mt-1.5 text-[12px] text-ink-soft">
             {stats.pendingCount > 0
-              ? `${stats.pendingCount} ${stats.pendingCount === 1 ? "paseo por abonar" : "paseos por abonar"}`
-              : "Al día con todos los paseos"}
+              ? `${stats.pendingCount} ${t(stats.pendingCount === 1 ? "pagos.stats.walkSingularDue" : "pagos.stats.walkPluralDue")}`
+              : t("pagos.stats.allUpToDate")}
           </p>
         </div>
 
         <div className="rounded-[18px] bg-surface px-5 py-4">
           <div className="flex items-center justify-between gap-2">
-            <p className="rotulo text-ink-mute">Total reembolsado</p>
+            <p className="rotulo text-ink-mute">{t("pagos.stats.totalRefunded")}</p>
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ok-wash text-ok">
               <Banknote size={15} />
             </span>
@@ -464,19 +434,13 @@ const Pagos = () => {
           </p>
           <p className="mt-1.5 text-[12px] text-ink-soft">
             {stats.refundedCount > 0
-              ? `${stats.refundedCount} ${stats.refundedCount === 1 ? "reembolso emitido" : "reembolsos emitidos"}`
-              : "Sin reembolsos registrados"}
+              ? `${stats.refundedCount} ${t(stats.refundedCount === 1 ? "pagos.stats.refundSingular" : "pagos.stats.refundPlural")}`
+              : t("pagos.stats.noRefunds")}
           </p>
         </div>
       </div>
 
-      {/* ── Las tarjetas ──
-          Ya no se gestionan acá: la tarjeta grande, el guilloché y el
-          formulario de alta viven en `/pagos/tarjetas`, su propia
-          pantalla. Esta fila es solo un resumen —los sellos de lo que
-          hay guardado— con la salida hacia allá; cargar el formulario
-          entero para quien solo viene a ver el historial era el peso
-          de más que esta pantalla no necesitaba. */}
+      {/* ── Las tarjetas ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-surface px-5 py-3.5">
         {loading ? (
           <Skeleton name="mascotas-rejilla" loading>
@@ -486,7 +450,7 @@ const Pagos = () => {
           <>
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-ink-soft">
-                {metodos.length} {metodos.length === 1 ? "tarjeta guardada" : "tarjetas guardadas"}
+                {metodos.length} {t(metodos.length === 1 ? "pagos.cards.savedSingular" : "pagos.cards.savedPlural")}
               </span>
               <div className="flex -space-x-1.5">
                 {metodos.map((method) => (
@@ -500,31 +464,31 @@ const Pagos = () => {
             </div>
             <Link to="/pagos/tarjetas" className={btnSecondary}>
               <CreditCard size={14} strokeWidth={1.9} />
-              Gestionar tarjetas
+              {t("pagos.manageCards")}
             </Link>
           </>
         ) : (
           <>
-            <span className="text-[13px] text-ink-soft">Todavía no tenés tarjetas guardadas.</span>
+            <span className="text-[13px] text-ink-soft">{t("pagos.cards.none")}</span>
             <Link to="/pagos/tarjetas" className={btnPrimary}>
               <CreditCard size={15} strokeWidth={2} />
-              Agregar tarjeta
+              {t("pagos.cards.addCard")}
             </Link>
           </>
         )}
       </div>
 
-      {/* ── Filtros y búsqueda ──
-          Los cuatro filtros a `w-fit` no piden más que su contenido:
-          es el buscador el que crece y se lleva el ancho que sobra. En
-          `lg` para arriba entran los seis controles en una sola fila;
-          antes de eso se reparten en dos, y en móvil las pestañas
-          ruedan de lado en vez de partirse. */}
+      {/* ── Filtros y búsqueda ── */}
       <div className="flex flex-col gap-3 rounded-[18px] bg-surface p-3.5 lg:flex-row lg:items-center lg:gap-4">
         <div className="-mx-3.5 overflow-x-auto px-3.5 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
           <FilterTabs
-            label="Filtrar movimientos"
-            options={["Todos", "Pagados", "Pendientes", "Reembolsos"]}
+            label={t("pagos.filters.label")}
+            options={[
+              { value: "Todos", label: t("pagos.filters.all") },
+              { value: "Pagados", label: t("pagos.filters.paid") },
+              { value: "Pendientes", label: t("pagos.filters.pending") },
+              { value: "Reembolsos", label: t("pagos.filters.refunds") },
+            ]}
             value={filtro}
             onChange={(v) => setFiltro(v as FiltroTipo)}
             cuentas={contadores}
@@ -539,7 +503,7 @@ const Pagos = () => {
             />
             <input
               type="search"
-              placeholder="Buscar por mascota o paseador…"
+              placeholder={t("pagos.searchPlaceholder")}
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full rounded-full bg-sunken py-2 pl-9 pr-3 text-[12.5px] text-ink placeholder:text-ink-mute focus:bg-white focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
@@ -551,41 +515,15 @@ const Pagos = () => {
             className={`${btnSecondary} shrink-0`}
             onClick={exportCsv}
             disabled={!visibles.length}
-            title="Descargar el historial en formato CSV"
+            title={t("pagos.exportCsvTitle")}
           >
             <Download size={14} strokeWidth={1.9} />
-            Exportar CSV
+            {t("pagos.exportCsv")}
           </button>
         </div>
       </div>
 
-      {/* ── Los movimientos ──
-
-          La tabla traía siete columnas a `px-6`. Suena inofensivo
-          hasta que se mide el hueco donde vive: con el riel anclado y
-          la columna de contexto abierta, a `main` le quedan unos 650
-          px. Siete columnas gastan 336 solo en calles, quedan 314 para
-          el contenido, y ahí no entra ni «REEMBOLSADO» ni una fecha
-          con año. El reparto automático hace entonces lo único que
-          puede —partir las palabras en dos—, cada fila pasa a medir un
-          alto distinto, la cabecera deja de caer encima de su columna
-          y la tabla se ve rota. Eso era lo que se rompía.
-
-          Tres decisiones, en este orden:
-
-            1. Menos columnas. El paseador no es un dato aparte del
-               movimiento: es DEL movimiento, y baja a la segunda línea
-               junto a la duración, que es donde se lee sin buscarlo.
-               Y el botón de ver deja de ocupar una columna entera para
-               un ícono: el título de la fila ES el botón.
-            2. Reparto fijo. Las cinco que quedan llevan ancho
-               declarado, así que la tabla ya no depende del contenido:
-               ninguna fila puede empujar a otra.
-            3. Debajo de `lg` no hay tabla. Ahí el hueco baja de 500 px
-               y no hay reparto que salve cinco columnas; rodar una
-               tabla de lado es justamente lo que se siente roto. Los
-               mismos datos se apilan en fichas, con el importe donde
-               estaba: arriba a la derecha. */}
+      {/* ── Los movimientos ── */}
       <Section bodyClass="p-0">
         {loading ? (
           <Skeleton name="admin-tabla" loading>
@@ -593,22 +531,17 @@ const Pagos = () => {
           </Skeleton>
         ) : visibles.length ? (
           <>
-            {/* ── De md para arriba: la tabla ── El carril ancho le
-                deja a `main` bastante más de los 650 px originales,
-                así que la tabla entra desde `md` y no solo desde
-                `lg`. Filas a `py-2.5`: un dato por línea no necesita
-                los 12 px de antes para respirar. */}
             <div className="hidden md:block">
               <Table
-                caption="Historial de movimientos de pago"
+                caption={t("pagos.table.caption")}
                 min="min-w-[720px]"
                 padX="px-4"
                 columnas={[
-                  { label: "Transacción", ancho: "w-[32%]" },
-                  { label: "Fecha", ancho: "w-[12%]" },
-                  { label: "Método", ancho: "w-[16%]" },
-                  { label: "Estado", ancho: "w-[16%]" },
-                  { label: "Monto", ancho: "w-[24%]", align: "right" },
+                  { label: t("pagos.table.transaction"), ancho: "w-[32%]" },
+                  { label: t("pagos.table.date"), ancho: "w-[12%]" },
+                  { label: t("pagos.table.method"), ancho: "w-[16%]" },
+                  { label: t("pagos.table.status"), ancho: "w-[16%]" },
+                  { label: t("pagos.table.amount"), ancho: "w-[24%]", align: "right" },
                 ]}
               >
                 {visibles.map((movement) => (
@@ -626,10 +559,10 @@ const Pagos = () => {
                           <button
                             type="button"
                             onClick={() => setDetalleMovimiento(movement)}
-                            title={`Ver el comprobante · Paseo con ${movement.mascota}`}
+                            title={t("pagos.table.viewReceiptTitle", { mascota: movement.mascota })}
                             className="block max-w-full truncate text-left text-[13.5px] font-semibold text-ink underline-offset-[3px] transition-colors duration-150 group-hover:underline hover:text-accent-deep"
                           >
-                            Paseo con {movement.mascota}
+                            {t("pagos.table.walkWith", { mascota: movement.mascota })}
                           </button>
                           <p className="truncate text-[11.5px] text-ink-soft">
                             <span className="nums">{movement.duracion_min} min</span> ·{" "}
@@ -640,7 +573,7 @@ const Pagos = () => {
                     </td>
 
                     <td className="nums px-4 py-2.5 text-[12px] whitespace-nowrap text-ink-soft">
-                      {fechaCorta(movement.fecha)}
+                      {fechaCorta(movement.fecha, localeTag)}
                     </td>
 
                     <td className="px-4 py-2.5">
@@ -662,7 +595,7 @@ const Pagos = () => {
                             onClick={() => abrirPago(movement)}
                           >
                             <CreditCard size={12} />
-                            Pagar
+                            {t("pagos.table.pay")}
                           </button>
                         )}
                       </div>
@@ -672,7 +605,6 @@ const Pagos = () => {
               </Table>
             </div>
 
-            {/* ── Debajo de md: la misma información, apilada ── */}
             <ul className="md:hidden [&>li:nth-child(even)]:bg-sunken/60">
               {visibles.map((movement) => (
                 <li key={movement.id_pago} className="px-5 py-4">
@@ -687,7 +619,7 @@ const Pagos = () => {
                         onClick={() => setDetalleMovimiento(movement)}
                         className="block max-w-full truncate text-left text-[13.5px] font-semibold text-ink transition-transform duration-150 ease-out active:scale-[0.99]"
                       >
-                        Paseo con {movement.mascota}
+                        {t("pagos.table.walkWith", { mascota: movement.mascota })}
                       </button>
                       <p className="mt-0.5 truncate text-[11.5px] text-ink-soft">
                         <span className="nums">{movement.duracion_min} min</span> ·{" "}
@@ -702,7 +634,7 @@ const Pagos = () => {
                         className="text-[14px]"
                       />
                       <p className="nums mt-0.5 text-[11px] text-ink-mute">
-                        {fechaCorta(movement.fecha)}
+                        {fechaCorta(movement.fecha, localeTag)}
                       </p>
                     </div>
                   </div>
@@ -718,7 +650,7 @@ const Pagos = () => {
                         onClick={() => abrirPago(movement)}
                       >
                         <CreditCard size={12} />
-                        Pagar
+                        {t("pagos.table.pay")}
                       </button>
                     )}
                   </div>
@@ -728,11 +660,11 @@ const Pagos = () => {
           </>
         ) : (
           <EmptyState
-            title="Sin movimientos en este filtro"
+            title={t("pagos.empty.title")}
             hint={
               busqueda
-                ? "Ningún movimiento coincide con lo que buscaste."
-                : "Los cobros y los paseos van a aparecer registrados acá."
+                ? t("pagos.empty.withSearch")
+                : t("pagos.empty.withoutSearch")
             }
           />
         )}
@@ -740,41 +672,40 @@ const Pagos = () => {
 
       {/* ── Confirmar el pago ── */}
       {pagoSeleccionado && (
-        <Dialog title="Confirmar pago del paseo" onClose={() => setPagoSeleccionado(null)}>
+        <Dialog title={t("pagos.payDialog.title")} onClose={() => setPagoSeleccionado(null)}>
           <div className="p-6">
             <div className="rounded-[18px] bg-sunken p-5">
               <span className="inline-flex items-center gap-1 rounded-full bg-accent-wash px-2.5 py-0.5 text-[11px] font-semibold text-accent-deep">
                 <PawPrint size={12} />
-                Paseo canino
+                {t("pagos.payDialog.dogWalk")}
               </span>
               <p className="mt-2 text-[16px] font-semibold text-ink">{pagoSeleccionado.mascota}</p>
               <p className="mt-0.5 text-[12.5px] text-ink-soft">
-                Con {pagoSeleccionado.paseador} · {pagoSeleccionado.duracion_min} minutos
+                {t("pagos.payDialog.withWalker", { paseador: pagoSeleccionado.paseador, duracion: pagoSeleccionado.duracion_min })}
               </p>
               <p className="text-[12px] text-ink-mute">
-                {fechaFormateada(pagoSeleccionado.fecha)}
+                {fechaFormateada(pagoSeleccionado.fecha, localeTag)}
               </p>
 
               <div className="mt-4 border-t border-ink/10 pt-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="rotulo text-ink-mute">Total a abonar</span>
+                  <span className="rotulo text-ink-mute">{t("pagos.payDialog.totalToPay")}</span>
                   <span className="nums text-[26px] font-semibold tracking-[-0.02em] text-ink">
                     {colones(pagoSeleccionado.monto)}
                   </span>
                 </div>
                 <div className="mt-2 flex justify-between text-[11.5px] text-ink-mute">
                   <span>
-                    Al paseador{" "}
-                    {colones(pagoSeleccionado.monto - pagoSeleccionado.comision_plataforma)}
+                    {t("pagos.payDialog.toWalker", { monto: colones(pagoSeleccionado.monto - pagoSeleccionado.comision_plataforma) })}
                   </span>
-                  <span>Comisión {colones(pagoSeleccionado.comision_plataforma)}</span>
+                  <span>{t("pagos.payDialog.commission", { monto: colones(pagoSeleccionado.comision_plataforma) })}</span>
                 </div>
               </div>
             </div>
 
             {metodos.length ? (
               <fieldset className="mt-5 grid gap-2">
-                <legend className="rotulo mb-2 text-ink-mute">Con cuál cobramos</legend>
+                <legend className="rotulo mb-2 text-ink-mute">{t("pagos.payDialog.whichCard")}</legend>
                 {metodos.map((method) => {
                   const elegida = metodoSeleccionado === method.id_metodo_pago;
 
@@ -811,7 +742,7 @@ const Pagos = () => {
                         </span>
                         {method.es_principal && (
                           <span className="block text-[10px] font-semibold text-accent-deep">
-                            Principal
+                            {t("pagos.payDialog.principal")}
                           </span>
                         )}
                       </span>
@@ -821,8 +752,8 @@ const Pagos = () => {
               </fieldset>
             ) : (
               <div className="mt-5 rounded-[14px] bg-warn-wash px-4 py-3.5 text-[12.5px] text-warn">
-                <p className="font-semibold">No tenés ninguna tarjeta activa</p>
-                <p className="mt-1">Registrá una para poder abonar el paseo.</p>
+                <p className="font-semibold">{t("pagos.payDialog.noCards.title")}</p>
+                <p className="mt-1">{t("pagos.payDialog.noCards.hint")}</p>
               </div>
             )}
 
@@ -839,7 +770,7 @@ const Pagos = () => {
             <div className="mt-6 flex items-center justify-between gap-3 border-t border-sunken pt-4">
               <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
                 <ShieldCheck size={15} className="text-ok" />
-                Transacción segura
+                {t("pagos.payDialog.secureTransaction")}
               </span>
 
               <div className="flex gap-2">
@@ -848,7 +779,7 @@ const Pagos = () => {
                   className={btnSecondary}
                   onClick={() => setPagoSeleccionado(null)}
                 >
-                  Cancelar
+                  {t("pagos.payDialog.cancel")}
                 </button>
                 {metodos.length ? (
                   <button
@@ -858,7 +789,7 @@ const Pagos = () => {
                     onClick={() => void pay()}
                   >
                     {saving && <Loader size={14} className="animate-spin" />}
-                    Pagar {colones(pagoSeleccionado.monto)}
+                    {t("pagos.payDialog.payAmount", { monto: colones(pagoSeleccionado.monto) })}
                   </button>
                 ) : (
                   <Link
@@ -866,7 +797,7 @@ const Pagos = () => {
                     className={btnPrimary}
                     onClick={() => setPagoSeleccionado(null)}
                   >
-                    Agregar tarjeta
+                    {t("pagos.payDialog.addCard")}
                   </Link>
                 )}
               </div>
@@ -877,31 +808,31 @@ const Pagos = () => {
 
       {/* ── El comprobante ── */}
       {detalleMovimiento && (
-        <Dialog title="Comprobante" onClose={() => setDetalleMovimiento(null)}>
+        <Dialog title={t("pagos.receipt.title")} onClose={() => setDetalleMovimiento(null)}>
           <div className="p-6">
             <div className="flex items-start justify-between gap-4 border-b border-sunken pb-4">
               <div className="min-w-0">
                 <span className="nums text-[12px] text-ink-mute">#{detalleMovimiento.id_pago}</span>
                 <h4 className="titular mt-1 text-[17px] text-ink">
-                  Paseo con {detalleMovimiento.mascota}
+                  {t("pagos.table.walkWith", { mascota: detalleMovimiento.mascota })}
                 </h4>
               </div>
               <Badge tono={estadoConfig[detalleMovimiento.estado_pago].tono}>
-                {estadoConfig[detalleMovimiento.estado_pago].label}
+                {t(estadoConfig[detalleMovimiento.estado_pago].claveLabel)}
               </Badge>
             </div>
 
             <dl className="mt-4 text-[13px]">
               {[
-                ["Paseador", detalleMovimiento.paseador],
-                ["Fecha del servicio", fechaFormateada(detalleMovimiento.fecha)],
-                ["Duración", `${detalleMovimiento.duracion_min} minutos`],
-                ["Método utilizado", detalleMovimiento.metodo_pago],
+                [t("pagos.receipt.walker"), detalleMovimiento.paseador],
+                [t("pagos.receipt.serviceDate"), fechaFormateada(detalleMovimiento.fecha, localeTag)],
+                [t("pagos.receipt.duration"), t("pagos.receipt.durationMinutes", { duracion: detalleMovimiento.duracion_min })],
+                [t("pagos.receipt.methodUsed"), detalleMovimiento.metodo_pago],
                 [
-                  "Tarifa del paseador",
+                  t("pagos.receipt.walkerRate"),
                   colones(detalleMovimiento.monto - detalleMovimiento.comision_plataforma),
                 ],
-                ["Comisión TuanisCan", colones(detalleMovimiento.comision_plataforma)],
+                [t("pagos.receipt.commission"), colones(detalleMovimiento.comision_plataforma)],
               ].map(([etiqueta, valor]) => (
                 <div
                   key={etiqueta}
@@ -912,7 +843,7 @@ const Pagos = () => {
                 </div>
               ))}
               <div className="flex items-baseline justify-between gap-4 pt-3">
-                <dt className="rotulo text-ink-mute">Monto total</dt>
+                <dt className="rotulo text-ink-mute">{t("pagos.receipt.totalAmount")}</dt>
                 <dd className="nums text-[22px] font-semibold tracking-[-0.02em] text-ink">
                   {colones(detalleMovimiento.monto)}
                 </dd>
@@ -925,7 +856,7 @@ const Pagos = () => {
                 className={btnPrimary}
                 onClick={() => setDetalleMovimiento(null)}
               >
-                Cerrar
+                {t("pagos.receipt.close")}
               </button>
             </div>
           </div>

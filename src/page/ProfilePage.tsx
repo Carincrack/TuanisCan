@@ -9,6 +9,7 @@ import {
   CircleCheckBig,
   FileText,
   Footprints,
+  Globe,
   Lock,
   MapPin,
   PawPrint,
@@ -50,8 +51,11 @@ import {
   input,
 } from "../components/ui";
 import { Combo } from "../components/Combo";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
+import type { I18nContextValue } from "../context/i18n-context";
 
 import {
   createBusinessProfile,
@@ -152,50 +156,37 @@ const formFromProfile = (profile: UserProfile): ProfileForm => ({
    ROLES
    ========================================================= */
 
-const roleLabel = {
-  dueno: "Dueño de mascota",
-  paseador: "Paseador",
-  negocio: "Cuenta de negocio",
-  admin: "Administrador",
+const claveRoleLabel = {
+  dueno: "profile.roles.dueno",
+  paseador: "profile.roles.paseador",
+  negocio: "profile.roles.negocio",
+  admin: "profile.roles.admin",
 };
 
 const roleMeta = {
   dueno: {
-    title: "Perfil de dueño",
-    text: "Registra tus mascotas y administra su información desde una misma cuenta.",
+    claveTitulo: "profile.roleMeta.dueno.title",
+    claveTexto: "profile.roleMeta.dueno.text",
     Icon: PawPrint,
   },
 
   paseador: {
-    title: "Perfil de paseador",
-    text: "Ofrece paseos, establece tu tarifa y recibe solicitudes de otros usuarios.",
+    claveTitulo: "profile.roleMeta.paseador.title",
+    claveTexto: "profile.roleMeta.paseador.text",
     Icon: Footprints,
   },
 
   negocio: {
-    title: "Perfil de negocio",
-    text: "Publica una veterinaria, tienda o refugio dentro del directorio.",
+    claveTitulo: "profile.roleMeta.negocio.title",
+    claveTexto: "profile.roleMeta.negocio.text",
     Icon: Store,
   },
 };
 
-const roleRequirements: Record<RolPublico, string[]> = {
-  dueno: [
-    "Utiliza tus datos actuales",
-    "Administra tus mascotas",
-  ],
-
-  paseador: [
-    "Describe tu experiencia",
-    "Define una tarifa base",
-    "Requiere aprobación",
-  ],
-
-  negocio: [
-    "Información del negocio",
-    "Dirección y zona",
-    "Horario de atención",
-  ],
+const roleRequirementClaveRaiz: Record<RolPublico, string> = {
+  dueno: "profile.roleRequirements.dueno",
+  paseador: "profile.roleRequirements.paseador",
+  negocio: "profile.roleRequirements.negocio",
 };
 
 const publicRoles: RolPublico[] = [
@@ -208,21 +199,21 @@ const publicRoles: RolPublico[] = [
    VERIFICACIÓN
    ========================================================= */
 
-const verificationDocumentLabels: Record<
+const claveVerificationDocumentLabel: Record<
   VerificationDocumentType,
   string
 > = {
-  cedula_frente: "Cédula por el frente",
-  cedula_reverso: "Cédula por el reverso",
-  hoja_delincuencia: "Hoja de delincuencia",
-  permiso_funcionamiento: "Permiso de funcionamiento",
+  cedula_frente: "profile.verification.documentLabels.cedula_frente",
+  cedula_reverso: "profile.verification.documentLabels.cedula_reverso",
+  hoja_delincuencia: "profile.verification.documentLabels.hoja_delincuencia",
+  permiso_funcionamiento: "profile.verification.documentLabels.permiso_funcionamiento",
 };
 
-const verificationStatusLabels = {
-  sin_solicitud: "Sin verificar",
-  pendiente: "En revisión",
-  aprobado: "Perfil verificado",
-  rechazado: "Requiere correcciones",
+const claveVerificationStatusLabel = {
+  sin_solicitud: "profile.verification.statusLabels.sin_solicitud",
+  pendiente: "profile.verification.statusLabels.pendiente",
+  aprobado: "profile.verification.statusLabels.aprobado",
+  rechazado: "profile.verification.statusLabels.rechazado",
 };
 
 /* =========================================================
@@ -244,9 +235,10 @@ const verificationStatusLabels = {
    ========================================================= */
 
 const pestanas = [
-  { id: "datos", rotulo: "Mis datos", Icon: UserRound },
-  { id: "verificacion", rotulo: "Verificación", Icon: ShieldCheck },
-  { id: "perfiles", rotulo: "Mis perfiles", Icon: Sparkles },
+  { id: "datos", rotuloClave: "profile.tabs.datos", Icon: UserRound },
+  { id: "verificacion", rotuloClave: "profile.tabs.verificacion", Icon: ShieldCheck },
+  { id: "perfiles", rotuloClave: "profile.tabs.perfiles", Icon: Sparkles },
+  { id: "configuracion", rotuloClave: "profile.tabs.configuracion", Icon: Globe },
 ] as const;
 
 type Pestana = (typeof pestanas)[number]["id"];
@@ -266,14 +258,14 @@ const softCardClass =
 
 const fieldClass = `${input} rounded-xl border-black/[0.07] transition focus:border-accent focus:ring-2 focus:ring-accent/10`;
 
-const messageFrom = (error: unknown) =>
+const messageFrom = (error: unknown, t: I18nContextValue["t"]) =>
   error instanceof Error
     ? error.message
     : typeof error === "object" &&
         error &&
         "message" in error
       ? String(error.message)
-      : "No se pudo completar la operación.";
+      : t("profile.errors.generic");
 
 /* =========================================================
    COMPONENTE
@@ -314,6 +306,8 @@ const ProfilePage = () => {
     updateProfile,
     addRole,
   } = useAuth();
+
+  const { t, tRaw, localeTag } = useTranslation();
 
   const navigate = useNavigate();
 
@@ -433,12 +427,12 @@ const ProfilePage = () => {
 
         setZonas(nextZones);
       } catch (cause) {
-        setError(messageFrom(cause));
+        setError(messageFrom(cause, t));
       } finally {
         setLoading(false);
       }
     },
-    [getProfile],
+    [getProfile, t],
   );
 
   useEffect(() => {
@@ -478,7 +472,7 @@ const ProfilePage = () => {
           5 * 1024 * 1024)
     ) {
       setError(
-        "La imagen debe ser JPG, PNG o WebP y pesar menos de 5 MB.",
+        t("profile.errors.photoInvalid"),
       );
 
       setPhotoFile(null);
@@ -513,7 +507,7 @@ const ProfilePage = () => {
       (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024)
     ) {
       setError(
-        "La imagen debe ser JPG, PNG o WebP y pesar menos de 5 MB.",
+        t("profile.errors.photoInvalid"),
       );
 
       setNegocioPhotoFile(null);
@@ -535,21 +529,21 @@ const ProfilePage = () => {
     complete = false,
   ) => {
     if (!form.nombre.trim()) {
-      return "El nombre completo es obligatorio.";
+      return t("profile.errors.nameRequired");
     }
 
     if (
       complete &&
       !form.telefono.trim()
     ) {
-      return "Agrega tu teléfono antes de activar otro perfil.";
+      return t("profile.errors.phoneRequiredForRole");
     }
 
     if (
       complete &&
       !form.zona_id
     ) {
-      return "Selecciona tu zona antes de activar otro perfil.";
+      return t("profile.errors.zoneRequiredForRole");
     }
 
     return null;
@@ -564,7 +558,7 @@ const ProfilePage = () => {
   ) => {
     if (!profile || !user) {
       throw new Error(
-        "No hay una sesión activa.",
+        t("profile.errors.noActiveSession"),
       );
     }
 
@@ -735,7 +729,7 @@ const ProfilePage = () => {
       !form.nombre_negocio.trim()
     ) {
       setError(
-        "El nombre del negocio es obligatorio.",
+        t("profile.errors.businessNameRequired"),
       );
 
       return;
@@ -748,14 +742,14 @@ const ProfilePage = () => {
     try {
       await persistProfile(true);
 
-      aviso.ok("Perfil actualizado", {
-        detalle: "Los datos se comparten entre todos tus perfiles.",
+      aviso.ok(t("profile.toasts.profileUpdated"), {
+        detalle: t("profile.toasts.profileUpdatedDetail"),
       });
     } catch (cause) {
       setError(
-        messageFrom(cause),
+        messageFrom(cause, t),
       );
-      aviso.error(cause, { respaldo: "No se pudo guardar el perfil." });
+      aviso.error(cause, { respaldo: t("profile.toasts.profileSaveFailed") });
     } finally {
       setSaving(false);
     }
@@ -792,14 +786,14 @@ const ProfilePage = () => {
 
         setRoleSetup(null);
 
-        aviso.ok("Perfil de dueño activado", {
-          detalle: "Ya podés registrar mascotas y solicitar paseos.",
+        aviso.ok(t("profile.toasts.ownerActivated"), {
+          detalle: t("profile.toasts.ownerActivatedDetail"),
         });
       } catch (cause) {
         setError(
-          messageFrom(cause),
+          messageFrom(cause, t),
         );
-        aviso.error(cause, { respaldo: "No se pudo activar el perfil de dueño." });
+        aviso.error(cause, { respaldo: t("profile.toasts.ownerActivateFailed") });
       } finally {
         setAddingRole(null);
       }
@@ -824,7 +818,7 @@ const ProfilePage = () => {
           .length < 20
       ) {
         setError(
-          "Describe tu experiencia con al menos 20 caracteres.",
+          t("profile.errors.descriptionTooShort"),
         );
 
         return;
@@ -837,7 +831,7 @@ const ProfilePage = () => {
         ) <= 0
       ) {
         setError(
-          "La tarifa base debe ser mayor a cero.",
+          t("profile.errors.rateMustBePositive"),
         );
 
         return;
@@ -877,14 +871,14 @@ const ProfilePage = () => {
 
         setRoleSetup(null);
 
-        aviso.ok("Solicitud de paseador enviada", {
-          detalle: "Ya podés entrar al panel. Para aceptar paseos falta la aprobación.",
+        aviso.ok(t("profile.toasts.walkerRequested"), {
+          detalle: t("profile.toasts.walkerRequestedDetail"),
         });
       } catch (cause) {
         setError(
-          messageFrom(cause),
+          messageFrom(cause, t),
         );
-        aviso.error(cause, { respaldo: "No se pudo enviar la solicitud." });
+        aviso.error(cause, { respaldo: t("profile.toasts.walkerRequestFailed") });
       } finally {
         setAddingRole(null);
       }
@@ -912,7 +906,7 @@ const ProfilePage = () => {
         !form.horario.trim()
       ) {
         setError(
-          "Completa nombre, zona, teléfono, dirección y horario del negocio.",
+          t("profile.errors.businessFieldsRequired"),
         );
 
         return;
@@ -978,14 +972,14 @@ const ProfilePage = () => {
 
         setRoleSetup(null);
 
-        aviso.ok("Perfil de negocio activado", {
-          detalle: "Aparece en el directorio en cuanto se apruebe la verificación.",
+        aviso.ok(t("profile.toasts.businessActivated"), {
+          detalle: t("profile.toasts.businessActivatedDetail"),
         });
       } catch (cause) {
         setError(
-          messageFrom(cause),
+          messageFrom(cause, t),
         );
-        aviso.error(cause, { respaldo: "No se pudo activar el perfil de negocio." });
+        aviso.error(cause, { respaldo: t("profile.toasts.businessActivateFailed") });
       } finally {
         setAddingRole(null);
       }
@@ -1018,7 +1012,7 @@ const ProfilePage = () => {
         10 * 1024 * 1024
     ) {
       setError(
-        "El documento debe ser PDF, JPG, PNG o WebP y pesar menos de 10 MB.",
+        t("profile.errors.documentInvalid"),
       );
 
       return;
@@ -1040,18 +1034,24 @@ const ProfilePage = () => {
          eligió el de más abajo. */
       await aviso.proceso(
         (async () => {
-          await uploadVerificationDocument(user.id, type, file);
+          await uploadVerificationDocument(user.id, type, file, t);
           applyProfile(await getProfile());
         })(),
         {
-          esperando: `Subiendo ${verificationDocumentLabels[type].toLowerCase()}…`,
-          bien: `${verificationDocumentLabels[type]} subido`,
-          mal: `No se pudo subir ${verificationDocumentLabels[type].toLowerCase()}.`,
+          esperando: t("profile.toasts.uploadingDocument", {
+            documento: t(claveVerificationDocumentLabel[type]).toLowerCase(),
+          }),
+          bien: t("profile.toasts.documentUploaded", {
+            documento: t(claveVerificationDocumentLabel[type]),
+          }),
+          mal: t("profile.toasts.documentUploadFailed", {
+            documento: t(claveVerificationDocumentLabel[type]).toLowerCase(),
+          }),
         },
       );
     } catch (cause) {
       setError(
-        messageFrom(cause),
+        messageFrom(cause, t),
       );
     } finally {
       setUploadingDocument(
@@ -1070,20 +1070,20 @@ const ProfilePage = () => {
       setMessage(null);
 
       try {
-        await submitVerificationRequest();
+        await submitVerificationRequest(t);
 
         applyProfile(
           await getProfile(),
         );
 
-        aviso.ok("Verificación enviada", {
-          detalle: "Administración la revisa y te avisamos del resultado.",
+        aviso.ok(t("profile.toasts.verificationSent"), {
+          detalle: t("profile.toasts.verificationSentDetail"),
         });
       } catch (cause) {
         setError(
-          messageFrom(cause),
+          messageFrom(cause, t),
         );
-        aviso.error(cause, { respaldo: "No se pudo enviar la verificación." });
+        aviso.error(cause, { respaldo: t("profile.toasts.verificationSendFailed") });
       } finally {
         setSubmittingVerification(
           false,
@@ -1118,7 +1118,7 @@ const ProfilePage = () => {
         >
           <p className="text-[13px] text-danger">
             {error ??
-              "No se encontró tu perfil."}
+              t("profile.errors.profileNotFound")}
           </p>
 
           <button
@@ -1134,8 +1134,7 @@ const ProfilePage = () => {
               size={15}
             />
 
-            Renovar sesión y
-            reintentar
+            {t("profile.profileNotFoundRetry")}
           </button>
         </div>
       </Page>
@@ -1223,22 +1222,25 @@ const ProfilePage = () => {
 
   const pasosVerificacion = [
     {
-      titulo: "Subir documentos",
-      detalle: `${documentosListos} de ${requiredVerificationDocuments.length} listos`,
+      titulo: t("profile.steps.uploadDocuments"),
+      detalle: t("profile.steps.uploadDocumentsDetail", {
+        listos: documentosListos,
+        total: requiredVerificationDocuments.length,
+      }),
     },
     {
-      titulo: "Enviar a revisión",
+      titulo: t("profile.steps.sendForReview"),
       detalle:
         pasoVerificacion >= 3
-          ? "Ya lo enviaste"
-          : "Se habilita con todos los documentos",
+          ? t("profile.steps.alreadySent")
+          : t("profile.steps.enabledWithAllDocuments"),
     },
     {
-      titulo: "Respuesta",
+      titulo: t("profile.steps.response"),
       detalle:
         profile.verificacion.estado === "aprobado"
-          ? "Cuenta verificada"
-          : "Administración responde en 1 o 2 días hábiles",
+          ? t("profile.steps.verifiedAccount")
+          : t("profile.steps.reviewTime"),
     },
   ];
 
@@ -1256,8 +1258,8 @@ const ProfilePage = () => {
   return (
     <Page>
       <PageHeader
-        title="Mi perfil"
-        subtitle="Administra tu información personal, verificación y perfiles asociados."
+        title={t("profile.header.title")}
+        subtitle={t("profile.header.subtitle")}
         action={
           <button
             type="button"
@@ -1271,7 +1273,7 @@ const ProfilePage = () => {
             }
           >
             <Lock size={15} />
-            Cambiar contraseña
+            {t("profile.header.changePassword")}
           </button>
         }
       />
@@ -1372,8 +1374,8 @@ const ProfilePage = () => {
                 disabled={!avatarUrl}
                 aria-label={
                   avatarUrl
-                    ? "Ver la foto de perfil en grande"
-                    : "Todavía no hay foto de perfil"
+                    ? t("profile.header.viewPhoto")
+                    : t("profile.header.noPhotoYet")
                 }
                 className="block rounded-full transition-transform duration-200 ease-out focus:outline-2 focus:outline-offset-4 focus:outline-accent enabled:cursor-zoom-in enabled:hover:brightness-[0.97] enabled:active:scale-[0.98]"
               >
@@ -1394,12 +1396,12 @@ const ProfilePage = () => {
               </button>
 
               <label
-                title="Cambiar foto de perfil"
+                title={t("profile.header.changePhoto")}
                 className="flota absolute right-0 bottom-0 grid h-10 w-10 cursor-pointer place-items-center rounded-full bg-surface text-rail transition-[background-color,transform] duration-200 ease-out hover:bg-sunken active:scale-[0.94] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
               >
                 <Camera size={17} strokeWidth={2} aria-hidden />
 
-                <span className="sr-only">Cambiar foto de perfil</span>
+                <span className="sr-only">{t("profile.header.changePhoto")}</span>
 
                 <input
                   type="file"
@@ -1439,8 +1441,8 @@ const ProfilePage = () => {
                   }
                 >
                   {profile.activo
-                    ? "Cuenta activa"
-                    : "Cuenta inactiva"}
+                    ? t("profile.header.accountActive")
+                    : t("profile.header.accountInactive")}
                 </Badge>
 
                 {/* VERIFICACIÓN EN CABECERA */}
@@ -1486,11 +1488,11 @@ const ProfilePage = () => {
                     )}
 
                     {
-                      verificationStatusLabels[
+                      t(claveVerificationStatusLabel[
                         profile
                           .verificacion
                           .estado
-                      ]
+                      ])
                     }
                   </span>
                 )}
@@ -1505,7 +1507,7 @@ const ProfilePage = () => {
               <div className="mt-3 flex flex-wrap gap-2">
                 {profile.isAdmin && (
                   <span className="rounded-lg bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent-dark">
-                    Administrador
+                    {t("profile.header.administrator")}
                   </span>
                 )}
 
@@ -1524,9 +1526,9 @@ const ProfilePage = () => {
                       "
                     >
                       {
-                        roleLabel[
+                        t(claveRoleLabel[
                           item
-                        ]
+                        ])
                       }
                     </span>
                   ),
@@ -1564,13 +1566,12 @@ const ProfilePage = () => {
                     size={13}
                   />
 
-                  Quitar foto
+                  {t("profile.header.removePhoto")}
                 </button>
               )}
 
               <p className="mt-1 text-[10.5px] text-ink-mute">
-                Tocá la foto para verla en grande · El botón de la
-                cámara la cambia · JPG, PNG o WebP · Máximo 5 MB.
+                {t("profile.header.photoHint")}
               </p>
             </div>
           </div>
@@ -1584,12 +1585,12 @@ const ProfilePage = () => {
 
       <div
         role="tablist"
-        aria-label="Secciones del perfil"
+        aria-label={t("profile.tablist.ariaLabel")}
         className="inline-flex flex-wrap gap-1 rounded-full bg-sunken p-1"
       >
         {pestanas
           .filter(({ id }) => !(id === "verificacion" && profile.isAdmin))
-          .map(({ id, rotulo, Icon }) => {
+          .map(({ id, rotuloClave, Icon }) => {
             const activa = pestana === id;
 
             return (
@@ -1606,7 +1607,7 @@ const ProfilePage = () => {
                 }`}
               >
                 <Icon size={15} strokeWidth={1.9} aria-hidden />
-                {rotulo}
+                {t(rotuloClave)}
 
                 {/* El punto solo aparece donde hay algo que hacer.
                     Una insignia permanente deja de significar nada
@@ -1615,7 +1616,7 @@ const ProfilePage = () => {
                   !profile.isAdmin &&
                   verificationEditable && (
                     <span
-                      aria-label="Tienes pasos pendientes"
+                      aria-label={t("profile.tablist.pendingStepsAria")}
                       className={`h-1.5 w-1.5 rounded-full ${
                         activa ? "bg-accent" : "bg-warn"
                       }`}
@@ -1639,14 +1640,11 @@ const ProfilePage = () => {
         >
           <div className="mb-6">
             <h3 className="text-[15px] font-semibold text-ink">
-              Información personal
+              {t("profile.dataTab.title")}
             </h3>
 
             <p className="mt-1 text-[12px] text-ink-mute">
-              Estos datos se
-              comparten entre todos
-              los perfiles asociados
-              a tu cuenta.
+              {t("profile.dataTab.subtitle")}
             </p>
           </div>
 
@@ -1656,7 +1654,7 @@ const ProfilePage = () => {
                 htmlFor="perfil-nombre"
                 className={labelClass}
               >
-                Nombre completo
+                {t("profile.dataTab.fullName")}
               </label>
 
               <input
@@ -1684,7 +1682,7 @@ const ProfilePage = () => {
                 htmlFor="perfil-email"
                 className={labelClass}
               >
-                Correo electrónico
+                {t("profile.dataTab.email")}
               </label>
 
               <input
@@ -1702,7 +1700,7 @@ const ProfilePage = () => {
                 htmlFor="perfil-telefono"
                 className={labelClass}
               >
-                Teléfono
+                {t("profile.dataTab.phone")}
               </label>
 
               <div className="relative">
@@ -1734,7 +1732,7 @@ const ProfilePage = () => {
                   }
                   className={`${fieldClass} pl-9`}
                   maxLength={20}
-                  placeholder="Ej. 8888-8888"
+                  placeholder={t("profile.dataTab.phonePlaceholder")}
                 />
               </div>
             </div>
@@ -1744,7 +1742,7 @@ const ProfilePage = () => {
                 htmlFor="perfil-zona"
                 className={labelClass}
               >
-                Zona
+                {t("profile.dataTab.zone")}
               </label>
 
               <div className="relative">
@@ -1752,7 +1750,7 @@ const ProfilePage = () => {
                   id="perfil-zona"
                   Icon={MapPin}
                   vacio
-                  placeholder="Seleccionar zona"
+                  placeholder={t("profile.dataTab.selectZone")}
                   value={form.zona_id}
                   onChange={(v) => setField("zona_id", v)}
                   options={zonas.map((zona) => ({
@@ -1773,8 +1771,8 @@ const ProfilePage = () => {
               <Save size={15} />
 
               {saving
-                ? "Guardando…"
-                : "Guardar cambios"}
+                ? t("profile.dataTab.saving")
+                : t("profile.dataTab.saveChanges")}
             </button>
           </div>
         </form>
@@ -1810,13 +1808,11 @@ const ProfilePage = () => {
 
               <div>
                 <h3 className="text-[15px] font-semibold text-ink">
-                  Verificación de identidad
+                  {t("profile.verificationTab.title")}
                 </h3>
 
                 <p className="mt-1 max-w-md text-[12px] leading-relaxed text-ink-mute">
-                  Con tu identidad confirmada se habilitan las
-                  operaciones: registrar mascotas, solicitar paseos y
-                  recibir pagos.
+                  {t("profile.verificationTab.subtitle")}
                 </p>
               </div>
             </div>
@@ -1830,7 +1826,7 @@ const ProfilePage = () => {
                     : "warn"
               }
             >
-              {verificationStatusLabels[profile.verificacion.estado]}
+              {t(claveVerificationStatusLabel[profile.verificacion.estado])}
             </Badge>
           </div>
 
@@ -1898,7 +1894,7 @@ const ProfilePage = () => {
 
                   <p className="text-[12.5px] leading-relaxed text-danger">
                     <span className="font-semibold">
-                      Hay que corregir algo:
+                      {t("profile.verificationTab.needsFix")}
                     </span>{" "}
                     {profile.verificacion.observacion}
                   </p>
@@ -1910,8 +1906,7 @@ const ProfilePage = () => {
                 <SelloVerificado size={22} aro={false} />
 
                 <p className="text-[12.5px] leading-relaxed text-ok">
-                  Tu identidad está confirmada. El sello aparece junto a
-                  tu nombre en toda la plataforma.
+                  {t("profile.verificationTab.verifiedMessage")}
                 </p>
               </div>
             )}
@@ -1920,12 +1915,13 @@ const ProfilePage = () => {
 
             <div>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h4 className="rotulo text-ink-mute">Documentos</h4>
+                <h4 className="rotulo text-ink-mute">{t("profile.verificationTab.documents")}</h4>
 
                 <p className="text-[11.5px] text-ink-mute">
-                  {documentosListos} de{" "}
-                  {requiredVerificationDocuments.length} · PDF, JPG, PNG
-                  o WebP · Máximo 10 MB
+                  {t("profile.verificationTab.documentsCount", {
+                    listos: documentosListos,
+                    total: requiredVerificationDocuments.length,
+                  })}
                 </p>
               </div>
 
@@ -1977,11 +1973,11 @@ const ProfilePage = () => {
 
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-semibold text-ink">
-                          {verificationDocumentLabels[type]}
+                          {t(claveVerificationDocumentLabel[type])}
                         </p>
 
                         <p className="mt-0.5 truncate text-[11px] text-ink-mute">
-                          {document?.nombre_archivo ?? "Falta subirlo"}
+                          {document?.nombre_archivo ?? t("profile.verificationTab.missingFile")}
                         </p>
 
                         {verificationEditable && (
@@ -1991,10 +1987,10 @@ const ProfilePage = () => {
                             <Upload size={13} />
 
                             {uploadingDocument === type
-                              ? "Subiendo…"
+                              ? t("profile.verificationTab.uploading")
                               : document
-                                ? "Reemplazar"
-                                : "Subir"}
+                                ? t("profile.verificationTab.replace")
+                                : t("profile.verificationTab.upload")}
 
                             <input
                               type="file"
@@ -2028,10 +2024,12 @@ const ProfilePage = () => {
                     y no queda claro si está roto. */}
                 <p className="text-[11.5px] text-ink-mute">
                   {missingDocuments.length > 0
-                    ? `Falta subir: ${missingDocuments
-                        .map((type) => verificationDocumentLabels[type])
-                        .join(", ")}.`
-                    : "Todo listo. Administración revisa y te avisa por correo."}
+                    ? t("profile.verificationTab.missingDocuments", {
+                        documentos: missingDocuments
+                          .map((type) => t(claveVerificationDocumentLabel[type]))
+                          .join(", "),
+                      })
+                    : t("profile.verificationTab.allReady")}
                 </p>
 
                 <button
@@ -2047,12 +2045,37 @@ const ProfilePage = () => {
                   <Send size={15} />
 
                   {submittingVerification
-                    ? "Enviando…"
-                    : "Enviar verificación"}
+                    ? t("profile.verificationTab.sending")
+                    : t("profile.verificationTab.sendVerification")}
                 </button>
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          CONFIGURACIÓN
+
+          Por ahora solo vive acá el idioma. El selector mismo no
+          sabe nada del perfil: es `LanguageSwitcher`, reutilizable
+          en cualquier otra pantalla que llegue a necesitarlo.
+         ===================================================== */}
+
+      {pestana === "configuracion" && (
+        /* Sin `overflow-hidden`: a diferencia del resto de las
+           tarjetas, esta termina justo donde termina el selector de
+           idioma, y su lista desplegable —que no usa portal, como sí
+           hacen otros combos del armazón— necesita salir por encima
+           del borde inferior sin que la tarjeta se la recorte. */
+        <div className="rounded-2xl border border-black/[0.06] bg-surface p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03),0_10px_35px_rgb(0_0_0/0.025)] sm:p-7">
+          <div className="mb-5">
+            <h3 className="text-[15px] font-semibold text-ink">
+              {t("settings.tab")}
+            </h3>
+          </div>
+
+          <LanguageSwitcher />
         </div>
       )}
 
@@ -2076,15 +2099,11 @@ const ProfilePage = () => {
 
             <div className="flex-1">
               <h3 className="text-[15px] font-semibold text-ink">
-                Perfil de dueño
+                {t("profile.ownerCard.title")}
               </h3>
 
               <p className="mt-1 text-[12.5px] leading-relaxed text-ink-soft">
-                Administra tus
-                mascotas, vacunas,
-                información y carnés
-                desde una sección
-                dedicada.
+                {t("profile.ownerCard.text")}
               </p>
             </div>
 
@@ -2103,7 +2122,7 @@ const ProfilePage = () => {
                 size={15}
               />
 
-              Gestionar mascotas
+              {t("profile.ownerCard.manage")}
             </button>
           </div>
         </div>
@@ -2135,13 +2154,11 @@ const ProfilePage = () => {
 
               <div>
                 <h3 className="text-[15px] font-semibold text-ink">
-                  Perfil de
-                  paseador
+                  {t("profile.walkerCard.title")}
                 </h3>
 
                 <p className="mt-0.5 text-[11.5px] text-ink-mute">
-                  Información que
-                  verán los dueños.
+                  {t("profile.walkerCard.subtitle")}
                 </p>
               </div>
             </div>
@@ -2154,8 +2171,7 @@ const ProfilePage = () => {
                     labelClass
                   }
                 >
-                  Experiencia y
-                  descripción
+                  {t("profile.walkerCard.experience")}
                 </label>
 
                 <textarea
@@ -2175,7 +2191,7 @@ const ProfilePage = () => {
                   }
                   className={`${fieldClass} resize-y`}
                   maxLength={800}
-                  placeholder="Cuéntales a los dueños sobre tu experiencia con mascotas..."
+                  placeholder={t("profile.walkerCard.experiencePlaceholder")}
                 />
               </div>
 
@@ -2186,17 +2202,17 @@ const ProfilePage = () => {
               <div className={`${softCardClass} flex items-center justify-between gap-3 p-4`}>
                 <div>
                   <p className={labelClass}>
-                    Tarifa base por paseo
+                    {t("profile.walkerCard.baseRate")}
                   </p>
 
                   <p className="nums text-[18px] font-semibold tracking-tight text-ink">
                     {profile.paseador.tarifa_base
-                      ? `₡${profile.paseador.tarifa_base.toLocaleString("es-CR")}`
-                      : "Sin definir"}
+                      ? `₡${profile.paseador.tarifa_base.toLocaleString(localeTag)}`
+                      : t("profile.walkerCard.undefinedRate")}
                   </p>
 
                   <p className="mt-0.5 text-[10.5px] text-ink-mute">
-                    Recargos y horarios en Tarifas.
+                    {t("profile.walkerCard.ratesHint")}
                   </p>
                 </div>
 
@@ -2209,7 +2225,7 @@ const ProfilePage = () => {
                     })
                   }
                 >
-                  Configurar
+                  {t("profile.walkerCard.configure")}
                 </button>
               </div>
 
@@ -2235,13 +2251,11 @@ const ProfilePage = () => {
 
                 <div>
                   <p className="text-[12px] font-medium text-ink">
-                    Disponible
+                    {t("profile.walkerCard.available")}
                   </p>
 
                   <p className="mt-0.5 text-[10.5px] text-ink-mute">
-                    Permitir nuevas
-                    solicitudes de
-                    paseo.
+                    {t("profile.walkerCard.availableHint")}
                   </p>
                 </div>
               </label>
@@ -2252,7 +2266,7 @@ const ProfilePage = () => {
                 <p className={
                   labelClass
                 }>
-                  Verificación
+                  {t("profile.walkerCard.verification")}
                 </p>
 
                 <p className="text-[13px] font-medium capitalize text-ink">
@@ -2270,7 +2284,7 @@ const ProfilePage = () => {
                 <p className={
                   labelClass
                 }>
-                  Calificación
+                  {t("profile.walkerCard.rating")}
                 </p>
 
                 <p className="nums text-[20px] font-semibold tracking-tight text-ink">
@@ -2303,20 +2317,18 @@ const ProfilePage = () => {
 
               <div>
                 <h3 className="text-[15px] font-semibold text-ink">
-                  Datos del negocio
+                  {t("profile.businessCard.title")}
                 </h3>
 
                 <p className="mt-0.5 text-[11.5px] text-ink-mute">
-                  Información pública
-                  dentro del
-                  directorio.
+                  {t("profile.businessCard.subtitle")}
                 </p>
               </div>
             </div>
 
             <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
               <div className="sm:col-span-2">
-                <span className={labelClass}>Foto del negocio</span>
+                <span className={labelClass}>{t("profile.businessCard.photo")}</span>
 
                 {(() => {
                   const negocioFotoUrl = removeNegocioPhoto
@@ -2329,7 +2341,9 @@ const ProfilePage = () => {
                         {negocioFotoUrl ? (
                           <img
                             src={negocioFotoUrl}
-                            alt={`Foto de ${form.nombre_negocio || "el negocio"}`}
+                            alt={t("profile.businessCard.photoOf", {
+                              nombre: form.nombre_negocio || t("profile.businessCard.theBusiness"),
+                            })}
                             className="h-full w-full object-cover"
                           />
                         ) : (
@@ -2340,7 +2354,7 @@ const ProfilePage = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <label className={`${btnQuiet} cursor-pointer`}>
                           <Camera size={14} strokeWidth={2} aria-hidden />
-                          {negocioFotoUrl ? "Cambiar foto" : "Subir foto"}
+                          {negocioFotoUrl ? t("profile.businessCard.changePhoto") : t("profile.businessCard.uploadPhoto")}
                           <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
@@ -2362,7 +2376,7 @@ const ProfilePage = () => {
                             className={btnQuiet}
                           >
                             <Trash2 size={14} strokeWidth={2} aria-hidden />
-                            Quitar
+                            {t("profile.businessCard.remove")}
                           </button>
                         )}
                       </div>
@@ -2371,7 +2385,7 @@ const ProfilePage = () => {
                 })()}
 
                 <p className="mt-2 text-[11px] text-ink-mute">
-                  JPG, PNG o WebP · Máximo 5 MB. Se muestra en el directorio.
+                  {t("profile.businessCard.photoHint")}
                 </p>
               </div>
 
@@ -2382,7 +2396,7 @@ const ProfilePage = () => {
                     labelClass
                   }
                 >
-                  Nombre del negocio
+                  {t("profile.businessCard.name")}
                 </label>
 
                 <input
@@ -2414,7 +2428,7 @@ const ProfilePage = () => {
                     labelClass
                   }
                 >
-                  Tipo
+                  {t("profile.businessCard.type")}
                 </label>
 
                 <Combo
@@ -2422,9 +2436,9 @@ const ProfilePage = () => {
                   value={form.tipo_negocio}
                   onChange={(v) => setField("tipo_negocio", v as ProfileForm["tipo_negocio"])}
                   options={[
-                    { value: "veterinaria", label: "Veterinaria" },
-                    { value: "tienda", label: "Tienda" },
-                    { value: "refugio", label: "Refugio" },
+                    { value: "veterinaria", label: t("profile.businessCard.types.veterinaria") },
+                    { value: "tienda", label: t("profile.businessCard.types.tienda") },
+                    { value: "refugio", label: t("profile.businessCard.types.refugio") },
                   ]}
                 />
               </div>
@@ -2436,13 +2450,13 @@ const ProfilePage = () => {
                     labelClass
                   }
                 >
-                  Zona
+                  {t("profile.businessCard.zone")}
                 </label>
 
                 <Combo
                   id="negocio-zona"
                   vacio
-                  placeholder="Seleccionar zona"
+                  placeholder={t("profile.businessCard.selectZone")}
                   value={form.negocio_zona_id}
                   onChange={(v) => setField("negocio_zona_id", v)}
                   options={zonas.map((zona) => ({
@@ -2459,7 +2473,7 @@ const ProfilePage = () => {
                     labelClass
                   }
                 >
-                  Teléfono
+                  {t("profile.businessCard.phone")}
                 </label>
 
                 <input
@@ -2490,7 +2504,7 @@ const ProfilePage = () => {
                     labelClass
                   }
                 >
-                  Dirección
+                  {t("profile.businessCard.address")}
                 </label>
 
                 <input
@@ -2515,12 +2529,12 @@ const ProfilePage = () => {
 
               <div className="sm:col-span-2">
                 <span className={labelClass}>
-                  Ubicación en el mapa
+                  {t("profile.businessCard.mapLocation")}
                 </span>
                 <Suspense
                   fallback={
                     <div className="flex h-[200px] w-full items-center justify-center rounded-2xl bg-slate-50 text-[11.5px] text-slate-400">
-                      Cargando mapa…
+                      {t("profile.businessCard.loadingMap")}
                     </div>
                   }
                 >
@@ -2542,7 +2556,7 @@ const ProfilePage = () => {
                     labelClass
                   }
                 >
-                  Horario
+                  {t("profile.businessCard.schedule")}
                 </label>
 
                 <input
@@ -2562,7 +2576,7 @@ const ProfilePage = () => {
                   className={
                     fieldClass
                   }
-                  placeholder="Ej. Lunes a sábado, 8:00 a.m. – 5:00 p.m."
+                  placeholder={t("profile.businessCard.schedulePlaceholder")}
                 />
               </div>
             </div>
@@ -2577,7 +2591,7 @@ const ProfilePage = () => {
             className={`${btnPrimary} w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <Save size={15} />
-            {saving ? "Guardando…" : "Guardar cambios"}
+            {saving ? t("profile.dataTab.saving") : t("profile.dataTab.saveChanges")}
           </button>
         </div>
       )}
@@ -2599,15 +2613,11 @@ const ProfilePage = () => {
 
             <div>
               <h3 className="text-[15px] font-semibold text-ink">
-                Agregar otro
-                perfil
+                {t("profile.addRole.title")}
               </h3>
 
               <p className="mt-0.5 text-[11.5px] text-ink-mute">
-                Utiliza la misma
-                cuenta para
-                diferentes funciones
-                dentro de TuanisCan.
+                {t("profile.addRole.subtitle")}
               </p>
             </div>
           </div>
@@ -2706,23 +2716,21 @@ const ProfilePage = () => {
 
                       <span className="mt-4 text-[14px] font-semibold text-ink">
                         {
-                          meta.title
+                          t(meta.claveTitulo)
                         }
                       </span>
 
                       <span className="mt-1.5 text-[11.5px] leading-relaxed text-ink-soft">
                         {rejected
-                          ? "La solicitud anterior fue rechazada."
+                          ? t("profile.addRole.rejected")
                           : pending
-                            ? "Tu solicitud está siendo revisada."
-                            : meta.text}
+                            ? t("profile.addRole.pendingReview")
+                            : t(meta.claveTexto)}
                       </span>
 
                       {!rejected && (
                         <div className="mt-4 space-y-1.5">
-                          {roleRequirements[
-                            item
-                          ].map(
+                          {(tRaw(roleRequirementClaveRaiz[item]) as string[] ?? []).map(
                             (
                               requirement,
                             ) => (
@@ -2753,10 +2761,10 @@ const ProfilePage = () => {
 
                       <span className="mt-auto pt-5 text-[11.5px] font-semibold text-accent-dark">
                         {pending
-                          ? "Revisar solicitud"
+                          ? t("profile.addRole.reviewRequest")
                           : selected
-                            ? "Configurando"
-                            : "Comenzar configuración →"}
+                            ? t("profile.addRole.configuring")
+                            : t("profile.addRole.startSetup")}
                       </span>
                     </button>
                   );
@@ -2765,8 +2773,8 @@ const ProfilePage = () => {
             </div>
           ) : (
             <EmptyState
-              title="Todos los perfiles están activos"
-              hint="Puedes cambiar entre ellos desde el selector de la barra lateral."
+              title={t("profile.addRole.allActiveTitle")}
+              hint={t("profile.addRole.allActiveHint")}
             />
           )}
         </div>
@@ -2781,14 +2789,13 @@ const ProfilePage = () => {
           <div className="flex items-center justify-between gap-4 border-b border-black/[0.05] px-5 py-5 sm:px-6">
             <div>
               <p className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-accent-dark">
-                Nuevo perfil
+                {t("profile.roleSetup.newProfile")}
               </p>
 
               <h3 className="mt-1 text-[16px] font-semibold text-ink">
-                Configurar{" "}
-                {roleMeta[
-                  roleSetup
-                ].title.toLowerCase()}
+                {t("profile.roleSetup.configuring", {
+                  perfil: t(roleMeta[roleSetup].claveTitulo).toLowerCase(),
+                })}
               </h3>
             </div>
 
@@ -2802,7 +2809,7 @@ const ProfilePage = () => {
               }
             >
               <X size={15} />
-              Cerrar
+              {t("profile.roleSetup.close")}
             </button>
           </div>
 
@@ -2827,21 +2834,11 @@ const ProfilePage = () => {
 
                       <div>
                         <h4 className="text-[14px] font-semibold text-ink">
-                          Activar
-                          perfil de
-                          dueño
+                          {t("profile.roleSetup.owner.activate")}
                         </h4>
 
                         <p className="mt-1 text-[12px] leading-relaxed text-ink-soft">
-                          No
-                          necesitas
-                          llenar otro
-                          formulario.
-                          Utilizaremos
-                          tu
-                          información
-                          personal
-                          actual.
+                          {t("profile.roleSetup.owner.activateHint")}
                         </p>
                       </div>
                     </div>
@@ -2849,35 +2846,35 @@ const ProfilePage = () => {
                     <div className="mt-5 grid gap-2 sm:grid-cols-3">
                       <div className="rounded-xl border border-black/[0.04] bg-surface p-3.5">
                         <p className="text-[9.5px] font-semibold uppercase tracking-wide text-ink-mute">
-                          Nombre
+                          {t("profile.roleSetup.owner.name")}
                         </p>
 
                         <p className="mt-1 truncate text-[12px] font-medium text-ink">
                           {form.nombre ||
-                            "Sin completar"}
+                            t("profile.roleSetup.owner.incomplete")}
                         </p>
                       </div>
 
                       <div className="rounded-xl border border-black/[0.04] bg-surface p-3.5">
                         <p className="text-[9.5px] font-semibold uppercase tracking-wide text-ink-mute">
-                          Teléfono
+                          {t("profile.roleSetup.owner.phone")}
                         </p>
 
                         <p className="mt-1 truncate text-[12px] font-medium text-ink">
                           {form.telefono ||
-                            "Sin completar"}
+                            t("profile.roleSetup.owner.incomplete")}
                         </p>
                       </div>
 
                       <div className="rounded-xl border border-black/[0.04] bg-surface p-3.5">
                         <p className="text-[9.5px] font-semibold uppercase tracking-wide text-ink-mute">
-                          Zona
+                          {t("profile.roleSetup.owner.zone")}
                         </p>
 
                         <p className="mt-1 truncate text-[12px] font-medium text-ink">
                           {selectedZone
                             ? `${selectedZone.nombre}, ${selectedZone.canton}`
-                            : "Sin completar"}
+                            : t("profile.roleSetup.owner.incomplete")}
                         </p>
                       </div>
                     </div>
@@ -2904,8 +2901,8 @@ const ProfilePage = () => {
 
                     {addingRole ===
                     "dueno"
-                      ? "Activando…"
-                      : "Activar perfil de dueño"}
+                      ? t("profile.roleSetup.owner.activating")
+                      : t("profile.roleSetup.owner.activate")}
                   </button>
                 </div>
               </>
@@ -2928,21 +2925,11 @@ const ProfilePage = () => {
 
                       <div>
                         <p className="text-[13px] font-semibold text-ink">
-                          Solicitud
-                          para ser
-                          paseador
+                          {t("profile.roleSetup.walker.requestTitle")}
                         </p>
 
                         <p className="mt-1 text-[11.5px] leading-relaxed text-ink-soft">
-                          Cuéntanos
-                          sobre tu
-                          experiencia
-                          y define tu
-                          tarifa
-                          inicial.
-                          Administración
-                          revisará la
-                          solicitud.
+                          {t("profile.roleSetup.walker.requestText")}
                         </p>
                       </div>
                     </div>
@@ -2956,8 +2943,7 @@ const ProfilePage = () => {
                       labelClass
                     }
                   >
-                    Experiencia como
-                    paseador *
+                    {t("profile.roleSetup.walker.experienceLabel")}
                   </label>
 
                   <textarea
@@ -2977,13 +2963,12 @@ const ProfilePage = () => {
                     }
                     className={`${fieldClass} resize-y`}
                     maxLength={800}
-                    placeholder="Ej. Tengo 3 años de experiencia paseando perros de diferentes tamaños. También tengo experiencia con perros nerviosos y cachorros..."
+                    placeholder={t("profile.roleSetup.walker.experiencePlaceholder")}
                   />
 
                   <div className="mt-1.5 flex justify-between gap-3">
                     <p className="text-[10.5px] text-ink-mute">
-                      Mínimo 20
-                      caracteres.
+                      {t("profile.roleSetup.walker.minChars")}
                     </p>
 
                     <p className="text-[10.5px] text-ink-mute">
@@ -3004,8 +2989,7 @@ const ProfilePage = () => {
                       labelClass
                     }
                   >
-                    Tarifa base por
-                    paseo *
+                    {t("profile.roleSetup.walker.baseRate")}
                   </label>
 
                   <div className="relative">
@@ -3032,14 +3016,12 @@ const ProfilePage = () => {
                         )
                       }
                       className={`${fieldClass} nums pl-7`}
-                      placeholder="4500"
+                      placeholder={t("profile.roleSetup.walker.ratePlaceholder")}
                     />
                   </div>
 
                   <p className="mt-1.5 text-[10.5px] text-ink-mute">
-                    Podrás
-                    modificarla
-                    posteriormente.
+                    {t("profile.roleSetup.walker.rateHint")}
                   </p>
                 </div>
 
@@ -3073,27 +3055,18 @@ const ProfilePage = () => {
 
                   <div>
                     <p className="text-[12px] font-medium text-ink">
-                      Disponible al
-                      ser aprobado
+                      {t("profile.roleSetup.walker.availableOnApproval")}
                     </p>
 
                     <p className="mt-0.5 text-[10.5px] text-ink-mute">
-                      Podrás recibir
-                      solicitudes
-                      inmediatamente.
+                      {t("profile.roleSetup.walker.availableOnApprovalHint")}
                     </p>
                   </div>
                 </label>
 
                 <div className="flex flex-col gap-3 border-t border-black/[0.05] pt-5 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="max-w-md text-[10.5px] leading-relaxed text-ink-mute">
-                    Al enviar la
-                    solicitud tu
-                    perfil quedará
-                    pendiente hasta
-                    que
-                    administración
-                    lo apruebe.
+                    {t("profile.roleSetup.walker.submitHint")}
                   </p>
 
                   <button
@@ -3115,10 +3088,10 @@ const ProfilePage = () => {
 
                     {addingRole ===
                     "paseador"
-                      ? "Enviando…"
+                      ? t("profile.roleSetup.walker.sending")
                       : profile.paseador
-                        ? "Actualizar solicitud"
-                        : "Enviar solicitud"}
+                        ? t("profile.roleSetup.walker.updateRequest")
+                        : t("profile.roleSetup.walker.sendRequest")}
                   </button>
                 </div>
               </>
@@ -3143,19 +3116,11 @@ const ProfilePage = () => {
 
                       <div>
                         <p className="text-[13px] font-semibold text-ink">
-                          Registrar
-                          un negocio
+                          {t("profile.roleSetup.business.registerTitle")}
                         </p>
 
                         <p className="mt-1 text-[11.5px] leading-relaxed text-ink-soft">
-                          Completa la
-                          información
-                          que los
-                          usuarios
-                          verán en el
-                          directorio
-                          de
-                          TuanisCan.
+                          {t("profile.roleSetup.business.registerText")}
                         </p>
                       </div>
                     </div>
@@ -3172,15 +3137,11 @@ const ProfilePage = () => {
 
                     <div>
                       <p className="text-[12px] font-semibold text-ink">
-                        Información
-                        básica
+                        {t("profile.roleSetup.business.basicInfoTitle")}
                       </p>
 
                       <p className="text-[10.5px] text-ink-mute">
-                        Identifica
-                        tu negocio
-                        dentro del
-                        directorio.
+                        {t("profile.roleSetup.business.basicInfoText")}
                       </p>
                     </div>
                   </div>
@@ -3193,8 +3154,7 @@ const ProfilePage = () => {
                       labelClass
                     }
                   >
-                    Nombre del
-                    negocio *
+                    {t("profile.roleSetup.business.name")}
                   </label>
 
                   <input
@@ -3215,7 +3175,7 @@ const ProfilePage = () => {
                       fieldClass
                     }
                     maxLength={150}
-                    placeholder="Ej. Veterinaria Huellitas"
+                    placeholder={t("profile.roleSetup.business.namePlaceholder")}
                   />
                 </div>
 
@@ -3226,8 +3186,7 @@ const ProfilePage = () => {
                       labelClass
                     }
                   >
-                    Tipo de negocio
-                    *
+                    {t("profile.roleSetup.business.type")}
                   </label>
 
                   <Combo
@@ -3235,9 +3194,9 @@ const ProfilePage = () => {
                     value={form.tipo_negocio}
                     onChange={(v) => setField("tipo_negocio", v as ProfileForm["tipo_negocio"])}
                     options={[
-                      { value: "veterinaria", label: "Veterinaria" },
-                      { value: "tienda", label: "Tienda para mascotas" },
-                      { value: "refugio", label: "Refugio" },
+                      { value: "veterinaria", label: t("profile.roleSetup.business.types.veterinaria") },
+                      { value: "tienda", label: t("profile.roleSetup.business.types.tienda") },
+                      { value: "refugio", label: t("profile.roleSetup.business.types.refugio") },
                     ]}
                   />
                 </div>
@@ -3249,7 +3208,7 @@ const ProfilePage = () => {
                       labelClass
                     }
                   >
-                    Teléfono *
+                    {t("profile.roleSetup.business.phone")}
                   </label>
 
                   <div className="relative">
@@ -3278,7 +3237,7 @@ const ProfilePage = () => {
                       maxLength={
                         20
                       }
-                      placeholder="Ej. 2222-2222"
+                      placeholder={t("profile.roleSetup.business.phonePlaceholder")}
                     />
                   </div>
                 </div>
@@ -3290,8 +3249,7 @@ const ProfilePage = () => {
                       labelClass
                     }
                   >
-                    Horario de
-                    atención *
+                    {t("profile.roleSetup.business.schedule")}
                   </label>
 
                   <input
@@ -3311,7 +3269,7 @@ const ProfilePage = () => {
                     className={
                       fieldClass
                     }
-                    placeholder="Ej. Lun - Sáb, 8:00 a.m. - 5:00 p.m."
+                    placeholder={t("profile.roleSetup.business.schedulePlaceholder")}
                   />
                 </div>
 
@@ -3325,14 +3283,11 @@ const ProfilePage = () => {
 
                     <div>
                       <p className="text-[12px] font-semibold text-ink">
-                        Ubicación
+                        {t("profile.roleSetup.business.locationTitle")}
                       </p>
 
                       <p className="text-[10.5px] text-ink-mute">
-                        Ayuda a los
-                        usuarios a
-                        encontrar tu
-                        negocio.
+                        {t("profile.roleSetup.business.locationText")}
                       </p>
                     </div>
                   </div>
@@ -3345,14 +3300,14 @@ const ProfilePage = () => {
                       labelClass
                     }
                   >
-                    Zona *
+                    {t("profile.roleSetup.business.zone")}
                   </label>
 
                   <Combo
                     id="activar-negocio-zona"
                     required
                     vacio
-                    placeholder="Seleccionar zona"
+                    placeholder={t("profile.roleSetup.business.selectZone")}
                     value={form.negocio_zona_id}
                     onChange={(v) => setField("negocio_zona_id", v)}
                     options={zonas.map((zona) => ({
@@ -3369,7 +3324,7 @@ const ProfilePage = () => {
                       labelClass
                     }
                   >
-                    Dirección *
+                    {t("profile.roleSetup.business.address")}
                   </label>
 
                   <input
@@ -3389,7 +3344,7 @@ const ProfilePage = () => {
                     className={
                       fieldClass
                     }
-                    placeholder="Ej. 100 m norte del parque central"
+                    placeholder={t("profile.roleSetup.business.addressPlaceholder")}
                   />
                 </div>
 
@@ -3403,16 +3358,11 @@ const ProfilePage = () => {
 
                     <div>
                       <p className="text-[12px] font-semibold text-ink">
-                        Coordenadas
+                        {t("profile.roleSetup.business.coordsTitle")}
                       </p>
 
                       <p className="text-[10.5px] text-ink-mute">
-                        Opcional ·
-                        Úsalas si
-                        quieres una
-                        ubicación más
-                        precisa en el
-                        mapa.
+                        {t("profile.roleSetup.business.coordsText")}
                       </p>
                     </div>
                   </div>
@@ -3422,7 +3372,7 @@ const ProfilePage = () => {
                   <Suspense
                     fallback={
                       <div className="flex h-[200px] w-full items-center justify-center rounded-2xl bg-slate-50 text-[11.5px] text-slate-400">
-                        Cargando mapa…
+                        {t("profile.roleSetup.business.loadingMap")}
                       </div>
                     }
                   >
@@ -3457,8 +3407,8 @@ const ProfilePage = () => {
 
                     {addingRole ===
                     "negocio"
-                      ? "Creando negocio…"
-                      : "Crear y activar negocio"}
+                      ? t("profile.roleSetup.business.creating")
+                      : t("profile.roleSetup.business.createAndActivate")}
                   </button>
                 </div>
               </>
@@ -3472,7 +3422,7 @@ const ProfilePage = () => {
       <Visor
         abierto={verFoto && Boolean(avatarUrl)}
         src={avatarUrl || ""}
-        alt={`Foto de perfil de ${form.nombre || profile.nombre}`}
+        alt={t("profile.photoAlt", { nombre: form.nombre || profile.nombre })}
         cerrar={() => setVerFoto(false)}
       />
     </Page>

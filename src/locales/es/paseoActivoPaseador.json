@@ -1,0 +1,31 @@
+{
+  "title": "Paseo activo",
+  "subtitleIdle": "Comparte tu ubicación durante el paseo.",
+  "subtitleActive": "Tu ubicación se comparte solo mientras el paseo está en curso.",
+  "statusInCourse": "En curso",
+  "confirmedTodayTitle": "Paseo confirmado para hoy",
+  "confirmedTodayHint": "Inícialo para habilitar el seguimiento en tiempo real para el dueño.",
+  "starting": "Iniciando…",
+  "startWalk": "Iniciar paseo",
+  "empty": {
+    "title": "No tienes paseos en curso",
+    "hint": "El seguimiento se habilita cuando inicias un paseo."
+  },
+  "trackingSection": "Seguimiento en tiempo real",
+  "trackingHint": "Permite la ubicación en tu teléfono para que el dueño vea el recorrido actualizado.",
+  "stopSharing": "Dejar de compartir",
+  "shareLocation": "Compartir ubicación",
+  "finishing": "Finalizando…",
+  "finishWalk": "Finalizar paseo",
+  "errors": {
+    "loadFailed": "No se pudo consultar el paseo activo.",
+    "noGeolocation": "Este navegador no permite compartir ubicación.",
+    "locationShared": "Ubicación compartida con el dueño.",
+    "sendFailed": "No se pudo enviar la ubicación.",
+    "locationFailed": "No se pudo obtener tu ubicación.",
+    "finishFailed": "No se pudo finalizar el paseo. Inténtalo de nuevo.",
+    "finishedMessage": "Paseo finalizado. El dueño ya puede dejar su reseña.",
+    "startFailed": "No se pudo iniciar el paseo. Verifica que sea para hoy.",
+    "startedMessage": "Paseo iniciado. Ya puedes compartir tu ubicación."
+  }
+}

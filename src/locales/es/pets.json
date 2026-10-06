@@ -1,0 +1,6 @@
+{
+  "ageMonthsSingular": "{{count}} mes",
+  "ageMonthsPlural": "{{count}} meses",
+  "ageYearsSingular": "{{count}} año",
+  "ageYearsPlural": "{{count}} años"
+}

@@ -1,0 +1,78 @@
+{
+  "title": "Directorio",
+  "subtitleNearby": "Negocios ubicados a menos de 10 km de ti.",
+  "subtitleAll": "Veterinarias, tiendas y refugios de la zona en un solo lugar.",
+  "viewAll": "Ver todo",
+  "searching": "Buscando…",
+  "nearMe": "Cerca de mí",
+  "filtersAria": "Filtros del directorio",
+  "searchPlaceholder": "Buscar por nombre, dirección o zona",
+  "searchAria": "Buscar por nombre, dirección o zona",
+  "typeFilterAria": "Filtrar por tipo de negocio",
+  "types": {
+    "all": "Todos",
+    "vets": "Veterinarias",
+    "stores": "Tiendas",
+    "shelters": "Refugios"
+  },
+  "businessType": {
+    "vet": "Veterinaria",
+    "store": "Tienda",
+    "shelter": "Refugio"
+  },
+  "provinceAria": "Provincia",
+  "provinceFilterAria": "Filtrar por provincia",
+  "allProvinces": "Todas las provincias",
+  "cantonAria": "Cantón",
+  "cantonFilterAria": "Filtrar por cantón",
+  "selectProvince": "Elegí una provincia",
+  "allCantons": "Todos los cantones",
+  "districtAria": "Distrito",
+  "districtFilterAria": "Filtrar por distrito",
+  "selectCanton": "Elegí un cantón",
+  "allDistricts": "Todos los distritos",
+  "loadError": "No se pudo cargar el directorio desde Supabase.",
+  "loadErrorToast": "No se pudo cargar el directorio.",
+  "retry": "Reintentar",
+  "empty": {
+    "title": "No hay resultados",
+    "withZoneFilter": "No hay negocios registrados en esa zona todavía.",
+    "withoutZoneFilter": "Probá con otro nombre o con otro tipo de negocio.",
+    "viewAllZones": "Ver todas las zonas"
+  },
+  "resultsAria": "{{count}} negocios encontrados",
+  "resultSingular": "resultado encontrado",
+  "resultPlural": "resultados encontrados",
+  "sortBy": "Ordenar por",
+  "sortAria": "Ordenar resultados",
+  "sortNearest": "Más cercanos",
+  "sortName": "Nombre A-Z",
+  "moreFilters": "Más filtros",
+  "noAddress": "Dirección no indicada",
+  "removeFavorite": "Quitar de favoritos",
+  "addFavorite": "Guardar en favoritos",
+  "featured": "Destacado",
+  "noSchedule": "Horario no indicado",
+  "noPhone": "Teléfono no indicado",
+  "viewDetails": "Ver detalles",
+  "call": "Llamar",
+  "getDirections": "Cómo llegar",
+  "map": {
+    "aria": "Mapa interactivo de negocios",
+    "title": "Mapa interactivo",
+    "locationSingular": "ubicación disponible",
+    "locationPlural": "ubicaciones disponibles",
+    "exitFullscreen": "Salir de pantalla completa",
+    "expand": "Ampliar mapa",
+    "expandShort": "Ampliar",
+    "collapseShort": "Reducir",
+    "empty": {
+      "title": "Sin coordenadas para mostrar",
+      "hint": "Los negocios aparecen en la lista aunque todavía no hayan agregado su ubicación."
+    }
+  },
+  "errors": {
+    "noGeolocation": "Este navegador no permite usar tu ubicación.",
+    "locationFailed": "No pudimos obtener tu ubicación. Revisa el permiso del navegador."
+  }
+}

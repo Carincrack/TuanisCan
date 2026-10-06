@@ -21,6 +21,7 @@ import {
 } from "../lib/iconos";
 import { inicioDeRol, MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 import { getZonas } from "../services/auth.service";
 import { Combo } from "../components/Combo";
 import { Dialog } from "../components/ui";
@@ -42,28 +43,32 @@ interface LoginPageProps {
   onBack?: () => void;
 }
 
+/* `tituloClave`/`descripcionClave` son claves de traducción: este
+   arreglo vive fuera del componente y no puede llamar a `t()`, así
+   que quien lo consume (`roleSelector`, el resumen del paso 4)
+   traduce al momento de pintar. */
 const ROLES: {
   id: RolPublico;
-  titulo: string;
-  descripcion: string;
+  tituloClave: string;
+  descripcionClave: string;
   Icon: typeof PawPrint;
 }[] = [
   {
     id: "dueno",
-    titulo: "Dueño",
-    descripcion: "Contrato paseos",
+    tituloClave: "auth.roles.dueno.titulo",
+    descripcionClave: "auth.roles.dueno.descripcion",
     Icon: PawPrint,
   },
   {
     id: "paseador",
-    titulo: "Paseador",
-    descripcion: "Realizo los paseos",
+    tituloClave: "auth.roles.paseador.titulo",
+    descripcionClave: "auth.roles.paseador.descripcion",
     Icon: Footprints,
   },
   {
     id: "negocio",
-    titulo: "Negocio",
-    descripcion: "Ofrezco servicios",
+    tituloClave: "auth.roles.negocio.titulo",
+    descripcionClave: "auth.roles.negocio.descripcion",
     Icon: Store,
   },
 ];
@@ -139,6 +144,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   onBack,
 }) => {
   const { login, register, accessError } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   // Rol elegido. Se comparte entre iniciar sesión y registrarse.
   const [rol, setRol] = useState<RolPublico>("dueno");
@@ -210,7 +216,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     getZonas()
       .then(setZonas)
       .catch(() => {
-        setError("No se pudo cargar el catálogo de zonas");
+        setError(t("auth.errors.zonesLoadFailed"));
         setShowError(true);
       })
       .finally(() => setZonasLoading(false));
@@ -311,7 +317,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     e.preventDefault();
 
     if (!username || !password) {
-      setError("Por favor, ingrese usuario y contraseña");
+      setError(t("auth.errors.missingCredentials"));
       setShowError(true);
       return;
     }
@@ -323,7 +329,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     try {
       await login(username.trim(), password);
     } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : "No se pudo iniciar sesión");
+      setError(loginError instanceof Error ? loginError.message : t("auth.errors.signInFailed"));
       setShowError(true);
     } finally {
       setIsLoading(false);
@@ -334,19 +340,19 @@ const LoginPage: React.FC<LoginPageProps> = ({
     e.preventDefault();
 
     if (!regUsername.trim() || !regEmail.trim() || !regPassword || !regPasswordConfirmation || !regTelefono.trim() || !regZonaId) {
-      setError("Por favor, complete todos los campos obligatorios");
+      setError(t("auth.errors.missingRequiredFields"));
       setShowError(true);
       return;
     }
 
     if (rol === "paseador" && (!regDescripcion.trim() || Number(regTarifa) <= 0)) {
-      setError("Completa la descripción y una tarifa válida");
+      setError(t("auth.errors.walkerIncomplete"));
       setShowError(true);
       return;
     }
 
     if (rol === "negocio" && (!regNombreNegocio.trim() || !regDireccion.trim() || !regHorario.trim())) {
-      setError("Completa los datos del negocio");
+      setError(t("auth.errors.businessIncomplete"));
       setShowError(true);
       return;
     }
@@ -355,25 +361,25 @@ const LoginPage: React.FC<LoginPageProps> = ({
       (regLatitud && (Number(regLatitud) < -90 || Number(regLatitud) > 90)) ||
       (regLongitud && (Number(regLongitud) < -180 || Number(regLongitud) > 180))
     )) {
-      setError("Las coordenadas del negocio no son válidas");
+      setError(t("auth.errors.invalidCoordinates"));
       setShowError(true);
       return;
     }
 
     if (regPassword.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres");
+      setError(t("auth.errors.passwordTooShort"));
       setShowError(true);
       return;
     }
 
     if (regPassword !== regPasswordConfirmation) {
-      setError("Las contraseñas no coinciden");
+      setError(t("auth.errors.passwordMismatch"));
       setShowError(true);
       return;
     }
 
     if (!aceptaTerminos) {
-      setError("Tenés que aceptar los términos y condiciones para crear la cuenta");
+      setError(t("auth.errors.termsRequired"));
       setShowError(true);
       return;
     }
@@ -407,13 +413,13 @@ const LoginPage: React.FC<LoginPageProps> = ({
       if (sessionCreated) {
         navigate({ to: inicioDeRol[rol] });
       } else {
-        setSuccess("Cuenta creada. Revisa tu correo para confirmarla.");
+        setSuccess(t("auth.errors.accountCreatedPendingConfirmation"));
       }
     } catch (registerError) {
       setError(
         registerError instanceof Error
           ? registerError.message
-          : "No se pudo crear la cuenta"
+          : t("auth.errors.signUpFailed")
       );
       setShowError(true);
     } finally {
@@ -428,12 +434,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
     if (registrationStep === 2) {
       if (!regUsername.trim() || !regEmail.trim() || !regTelefono.trim()) {
-        setError("Completa tu nombre, correo y teléfono");
+        setError(t("auth.errors.missingPersonalInfo"));
         setShowError(true);
         return;
       }
       if (!/^\S+@\S+\.\S+$/.test(regEmail)) {
-        setError("Ingresa un correo electrónico válido");
+        setError(t("auth.errors.invalidEmail"));
         setShowError(true);
         return;
       }
@@ -441,17 +447,17 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
     if (registrationStep === 3) {
       if (!regZonaId) {
-        setError("Selecciona tu zona");
+        setError(t("auth.errors.zoneRequired"));
         setShowError(true);
         return;
       }
       if (rol === "paseador" && (!regDescripcion.trim() || Number(regTarifa) <= 0)) {
-        setError("Completa la descripción y una tarifa válida");
+        setError(t("auth.errors.walkerIncomplete"));
         setShowError(true);
         return;
       }
       if (rol === "negocio" && (!regNombreNegocio.trim() || !regDireccion.trim() || !regHorario.trim())) {
-        setError("Completa el nombre, dirección y horario del negocio");
+        setError(t("auth.errors.businessStepIncomplete"));
         setShowError(true);
         return;
       }
@@ -459,7 +465,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
         (regLatitud && (Number(regLatitud) < -90 || Number(regLatitud) > 90)) ||
         (regLongitud && (Number(regLongitud) < -180 || Number(regLongitud) > 180))
       )) {
-        setError("Las coordenadas del negocio no son válidas");
+        setError(t("auth.errors.invalidCoordinates"));
         setShowError(true);
         return;
       }
@@ -558,7 +564,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const roleSelector = (
     <fieldset className="@container mb-5">
       <legend className="mb-2 w-full text-center text-xs tracking-wide text-slate-500">
-        Elige el tipo de cuenta
+        {t("auth.roleSelector.legend")}
       </legend>
       {/* Tres píldoras en fila no caben en una columna de 344 px: la
           etiqueta se parte en "Pasea/dor". Apiladas de a una cuando la
@@ -588,7 +594,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
               />
               <r.Icon size={17} className="flex-shrink-0" />
               <span className="min-w-0">
-                <span className="block text-xs leading-tight font-semibold">{r.titulo}</span>
+                <span className="block text-xs leading-tight font-semibold">{t(r.tituloClave)}</span>
                 {/* `truncate` escrito a mano para poder deshacerlo: en fila
                     la descripción no tiene dónde caer y hay que cortarla,
                     pero en columna sí puede ocupar dos renglones. */}
@@ -597,7 +603,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     active ? "text-white/75" : "text-slate-400"
                   }`}
                 >
-                  {r.descripcion}
+                  {t(r.descripcionClave)}
                 </span>
               </span>
             </label>
@@ -613,7 +619,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
       <button
         type="button"
         onClick={() => handleSocialLogin("Google")}
-        aria-label="Continuar con Google"
+        aria-label={t("auth.social.google")}
         className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-[#14A3B8]/40 hover:shadow-md"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -640,7 +646,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
       <button
         type="button"
         onClick={() => handleSocialLogin("Apple")}
-        aria-label="Continuar con Apple"
+        aria-label={t("auth.social.apple")}
         className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1E2A33] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#14A3B8]/40 hover:shadow-md"
       >
         <svg className="h-5 w-5" viewBox="0 0 384 512" fill="currentColor">
@@ -652,7 +658,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
       <button
         type="button"
         onClick={() => handleSocialLogin("Meta")}
-        aria-label="Continuar con Meta"
+        aria-label={t("auth.social.meta")}
         className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-[#14A3B8]/40 hover:shadow-md"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="#1877F2">
@@ -677,7 +683,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           className="absolute top-4 left-4 z-50 inline-flex min-h-11 items-center gap-1 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-200 sm:top-5 sm:left-5 sm:bg-white/15 sm:text-white sm:backdrop-blur-sm sm:hover:bg-white/25 lg:min-h-0"
         >
           <ChevronLeft size={17} />
-          Volver
+          {t("common.back")}
         </button>
       )}
       {/* Tarjeta principal */}
@@ -767,12 +773,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
               {/* ▲▲▲ FIN DEL LOGO ▲▲▲ */}
 
               <h2 className="hidden font-bold text-white lg:block lg:text-2xl">
-                {isSignUp ? "¿Ya tienes cuenta?" : "¿Nuevo por aquí?"}
+                {isSignUp ? t("auth.brand.hasAccount") : t("auth.brand.newHere")}
               </h2>
               <p className="hidden max-w-[17rem] text-sm leading-relaxed text-white/75 lg:block">
                 {isSignUp
-                  ? `Inicia sesión para seguir cuidando a tu mascota con ${MARCA.completo}.`
-                  : "Únete a la comunidad y encuentra paseadores de confianza, veterinarias cercanas y mascotas perdidas cerca de ti."}
+                  ? t("auth.brand.signinBody", { marca: MARCA.completo })
+                  : t("auth.brand.signupBody")}
               </p>
               <button
                 type="button"
@@ -780,7 +786,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                 disabled={busy}
                 className="hidden rounded-full border-2 border-white/80 px-9 py-2.5 text-xs font-semibold tracking-[0.12em] text-white transition-all duration-300 hover:border-white hover:bg-white hover:text-[#16242F] disabled:pointer-events-none lg:mt-2 lg:block"
               >
-                {isSignUp ? "INICIAR SESIÓN" : "REGISTRARSE"}
+                {isSignUp ? t("auth.actions.signIn") : t("auth.actions.signUp")}
               </button>
             </div>
           </div>
@@ -801,16 +807,28 @@ const LoginPage: React.FC<LoginPageProps> = ({
               style={formStyle}
             >
               <h1 className={`${isSignUp ? "mb-4 text-2xl sm:text-3xl" : "mb-6 text-3xl sm:mb-8 sm:text-4xl"} text-center font-bold text-[#1E2A33]`}>
-                {isSignUp ? "Crear cuenta" : "Iniciar sesión"}
+                {isSignUp ? t("auth.heading.signup") : t("auth.heading.signin")}
               </h1>
 
               {isSignUp ? (
                 /* ─── Formulario de registro ─── */
                 <form onSubmit={handleRegister} className="space-y-4">
-                  <div aria-label={`Paso ${registrationStep} de 4`} className="mb-5">
+                  <div
+                    aria-label={t("auth.steps.progress", { step: registrationStep })}
+                    className="mb-5"
+                  >
                     <div className="mb-2 flex items-center justify-between text-[11px] font-semibold tracking-wide text-slate-500">
-                      <span>Paso {registrationStep} de 4</span>
-                      <span>{["Tipo de cuenta", "Datos personales", "Perfil", "Acceso"][registrationStep - 1]}</span>
+                      <span>{t("auth.steps.progress", { step: registrationStep })}</span>
+                      <span>
+                        {
+                          [
+                            t("auth.steps.titles.account"),
+                            t("auth.steps.titles.personal"),
+                            t("auth.steps.titles.profile"),
+                            t("auth.steps.titles.access"),
+                          ][registrationStep - 1]
+                        }
+                      </span>
                     </div>
                     <div className="flex gap-2">
                       {[1, 2, 3, 4].map((step) => (
@@ -823,7 +841,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <div>
                       {roleSelector}
                       <p className="rounded-2xl bg-slate-50 px-5 py-4 text-center text-xs leading-relaxed text-slate-500">
-                        Los datos del siguiente paso se adaptarán al tipo de cuenta que elijas.
+                        {t("auth.steps.step1Hint")}
                       </p>
                     </div>
                   )}
@@ -832,15 +850,15 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <div className="space-y-4">
                       <div className="relative">
                         <User className={iconBase} size={18} />
-                        <input type="text" autoComplete="name" placeholder="Nombre completo *" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className={inputBase} maxLength={150} required />
+                        <input type="text" autoComplete="name" placeholder={t("auth.fields.fullName")} value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className={inputBase} maxLength={150} required />
                       </div>
                       <div className="relative">
                         <Mail className={iconBase} size={18} />
-                        <input type="email" autoComplete="email" placeholder="Correo electrónico *" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className={inputBase} required />
+                        <input type="email" autoComplete="email" placeholder={t("auth.fields.email")} value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className={inputBase} required />
                       </div>
                       <div className="relative">
                         <User className={iconBase} size={18} />
-                        <input type="tel" autoComplete="tel" placeholder="Teléfono *" value={regTelefono} onChange={(e) => setRegTelefono(e.target.value)} className={inputBase} maxLength={20} required />
+                        <input type="tel" autoComplete="tel" placeholder={t("auth.fields.phone")} value={regTelefono} onChange={(e) => setRegTelefono(e.target.value)} className={inputBase} maxLength={20} required />
                       </div>
                     </div>
                   )}
@@ -854,9 +872,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           value={regProvincia}
                           onChange={elegirProvincia}
                           disabled={zonasLoading}
-                          textoInactivo="Cargando zonas…"
-                          placeholder="Provincia *"
-                          aria-label="Provincia"
+                          textoInactivo={t("auth.location.loadingZones")}
+                          placeholder={t("auth.location.province")}
+                          aria-label={t("auth.location.provinceAria")}
                           options={provinciasReg.map((item) => ({
                             value: item,
                             label: item,
@@ -868,9 +886,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           value={regCanton}
                           onChange={elegirCanton}
                           disabled={!regProvincia}
-                          textoInactivo="Elegí una provincia"
-                          placeholder="Cantón *"
-                          aria-label="Cantón"
+                          textoInactivo={t("auth.location.selectProvince")}
+                          placeholder={t("auth.location.canton")}
+                          aria-label={t("auth.location.cantonAria")}
                           options={cantonesReg.map((item) => ({
                             value: item,
                             label: item,
@@ -886,9 +904,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
                             setShowError(false);
                           }}
                           disabled={!regCanton}
-                          textoInactivo="Elegí un cantón"
-                          placeholder="Distrito *"
-                          aria-label="Distrito"
+                          textoInactivo={t("auth.location.selectCanton")}
+                          placeholder={t("auth.location.district")}
+                          aria-label={t("auth.location.districtAria")}
                           options={distritosReg.map((zona) => ({
                             value: zona.id_zona,
                             label: zona.nombre,
@@ -904,22 +922,22 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           sesión activa—, así que acá solo se avisa. */}
                       <p className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-[11.5px] leading-snug text-slate-500">
                         <Camera className="flex-shrink-0 text-[#14A3B8]" size={16} aria-hidden />
-                        Podrás subir tu foto de perfil como archivo apenas entres, desde tu perfil.
+                        {t("auth.steps.photoHint")}
                       </p>
 
                       {rol === "paseador" && (
                         <>
                           <div className="relative">
                             <FileText className="pointer-events-none absolute left-5 top-5 text-[#14A3B8]" size={18} />
-                            <textarea rows={3} placeholder="Cuéntanos sobre tu experiencia *" value={regDescripcion} onChange={(e) => setRegDescripcion(e.target.value)} className={`${inputBase} resize-none rounded-2xl`} maxLength={800} required />
+                            <textarea rows={3} placeholder={t("auth.fields.experience")} value={regDescripcion} onChange={(e) => setRegDescripcion(e.target.value)} className={`${inputBase} resize-none rounded-2xl`} maxLength={800} required />
                           </div>
                           <div className="relative">
                             <Banknote className={iconBase} size={18} />
-                            <input type="number" min="0" step="100" placeholder="Tarifa base en colones *" value={regTarifa} onChange={(e) => setRegTarifa(e.target.value)} className={inputBase} required />
+                            <input type="number" min="0" step="100" placeholder={t("auth.fields.baseRate")} value={regTarifa} onChange={(e) => setRegTarifa(e.target.value)} className={inputBase} required />
                           </div>
                           <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-100 px-5 py-3 text-sm text-slate-600">
                             <input type="checkbox" checked={regDisponible} onChange={(e) => setRegDisponible(e.target.checked)} className="h-4 w-4 accent-[#14A3B8]" />
-                            Disponible para recibir solicitudes
+                            {t("auth.fields.available")}
                           </label>
                         </>
                       )}
@@ -927,15 +945,15 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       {rol === "negocio" && (
                         <>
                           <div className="grid gap-3 @sm:grid-cols-2">
-                            <div className="relative"><Store className={iconBase} size={18} /><input type="text" placeholder="Nombre del negocio *" value={regNombreNegocio} onChange={(e) => setRegNombreNegocio(e.target.value)} className={inputBase} maxLength={150} required /></div>
-                            <Combo tono="login" value={regTipoNegocio} onChange={(v) => setRegTipoNegocio(v as typeof regTipoNegocio)} aria-label="Tipo de negocio" options={[{ value: "veterinaria", label: "Veterinaria" }, { value: "tienda", label: "Tienda" }, { value: "refugio", label: "Refugio" }]} />
+                            <div className="relative"><Store className={iconBase} size={18} /><input type="text" placeholder={t("auth.fields.businessName")} value={regNombreNegocio} onChange={(e) => setRegNombreNegocio(e.target.value)} className={inputBase} maxLength={150} required /></div>
+                            <Combo tono="login" value={regTipoNegocio} onChange={(v) => setRegTipoNegocio(v as typeof regTipoNegocio)} aria-label={t("auth.business.typeAria")} options={[{ value: "veterinaria", label: t("auth.business.types.veterinaria") }, { value: "tienda", label: t("auth.business.types.tienda") }, { value: "refugio", label: t("auth.business.types.refugio") }]} />
                           </div>
-                          <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder="Dirección exacta *" value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
-                          <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder="Horario de atención *" value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>
+                          <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder={t("auth.fields.address")} value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
+                          <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder={t("auth.fields.schedule")} value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>
                           <Suspense
                             fallback={
                               <div className="flex h-[200px] w-full items-center justify-center rounded-2xl bg-slate-50 text-[11.5px] text-slate-400">
-                                Cargando mapa…
+                                {t("auth.map.loading")}
                               </div>
                             }
                           >
@@ -957,16 +975,19 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <div className="space-y-4">
                       <div className="rounded-2xl bg-slate-50 px-5 py-4 text-xs leading-relaxed text-slate-600">
                         <strong className="block text-sm text-[#1E2A33]">{regUsername}</strong>
-                        {regEmail} · {ROLES.find((item) => item.id === rol)?.titulo}
+                        {regEmail} · {(() => {
+                          const claveRol = ROLES.find((item) => item.id === rol)?.tituloClave;
+                          return claveRol ? t(claveRol) : null;
+                        })()}
                       </div>
                       <div className="relative">
                         <Lock className={iconBase} size={18} />
-                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder="Contraseña (mínimo 8 caracteres) *" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className={`${inputBase} pr-14`} minLength={8} required />
-                        <button type="button" onClick={() => setShowRegPassword(!showRegPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 hover:text-[#14A3B8]" aria-label={showRegPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>{showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder={t("auth.fields.passwordMinLength")} value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className={`${inputBase} pr-14`} minLength={8} required />
+                        <button type="button" onClick={() => setShowRegPassword(!showRegPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 hover:text-[#14A3B8]" aria-label={showRegPassword ? t("auth.password.hide") : t("auth.password.show")}>{showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                       </div>
                       <div className="relative">
                         <Lock className={iconBase} size={18} />
-                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder="Confirmar contraseña *" value={regPasswordConfirmation} onChange={(e) => setRegPasswordConfirmation(e.target.value)} className={inputBase} minLength={8} required />
+                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder={t("auth.fields.passwordConfirm")} value={regPasswordConfirmation} onChange={(e) => setRegPasswordConfirmation(e.target.value)} className={inputBase} minLength={8} required />
                       </div>
 
                       <label className="flex items-start gap-2.5 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-600">
@@ -977,15 +998,15 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[#14A3B8]"
                         />
                         <span>
-                          Leí y acepto los{" "}
+                          {t("auth.terms.prefix")}{" "}
                           <button
                             type="button"
                             onClick={() => setVerTerminos(true)}
                             className="font-semibold text-[#14A3B8] underline underline-offset-2 hover:text-[#0e8195]"
                           >
-                            términos y condiciones
+                            {t("auth.terms.link")}
                           </button>{" "}
-                          de {MARCA.completo}.
+                          {t("auth.terms.suffix", { marca: MARCA.completo })}
                         </span>
                       </label>
                     </div>
@@ -1012,12 +1033,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     }`}
                   >
                     {registrationStep > 1 ? (
-                      <button type="button" onClick={() => { setRegistrationStep((step) => step - 1); setError(null); setShowError(false); }} className="inline-flex min-h-11 items-center justify-center gap-1 px-3 py-3 text-xs font-semibold text-slate-500 hover:text-[#14A3B8]"><ChevronLeft size={16} /> Atrás</button>
+                      <button type="button" onClick={() => { setRegistrationStep((step) => step - 1); setError(null); setShowError(false); }} className="inline-flex min-h-11 items-center justify-center gap-1 px-3 py-3 text-xs font-semibold text-slate-500 hover:text-[#14A3B8]"><ChevronLeft size={16} /> {t("auth.actions.back")}</button>
                     ) : <span />}
                     {registrationStep < 4 ? (
-                      <button type="button" onClick={nextRegistrationStep} className={primaryBtn}>SIGUIENTE <ChevronRight size={16} /></button>
+                      <button type="button" onClick={nextRegistrationStep} className={primaryBtn}>{t("auth.actions.next")} <ChevronRight size={16} /></button>
                     ) : (
-                      <button type="submit" disabled={isLoading || Boolean(success) || !aceptaTerminos} className={primaryBtn}>{isLoading ? "CREANDO..." : "CREAR CUENTA"}</button>
+                      <button type="submit" disabled={isLoading || Boolean(success) || !aceptaTerminos} className={primaryBtn}>{isLoading ? t("auth.actions.creating") : t("auth.actions.createAccount")}</button>
                     )}
                   </div>
                 </form>
@@ -1029,7 +1050,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <input
                       id="username"
                       type="text"
-                      placeholder="Usuario"
+                      placeholder={t("auth.fields.username")}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       className={inputBase}
@@ -1042,7 +1063,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="Contraseña"
+                      placeholder={t("auth.fields.password")}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className={`${inputBase} pr-14`}
@@ -1053,7 +1074,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 hover:text-[#14A3B8]"
                       aria-label={
-                        showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                        showPassword ? t("auth.password.hide") : t("auth.password.show")
                       }
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1069,7 +1090,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       }}
                       className="text-xs text-slate-500 transition-colors hover:text-[#14A3B8]"
                     >
-                      ¿Olvidaste tu contraseña?
+                      {t("auth.forgotPassword")}
                     </a>
                   </div>
 
@@ -1089,10 +1110,10 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       {isLoading ? (
                         <>
                           <Loader className="animate-spin" size={16} />
-                          <span>INGRESANDO...</span>
+                          <span>{t("auth.actions.signingIn")}</span>
                         </>
                       ) : (
-                        "INICIAR SESIÓN"
+                        t("auth.actions.signIn")
                       )}
                     </button>
                   </div>
@@ -1101,7 +1122,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
               {!isSignUp && (
                 <>
-                  <p className="mt-8 text-center text-sm text-slate-500">O inicia sesión con</p>
+                  <p className="mt-8 text-center text-sm text-slate-500">{t("auth.social.continueWith")}</p>
                   {socialButtons}
                 </>
               )}
@@ -1114,7 +1135,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             className="animate-[tsc-fade_240ms_ease-out] relative z-10 mt-auto border-t border-slate-200 px-5 pt-5 pb-6 text-center sm:px-8 sm:pb-8 lg:hidden"
           >
             <p className="text-sm text-slate-500">
-              {isSignUp ? "¿Ya tienes cuenta?" : "¿Nuevo por aquí?"}
+              {isSignUp ? t("auth.brand.hasAccount") : t("auth.brand.newHere")}
             </p>
             <button
               type="button"
@@ -1122,14 +1143,14 @@ const LoginPage: React.FC<LoginPageProps> = ({
               disabled={busy}
               className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#14A3B8]/45 px-9 py-2.5 text-xs font-semibold tracking-[0.12em] text-[#14A3B8] transition-all duration-300 hover:border-[#14A3B8] hover:bg-[#14A3B8] hover:text-white disabled:pointer-events-none"
             >
-              {isSignUp ? "INICIAR SESIÓN" : "REGISTRARSE"}
+              {isSignUp ? t("auth.actions.signIn") : t("auth.actions.signUp")}
             </button>
           </div>
         </div>
       </div>
 
       {verTerminos && (
-        <Dialog title="Términos y condiciones" onClose={() => setVerTerminos(false)} ancho="max-w-[680px]">
+        <Dialog title={t("auth.terms.dialogTitle")} onClose={() => setVerTerminos(false)} ancho="max-w-[680px]">
           <TerminosCondiciones />
         </Dialog>
       )}

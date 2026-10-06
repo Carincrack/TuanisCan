@@ -1,0 +1,57 @@
+{
+  "title": "Zonas",
+  "subtitle": "Catálogo de zonas disponibles para perfiles y servicios.",
+  "countSingular": "zona",
+  "countPlural": "zonas",
+  "resultSingular": "resultado",
+  "resultPlural": "resultados",
+  "stats": {
+    "registered": "Zonas registradas",
+    "registeredHint": "En todo el catálogo",
+    "provinces": "Provincias",
+    "provincesHint": "Con al menos una zona",
+    "cantons": "Cantones",
+    "cantonsHint": "Cubiertos en el catálogo"
+  },
+  "filters": {
+    "title": "Filtros",
+    "searchPlaceholder": "Buscar zona, cantón o provincia",
+    "searchAria": "Buscar zonas",
+    "provinceAria": "Filtrar por provincia",
+    "allProvinces": "Todas las provincias",
+    "cantonAria": "Filtrar por cantón",
+    "allCantons": "Todos los cantones",
+    "selectProvince": "Elegí una provincia",
+    "districtAria": "Filtrar por distrito",
+    "allDistricts": "Todos los distritos",
+    "selectCanton": "Elegí un cantón"
+  },
+  "table": {
+    "caption": "Zonas registradas",
+    "columns": {
+      "zone": "Zona",
+      "province": "Provincia",
+      "canton": "Cantón",
+      "district": "Distrito",
+      "actions": "Acciones"
+    },
+    "deleteAction": "Eliminar {{nombre}}"
+  },
+  "pagination": {
+    "label": "Paginación de zonas"
+  },
+  "empty": {
+    "title": "No hay coincidencias",
+    "withFilters": "Ajustá la búsqueda o cambiá los filtros.",
+    "withoutFilters": "Todavía no hay zonas en el catálogo."
+  },
+  "delete": {
+    "title": "Eliminar zona",
+    "body": "Se quita {{nombre}}, {{canton}} del catálogo. Si hay personas o negocios registrados en esa zona, la base no va a permitir borrarla.",
+    "confirm": "Eliminar zona",
+    "success": "Zona eliminada",
+    "inUseError": "No se puede eliminar porque la zona está en uso",
+    "inUseToast": "No se puede eliminar: hay cuentas o negocios en esa zona."
+  },
+  "loadError": "No se pudo cargar el catálogo de zonas"
+}

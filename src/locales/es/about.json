@@ -1,0 +1,38 @@
+{
+  "title": "Sobre {{marca}}",
+  "subtitle": "Una plataforma para conectar dueños, paseadores y negocios alrededor del cuidado de las mascotas.",
+  "whatIs": {
+    "title": "Qué es",
+    "body": "{{marca}} conecta a dueños de mascotas con paseadores verificados de su zona, centraliza el historial de salud de cada mascota y ayuda a la comunidad a reportar y reencontrar mascotas perdidas. Todo desde una sola cuenta, sin importar el rol con el que entrés."
+  },
+  "whoUses": {
+    "title": "Quién la usa",
+    "owners": {
+      "titulo": "Dueños",
+      "texto": "Registrá a tus mascotas con su historial de vacunas, buscá paseadores verificados de tu zona y seguí cada paseo en tiempo real."
+    },
+    "walkers": {
+      "titulo": "Paseadores",
+      "texto": "Publicá tu disponibilidad, recibí solicitudes de dueños cercanos y llevá el control de tu agenda y tus ganancias en un solo lugar."
+    },
+    "businesses": {
+      "titulo": "Negocios",
+      "texto": "Veterinarias, tiendas y refugios aparecen en el directorio de su zona para que la comunidad los encuentre fácilmente."
+    }
+  },
+  "howWeWork": {
+    "title": "Cómo trabajamos",
+    "verifiedWalkers": {
+      "titulo": "Paseadores verificados",
+      "texto": "Cada perfil pasa por una revisión de documentos antes de poder recibir solicitudes."
+    },
+    "byZone": {
+      "titulo": "Todo por zona",
+      "texto": "Buscás y te encuentran paseadores, negocios y reportes de mascotas perdidas cerca de vos."
+    },
+    "lostPetsNetwork": {
+      "titulo": "Red de mascotas perdidas",
+      "texto": "Reportes con ubicación y avistamientos de la comunidad para reencontrar mascotas más rápido."
+    }
+  }
+}

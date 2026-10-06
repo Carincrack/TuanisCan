@@ -1,0 +1,7 @@
+{
+  "primary": "Principal",
+  "holder": "Titular",
+  "holderPlaceholder": "Nombre del titular",
+  "expires": "Vence",
+  "expiresPlaceholder": "MM/AA"
+}

@@ -12,6 +12,8 @@ import {
   resolveMatch,
 } from "../services/lost-pets.service";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
+import type { I18nContextValue } from "../context/i18n-context";
 import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
 import { distritoDe, normalizar as normalizarZona } from "../lib/zonas";
 import type { Zona } from "../types/auth.types";
@@ -38,13 +40,22 @@ import Visor from "./Visor";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 
+type T = I18nContextValue["t"];
+
 const filtros = ["Todas", "Perdidas", "Encontradas", "Mi zona"];
-const messageFrom = (error: unknown) =>
+const claveFiltroLabel: Record<string, string> = {
+  Todas: "mascotasPerdidas.filters.all",
+  Perdidas: "mascotasPerdidas.filters.lost",
+  Encontradas: "mascotasPerdidas.filters.found",
+  "Mi zona": "mascotasPerdidas.filters.myZone",
+};
+
+const messageFrom = (error: unknown, t: T) =>
   error instanceof Error
     ? error.message
     : typeof error === "object" && error && "message" in error
       ? String(error.message)
-      : "No se pudo completar la operacion.";
+      : t("mascotasPerdidas.errors.generic");
 
 const numericValue = (value: string) => Number(value.replace(",", "."));
 const parseCoords = (value: string) => {
@@ -59,8 +70,8 @@ const parseCoords = (value: string) => {
 const coordsLabel = ({ latitud, longitud }: { latitud: number; longitud: number }) =>
   `${latitud.toFixed(6)}, ${longitud.toFixed(6)}`;
 
-const formatDateTime = (value: string) =>
-  new Intl.DateTimeFormat("es-CR", {
+const formatDateTime = (value: string, localeTag: string) =>
+  new Intl.DateTimeFormat(localeTag, {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -71,8 +82,8 @@ const formatDateTime = (value: string) =>
    Alajuela, Cartago, Heredia, Puntarenas, Liberia, Quepos… Encadenar
    los tres niveles a secas escribía "Nicoya, Nicoya, Guanacaste". Se
    quitan las repeticiones seguidas y queda "Nicoya, Guanacaste". */
-const zonaLabel = (zona?: Zona | null) => {
-  if (!zona) return "Zona no indicada";
+const zonaLabel = (zona: Zona | null | undefined, t: T) => {
+  if (!zona) return t("mascotasPerdidas.zoneNotIndicated");
 
   const partes = [distritoDe(zona), zona.canton, zona.provincia]
     .map((parte) => parte?.trim())
@@ -93,11 +104,11 @@ const telefonoLegible = (valor: string) => {
   return cr ? `+506 ${cr[1]} ${cr[2]}` : valor;
 };
 
-const useBrowserLocation = () => {
+const useBrowserLocation = (t: T) => {
   const [locating, setLocating] = useState(false);
   const locate = (onLocation: (coords: { latitud: number; longitud: number }) => void, onError: (message: string) => void) => {
     if (!navigator.geolocation) {
-      onError("Tu navegador no permite detectar tu ubicación.");
+      onError(t("mascotasPerdidas.noGeolocation"));
       return;
     }
     setLocating(true);
@@ -110,7 +121,7 @@ const useBrowserLocation = () => {
         setLocating(false);
       },
       () => {
-        onError("No se pudo obtener tu ubicación. Puedes escribir las coordenadas.");
+        onError(t("mascotasPerdidas.locationFailed"));
         setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 9000 }
@@ -136,6 +147,7 @@ const ReportForm = ({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) => {
+  const { t } = useTranslation();
   const [values, setValues] = useState({
     id_mascota: "",
     nombre: "",
@@ -150,7 +162,7 @@ const ReportForm = ({
   const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { locating, locate } = useBrowserLocation();
+  const { locating, locate } = useBrowserLocation(t);
 
   const selectedPet = pets.find((pet) => pet.id_mascota === values.id_mascota) ?? null;
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
@@ -181,24 +193,24 @@ const ReportForm = ({
        dos líneas la reemplazan, en el mismo sitio donde ya se
        comprueban la foto y las coordenadas. */
     if (!values.id_mascota) {
-      setError("Elige cuál de tus mascotas se perdió.");
+      setError(t("mascotasPerdidas.errors.chooseLostPet"));
       return;
     }
     if (!values.zona_id) {
-      setError("Elige la zona donde se perdió.");
+      setError(t("mascotasPerdidas.errors.chooseLostZone"));
       return;
     }
     if (!photo) {
-      setError("Agrega una foto clara de la mascota.");
+      setError(t("mascotasPerdidas.errors.addPhoto"));
       return;
     }
     if (!photo.type.startsWith("image/") || photo.size > 5 * 1024 * 1024) {
-      setError("La foto debe ser JPG, PNG o WebP y pesar menos de 5 MB.");
+      setError(t("mascotasPerdidas.errors.invalidPhoto"));
       return;
     }
     const coords = parseCoords(values.ubicacion);
     if (!coords) {
-      setError("Escribe la ubicación como latitud, longitud. Ejemplo: 10.169410, -85.541761");
+      setError(t("mascotasPerdidas.errors.invalidLocation"));
       return;
     }
     const payload: LostPetInput = {
@@ -214,19 +226,19 @@ const ReportForm = ({
       recompensa: values.recompensa ? numericValue(values.recompensa) : null,
     };
     if (!selectedPet) {
-      setError("Selecciona una mascota registrada de tu cuenta.");
+      setError(t("mascotasPerdidas.errors.selectRegisteredPet"));
       return;
     }
     if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
-      setError("La latitud debe ser un número entre -90 y 90.");
+      setError(t("mascotasPerdidas.errors.invalidLatitude"));
       return;
     }
     if (!Number.isFinite(payload.longitud) || payload.longitud < -180 || payload.longitud > 180) {
-      setError("La longitud debe ser un número entre -180 y 180.");
+      setError(t("mascotasPerdidas.errors.invalidLongitude"));
       return;
     }
     if (payload.recompensa != null && (!Number.isFinite(payload.recompensa) || payload.recompensa < 0)) {
-      setError("La recompensa debe ser un número positivo.");
+      setError(t("mascotasPerdidas.errors.invalidReward"));
       return;
     }
     setBusy(true);
@@ -236,12 +248,12 @@ const ReportForm = ({
       onClose();
       /* El aviso va DESPUÉS de cerrar la ventana. Al revés queda
          tapado por el modal que se está yendo. */
-      aviso.ok(`${values.nombre} quedó publicada`, {
-        detalle: "Ya aparece en el listado. Te avisamos de cada avistamiento.",
+      aviso.ok(t("mascotasPerdidas.reportForm.published", { nombre: values.nombre }), {
+        detalle: t("mascotasPerdidas.reportForm.publishedDetail"),
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo publicar el reporte." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("mascotasPerdidas.errors.publishFailed") });
     } finally {
       setBusy(false);
     }
@@ -250,44 +262,44 @@ const ReportForm = ({
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className={fieldLabel}>Mascota registrada *
+        <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.registeredPet")}
           <Combo
             required
             value={values.id_mascota}
             onChange={selectPet}
-            placeholder="Selecciona tu mascota"
+            placeholder={t("mascotasPerdidas.reportForm.choosePet")}
             options={pets.map((pet) => ({
               value: pet.id_mascota,
               label: `${pet.nombre} · ${pet.especie}`,
             }))}
           />
         </label>
-        <label className={fieldLabel}>Zona *
+        <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.zone")}
           <Combo
             required
             value={values.zona_id}
             onChange={(v) => update("zona_id", v)}
-            placeholder="Selecciona una zona"
+            placeholder={t("mascotasPerdidas.reportForm.chooseZone")}
             options={zonas.map((zona) => ({
               value: zona.id_zona,
               label: `${zona.nombre} · ${zona.canton}`,
             }))}
           />
         </label>
-        <label className={fieldLabel}>Nombre *<input className={input} required disabled maxLength={100} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
-        <label className={fieldLabel}>Especie *<input className={input} required disabled maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
-        <label className={fieldLabel}>Raza<input className={input} disabled maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
-        <label className={fieldLabel}>Contacto *<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
-        <label className={`${fieldLabel} sm:col-span-2`}>Ubicación *
+        <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.name")}<input className={input} required disabled maxLength={100} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.species")}<input className={input} required disabled maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.breed")}<input className={input} disabled maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.contact")}<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
+        <label className={`${fieldLabel} sm:col-span-2`}>{t("mascotasPerdidas.reportForm.location")}
           <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
         </label>
-        <label className={fieldLabel}>Recompensa<input className={input} inputMode="numeric" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
-        <label className={fieldLabel}><span className="flex items-center gap-2"><Camera size={15} /> Foto *</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
+        <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.reward")}<input className={input} inputMode="numeric" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
+        <label className={fieldLabel}><span className="flex items-center gap-2"><Camera size={15} /> {t("mascotasPerdidas.reportForm.photo")}</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
       </div>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando…" : "Usar la ubicación donde estoy"}</button>
-      <label className={fieldLabel}>Señas, conducta y último lugar visto *<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? t("mascotasPerdidas.detecting") : t("mascotasPerdidas.useMyLocation")}</button>
+      <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.descriptionLabel")}<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Publicando…" : "Publicar reporte"}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.reportForm.publishing") : t("mascotasPerdidas.reportForm.publish")}</button></div>
     </form>
   );
 };
@@ -312,6 +324,7 @@ const FoundPetForm = ({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) => {
+  const { t } = useTranslation();
   const [values, setValues] = useState({
     especie: "Perro",
     raza: "",
@@ -323,7 +336,7 @@ const FoundPetForm = ({
   const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { locating, locate } = useBrowserLocation();
+  const { locating, locate } = useBrowserLocation(t);
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
   const fillLocation = () =>
     locate(
@@ -335,20 +348,20 @@ const FoundPetForm = ({
     event.preventDefault();
     setError("");
     if (!values.zona_id) {
-      setError("Elige la zona donde la encontraste.");
+      setError(t("mascotasPerdidas.errors.chooseFoundZone"));
       return;
     }
     if (!photo) {
-      setError("Agrega una foto clara de la mascota.");
+      setError(t("mascotasPerdidas.errors.addPhoto"));
       return;
     }
     if (!photo.type.startsWith("image/") || photo.size > 5 * 1024 * 1024) {
-      setError("La foto debe ser JPG, PNG o WebP y pesar menos de 5 MB.");
+      setError(t("mascotasPerdidas.errors.invalidPhoto"));
       return;
     }
     const coords = parseCoords(values.ubicacion);
     if (!coords) {
-      setError("Escribe la ubicación como latitud, longitud. Ejemplo: 10.169410, -85.541761");
+      setError(t("mascotasPerdidas.errors.invalidLocation"));
       return;
     }
     const payload: LostPetInput = {
@@ -364,15 +377,15 @@ const FoundPetForm = ({
       recompensa: null,
     };
     if (!payload.especie) {
-      setError("Indica la especie de la mascota.");
+      setError(t("mascotasPerdidas.errors.missingSpecies"));
       return;
     }
     if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
-      setError("La latitud debe ser un número entre -90 y 90.");
+      setError(t("mascotasPerdidas.errors.invalidLatitude"));
       return;
     }
     if (!Number.isFinite(payload.longitud) || payload.longitud < -180 || payload.longitud > 180) {
-      setError("La longitud debe ser un número entre -180 y 180.");
+      setError(t("mascotasPerdidas.errors.invalidLongitude"));
       return;
     }
     setBusy(true);
@@ -380,12 +393,12 @@ const FoundPetForm = ({
       await reportLostPet(userId, payload, photo);
       await onSaved();
       onClose();
-      aviso.ok("Reporte publicado", {
-        detalle: "Le avisamos a quien tenga una mascota registrada parecida en esa zona.",
+      aviso.ok(t("mascotasPerdidas.foundForm.published"), {
+        detalle: t("mascotasPerdidas.foundForm.publishedDetail"),
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo publicar el reporte." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("mascotasPerdidas.errors.publishFailed") });
     } finally {
       setBusy(false);
     }
@@ -394,30 +407,30 @@ const FoundPetForm = ({
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className={fieldLabel}>Especie *<input className={input} required maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
-        <label className={fieldLabel}>Raza<input className={input} maxLength={100} placeholder="Si no la sabes, déjalo en blanco" value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
-        <label className={fieldLabel}>Zona *
+        <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.species")}<input className={input} required maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.breed")}<input className={input} maxLength={100} placeholder={t("mascotasPerdidas.foundForm.breedPlaceholder")} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.zone")}
           <Combo
             required
             value={values.zona_id}
             onChange={(v) => update("zona_id", v)}
-            placeholder="Selecciona una zona"
+            placeholder={t("mascotasPerdidas.foundForm.chooseZone")}
             options={zonas.map((zona) => ({
               value: zona.id_zona,
               label: `${zona.nombre} · ${zona.canton}`,
             }))}
           />
         </label>
-        <label className={fieldLabel}>Contacto *<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
-        <label className={`${fieldLabel} sm:col-span-2`}>Ubicación *
+        <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.contact")}<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
+        <label className={`${fieldLabel} sm:col-span-2`}>{t("mascotasPerdidas.foundForm.location")}
           <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
         </label>
-        <label className={`${fieldLabel} sm:col-span-2`}><span className="flex items-center gap-2"><Camera size={15} /> Foto *</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
+        <label className={`${fieldLabel} sm:col-span-2`}><span className="flex items-center gap-2"><Camera size={15} /> {t("mascotasPerdidas.foundForm.photo")}</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
       </div>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando…" : "Usar la ubicación donde estoy"}</button>
-      <label className={fieldLabel}>Señas, color, dónde y cómo la encontraste *<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? t("mascotasPerdidas.detecting") : t("mascotasPerdidas.useMyLocation")}</button>
+      <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.descriptionLabel")}<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Publicando…" : "Publicar reporte"}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.foundForm.publishing") : t("mascotasPerdidas.foundForm.publish")}</button></div>
     </form>
   );
 };
@@ -435,6 +448,7 @@ const SightingForm = ({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) => {
+  const { t } = useTranslation();
   const [values, setValues] = useState({
     ubicacion: "",
     zona_id: report.zona_id,
@@ -444,7 +458,7 @@ const SightingForm = ({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { locating, locate } = useBrowserLocation();
+  const { locating, locate } = useBrowserLocation(t);
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
   const fillLocation = () =>
     locate(
@@ -457,7 +471,7 @@ const SightingForm = ({
     setError("");
     const coords = parseCoords(values.ubicacion);
     if (!coords) {
-      setError("Escribe la ubicación como latitud, longitud. Ejemplo: 10.169410, -85.541761");
+      setError(t("mascotasPerdidas.errors.invalidLocation"));
       setBusy(false);
       return;
     }
@@ -471,12 +485,12 @@ const SightingForm = ({
         contacto: values.contacto.trim() || null,
       };
     if (!Number.isFinite(payload.latitud) || payload.latitud < -90 || payload.latitud > 90) {
-      setError("La latitud debe ser un número entre -90 y 90.");
+      setError(t("mascotasPerdidas.errors.invalidLatitude"));
       setBusy(false);
       return;
     }
     if (!Number.isFinite(payload.longitud) || payload.longitud < -180 || payload.longitud > 180) {
-      setError("La longitud debe ser un número entre -180 y 180.");
+      setError(t("mascotasPerdidas.errors.invalidLongitude"));
       setBusy(false);
       return;
     }
@@ -484,12 +498,12 @@ const SightingForm = ({
       await registerSighting(payload);
       await onSaved();
       onClose();
-      aviso.ok("Avistamiento registrado", {
-        detalle: `Le avisamos a quien reportó a ${report.nombre}.`,
+      aviso.ok(t("mascotasPerdidas.sightingForm.registered"), {
+        detalle: t("mascotasPerdidas.sightingForm.registeredDetail", { nombre: report.nombre }),
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo registrar el avistamiento." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("mascotasPerdidas.errors.registerSightingFailed") });
     } finally {
       setBusy(false);
     }
@@ -497,82 +511,86 @@ const SightingForm = ({
 
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
-      <div className="rounded-[14px] bg-sunken p-4"><p className="text-[14px] font-semibold text-ink">{report.nombre}</p><p className="mt-1 text-[12.5px] text-ink-soft">{zonaLabel(report.zona)}</p></div>
-      <label className={fieldLabel}>Ubicación *
+      <div className="rounded-[14px] bg-sunken p-4"><p className="text-[14px] font-semibold text-ink">{report.nombre}</p><p className="mt-1 text-[12.5px] text-ink-soft">{zonaLabel(report.zona, t)}</p></div>
+      <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.location")}
         <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
       </label>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? "Detectando…" : "Usar la ubicación donde estoy"}</button>
+      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? t("mascotasPerdidas.detecting") : t("mascotasPerdidas.useMyLocation")}</button>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className={fieldLabel}>Zona
+        <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.zone")}
           <Combo
             value={values.zona_id}
             onChange={(v) => update("zona_id", v)}
             vacio
-            placeholder="Sin zona"
+            placeholder={t("mascotasPerdidas.sightingForm.noZone")}
             options={zonas.map((zona) => ({
               value: zona.id_zona,
               label: `${zona.nombre} · ${zona.canton}`,
             }))}
           />
         </label>
-        <label className={fieldLabel}>Contacto
+        <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.contact")}
           <input className={input} maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} />
         </label>
       </div>
-      <label className={fieldLabel}>Dirección o referencia
+      <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.address")}
         <input className={input} maxLength={300} value={values.direccion} onChange={(e) => update("direccion", e.target.value)} />
       </label>
-      <label className={fieldLabel}>Comentario<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>
+      <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.comment")}<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Registrando…" : "Registrar avistamiento"}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.sightingForm.registering") : t("mascotasPerdidas.sightingForm.register")}</button></div>
     </form>
   );
 };
 
-const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: () => void }) => (
-  <div className="grid gap-3 p-5 sm:p-6">
-    {report.avistamientos.length === 0 ? (
-      <EmptyState title="Sin avistamientos" hint="Cuando alguien reporte que vio tu mascota, aparecerá acá." />
-    ) : (
-      report.avistamientos.map((item) => (
-        <article key={item.id_avistamiento} className="rounded-[18px] bg-sunken p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[13px] font-semibold text-ink">{formatDateTime(item.fecha)}</p>
-              <p className="mt-1 text-[12.5px] text-ink-soft">{item.direccion || zonaLabel(item.zona)}</p>
+const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: () => void }) => {
+  const { t, localeTag } = useTranslation();
+  return (
+    <div className="grid gap-3 p-5 sm:p-6">
+      {report.avistamientos.length === 0 ? (
+        <EmptyState title={t("mascotasPerdidas.sightingDetails.empty.title")} hint={t("mascotasPerdidas.sightingDetails.empty.hint")} />
+      ) : (
+        report.avistamientos.map((item) => (
+          <article key={item.id_avistamiento} className="rounded-[18px] bg-sunken p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-semibold text-ink">{formatDateTime(item.fecha, localeTag)}</p>
+                <p className="mt-1 text-[12.5px] text-ink-soft">{item.direccion || zonaLabel(item.zona, t)}</p>
+              </div>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${item.latitud},${item.longitud}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[12px] font-semibold text-accent-dark hover:underline"
+              >
+                {t("mascotasPerdidas.sightingDetails.viewMap")}
+              </a>
             </div>
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${item.latitud},${item.longitud}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[12px] font-semibold text-accent-dark hover:underline"
-            >
-              Ver mapa
-            </a>
-          </div>
-          {/* Había una cuarta ficha, "Usuario", con el UUID crudo de
-              quien reportó. A quien busca a su mascota no le dice nada y
-              ocupa el mismo sitio que el contacto, que sí sirve. */}
-          <dl className="mt-3 grid gap-2.5 text-[12.5px] text-ink-soft sm:grid-cols-3">
-            <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">Ubicación</dt><dd className="nums mt-1 break-all">{coordsLabel(item)}</dd></div>
-            <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">Zona</dt><dd className="mt-1">{zonaLabel(item.zona)}</dd></div>
-            <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">Contacto</dt><dd className="nums mt-1 break-all">{item.contacto || "No indicado"}</dd></div>
-          </dl>
-          <div className="mt-3 rounded-[14px] bg-surface p-3">
-            <p className="rotulo text-ink-mute">Comentario</p>
-            <p className="mt-1 whitespace-pre-wrap text-[13px] text-ink-soft">{item.comentario || "Sin comentario"}</p>
-          </div>
-        </article>
-      ))
-    )}
-    <div className="flex justify-end">
-      <button type="button" className={btnSecondary} onClick={onClose}>Cerrar</button>
+            {/* Había una cuarta ficha, "Usuario", con el UUID crudo de
+                quien reportó. A quien busca a su mascota no le dice nada y
+                ocupa el mismo sitio que el contacto, que sí sirve. */}
+            <dl className="mt-3 grid gap-2.5 text-[12.5px] text-ink-soft sm:grid-cols-3">
+              <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">{t("mascotasPerdidas.sightingDetails.location")}</dt><dd className="nums mt-1 break-all">{coordsLabel(item)}</dd></div>
+              <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">{t("mascotasPerdidas.sightingDetails.zone")}</dt><dd className="mt-1">{zonaLabel(item.zona, t)}</dd></div>
+              <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">{t("mascotasPerdidas.sightingDetails.contact")}</dt><dd className="nums mt-1 break-all">{item.contacto || t("mascotasPerdidas.sightingDetails.notIndicated")}</dd></div>
+            </dl>
+            <div className="mt-3 rounded-[14px] bg-surface p-3">
+              <p className="rotulo text-ink-mute">{t("mascotasPerdidas.sightingDetails.comment")}</p>
+              <p className="mt-1 whitespace-pre-wrap text-[13px] text-ink-soft">{item.comentario || t("mascotasPerdidas.sightingDetails.noComment")}</p>
+            </div>
+          </article>
+        ))
+      )}
+      <div className="flex justify-end">
+        <button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.sightingDetails.close")}</button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const MascotasPerdidas = () => {
   const { user, getProfile, isAdmin } = useAuth();
+  const { t, localeTag } = useTranslation();
   const [filtro, setFiltro] = useState("Todas");
   const [busqueda, setBusqueda] = useState("");
   const [reportes, setReportes] = useState<LostPetReport[]>([]);
@@ -608,9 +626,9 @@ const MascotasPerdidas = () => {
       // el listado, no el listado en sí.
       setMatches(await listMyPetMatches(petsData).catch(() => []));
     } catch (cause) {
-      setError(messageFrom(cause));
+      setError(messageFrom(cause, t));
     }
-  }, [getProfile]);
+  }, [getProfile, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -635,10 +653,11 @@ const MascotasPerdidas = () => {
       });
       setReportes(reportesData);
     } catch (cause) {
-      setError(messageFrom(cause));
+      setError(messageFrom(cause, t));
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filtro,
     profileZonaId,
@@ -707,16 +726,16 @@ const MascotasPerdidas = () => {
       await resolveMatch(match.id_match, estado);
       await refresh();
       aviso.ok(
-        estado === "confirmado" ? `¡${match.mascotaNombre} está de vuelta!` : "Coincidencia descartada",
+        estado === "confirmado" ? t("mascotasPerdidas.matches.confirmed", { nombre: match.mascotaNombre }) : t("mascotasPerdidas.matches.discarded"),
         {
           detalle:
             estado === "confirmado"
-              ? "Vinculamos el reporte con tu mascota. Coordina la entrega con quien la encontró."
+              ? t("mascotasPerdidas.matches.confirmedDetail")
               : undefined,
         }
       );
     } catch (cause) {
-      aviso.error(cause, { respaldo: "No se pudo actualizar la coincidencia." });
+      aviso.error(cause, { respaldo: t("mascotasPerdidas.errors.updateMatchFailed") });
     } finally {
       setResolviendoMatch(null);
     }
@@ -728,12 +747,12 @@ const MascotasPerdidas = () => {
       await markLostPetFound(report.id_mascota_perdida);
       setCerrandoCaso(null);
       await refresh();
-      aviso.ok(`${report.nombre} apareció`, {
-        detalle: "El reporte se cerró y sale del listado.",
+      aviso.ok(t("mascotasPerdidas.closeDialog.closed", { nombre: report.nombre }), {
+        detalle: t("mascotasPerdidas.closeDialog.closedDetail"),
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo cerrar el reporte." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("mascotasPerdidas.errors.closeFailed") });
     } finally {
       setCerrandoOcupado(false);
     }
@@ -755,29 +774,29 @@ const MascotasPerdidas = () => {
   return (
     <Page>
       <PageHeader
-        title="Mascotas perdidas"
-        subtitle={loading ? "Cargando reportes…" : `${stats.perdidas} activas · ${stats.encontradas} encontradas · ${stats.avistamientos} avistamientos`}
+        title={t("mascotasPerdidas.title")}
+        subtitle={loading ? t("mascotasPerdidas.loadingReports") : t("mascotasPerdidas.statsSummary", { perdidas: stats.perdidas, encontradas: stats.encontradas, avistamientos: stats.avistamientos })}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className={btnSecondary} onClick={() => setReportingFound(true)}>
               <Eye size={15} strokeWidth={2} />
-              Encontré una mascota
+              {t("mascotasPerdidas.foundPet")}
             </button>
-            <button type="button" className={btnPrimary} onClick={() => setReporting(true)} disabled={!pets.length} title={!pets.length ? "Registra primero una mascota" : undefined}><Siren size={15} strokeWidth={2} />Reportar mascota perdida</button>
+            <button type="button" className={btnPrimary} onClick={() => setReporting(true)} disabled={!pets.length} title={!pets.length ? t("mascotasPerdidas.registerPetFirst") : undefined}><Siren size={15} strokeWidth={2} />{t("mascotasPerdidas.reportLostPet")}</button>
           </div>
         }
       />
 
       {pendingMatches.length > 0 && (
-        <section aria-label="Posibles coincidencias" className="bg-accent-wash p-4 sm:p-5">
+        <section aria-label={t("mascotasPerdidas.matches.aria")} className="bg-accent-wash p-4 sm:p-5">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-accent-dark" aria-hidden />
             <h3 className="text-[14px] font-semibold text-accent-deep">
-              {pendingMatches.length === 1 ? "Posible coincidencia" : "Posibles coincidencias"}
+              {pendingMatches.length === 1 ? t("mascotasPerdidas.matches.singular") : t("mascotasPerdidas.matches.plural")}
             </h3>
           </div>
           <p className="mt-1 text-[12.5px] text-accent-dark">
-            Alguien reportó haber encontrado una mascota que podría ser tuya.
+            {t("mascotasPerdidas.matches.hint")}
           </p>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -785,13 +804,13 @@ const MascotasPerdidas = () => {
               <article key={match.id_match} className="flex gap-3 rounded-[18px] bg-surface p-3">
                 <img
                   src={match.fotoUrl ?? "/mock/dog-nube.jpg"}
-                  alt={`Foto de la mascota encontrada, posible ${match.mascotaNombre}`}
+                  alt={t("mascotasPerdidas.matches.photoAlt", { nombre: match.mascotaNombre })}
                   className="size-20 shrink-0 rounded-[14px] bg-sunken object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-ink">¿Es {match.mascotaNombre}?</p>
+                  <p className="text-[13px] font-semibold text-ink">{t("mascotasPerdidas.matches.isThis", { nombre: match.mascotaNombre })}</p>
                   <p className="mt-0.5 truncate text-[12px] text-ink-mute">
-                    {match.especie} · {zonaLabel(match.zona)}
+                    {match.especie} · {zonaLabel(match.zona, t)}
                   </p>
                   <p className="mt-1 line-clamp-2 text-[12px] text-ink-soft">{match.descripcion}</p>
                   <div className="mt-2 flex gap-2">
@@ -802,7 +821,7 @@ const MascotasPerdidas = () => {
                       onClick={() => void resolveMyMatch(match, "confirmado")}
                     >
                       <Check size={13} />
-                      Sí, es ella
+                      {t("mascotasPerdidas.matches.yesItsHer")}
                     </button>
                     <button
                       type="button"
@@ -811,7 +830,7 @@ const MascotasPerdidas = () => {
                       onClick={() => void resolveMyMatch(match, "descartado")}
                     >
                       <X size={13} />
-                      No es
+                      {t("mascotasPerdidas.matches.notHer")}
                     </button>
                   </div>
                 </div>
@@ -821,72 +840,66 @@ const MascotasPerdidas = () => {
         </section>
       )}
 
-      <section aria-label="Filtros de mascotas perdidas" className="bg-surface p-4 sm:p-5">
+      <section aria-label={t("mascotasPerdidas.filters.aria")} className="bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[13px] font-semibold text-ink">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</p>
-            <p className="mt-0.5 text-[12px] text-ink-mute">Filtrá por estado, provincia, cantón, distrito o texto.</p>
+            <p className="text-[13px] font-semibold text-ink">{visibles.length} {visibles.length === 1 ? t("mascotasPerdidas.filters.resultSingular") : t("mascotasPerdidas.filters.resultPlural")}</p>
+            <p className="mt-0.5 text-[12px] text-ink-mute">{t("mascotasPerdidas.filters.hint")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <FilterTabs label="Filtrar reportes" options={filtros} value={filtro} onChange={setFiltro} />
+            <FilterTabs label={t("mascotasPerdidas.filters.label")} options={filtros.map((o) => ({ value: o, label: t(claveFiltroLabel[o]) }))} value={filtro} onChange={setFiltro} />
             {/* Limpiar es una acción sobre el conjunto de filtros, así que
                 va con el resumen y no como quinta columna de la rejilla.
                 Y aparece solo cuando hay algo que limpiar: un botón
                 permanentemente apagado es ruido. */}
             {hasFilters && (
               <button type="button" className={btnQuiet} onClick={clearFilters}>
-                Limpiar
+                {t("mascotasPerdidas.filters.clear")}
               </button>
             )}
           </div>
         </div>
 
-        {/* Antes esto era una sola fila de cinco columnas con mínimos de
-            240 + 180×3 + auto. Sumado a las separaciones pide unos 918 px,
-            y el contenido de la aplicación mide 900 (`AppShell`): se salía
-            justo en el ancho en el que se usa. La búsqueda va sola arriba
-            —es la que necesita sitio para escribir— y los tres escalones
-            territoriales debajo, a tercios. */}
-        <label className={`${fieldLabel} mt-4 block`}>Buscar
+        <label className={`${fieldLabel} mt-4 block`}>{t("mascotasPerdidas.filters.search")}
           <span className="relative block">
-            <input id="buscar-reporte" type="search" className={`${input} pl-10`} placeholder="Nombre, zona o señas" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
+            <input id="buscar-reporte" type="search" className={`${input} pl-10`} placeholder={t("mascotasPerdidas.filters.searchPlaceholder")} value={busqueda} onChange={(event) => setBusqueda(event.target.value)} />
             <Search size={15} aria-hidden className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute" />
           </span>
         </label>
 
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <label className={fieldLabel}>Provincia
+          <label className={fieldLabel}>{t("mascotasPerdidas.filters.province")}
             <Combo
               value={territorio.provincia}
               onChange={territorio.elegirProvincia}
-              placeholder="Todas las provincias"
+              placeholder={t("mascotasPerdidas.filters.allProvinces")}
               options={territorio.provincias.map((item) => ({
                 value: item,
-                label: item === "Todas" ? "Todas las provincias" : item,
+                label: item === "Todas" ? t("mascotasPerdidas.filters.allProvinces") : item,
               }))}
             />
           </label>
-          <label className={fieldLabel}>Cantón
+          <label className={fieldLabel}>{t("mascotasPerdidas.filters.canton")}
             <Combo
               value={territorio.canton}
               onChange={territorio.elegirCanton}
               disabled={!territorio.filtrando}
-              placeholder="Todos los cantones"
+              placeholder={t("mascotasPerdidas.filters.allCantons")}
               options={territorio.cantones.map((item) => ({
                 value: item,
-                label: item === "Todos" ? "Todos los cantones" : item,
+                label: item === "Todos" ? t("mascotasPerdidas.filters.allCantons") : item,
               }))}
             />
           </label>
-          <label className={fieldLabel}>Distrito
+          <label className={fieldLabel}>{t("mascotasPerdidas.filters.district")}
             <Combo
               value={territorio.distrito}
               onChange={territorio.elegirDistrito}
               disabled={territorio.canton === "Todos"}
-              placeholder="Todos los distritos"
+              placeholder={t("mascotasPerdidas.filters.allDistricts")}
               options={territorio.distritos.map((item) => ({
                 value: item,
-                label: item === "Todos" ? "Todos los distritos" : item,
+                label: item === "Todos" ? t("mascotasPerdidas.filters.allDistricts") : item,
               }))}
             />
           </label>
@@ -901,9 +914,9 @@ const MascotasPerdidas = () => {
         </Skeleton>
       ) : visibles.length === 0 ? (
         <EmptyState
-          title={hasFilters ? "Sin reportes en este filtro" : "Todavía no hay reportes"}
-          hint={hasFilters ? "Probá con otra zona o quitá el texto de búsqueda." : "Cuando alguien reporte una mascota perdida, aparece acá."}
-          action={hasFilters ? <button type="button" className={btnSecondary} onClick={clearFilters}>Limpiar filtros</button> : undefined}
+          title={hasFilters ? t("mascotasPerdidas.empty.withFiltersTitle") : t("mascotasPerdidas.empty.withoutFiltersTitle")}
+          hint={hasFilters ? t("mascotasPerdidas.empty.withFiltersHint") : t("mascotasPerdidas.empty.withoutFiltersHint")}
+          action={hasFilters ? <button type="button" className={btnSecondary} onClick={clearFilters}>{t("mascotasPerdidas.empty.clearFilters")}</button> : undefined}
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -912,61 +925,17 @@ const MascotasPerdidas = () => {
             const puedeCerrar = canClose && reporte.estado === "perdida";
             const ultimoAvistamiento = reporte.avistamientos[0];
             return (
-              /* `overflow-hidden`: la foto va pegada al borde de arriba y
-                 sin esto asoma en cuadrado por fuera del radio de la
-                 tarjeta. Y por eso mismo no se usa `MockPhoto`, que trae
-                 su propio radio de 14 y dejaba una doble esquina. */
               <article key={reporte.id_mascota_perdida} className="flex flex-col overflow-hidden bg-surface">
-                {/* El nombre va SOBRE la foto, no debajo.
-
-                    La tarjeta medía cerca de 520 px de alto por 280 de
-                    ancho: una columna, no una tarjeta. La foto 4:3 se
-                    llevaba 210 y la cabecera de texto otros 46 más,
-                    y las dos decían lo mismo —quién es— una encima de
-                    la otra. Encimando el rótulo y pasando la foto a
-                    16:10 se recuperan unos 80 px sin quitar un dato.
-
-                    El degradado no es adorno: la foto la sube
-                    cualquiera y puede venir clara, oscura o con un
-                    cielo blanco detrás. Sin él, el nombre en blanco
-                    desaparece la mitad de las veces. */}
                 <div className="group relative">
-                  {/* La foto abre en grande.
-
-                      En un reporte de mascota perdida la foto ES el
-                      dato: quien cree haberla visto necesita comparar
-                      manchas, orejas y cola, y en una tarjeta de 280 px
-                      recortada a 16:10 eso no se puede.
-
-                      Las capas de encima llevan `pointer-events-none`
-                      para dejar pasar el clic. Sin eso, la mitad de
-                      abajo —justo donde está el nombre— no abriría
-                      nada, que es donde el ojo va primero. */}
-                  {/* El degradado y el icono van DENTRO del botón, no
-                      al lado.
-
-                      Los iconos propios de `lib/iconos` no se animan
-                      solos: `useRoce` sube por el DOM con `closest`
-                      buscando el elemento interactivo que los contiene
-                      —un `button`, un `a[href]`, una `label`— y engancha
-                      la animación al hover DE ESE. Es lo que hace que
-                      el dibujo reaccione al pasar por la píldora
-                      entera y no solo por sus dieciséis píxeles.
-
-                      Puesto como hermano del botón, `closest` no
-                      encontraba anfitrión y el icono se quedaba quieto.
-                      Adentro también resuelve el apilado: el degradado
-                      tiene que pintar sobre la foto pero por debajo del
-                      icono, y siendo hermanos posteriores tapaban. */}
                   <button
                     type="button"
                     onClick={() => setFotoAbierta(reporte)}
-                    aria-label={`Ver la foto de ${reporte.nombre} en grande`}
+                    aria-label={t("mascotasPerdidas.card.viewPhotoAria", { nombre: reporte.nombre })}
                     className="relative block w-full cursor-zoom-in overflow-hidden focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
                   >
                     <img
                       src={reporte.fotoUrl ?? "/mock/dog-nube.jpg"}
-                      alt={`Foto de ${reporte.nombre}`}
+                      alt={t("mascotasPerdidas.card.photoAlt", { nombre: reporte.nombre })}
                       loading="lazy"
                       className="aspect-[16/10] w-full bg-sunken object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                     />
@@ -976,8 +945,6 @@ const MascotasPerdidas = () => {
                       className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[rgb(20_36_46/88%)] via-[rgb(20_36_46/38%)] to-transparent"
                     />
 
-                    {/* Tenue siempre y no solo al pasar el cursor: en un
-                        teléfono no hay cursor que pasar. */}
                     <span
                       aria-hidden
                       className="absolute right-3 bottom-3 grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white opacity-70 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100"
@@ -987,14 +954,10 @@ const MascotasPerdidas = () => {
                   </button>
 
                   <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
-                    <Badge tono={reporte.estado === "perdida" ? "danger" : "ok"}>{reporte.estado === "perdida" ? "Perdida" : "Encontrada"}</Badge>
+                    <Badge tono={reporte.estado === "perdida" ? "danger" : "ok"}>{reporte.estado === "perdida" ? t("mascotasPerdidas.card.statusLost") : t("mascotasPerdidas.card.statusFound")}</Badge>
                     {reporte.recompensa != null && (
-                      /* Con la cifra sola quedaba un número amarillo
-                         suelto sobre la foto: podía leerse como el peso
-                         o la edad. La palabra es la que lo convierte en
-                         un motivo para llamar. */
                       <span className="nums shrink-0 rounded-full bg-warn-wash px-2.5 py-1 text-[11.5px] font-semibold text-warn">
-                        Recompensa {colones(reporte.recompensa)}
+                        {t("mascotasPerdidas.card.reward", { monto: colones(reporte.recompensa) })}
                       </span>
                     )}
                   </div>
@@ -1009,86 +972,61 @@ const MascotasPerdidas = () => {
                 </div>
 
                 <div className="flex flex-1 flex-col px-5 py-4">
-                  {/* Cada fila tiene su `dt` en `sr-only`: una lista de
-                      definiciones con `dd` sueltos no es válida, y quien
-                      navega con lector de pantalla oía tres datos sin
-                      saber de qué eran. El ícono no sirve de etiqueta. */}
                   <dl className="flex flex-col gap-1 text-[12.5px] text-ink-soft">
-                    <div className="flex items-center gap-2"><MapPin size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">Zona</dt><dd className="truncate">Visto en {zonaLabel(reporte.zona)}</dd></div>
-                    <div className="flex items-center gap-2"><Clock size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">Reportado</dt><dd className="nums">{formatDateTime(reporte.fecha_reporte)}</dd></div>
+                    <div className="flex items-center gap-2"><MapPin size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">{t("mascotasPerdidas.card.zoneLabel")}</dt><dd className="truncate">{t("mascotasPerdidas.card.seenIn", { zona: zonaLabel(reporte.zona, t) })}</dd></div>
+                    <div className="flex items-center gap-2"><Clock size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">{t("mascotasPerdidas.card.reportedLabel")}</dt><dd className="nums">{formatDateTime(reporte.fecha_reporte, localeTag)}</dd></div>
                     {reporte.contacto && (
                       <div className="flex items-center gap-2">
                         <Phone size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
-                        <dt className="sr-only">Contacto</dt>
-                        {/* Enlace `tel:`: en el teléfono, que es donde se
-                            va a ver esto, llamar es la acción del caso. */}
+                        <dt className="sr-only">{t("mascotasPerdidas.card.contactLabel")}</dt>
                         <dd className="min-w-0"><a href={`tel:${reporte.contacto.replace(/[^+\d]/g, "")}`} className="nums truncate hover:text-ink hover:underline">{telefonoLegible(reporte.contacto)}</a></dd>
                       </div>
                     )}
                   </dl>
 
-                  {/* Lo que escribió quien la perdió. Va en tinta plena y
-                      separado del bloque de datos: es un mensaje, no una
-                      cuarta fila de la lista. Recortado a tres líneas
-                      para que una descripción larga no estire toda la
-                      fila de la rejilla. */}
                   {reporte.descripcion && (
                     <p className="mt-3 line-clamp-2 text-[12.5px] leading-relaxed text-ink">
                       {reporte.descripcion}
                     </p>
                   )}
 
-                  {/* Sin avistamientos el recuadro decía dos veces lo
-                      mismo —"0 avistamientos" arriba y "Sin
-                      avistamientos reportados" debajo— y ocupaba el
-                      mismo sitio que cuando sí los hay. Una línea. */}
-                  {/* El recuento va siempre, también en cero: "0
-                      avistamientos" no es lo mismo que no decir nada
-                      —significa que nadie la ha visto todavía, y eso es
-                      un dato del caso—. */}
                   <div className="mt-3 rounded-[14px] bg-sunken px-3 py-2.5 text-[12px] text-ink-soft">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-semibold text-ink">
-                          {reporte.avistamientos.length} {reporte.avistamientos.length === 1 ? "avistamiento" : "avistamientos"}
+                          {reporte.avistamientos.length} {reporte.avistamientos.length === 1 ? t("mascotasPerdidas.card.sightingSingular") : t("mascotasPerdidas.card.sightingPlural")}
                         </p>
                         {ultimoAvistamiento ? (
                           <p className="mt-1 line-clamp-2">
-                            Último: {ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona)} · {formatDateTime(ultimoAvistamiento.fecha)}
+                            {t("mascotasPerdidas.card.lastSighting", { lugar: ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona, t), fecha: formatDateTime(ultimoAvistamiento.fecha, localeTag) })}
                           </p>
                         ) : (
-                          <p className="mt-1 text-ink-mute">Sin avistamientos reportados.</p>
+                          <p className="mt-1 text-ink-mute">{t("mascotasPerdidas.card.noSightings")}</p>
                         )}
                       </div>
                       {canClose && ultimoAvistamiento && (
                         <button type="button" className="shrink-0 text-[12px] font-semibold text-accent-dark hover:underline" onClick={() => setSightingDetails(reporte)}>
-                          Detalles
+                          {t("mascotasPerdidas.card.details")}
                         </button>
                       )}
                     </div>
                   </div>
 
-                  {/* Tres botones a lo alto y todos secundarios: ni
-                      jerarquía ni sitio. La acción que mueve el caso
-                      —avisar que se vio al animal— manda y ocupa la
-                      fila entera; las otras dos se reparten la de
-                      abajo, con las etiquetas cortas para que entren en
-                      una tarjeta de 280 px. */}
                   <div className="mt-auto grid gap-2 pt-3.5">
                     <button type="button" disabled={reporte.estado === "encontrada"} className={`${reporte.estado === "encontrada" ? btnSecondary : btnPrimary} w-full disabled:cursor-default disabled:opacity-45 disabled:hover:bg-neutral-wash disabled:hover:brightness-100`} onClick={() => setSighting(reporte)}>
                       <Eye size={14} strokeWidth={1.9} />
-                      {reporte.estado === "encontrada" ? "Caso cerrado" : "Vi a esta mascota"}
+                      {reporte.estado === "encontrada" ? t("mascotasPerdidas.card.caseClosed") : t("mascotasPerdidas.card.iSawThisPet")}
                     </button>
 
                     <div className={`grid gap-2 ${puedeCerrar ? "grid-cols-2" : "grid-cols-1"}`}>
                       <a href={`https://www.google.com/maps/search/?api=1&query=${reporte.latitud},${reporte.longitud}`} target="_blank" rel="noreferrer" className={`${btnSecondaryCompacto} w-full`}>
                         <MapPin size={13} />
-                        Ubicación
+                        {t("mascotasPerdidas.card.location")}
                       </a>
                       {puedeCerrar && (
                         <button type="button" className={`${btnSecondaryCompacto} w-full`} onClick={() => setCerrandoCaso(reporte)}>
                           <CheckCircle2 size={13} />
-                          Ya apareció
+                          {t("mascotasPerdidas.card.foundIt")}
                         </button>
                       )}
                     </div>
@@ -1101,45 +1039,39 @@ const MascotasPerdidas = () => {
       )}
 
       {reporting && user && (
-        <Dialog ancho="max-w-[760px]" title="Reportar mascota perdida" onClose={() => setReporting(false)}>
+        <Dialog ancho="max-w-[760px]" title={t("mascotasPerdidas.reportLostPet")} onClose={() => setReporting(false)}>
           <ReportForm userId={user.id} pets={pets} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReporting(false)} onSaved={refresh} />
         </Dialog>
       )}
       {reportingFound && user && (
-        <Dialog ancho="max-w-[760px]" title="Encontré una mascota" onClose={() => setReportingFound(false)}>
+        <Dialog ancho="max-w-[760px]" title={t("mascotasPerdidas.foundPet")} onClose={() => setReportingFound(false)}>
           <FoundPetForm userId={user.id} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReportingFound(false)} onSaved={refresh} />
         </Dialog>
       )}
       {sighting && (
-        <Dialog ancho="max-w-[760px]" title="Registrar avistamiento" onClose={() => setSighting(null)}>
+        <Dialog ancho="max-w-[760px]" title={t("mascotasPerdidas.sightingForm.register")} onClose={() => setSighting(null)}>
           <SightingForm report={sighting} zonas={zonas} profilePhone={profilePhone} onClose={() => setSighting(null)} onSaved={refresh} />
         </Dialog>
       )}
       <Visor
         abierto={fotoAbierta !== null}
         src={fotoAbierta?.fotoUrl ?? "/mock/dog-nube.jpg"}
-        alt={fotoAbierta ? `Foto de ${fotoAbierta.nombre}` : ""}
+        alt={fotoAbierta ? t("mascotasPerdidas.card.photoAlt", { nombre: fotoAbierta.nombre }) : ""}
         cerrar={() => setFotoAbierta(null)}
       />
 
       {cerrandoCaso && (
         <Confirmar
-          titulo="Marcar como encontrada"
-          cuerpo={
-            <>
-              Vas a cerrar el reporte de <strong className="font-semibold text-ink">{cerrandoCaso.nombre}</strong>. Deja de
-              aparecer entre las mascotas perdidas y nadie va a poder registrar
-              más avistamientos.
-            </>
-          }
-          confirmar="Sí, apareció"
+          titulo={t("mascotasPerdidas.closeDialog.title")}
+          cuerpo={t("mascotasPerdidas.closeDialog.body", { nombre: cerrandoCaso.nombre })}
+          confirmar={t("mascotasPerdidas.closeDialog.confirm")}
           ocupado={cerrandoOcupado}
           onConfirmar={() => void closeReport(cerrandoCaso)}
           onCancelar={() => setCerrandoCaso(null)}
         />
       )}
       {sightingDetails && (
-        <Dialog ancho="max-w-[760px]" title={`Avistamientos de ${sightingDetails.nombre}`} onClose={() => setSightingDetails(null)}>
+        <Dialog ancho="max-w-[760px]" title={t("mascotasPerdidas.sightingDetails.title", { nombre: sightingDetails.nombre })} onClose={() => setSightingDetails(null)}>
           <SightingDetails report={sightingDetails} onClose={() => setSightingDetails(null)} />
         </Dialog>
       )}

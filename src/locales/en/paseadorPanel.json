@@ -1,0 +1,162 @@
+{
+  "panel": {
+    "title": "Walker dashboard",
+    "stopReceiving": "Stop receiving requests",
+    "becomeAvailable": "Make myself available",
+    "available": "Available",
+    "unavailable": "Not available",
+    "availableHint": "Owners in your area can send you requests.",
+    "unavailableHint": "You won't receive new requests until you turn this on.",
+    "loading": "Loading dashboard…",
+    "loadError": "Could not load the dashboard.",
+    "availabilityError": "Could not change your availability.",
+    "stats": {
+      "walksToday": "Walks today",
+      "oneInProgress": "1 in progress",
+      "earnedToday": "Earned today",
+      "beforeCommission": "before commission",
+      "thisWeek": "This week",
+      "walksSuffix": "walks",
+      "rating": "Rating",
+      "reviewsSuffix": "reviews"
+    },
+    "ongoingWalk": {
+      "title": "Ongoing walk",
+      "goToTracking": "Go to tracking",
+      "empty": {
+        "title": "You have no ongoing walks",
+        "hint": "Once you start a confirmed walk, it'll show up here."
+      }
+    },
+    "upcomingRequests": {
+      "title": "Upcoming requests",
+      "caption": "Requests awaiting response",
+      "columns": {
+        "ownerAndPet": "Owner and pet",
+        "when": "When",
+        "zone": "Zone",
+        "pay": "Pay"
+      },
+      "empty": {
+        "title": "You have no pending requests",
+        "hint": "Once an owner in your area picks you, the request shows up here."
+      }
+    }
+  },
+  "requests": {
+    "title": "Requests",
+    "subtitle": "Walks offered by owners in your area. The owner can cancel while you haven't responded.",
+    "loadError": "Could not load the requests.",
+    "respondError": "Could not respond to the request.",
+    "verifyFirst": "Verify your profile first",
+    "verifyFirstDetail": "Without approved verification you can't accept walks.",
+    "confirmed": "Walk with {{mascota}} confirmed",
+    "rejected": "{{mascota}}'s request rejected",
+    "rejectedDetail": "We notified the owner to look for another walker.",
+    "card": {
+      "noPhoto": "No photo",
+      "viewPhotoFull": "View {{mascota}}'s photo in full size",
+      "owner": "Owner",
+      "ownerOffer": "Owner's offer",
+      "yourRate": "Your rate:",
+      "paidForThisWalk": "You get paid for this walk",
+      "day": "Day",
+      "schedule": "Schedule",
+      "duration": "Duration",
+      "zone": "Zone",
+      "meetingPoint": "Meeting point:",
+      "messageFor": "Message for {{nombre}} (optional)",
+      "messagePlaceholder": "E.g.: I'll arrive 5 minutes early with an extra leash.",
+      "reject": "Reject",
+      "accept": "Accept walk",
+      "acceptOffer": "Accept {{monto}}",
+      "saving": "Saving...",
+      "male": "Male",
+      "female": "Female",
+      "allergies": "Allergies:",
+      "noAllergiesWithConditions": "No allergies registered",
+      "noAllergiesNoConditions": "No allergies or conditions registered",
+      "hasOneCondition": "Has one condition",
+      "hasConditions": "Has {{count}} conditions",
+      "since": "since",
+      "vaccines": "Vaccines",
+      "noVaccines": "The owner didn't register any vaccines.",
+      "expires": "expires",
+      "statusUpcoming": "Expiring soon",
+      "notes": "What the owner wants you to know",
+      "weight": "Weight",
+      "color": "Color",
+      "sterilized": "Sterilized",
+      "yes": "Yes",
+      "no": "No",
+      "microchip": "Microchip",
+      "vet": "Vet"
+    },
+    "empty": {
+      "titleEnabled": "You have no pending requests",
+      "titleDisabled": "You don't show up in searches yet",
+      "hintEnabled": "Once an owner in your area picks you, the request shows up here.",
+      "hintDisabled": "Owners only see walkers with approved verification. Complete your documents and wait for review."
+    }
+  },
+  "agenda": {
+    "title": "Schedule",
+    "subtitle": "Walks you've already accepted, sorted by time.",
+    "loading": "Loading schedule…",
+    "loadError": "Could not load the schedule.",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "pickDay": "Pick a day",
+    "statusInCourse": "In progress",
+    "statusConfirmed": "Confirmed",
+    "caption": "Walks scheduled for {{dia}}",
+    "columns": {
+      "time": "Time",
+      "pet": "Pet",
+      "zone": "Zone",
+      "status": "Status",
+      "pay": "Pay"
+    },
+    "totalOf": "Total for {{dia}}",
+    "empty": {
+      "title": "You have no scheduled walks",
+      "hint": "Once you accept a request, it'll show up here sorted by day."
+    }
+  },
+  "earnings": {
+    "title": "Earnings",
+    "subtitle": "Actual income per walk and the platform's commission.",
+    "commission": "15% commission",
+    "loading": "Loading earnings…",
+    "loadError": "Could not load the earnings.",
+    "stats": {
+      "available": "Available earnings",
+      "paymentsSuffix": "payments",
+      "pendingPayment": "Pending payment",
+      "walksSuffix": "walks",
+      "deductedCommission": "Deducted commission"
+    },
+    "filters": {
+      "label": "Filter earnings",
+      "all": "All",
+      "pending": "Pending",
+      "paid": "Paid"
+    },
+    "caption": "Earnings filtered by {{filtro}}",
+    "columns": {
+      "date": "Date",
+      "walk": "Walk",
+      "status": "Status",
+      "gross": "Gross",
+      "commission": "Commission",
+      "net": "Net"
+    },
+    "statusPaid": "Paid",
+    "statusPending": "Pending",
+    "netOfSelection": "Net of selection",
+    "empty": {
+      "title": "No earnings yet",
+      "hint": "Your walk payments will show up here."
+    }
+  }
+}

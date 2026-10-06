@@ -1,0 +1,37 @@
+{
+  "roleChooser": {
+    "title": "How do you want to sign in?",
+    "subtitle": "Pick the profile you'll use. You can switch it later without signing in again.",
+    "noProfiles": "This account has no active profiles.",
+    "noProfilesHint": "Reach out to administration if you think this is a mistake."
+  },
+  "menu": {
+    "open": "Open menu",
+    "navigation": "Main navigation",
+    "dialogLabel": "Navigation menu",
+    "close": "Close menu"
+  },
+  "notifications": {
+    "button": "Notifications",
+    "title": "Notifications",
+    "closeAria": "Close notifications",
+    "markAllRead": "Mark as read",
+    "deleteAll": "Delete all",
+    "empty": "You have no notifications.",
+    "markRead": "Mark as read",
+    "delete": "Delete notification",
+    "read": "Read",
+    "loadError": "Notifications could not be loaded.",
+    "markReadError": "Could not mark as read.",
+    "markAllReadError": "Could not mark all as read.",
+    "deleteError": "Could not delete the notification.",
+    "deleteAllError": "Could not delete the notifications."
+  },
+  "verificationBanner": {
+    "pending": "Your verification is under review. You can browse, but actions stay blocked.",
+    "rejected": "You need to fix your verification: {{detail}}",
+    "rejectedFallback": "check the submitted documents.",
+    "none": "Verify your profile to register pets, request walks and use the platform's features.",
+    "link": "Go to verification"
+  }
+}

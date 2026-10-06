@@ -1,0 +1,81 @@
+{
+  "title": "Buscar paseadores",
+  "subtitle": "Perfiles verificados cerca de tu zona, con calificación de la comunidad.",
+  "countSingular": "paseador",
+  "countPlural": "paseadores",
+  "searchAria": "Buscar paseador por nombre o zona",
+  "searchPlaceholder": "Buscar por nombre o zona",
+  "zoneFilterLabel": "Filtrar por zona",
+  "allZones": "Todas",
+  "available": "Disponible",
+  "unavailable": "No disponible",
+  "walksSuffix": "paseos",
+  "defaultDescription": "Paseador verificado por TuanisCan.",
+  "perWalk": "por paseo",
+  "viewProfile": "Ver perfil",
+  "request": "Solicitar",
+  "verificationGate": {
+    "title": "Verificá tu perfil primero",
+    "detail": "Sin la verificación aprobada no podés solicitar paseos.",
+    "action": "Ir a verificación"
+  },
+  "empty": {
+    "filteredTitle": "No hay paseadores con ese criterio",
+    "emptyTitle": "Todavía no hay paseadores disponibles",
+    "filteredHint": "Probá con otra zona o quitá el texto de búsqueda.",
+    "emptyHint": "En cuanto administración apruebe los primeros perfiles, aparecen acá.",
+    "viewAll": "Ver todos"
+  },
+  "profileDialog": {
+    "title": "Perfil del paseador",
+    "rating": "Calificación",
+    "reviews": "Reseñas",
+    "walks": "Paseos",
+    "noDescription": "Este paseador todavía no agregó una descripción pública.",
+    "nightRange": "Nocturno {{desde}}–{{hasta}}",
+    "weekend": "Fin de semana",
+    "sameDay": "Mismo día",
+    "noSurcharge": "Sin recargo",
+    "close": "Cerrar",
+    "requestWalk": "Solicitar paseo"
+  },
+  "requestDialog": {
+    "title": "Solicitar paseo",
+    "pet": "Mascota",
+    "noPets": "No tienes mascotas registradas",
+    "choosePet": "Elegí una mascota",
+    "date": "Fecha",
+    "time": "Hora",
+    "duration": "Duración",
+    "minutes": "{{m}} minutos",
+    "accordingToRate": "Según su tarifa",
+    "baseAndDuration": "{{base}} base · {{duracion}} min",
+    "offerLabel": "Tu oferta (opcional)",
+    "suggestedOffers": "Ofertas sugeridas",
+    "remove": "Quitar",
+    "offerHelp": {
+      "invalid": "Tiene que estar entre {{min}} y {{max}}.",
+      "preview": "{{nombre}} verá tu oferta de {{monto}} ({{signo}}{{porcentaje}}% sobre su tarifa) y decide si la acepta.",
+      "default": "Si la dejás vacía se paga la tarifa. Ofrecer más puede ayudar a que acepte un paseo de último momento."
+    },
+    "meetingAddress": "Dirección de encuentro",
+    "meetingAddressPlaceholder": "Casa, condominio, parque o punto de referencia",
+    "cancel": "Cancelar",
+    "sending": "Enviando...",
+    "sendOffer": "Enviar oferta de {{monto}}",
+    "confirmRequest": "Confirmar solicitud"
+  },
+  "errors": {
+    "generic": "No se pudo completar la operacion.",
+    "noPet": "Primero registra una mascota para solicitar un paseo.",
+    "noAddress": "Indica la direccion de encuentro.",
+    "offerRange": "La oferta debe estar entre {{min}} y {{max}}.",
+    "sendFailed": "No se pudo enviar la solicitud."
+  },
+  "success": {
+    "sent": "Solicitud enviada a {{nombre}}",
+    "withOffer": "Le ofreciste {{monto}}. Te avisamos apenas conteste.",
+    "withoutOffer": "Te avisamos apenas conteste. Mientras tanto podés cancelarla desde Paseos."
+  },
+  "verifiedTitle": "{{nombre}} tiene la verificación aprobada"
+}

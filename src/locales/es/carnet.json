@@ -1,0 +1,87 @@
+{
+  "title": "Carné digital",
+  "subtitle": "Identificación, cuidados e historial de salud de tu mascota en un solo lugar.",
+  "share": "Compartir",
+  "savePdf": "Guardar PDF",
+  "loadError": "No se pudo cargar el carné digital.",
+  "loadErrorToast": "No se pudieron cargar los carnés.",
+  "empty": {
+    "title": "No hay carnés disponibles",
+    "hint": "Registra una mascota y su carné se creará automáticamente.",
+    "registerPet": "Registrar mascota"
+  },
+  "petSelector": {
+    "label": "Mascota",
+    "printHint": "Se imprime solo el carné que estás viendo."
+  },
+  "share_": {
+    "text": "Carné digital de {{nombre}} · {{especie}}, {{raza}} · ID {{id}}",
+    "title": "Carné de {{nombre}}",
+    "shared": "Carné compartido",
+    "linkCopied": "Enlace copiado",
+    "linkCopiedDetail": "Pegalo donde quieras compartir el carné.",
+    "shareUnsupported": "Este dispositivo no permite compartir el carné."
+  },
+  "print": {
+    "preparing": "Preparando el carné de {{nombre}}",
+    "hint": "En el diálogo elegí «Guardar como PDF» como destino."
+  },
+  "card": {
+    "idLabel": "Carné de identificación",
+    "verifiedBy": "Carné verificado por {{marca}}",
+    "verified": "Verificado",
+    "cardNumber": "N.° de carné",
+    "age": "Edad",
+    "needsAttention": "Requiere atención",
+    "upToDate": "Al día",
+    "noVaccines": "Sin vacunas",
+    "conditionSingular": "1 condición médica",
+    "conditionPlural": "{{count}} condiciones médicas",
+    "notRegisteredZone": "No registrada",
+    "noPhoto": "Sin fotografía",
+    "male": "Macho",
+    "female": "Hembra"
+  },
+  "identification": {
+    "title": "Identificación",
+    "birth": "Nacimiento",
+    "weight": "Peso",
+    "color": "Color",
+    "sterilized": "Esterilizado",
+    "yes": "Sí",
+    "no": "No",
+    "microchip": "Microchip",
+    "notRegistered": "No registrado",
+    "vet": "Veterinaria",
+    "notRegisteredF": "No registrada"
+  },
+  "contact": {
+    "title": "Responsable y contacto",
+    "owner": "Responsable",
+    "phone": "Teléfono",
+    "zone": "Zona",
+    "allergies": "Alergias",
+    "noneRegistered": "Ninguna registrada"
+  },
+  "conditions": {
+    "title": "Enfermedades y condiciones",
+    "diagnosedOn": "Diagnosticada el {{fecha}}",
+    "empty": "Sin enfermedades registradas. Se agregan desde Mis mascotas."
+  },
+  "vaccines": {
+    "title": "Historial de vacunación",
+    "caption": "Vacunas registradas de {{nombre}}",
+    "columns": {
+      "vaccine": "Vacuna",
+      "applied": "Aplicada",
+      "expires": "Vence",
+      "status": "Estado"
+    },
+    "statusUpcoming": "Por vencer",
+    "empty": {
+      "title": "Sin vacunas registradas",
+      "hint": "Agrega los registros desde Mis mascotas."
+    }
+  },
+  "qrAria": "Código QR con los datos de contacto del carné"
+}

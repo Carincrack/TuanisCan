@@ -1,0 +1,81 @@
+{
+  "title": "Find walkers",
+  "subtitle": "Verified profiles near your area, with community ratings.",
+  "countSingular": "walker",
+  "countPlural": "walkers",
+  "searchAria": "Search walker by name or zone",
+  "searchPlaceholder": "Search by name or zone",
+  "zoneFilterLabel": "Filter by zone",
+  "allZones": "All",
+  "available": "Available",
+  "unavailable": "Not available",
+  "walksSuffix": "walks",
+  "defaultDescription": "Walker verified by TuanisCan.",
+  "perWalk": "per walk",
+  "viewProfile": "View profile",
+  "request": "Request",
+  "verificationGate": {
+    "title": "Verify your profile first",
+    "detail": "Without approved verification you can't request walks.",
+    "action": "Go to verification"
+  },
+  "empty": {
+    "filteredTitle": "No walkers match that criteria",
+    "emptyTitle": "There are no walkers available yet",
+    "filteredHint": "Try another zone or clear the search text.",
+    "emptyHint": "As soon as administration approves the first profiles, they'll show up here.",
+    "viewAll": "View all"
+  },
+  "profileDialog": {
+    "title": "Walker profile",
+    "rating": "Rating",
+    "reviews": "Reviews",
+    "walks": "Walks",
+    "noDescription": "This walker hasn't added a public description yet.",
+    "nightRange": "Night {{desde}}–{{hasta}}",
+    "weekend": "Weekend",
+    "sameDay": "Same day",
+    "noSurcharge": "No surcharge",
+    "close": "Close",
+    "requestWalk": "Request walk"
+  },
+  "requestDialog": {
+    "title": "Request walk",
+    "pet": "Pet",
+    "noPets": "You have no pets registered",
+    "choosePet": "Choose a pet",
+    "date": "Date",
+    "time": "Time",
+    "duration": "Duration",
+    "minutes": "{{m}} minutes",
+    "accordingToRate": "Based on their rate",
+    "baseAndDuration": "{{base}} base · {{duracion}} min",
+    "offerLabel": "Your offer (optional)",
+    "suggestedOffers": "Suggested offers",
+    "remove": "Remove",
+    "offerHelp": {
+      "invalid": "It needs to be between {{min}} and {{max}}.",
+      "preview": "{{nombre}} will see your offer of {{monto}} ({{signo}}{{porcentaje}}% over their rate) and decides whether to accept it.",
+      "default": "If left empty, the rate is paid. Offering more can help get a last-minute walk accepted."
+    },
+    "meetingAddress": "Meeting address",
+    "meetingAddressPlaceholder": "House, condo, park or landmark",
+    "cancel": "Cancel",
+    "sending": "Sending...",
+    "sendOffer": "Send offer of {{monto}}",
+    "confirmRequest": "Confirm request"
+  },
+  "errors": {
+    "generic": "The operation could not be completed.",
+    "noPet": "First register a pet to request a walk.",
+    "noAddress": "Enter the meeting address.",
+    "offerRange": "The offer must be between {{min}} and {{max}}.",
+    "sendFailed": "Could not send the request."
+  },
+  "success": {
+    "sent": "Request sent to {{nombre}}",
+    "withOffer": "You offered them {{monto}}. We'll let you know as soon as they answer.",
+    "withoutOffer": "We'll let you know as soon as they answer. Meanwhile you can cancel it from Walks."
+  },
+  "verifiedTitle": "{{nombre}} has approved verification"
+}

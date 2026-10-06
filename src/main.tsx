@@ -13,13 +13,16 @@ import "goey-toast/styles.css";
    maquetas de `src/esqueletos`. */
 import "./bones/registry";
 import { AuthProvider } from "./context/AuthContext";
+import { I18nProvider } from "./context/I18nProvider";
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </I18nProvider>
   </React.StrictMode>
 );

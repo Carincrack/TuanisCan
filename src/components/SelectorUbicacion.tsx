@@ -4,6 +4,7 @@ import type { LatLngExpression } from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { Navigation } from "../lib/iconos";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* San José, Costa Rica: centro por defecto mientras nadie marcó nada. */
 const CENTRO_CR: LatLngExpression = [9.93, -84.09];
@@ -46,6 +47,7 @@ export const SelectorUbicacion = ({
   longitud: string;
   onChange: (lat: number, lng: number) => void;
 }) => {
+  const { t } = useTranslation();
   const [buscando, setBuscando] = useState(false);
   const [avisoUbicacion, setAvisoUbicacion] = useState("");
 
@@ -58,7 +60,7 @@ export const SelectorUbicacion = ({
 
   const usarMiUbicacion = () => {
     if (!navigator.geolocation) {
-      setAvisoUbicacion("Este navegador no permite usar tu ubicación.");
+      setAvisoUbicacion(t("selectorUbicacion.noGeolocation"));
       return;
     }
     setBuscando(true);
@@ -69,7 +71,7 @@ export const SelectorUbicacion = ({
         setBuscando(false);
       },
       () => {
-        setAvisoUbicacion("No pudimos obtener tu ubicación. Revisa el permiso del navegador.");
+        setAvisoUbicacion(t("selectorUbicacion.locationError"));
         setBuscando(false);
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
@@ -114,14 +116,17 @@ export const SelectorUbicacion = ({
           className="absolute right-3 bottom-3 z-[1000] inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[11.5px] font-semibold text-[#1E2A33] shadow-md transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70"
         >
           <Navigation size={14} />
-          {buscando ? "Buscando…" : "Mi ubicación"}
+          {buscando ? t("selectorUbicacion.searching") : t("selectorUbicacion.myLocation")}
         </button>
       </div>
 
       <p className="mt-2 text-[11.5px] text-slate-500">
         {posicion
-          ? `Marcado: ${(posicion as [number, number])[0].toFixed(5)}, ${(posicion as [number, number])[1].toFixed(5)}`
-          : "Tocá el mapa para marcar dónde está tu negocio (opcional)."}
+          ? t("selectorUbicacion.marked", {
+              lat: (posicion as [number, number])[0].toFixed(5),
+              lng: (posicion as [number, number])[1].toFixed(5),
+            })
+          : t("selectorUbicacion.tapHint")}
       </p>
       {avisoUbicacion && <p className="mt-1 text-[11.5px] text-red-500">{avisoUbicacion}</p>}
     </div>

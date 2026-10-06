@@ -1,0 +1,56 @@
+{
+  "group": {
+    "operacion": "Operación",
+    "misMascotas": "Mis mascotas",
+    "miCuenta": "Mi cuenta",
+    "comunidad": "Comunidad",
+    "miNegocio": "Mi negocio",
+    "plataforma": "Plataforma",
+    "gestion": "Gestión"
+  },
+  "item": {
+    "panelGeneral": "Panel general",
+    "paseos": "Paseos",
+    "paseoEnVivo": "Paseo en vivo",
+    "misMascotas": "Mis mascotas",
+    "carnetDigital": "Carnet digital",
+    "pagos": "Pagos",
+    "resenas": "Reseñas",
+    "misDatos": "Mis datos",
+    "buscarPaseadores": "Buscar paseadores",
+    "mascotasPerdidas": "Mascotas perdidas",
+    "directorio": "Directorio",
+    "panel": "Panel",
+    "solicitudes": "Solicitudes",
+    "agenda": "Agenda",
+    "paseoActivo": "Paseo activo",
+    "ganancias": "Ganancias",
+    "tarifas": "Tarifas",
+    "miPerfil": "Mi perfil",
+    "perfilPublico": "Perfil público",
+    "resenasRecibidas": "Reseñas recibidas",
+    "finanzas": "Finanzas",
+    "paseadores": "Paseadores",
+    "verificaciones": "Verificaciones",
+    "usuarios": "Usuarios",
+    "zonas": "Zonas"
+  },
+  "role": {
+    "dueno": {
+      "titulo": "Dueño",
+      "descripcion": "Administra tus mascotas, vacunas y solicitudes de paseo."
+    },
+    "paseador": {
+      "titulo": "Paseador",
+      "descripcion": "Gestiona solicitudes, disponibilidad y servicios de paseo."
+    },
+    "negocio": {
+      "titulo": "Negocio",
+      "descripcion": "Administra tu negocio y presencia dentro del directorio."
+    },
+    "admin": {
+      "titulo": "Administrador",
+      "descripcion": "Gestiona usuarios, verificaciones y configuración general."
+    }
+  }
+}

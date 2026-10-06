@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ElementType } from "react";
 import { Check, ChevronDown } from "../lib/iconos";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    EL COMBO BOX
@@ -135,7 +136,7 @@ export const Combo = ({
   value,
   onChange,
   options,
-  placeholder = "Seleccionar",
+  placeholder,
   vacio = false,
   id,
   name,
@@ -147,13 +148,15 @@ export const Combo = ({
   tono = "sistema",
   "aria-label": ariaLabel,
 }: ComboProps) => {
+  const { t } = useTranslation();
+  const placeholderFinal = placeholder ?? t("common.select");
   const piel = PIELES[tono];
   const generado = useId();
   const idBoton = id ?? `combo-${generado}`;
   const idLista = `${idBoton}-lista`;
 
   const filas: Opcion[] = vacio
-    ? [{ value: "", label: placeholder }, ...options]
+    ? [{ value: "", label: placeholderFinal }, ...options]
     : options;
 
   const [abierto, setAbierto] = useState(false);
@@ -314,7 +317,7 @@ export const Combo = ({
           <Icon size={17} strokeWidth={1.9} aria-hidden className={`shrink-0 ${piel.icono}`} />
         )}
         <span className="min-w-0 flex-1 truncate">
-          {inactivo ? textoInactivo : (elegida?.label ?? placeholder)}
+          {inactivo ? textoInactivo : (elegida?.label ?? placeholderFinal)}
         </span>
         <ChevronDown
           size={15}

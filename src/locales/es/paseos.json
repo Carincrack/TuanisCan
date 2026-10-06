@@ -1,0 +1,81 @@
+{
+  "title": "Paseos",
+  "subtitle": "Agenda, seguimiento e historial de los paseos de tus mascotas.",
+  "scheduleWalk": "Agendar paseo",
+  "status": {
+    "requested": "Solicitado",
+    "confirmed": "Confirmado",
+    "inCourse": "En curso",
+    "completed": "Completado",
+    "cancelled": "Cancelado"
+  },
+  "unassigned": "Sin asignar",
+  "noName": "Sin nombre",
+  "yourOffer": "Tu oferta · tarifa {{tarifa}}",
+  "walkerRateTitle": "Tarifa del paseador: {{tarifa}}",
+  "meetingPoint": "Punto de encuentro",
+  "endTime": "Hora de fin",
+  "notFinishedYet": "Aún no finaliza",
+  "walkCode": "Código de paseo",
+  "loadError": "No se pudieron cargar los paseos.",
+  "cancelled": "Solicitud de {{mascota}} cancelada",
+  "cancelledDetail": "Le avisamos al paseador.",
+  "cancelFailed": "No se pudo cancelar la solicitud.",
+  "allMyPets": "Todas mis mascotas",
+  "allZones": "Todas las zonas",
+  "cancel": "Cancelar",
+  "watchLive": "Ver en vivo",
+  "details": "Detalle",
+  "stats": {
+    "total": "Total de paseos",
+    "totalHint": "Todos los que agendaste",
+    "upcoming": "Próximos",
+    "percentOfTotal": "{{pct}} % del total",
+    "completed": "Completados",
+    "totalSpent": "Total gastado",
+    "totalSpentHint": "En paseos completados"
+  },
+  "filters": {
+    "title": "Filtros",
+    "resultSingular": "resultado",
+    "resultPlural": "resultados",
+    "searchAria": "Buscar paseos",
+    "searchPlaceholder": "Buscar por mascota, paseador o lugar",
+    "petAria": "Filtrar por mascota",
+    "zoneAria": "Filtrar por zona",
+    "statusAria": "Filtrar por estado",
+    "upcoming": "Próximos",
+    "history": "Historial",
+    "all": "Todos los paseos",
+    "clear": "Limpiar"
+  },
+  "empty": {
+    "title": "No hay paseos en esta vista",
+    "withFilters": "Prueba con otra búsqueda o limpia los filtros.",
+    "withoutFilters": "Agenda el primer paseo de tu mascota.",
+    "clearFilters": "Limpiar filtros"
+  },
+  "table": {
+    "caption": "Paseos de tus mascotas",
+    "pet": "Mascota",
+    "walker": "Paseador",
+    "when": "Cuándo",
+    "zone": "Zona",
+    "status": "Estado",
+    "price": "Precio",
+    "actions": "Acciones",
+    "noZone": "Sin zona"
+  },
+  "pagination": {
+    "label": "Paginación de paseos",
+    "singular": "paseo",
+    "plural": "paseos"
+  },
+  "cancelDialog": {
+    "title": "¿Cancelar la solicitud?",
+    "body": "{{paseador}} todavía no respondió. Si la cancelás, se le avisa y el paseo de {{mascota}} no se agenda.",
+    "defaultWalker": "El paseador",
+    "confirm": "Cancelar solicitud",
+    "back": "Volver"
+  }
+}

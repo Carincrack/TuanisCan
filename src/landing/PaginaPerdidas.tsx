@@ -4,6 +4,7 @@ import { ArrowLeft } from "../lib/iconos";
 import { MARCA } from "../lib/nav";
 import { usePortadaAnimacion } from "./animacion";
 import { AZUL, CANVAS, NAVY, TINTA } from "./tokens";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    Mascotas perdidas, del lado público.
@@ -33,6 +34,7 @@ import { AZUL, CANVAS, NAVY, TINTA } from "./tokens";
 const RENGLONES = ["MASCOTAS", "PERDIDAS"];
 
 const PaginaPerdidas = () => {
+  const { t } = useTranslation();
   const raiz = useRef<HTMLDivElement>(null);
   usePortadaAnimacion(raiz);
 
@@ -53,12 +55,12 @@ const PaginaPerdidas = () => {
             style={{ background: CANVAS, color: NAVY }}
           >
             <ArrowLeft size={17} strokeWidth={2.4} aria-hidden />
-            Inicio
+            {t("landingPerdidas.backHome")}
           </Link>
 
           <Link
             to="/"
-            aria-label={`${MARCA.completo}, volver al inicio`}
+            aria-label={t("landingPerdidas.backToHomeAria", { marca: MARCA.completo })}
             className="absolute left-1/2 -translate-x-1/2"
           >
             <img
@@ -71,7 +73,7 @@ const PaginaPerdidas = () => {
 
         <div className="px-5 pt-6 pb-14 text-center sm:px-8 sm:pt-10 sm:pb-20">
           <p data-entra="entrada" className="rotulo" style={{ color: TINTA }}>
-            Comunidad
+            {t("landingPerdidas.antetitulo")}
           </p>
           <p
             aria-hidden
@@ -98,13 +100,13 @@ const PaginaPerdidas = () => {
             className="mx-auto mt-6 max-w-md text-[15.5px] leading-relaxed font-medium"
             style={{ color: TINTA }}
           >
-          Las que se perdieron cerca de vos. Si viste alguna, podés avisarle a su dueño desde su ficha.
+          {t("landingPerdidas.subtitle")}
           </p>
         </div>
       </section>
 
       <main className="px-5 py-12 sm:px-8">
-        <h1>Aquí van a estar las mascotas perdidas</h1>
+        <h1>{t("landingPerdidas.comingSoon")}</h1>
       </main>
     </div>
   );

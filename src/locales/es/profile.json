@@ -1,0 +1,254 @@
+{
+  "tabs": {
+    "datos": "Mis datos",
+    "verificacion": "Verificación",
+    "perfiles": "Mis perfiles",
+    "configuracion": "Configuración"
+  },
+  "roles": {
+    "dueno": "Dueño de mascota",
+    "paseador": "Paseador",
+    "negocio": "Cuenta de negocio",
+    "admin": "Administrador"
+  },
+  "roleMeta": {
+    "dueno": {
+      "title": "Perfil de dueño",
+      "text": "Registra tus mascotas y administra su información desde una misma cuenta."
+    },
+    "paseador": {
+      "title": "Perfil de paseador",
+      "text": "Ofrece paseos, establece tu tarifa y recibe solicitudes de otros usuarios."
+    },
+    "negocio": {
+      "title": "Perfil de negocio",
+      "text": "Publica una veterinaria, tienda o refugio dentro del directorio."
+    }
+  },
+  "roleRequirements": {
+    "dueno": ["Utiliza tus datos actuales", "Administra tus mascotas"],
+    "paseador": ["Describe tu experiencia", "Define una tarifa base", "Requiere aprobación"],
+    "negocio": ["Información del negocio", "Dirección y zona", "Horario de atención"]
+  },
+  "verification": {
+    "documentLabels": {
+      "cedula_frente": "Cédula por el frente",
+      "cedula_reverso": "Cédula por el reverso",
+      "hoja_delincuencia": "Hoja de delincuencia",
+      "permiso_funcionamiento": "Permiso de funcionamiento"
+    },
+    "statusLabels": {
+      "sin_solicitud": "Sin verificar",
+      "pendiente": "En revisión",
+      "aprobado": "Perfil verificado",
+      "rechazado": "Requiere correcciones"
+    }
+  },
+  "errors": {
+    "generic": "No se pudo completar la operación.",
+    "verificationMigrationMissing": "Falta aplicar la migración de verificación en Supabase antes de cargar documentos.",
+    "nameRequired": "El nombre completo es obligatorio.",
+    "phoneRequiredForRole": "Agrega tu teléfono antes de activar otro perfil.",
+    "zoneRequiredForRole": "Selecciona tu zona antes de activar otro perfil.",
+    "noActiveSession": "No hay una sesión activa.",
+    "businessNameRequired": "El nombre del negocio es obligatorio.",
+    "descriptionTooShort": "Describe tu experiencia con al menos 20 caracteres.",
+    "rateMustBePositive": "La tarifa base debe ser mayor a cero.",
+    "businessFieldsRequired": "Completa nombre, zona, teléfono, dirección y horario del negocio.",
+    "photoInvalid": "La imagen debe ser JPG, PNG o WebP y pesar menos de 5 MB.",
+    "documentInvalid": "El documento debe ser PDF, JPG, PNG o WebP y pesar menos de 10 MB.",
+    "profileNotFound": "No se encontró tu perfil."
+  },
+  "toasts": {
+    "profileUpdated": "Perfil actualizado",
+    "profileUpdatedDetail": "Los datos se comparten entre todos tus perfiles.",
+    "profileSaveFailed": "No se pudo guardar el perfil.",
+    "ownerActivated": "Perfil de dueño activado",
+    "ownerActivatedDetail": "Ya podés registrar mascotas y solicitar paseos.",
+    "ownerActivateFailed": "No se pudo activar el perfil de dueño.",
+    "walkerRequested": "Solicitud de paseador enviada",
+    "walkerRequestedDetail": "Ya podés entrar al panel. Para aceptar paseos falta la aprobación.",
+    "walkerRequestFailed": "No se pudo enviar la solicitud.",
+    "businessActivated": "Perfil de negocio activado",
+    "businessActivatedDetail": "Aparece en el directorio en cuanto se apruebe la verificación.",
+    "businessActivateFailed": "No se pudo activar el perfil de negocio.",
+    "verificationSent": "Verificación enviada",
+    "verificationSentDetail": "Administración la revisa y te avisamos del resultado.",
+    "verificationSendFailed": "No se pudo enviar la verificación.",
+    "uploadingDocument": "Subiendo {{documento}}…",
+    "documentUploaded": "{{documento}} subido",
+    "documentUploadFailed": "No se pudo subir {{documento}}."
+  },
+  "steps": {
+    "uploadDocuments": "Subir documentos",
+    "uploadDocumentsDetail": "{{listos}} de {{total}} listos",
+    "sendForReview": "Enviar a revisión",
+    "alreadySent": "Ya lo enviaste",
+    "enabledWithAllDocuments": "Se habilita con todos los documentos",
+    "response": "Respuesta",
+    "verifiedAccount": "Cuenta verificada",
+    "reviewTime": "Administración responde en 1 o 2 días hábiles"
+  },
+  "header": {
+    "title": "Mi perfil",
+    "subtitle": "Administra tu información personal, verificación y perfiles asociados.",
+    "changePassword": "Cambiar contraseña",
+    "viewPhoto": "Ver la foto de perfil en grande",
+    "noPhotoYet": "Todavía no hay foto de perfil",
+    "changePhoto": "Cambiar foto de perfil",
+    "accountActive": "Cuenta activa",
+    "accountInactive": "Cuenta inactiva",
+    "administrator": "Administrador",
+    "removePhoto": "Quitar foto",
+    "photoHint": "Tocá la foto para verla en grande · El botón de la cámara la cambia · JPG, PNG o WebP · Máximo 5 MB."
+  },
+  "tablist": {
+    "ariaLabel": "Secciones del perfil",
+    "pendingStepsAria": "Tienes pasos pendientes"
+  },
+  "dataTab": {
+    "title": "Información personal",
+    "subtitle": "Estos datos se comparten entre todos los perfiles asociados a tu cuenta.",
+    "fullName": "Nombre completo",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "phonePlaceholder": "Ej. 8888-8888",
+    "zone": "Zona",
+    "selectZone": "Seleccionar zona",
+    "saving": "Guardando…",
+    "saveChanges": "Guardar cambios"
+  },
+  "verificationTab": {
+    "title": "Verificación de identidad",
+    "subtitle": "Con tu identidad confirmada se habilitan las operaciones: registrar mascotas, solicitar paseos y recibir pagos.",
+    "needsFix": "Hay que corregir algo:",
+    "verifiedMessage": "Tu identidad está confirmada. El sello aparece junto a tu nombre en toda la plataforma.",
+    "documents": "Documentos",
+    "documentsCount": "{{listos}} de {{total}} · PDF, JPG, PNG o WebP · Máximo 10 MB",
+    "missingFile": "Falta subirlo",
+    "uploading": "Subiendo…",
+    "replace": "Reemplazar",
+    "upload": "Subir",
+    "missingDocuments": "Falta subir: {{documentos}}.",
+    "allReady": "Todo listo. Administración revisa y te avisa por correo.",
+    "sending": "Enviando…",
+    "sendVerification": "Enviar verificación"
+  },
+  "ownerCard": {
+    "title": "Perfil de dueño",
+    "text": "Administra tus mascotas, vacunas, información y carnés desde una sección dedicada.",
+    "manage": "Gestionar mascotas"
+  },
+  "walkerCard": {
+    "title": "Perfil de paseador",
+    "subtitle": "Información que verán los dueños.",
+    "experience": "Experiencia y descripción",
+    "experiencePlaceholder": "Cuéntales a los dueños sobre tu experiencia con mascotas...",
+    "baseRate": "Tarifa base por paseo",
+    "undefinedRate": "Sin definir",
+    "ratesHint": "Recargos y horarios en Tarifas.",
+    "configure": "Configurar",
+    "available": "Disponible",
+    "availableHint": "Permitir nuevas solicitudes de paseo.",
+    "verification": "Verificación",
+    "rating": "Calificación"
+  },
+  "businessCard": {
+    "title": "Datos del negocio",
+    "subtitle": "Información pública dentro del directorio.",
+    "photo": "Foto del negocio",
+    "photoOf": "Foto de {{nombre}}",
+    "theBusiness": "el negocio",
+    "changePhoto": "Cambiar foto",
+    "uploadPhoto": "Subir foto",
+    "remove": "Quitar",
+    "photoHint": "JPG, PNG o WebP · Máximo 5 MB. Se muestra en el directorio.",
+    "name": "Nombre del negocio",
+    "type": "Tipo",
+    "types": {
+      "veterinaria": "Veterinaria",
+      "tienda": "Tienda",
+      "refugio": "Refugio"
+    },
+    "zone": "Zona",
+    "selectZone": "Seleccionar zona",
+    "phone": "Teléfono",
+    "address": "Dirección",
+    "mapLocation": "Ubicación en el mapa",
+    "loadingMap": "Cargando mapa…",
+    "schedule": "Horario",
+    "schedulePlaceholder": "Ej. Lunes a sábado, 8:00 a.m. – 5:00 p.m."
+  },
+  "addRole": {
+    "title": "Agregar otro perfil",
+    "subtitle": "Utiliza la misma cuenta para diferentes funciones dentro de TuanisCan.",
+    "rejected": "La solicitud anterior fue rechazada.",
+    "pendingReview": "Tu solicitud está siendo revisada.",
+    "reviewRequest": "Revisar solicitud",
+    "configuring": "Configurando",
+    "startSetup": "Comenzar configuración →",
+    "allActiveTitle": "Todos los perfiles están activos",
+    "allActiveHint": "Puedes cambiar entre ellos desde el selector de la barra lateral."
+  },
+  "roleSetup": {
+    "newProfile": "Nuevo perfil",
+    "configuring": "Configurar {{perfil}}",
+    "close": "Cerrar",
+    "owner": {
+      "activate": "Activar perfil de dueño",
+      "activateHint": "No necesitas llenar otro formulario. Utilizaremos tu información personal actual.",
+      "name": "Nombre",
+      "phone": "Teléfono",
+      "zone": "Zona",
+      "incomplete": "Sin completar",
+      "activating": "Activando…"
+    },
+    "walker": {
+      "requestTitle": "Solicitud para ser paseador",
+      "requestText": "Cuéntanos sobre tu experiencia y define tu tarifa inicial. Administración revisará la solicitud.",
+      "experienceLabel": "Experiencia como paseador *",
+      "experiencePlaceholder": "Ej. Tengo 3 años de experiencia paseando perros de diferentes tamaños. También tengo experiencia con perros nerviosos y cachorros...",
+      "minChars": "Mínimo 20 caracteres.",
+      "baseRate": "Tarifa base por paseo *",
+      "ratePlaceholder": "4500",
+      "rateHint": "Podrás modificarla posteriormente.",
+      "availableOnApproval": "Disponible al ser aprobado",
+      "availableOnApprovalHint": "Podrás recibir solicitudes inmediatamente.",
+      "submitHint": "Al enviar la solicitud tu perfil quedará pendiente hasta que administración lo apruebe.",
+      "sending": "Enviando…",
+      "updateRequest": "Actualizar solicitud",
+      "sendRequest": "Enviar solicitud"
+    },
+    "business": {
+      "registerTitle": "Registrar un negocio",
+      "registerText": "Completa la información que los usuarios verán en el directorio de TuanisCan.",
+      "basicInfoTitle": "Información básica",
+      "basicInfoText": "Identifica tu negocio dentro del directorio.",
+      "name": "Nombre del negocio *",
+      "namePlaceholder": "Ej. Veterinaria Huellitas",
+      "type": "Tipo de negocio *",
+      "types": {
+        "veterinaria": "Veterinaria",
+        "tienda": "Tienda para mascotas",
+        "refugio": "Refugio"
+      },
+      "phone": "Teléfono *",
+      "phonePlaceholder": "Ej. 2222-2222",
+      "schedule": "Horario de atención *",
+      "schedulePlaceholder": "Ej. Lun - Sáb, 8:00 a.m. - 5:00 p.m.",
+      "locationTitle": "Ubicación",
+      "locationText": "Ayuda a los usuarios a encontrar tu negocio.",
+      "zone": "Zona *",
+      "selectZone": "Seleccionar zona",
+      "address": "Dirección *",
+      "addressPlaceholder": "Ej. 100 m norte del parque central",
+      "coordsTitle": "Coordenadas",
+      "coordsText": "Opcional · Úsalas si quieres una ubicación más precisa en el mapa.",
+      "loadingMap": "Cargando mapa…",
+      "creating": "Creando negocio…",
+      "createAndActivate": "Crear y activar negocio"
+    }
+  },
+  "photoAlt": "Foto de perfil de {{nombre}}",
+  "profileNotFoundRetry": "Renovar sesión y reintentar"
+}

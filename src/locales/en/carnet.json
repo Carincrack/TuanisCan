@@ -1,0 +1,87 @@
+{
+  "title": "Digital ID card",
+  "subtitle": "Identification, care and health history for your pet in one place.",
+  "share": "Share",
+  "savePdf": "Save PDF",
+  "loadError": "Could not load the digital ID card.",
+  "loadErrorToast": "Could not load the ID cards.",
+  "empty": {
+    "title": "No ID cards available",
+    "hint": "Register a pet and its ID card will be created automatically.",
+    "registerPet": "Register pet"
+  },
+  "petSelector": {
+    "label": "Pet",
+    "printHint": "Only the ID card you're viewing gets printed."
+  },
+  "share_": {
+    "text": "Digital ID card for {{nombre}} · {{especie}}, {{raza}} · ID {{id}}",
+    "title": "{{nombre}}'s ID card",
+    "shared": "ID card shared",
+    "linkCopied": "Link copied",
+    "linkCopiedDetail": "Paste it wherever you want to share the ID card.",
+    "shareUnsupported": "This device does not support sharing the ID card."
+  },
+  "print": {
+    "preparing": "Preparing {{nombre}}'s ID card",
+    "hint": "In the dialog, choose «Save as PDF» as the destination."
+  },
+  "card": {
+    "idLabel": "Identification card",
+    "verifiedBy": "ID card verified by {{marca}}",
+    "verified": "Verified",
+    "cardNumber": "Card No.",
+    "age": "Age",
+    "needsAttention": "Needs attention",
+    "upToDate": "Up to date",
+    "noVaccines": "No vaccines",
+    "conditionSingular": "1 medical condition",
+    "conditionPlural": "{{count}} medical conditions",
+    "notRegisteredZone": "Not registered",
+    "noPhoto": "No photo",
+    "male": "Male",
+    "female": "Female"
+  },
+  "identification": {
+    "title": "Identification",
+    "birth": "Birth",
+    "weight": "Weight",
+    "color": "Color",
+    "sterilized": "Sterilized",
+    "yes": "Yes",
+    "no": "No",
+    "microchip": "Microchip",
+    "notRegistered": "Not registered",
+    "vet": "Vet",
+    "notRegisteredF": "Not registered"
+  },
+  "contact": {
+    "title": "Owner and contact",
+    "owner": "Owner",
+    "phone": "Phone",
+    "zone": "Zone",
+    "allergies": "Allergies",
+    "noneRegistered": "None registered"
+  },
+  "conditions": {
+    "title": "Conditions and illnesses",
+    "diagnosedOn": "Diagnosed on {{fecha}}",
+    "empty": "No conditions registered. Add them from My pets."
+  },
+  "vaccines": {
+    "title": "Vaccination history",
+    "caption": "{{nombre}}'s registered vaccines",
+    "columns": {
+      "vaccine": "Vaccine",
+      "applied": "Applied",
+      "expires": "Expires",
+      "status": "Status"
+    },
+    "statusUpcoming": "Expiring soon",
+    "empty": {
+      "title": "No vaccines registered",
+      "hint": "Add the records from My pets."
+    }
+  },
+  "qrAria": "QR code with the ID card's contact information"
+}

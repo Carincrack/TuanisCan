@@ -23,6 +23,7 @@ import {
 } from "../lib/nav";
 
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 import AuthGuard from "../guards/AuthGuard";
 import RoleGuard from "../guards/RoleGuard";
 
@@ -35,35 +36,37 @@ import RoleGuard from "../guards/RoleGuard";
    INFORMACIÓN VISUAL DE LOS ROLES
    ============================================================ */
 
+/* `tituloClave`/`descripcionClave` son claves de traducción, no el
+   texto: `RoleChooser` las resuelve con `t()` al pintarlas. */
 const rolMeta: Record<
   Rol,
   {
-    titulo: string;
-    descripcion: string;
+    tituloClave: string;
+    descripcionClave: string;
     Icon: typeof PawPrint;
   }
 > = {
   dueno: {
-    titulo: "Dueño",
-    descripcion: "Administra tus mascotas, vacunas y solicitudes de paseo.",
+    tituloClave: "common.role.dueno",
+    descripcionClave: "nav.role.dueno.descripcion",
     Icon: PawPrint,
   },
 
   paseador: {
-    titulo: "Paseador",
-    descripcion: "Gestiona solicitudes, disponibilidad y servicios de paseo.",
+    tituloClave: "common.role.paseador",
+    descripcionClave: "nav.role.paseador.descripcion",
     Icon: Footprints,
   },
 
   negocio: {
-    titulo: "Negocio",
-    descripcion: "Administra tu negocio y presencia dentro del directorio.",
+    tituloClave: "common.role.negocio",
+    descripcionClave: "nav.role.negocio.descripcion",
     Icon: Store,
   },
 
   admin: {
-    titulo: "Administrador",
-    descripcion: "Gestiona usuarios, verificaciones y configuración general.",
+    tituloClave: "common.role.admin",
+    descripcionClave: "nav.role.admin.descripcion",
     Icon: ShieldCheck,
   },
 };
@@ -83,6 +86,8 @@ const RoleChooser = ({
   onChoose: (rol: Rol) => void;
   onLogout: () => void;
 }) => {
+  const { t } = useTranslation();
+
   /*
    * Si además de sus perfiles normales el usuario es administrador,
    * agregamos "admin" a las opciones disponibles.
@@ -132,12 +137,11 @@ const RoleChooser = ({
           <p className="rotulo mt-4 text-accent-wash">{MARCA.completo}</p>
 
           <h1 className="titular mt-2 text-[26px] text-white sm:text-[28px]">
-            ¿Cómo quieres ingresar?
+            {t("shell.roleChooser.title")}
           </h1>
 
           <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-accent-wash">
-            Elegí el perfil que vas a usar. Podés cambiarlo después sin
-            volver a entrar.
+            {t("shell.roleChooser.subtitle")}
           </p>
         </div>
 
@@ -161,10 +165,10 @@ const RoleChooser = ({
 
                       <span className="min-w-0 flex-1">
                         <span className="titular block text-[16px] text-ink">
-                          {meta.titulo}
+                          {t(meta.tituloClave)}
                         </span>
                         <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-soft">
-                          {meta.descripcion}
+                          {t(meta.descripcionClave)}
                         </span>
                       </span>
 
@@ -186,10 +190,10 @@ const RoleChooser = ({
           ) : (
             <div className="rounded-[18px] bg-danger-wash px-5 py-6 text-center">
               <p className="text-[13.5px] font-semibold text-danger">
-                Esta cuenta no tiene perfiles activos.
+                {t("shell.roleChooser.noProfiles")}
               </p>
               <p className="mt-1.5 text-[12.5px] text-danger/80">
-                Escribile a administración si creés que es un error.
+                {t("shell.roleChooser.noProfilesHint")}
               </p>
             </div>
           )}
@@ -201,7 +205,7 @@ const RoleChooser = ({
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-medium text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken hover:text-ink active:scale-[0.97]"
             >
               <LogOut size={14} />
-              Cerrar sesión
+              {t("common.logout")}
             </button>
           </div>
         </div>

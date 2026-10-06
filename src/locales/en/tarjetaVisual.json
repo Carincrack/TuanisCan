@@ -1,0 +1,7 @@
+{
+  "primary": "Primary",
+  "holder": "Cardholder",
+  "holderPlaceholder": "Cardholder name",
+  "expires": "Expires",
+  "expiresPlaceholder": "MM/YY"
+}

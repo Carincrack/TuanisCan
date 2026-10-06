@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "../lib/iconos";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    EL VISOR DE FOTO
@@ -33,6 +34,7 @@ const Visor = ({
   abierto: boolean;
   cerrar: () => void;
 }) => {
+  const { t } = useTranslation();
   const boton = useRef<HTMLButtonElement>(null);
   /* A dónde vuelve el foco al cerrar. Sin esto el foco cae al
      principio del documento y quien navega con teclado tiene que
@@ -78,7 +80,7 @@ const Visor = ({
         ref={boton}
         type="button"
         onClick={cerrar}
-        aria-label="Cerrar la foto"
+        aria-label={t("common.closePhoto")}
         className="absolute top-4 right-4 grid h-11 w-11 place-items-center rounded-full bg-white/12 text-white transition-[background-color,transform] duration-200 ease-out hover:bg-white/22 focus:outline-2 focus:outline-offset-2 focus:outline-white active:scale-[0.94]"
       >
         <X size={20} strokeWidth={2.2} />

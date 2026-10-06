@@ -1,0 +1,35 @@
+{
+  "save": "Guardar",
+  "saving": "Guardando…",
+  "cancel": "Cancelar",
+  "close": "Cerrar",
+  "back": "Volver",
+  "continue": "Continuar",
+  "loading": "Cargando…",
+  "retry": "Reintentar",
+  "delete": "Eliminar",
+  "edit": "Editar",
+  "confirm": "Confirmar",
+  "logout": "Cerrar sesión",
+  "genericError": "No se pudo completar la operación.",
+  "activeProfile": "Perfil activo",
+  "changeProfile": "Cambiar de perfil",
+  "defaultUserName": "Usuario",
+  "role": {
+    "dueno": "Dueño",
+    "paseador": "Paseador",
+    "negocio": "Negocio",
+    "admin": "Administrador"
+  },
+  "pagination": {
+    "previous": "Página anterior",
+    "next": "Página siguiente",
+    "page": "Página {{numero}}"
+  },
+  "verifiedProfile": "Perfil verificado",
+  "photoOf": "Foto de {{nombre}}",
+  "initialsOf": "Iniciales de {{nombre}}",
+  "closePhoto": "Cerrar la foto",
+  "loadingPlatform": "Cargando la plataforma",
+  "select": "Seleccionar"
+}

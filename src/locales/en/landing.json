@@ -1,0 +1,100 @@
+{
+  "nav": {
+    "services": "Services",
+    "howItWorks": "How it works"
+  },
+  "publicos": {
+    "dueno": {
+      "label": "I have a pet",
+      "entrada": "Everything your pet needs, closer to you: find trusted walkers, vets and places, and keep your companion always connected with their community.",
+      "cta": "Find a walker",
+      "fotoAlt": "Attentive border collie, ready to go for a walk"
+    },
+    "paseador": {
+      "label": "I want to walk pets",
+      "entrada": "Turn your love for animals into an opportunity. Create your profile, choose where you want to walk and connect with people in your area who need someone trustworthy to care for their pet.",
+      "cta": "Offer my walks",
+      "fotoAlt": "Blue-eyed husky sitting, waiting to be taken out"
+    },
+    "perdidas": {
+      "label": "Lost pets",
+      "entrada": "See the pets that got lost near you. If you saw one, let their owner know from their profile and help them get back home.",
+      "cta": "See lost pets",
+      "fotoAlt": "Gray tabby cat looking straight at the camera"
+    },
+    "ariaLabel": "Who are you?"
+  },
+  "modulos": {
+    "paseos": {
+      "etiqueta": "Walks",
+      "titulo": "A walk is more enjoyable when there's trust",
+      "texto": "Find verified walkers near you, check their profile, ratings and work area before booking. Coordinate the walk, follow along and pay easily, all from the same place.",
+      "fotoAlt": "Adult golden retriever sitting with mouth open, looking at the camera"
+    },
+    "directorio": {
+      "etiqueta": "Directory",
+      "titulo": "Everything your pet needs, closer",
+      "texto": "Find vets, shops and other pet services in your area. Check hours, phone numbers and reviews to know where to go when you need a hand with your companion.",
+      "fotoAlt": "Black and white angora cat sitting, looking at the camera"
+    },
+    "alertas": {
+      "etiqueta": "Alerts",
+      "titulo": "When a pet gets lost, we can all help",
+      "texto": "Post an alert and reach people nearby. If someone recognizes your pet or spots it around, they can let you know directly so together we can help it get back home.",
+      "fotoAlt": "Cream-colored chihuahua sitting with tongue out, looking at the camera"
+    }
+  },
+  "pasos": {
+    "registrar": {
+      "titulo": "Register your pet",
+      "texto": "Create their profile with their name, breed, photo and the information you want to always have on hand. That way, when you need a walk or help, everything's ready."
+    },
+    "encontrar": {
+      "titulo": "Find someone you can trust",
+      "texto": "Search for walkers by area, availability and rating. Check their profile and the price before requesting the walk."
+    },
+    "disfrutar": {
+      "titulo": "Enjoy the walk with peace of mind",
+      "texto": "Follow the route, keep everything logged and pay when it's done. Afterwards, leave your review to help other pet owners in the community."
+    }
+  },
+  "barra": {
+    "login": "Log in",
+    "signup": "Create account",
+    "menuAria": "Open menu"
+  },
+  "menuMovil": {
+    "closeAria": "Close menu",
+    "signupFree": "Create a free account",
+    "haveAccount": "I already have an account"
+  },
+  "hero": {
+    "srSuffix": "— walks, vets and lost pets in Costa Rica"
+  },
+  "servicios": {
+    "antetitulo": "What it solves",
+    "linea1": "Three things you do today",
+    "linea2": "in three",
+    "subrayada": "different places.",
+    "apoyo": "A WhatsApp group for the walker, a Facebook group to find a vet, and a neighbor's recommendation. Here it's a single account."
+  },
+  "pasosSeccion": {
+    "antetitulo": "How it works",
+    "linea1": "It all starts with",
+    "linea2": "one small step.",
+    "subrayada": "And from there, enjoy it."
+  },
+  "cierre": {
+    "antetitulo": "Start today",
+    "linea1": "Your pet deserves",
+    "linea2": "someone",
+    "subrayada": "trustworthy.",
+    "body": "Creating the account takes a minute and costs nothing. Register your pet and you can already request the first walk.",
+    "cta": "Create a free account",
+    "noCard": "No card. Cancel whenever you want."
+  },
+  "pie": {
+    "rightsReserved": "All rights reserved. The brand, logo and design of this site are the property of {{marca}}.",
+    "madeIn": "Made in Costa Rica."
+  }
+}

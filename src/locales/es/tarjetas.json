@@ -1,0 +1,50 @@
+{
+  "title": "Métodos de pago",
+  "subtitle": "Registrá y administrá las tarjetas con las que abonás los paseos.",
+  "backToPayments": "Volver a pagos",
+  "addCard": "Agregar tarjeta",
+  "savedCards": "Tarjetas guardadas",
+  "countSingular": "tarjeta activa",
+  "countPlural": "tarjetas activas",
+  "deleteCard": "Eliminar tarjeta",
+  "keepAtLeastOne": "Debés conservar al menos una tarjeta",
+  "empty": {
+    "title": "Todavía no tenés tarjetas",
+    "hint": "Agregá una Visa o una Mastercard para abonar los paseos de tus mascotas.",
+    "registerFirst": "Registrar la primera"
+  },
+  "form": {
+    "dialogTitle": "Registrar método de pago",
+    "preview": "Vista previa",
+    "storageNotice": "Guardamos solo la marca y los últimos cuatro dígitos.",
+    "acceptedCards": "Tarjetas aceptadas",
+    "acceptedCardsDetail": "Visa (empieza con 4) y Mastercard (51-55 o 2221-2720).",
+    "holderName": "Nombre del titular",
+    "holderPlaceholder": "Como aparece en la tarjeta",
+    "cardNumber": "Número de tarjeta",
+    "expiry": "Vencimiento",
+    "securityCode": "Código de seguridad",
+    "clientSideNotice": "El número completo y el código se comprueban en tu dispositivo. No viajan ni se guardan.",
+    "save": "Guardar tarjeta",
+    "saving": "Registrando la tarjeta…",
+    "saved": "Tarjeta registrada",
+    "saveFailed": "No se pudo registrar la tarjeta."
+  },
+  "delete": {
+    "title": "¿Eliminar esta tarjeta?",
+    "body": "Vas a eliminar la {{marca}} terminada en {{ultimos4}}. Esta acción no se puede deshacer.",
+    "confirm": "Eliminar",
+    "deleting": "Eliminando la tarjeta…",
+    "deleted": "Tarjeta eliminada",
+    "deleteFailed": "No se pudo eliminar la tarjeta."
+  },
+  "errors": {
+    "loadFailed": "No se pudieron cargar tus tarjetas.",
+    "holderTooShort": "Escribí el nombre como aparece en la tarjeta, solo letras.",
+    "missingDigits": "Faltan {{count}} dígitos.",
+    "unsupportedBrand": "Solo aceptamos Visa y Mastercard.",
+    "invalidNumber": "Ese número no existe. Revisá los dígitos.",
+    "invalidExpiry": "Fecha inválida o ya vencida. Usá MM/AA.",
+    "invalidCvv": "Son los tres dígitos del reverso."
+  }
+}

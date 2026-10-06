@@ -1,0 +1,35 @@
+{
+  "title": "Reviews",
+  "subtitle": "Rate finished walks and check your history.",
+  "averageGiven": "Average you've given",
+  "counts": "{{written}} reviews · {{pending}} pending",
+  "filters": {
+    "label": "Filter reviews",
+    "written": "Written",
+    "pending": "Pending"
+  },
+  "walkOf": "Walk with {{mascota}}",
+  "defaultPet": "your pet",
+  "defaultWalker": "Walker",
+  "empty": {
+    "writtenTitle": "You haven't written any reviews yet",
+    "writtenHint": "It'll show up here to rate once a walk finishes.",
+    "pendingTitle": "You have no pending reviews",
+    "pendingHint": "All your reviews are up to date."
+  },
+  "editReview": "Edit review",
+  "rate": "Rate",
+  "dialog": {
+    "aria": "Rate walk",
+    "title": "Rate {{walker}}",
+    "commentLabel": "Optional comment",
+    "save": "Save review",
+    "saving": "Saving…"
+  },
+  "starsAria": "{{value}} out of 5 stars",
+  "rateWithStarsAria": "Rate with {{n}} stars",
+  "errors": {
+    "loadFailed": "Could not load the reviews.",
+    "saveFailed": "Could not save the review."
+  }
+}

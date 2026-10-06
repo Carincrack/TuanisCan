@@ -1,0 +1,23 @@
+{
+  "title": "Live walk",
+  "searching": "Looking for an ongoing walk…",
+  "trackingSubtitle": "Location tracking during the walk.",
+  "statusInCourse": "In progress",
+  "empty": {
+    "title": "No walks in progress",
+    "hint": "Once your walker starts a walk, you'll be able to follow it here."
+  },
+  "defaultPet": "Your pet",
+  "defaultWalker": "their walker",
+  "withWalker": "{{mascota}} is on a walk with {{paseador}}.",
+  "updatedAt": "Updated at {{hora}}.",
+  "waitingLocation": "Waiting for the walker's location.",
+  "mapPlaceholder": "The walk already started. The map will appear once the walker shares their location.",
+  "noLocationYet": "No location yet",
+  "walkerSection": "Walker",
+  "walkerSectionHint": "Location shared during the walk",
+  "activitySection": "Walk activity",
+  "locationShared": "Location shared",
+  "noActivity": "No locations recorded yet.",
+  "loadError": "Could not load the walk."
+}

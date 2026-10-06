@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Skeleton } from "boneyard-js/react";
 import { AlertTriangle, ArrowLeft, CreditCard, Loader, Plus, ShieldCheck, Trash2 } from "../lib/iconos";
 import { aviso, motivo } from "../lib/aviso";
+import { useTranslation } from "../hooks/useTranslation";
 import {
   CARD_NUMBER_LENGTH,
   cardBrand,
@@ -80,6 +81,7 @@ const soloDigitos = (event: React.KeyboardEvent<HTMLInputElement>) => {
 type CampoTarjeta = "titular" | "numero" | "vencimiento" | "cvv";
 
 const Tarjetas = () => {
+  const { t } = useTranslation();
   const [metodos, setMetodos] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,11 +100,11 @@ const Tarjetas = () => {
       setMetodos(await listPaymentMethods());
     } catch (cause) {
       setError(motivo(cause));
-      aviso.error(cause, { respaldo: "No se pudieron cargar tus tarjetas." });
+      aviso.error(cause, { respaldo: t("tarjetas.errors.loadFailed") });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -121,22 +123,22 @@ const Tarjetas = () => {
     return {
       titular:
         form.titular.trim().length < 3
-          ? "Escribí el nombre como aparece en la tarjeta, solo letras."
+          ? t("tarjetas.errors.holderTooShort")
           : "",
       numero:
         digitos.length !== CARD_NUMBER_LENGTH
-          ? `Faltan ${CARD_NUMBER_LENGTH - digitos.length} dígitos.`
+          ? t("tarjetas.errors.missingDigits", { count: CARD_NUMBER_LENGTH - digitos.length })
           : !marca
-            ? "Solo aceptamos Visa y Mastercard."
+            ? t("tarjetas.errors.unsupportedBrand")
             : !isValidCardNumber(form.numero)
-              ? "Ese número no existe. Revisá los dígitos."
+              ? t("tarjetas.errors.invalidNumber")
               : "",
       vencimiento: !parseExpiry(form.vencimiento)
-        ? "Fecha inválida o ya vencida. Usá MM/AA."
+        ? t("tarjetas.errors.invalidExpiry")
         : "",
-      cvv: !/^\d{3,4}$/.test(form.cvv) ? "Son los tres dígitos del reverso." : "",
+      cvv: !/^\d{3,4}$/.test(form.cvv) ? t("tarjetas.errors.invalidCvv") : "",
     } satisfies Record<CampoTarjeta, string>;
-  }, [form]);
+  }, [form, t]);
 
   const formValido = !Object.values(errores).some(Boolean);
 
@@ -165,9 +167,9 @@ const Tarjetas = () => {
     setDialogError("");
     try {
       await aviso.proceso(registerPaymentMethod(form), {
-        esperando: "Registrando la tarjeta…",
-        bien: "Tarjeta registrada",
-        mal: "No se pudo registrar la tarjeta.",
+        esperando: t("tarjetas.form.saving"),
+        bien: t("tarjetas.form.saved"),
+        mal: t("tarjetas.form.saveFailed"),
       });
       setForm({ titular: "", numero: "", vencimiento: "", cvv: "" });
       cerrarFormulario();
@@ -191,14 +193,14 @@ const Tarjetas = () => {
     setEliminando(true);
     try {
       await aviso.proceso(deletePaymentMethod(porEliminar.id_metodo_pago), {
-        esperando: "Eliminando la tarjeta…",
-        bien: "Tarjeta eliminada",
-        mal: "No se pudo eliminar la tarjeta.",
+        esperando: t("tarjetas.delete.deleting"),
+        bien: t("tarjetas.delete.deleted"),
+        mal: t("tarjetas.delete.deleteFailed"),
       });
       setPorEliminar(null);
       await load();
     } catch (cause) {
-      aviso.error(cause, { respaldo: "No se pudo eliminar la tarjeta." });
+      aviso.error(cause, { respaldo: t("tarjetas.delete.deleteFailed") });
     } finally {
       setEliminando(false);
     }
@@ -213,17 +215,17 @@ const Tarjetas = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Métodos de pago"
-        subtitle="Registrá y administrá las tarjetas con las que abonás los paseos."
+        title={t("tarjetas.title")}
+        subtitle={t("tarjetas.subtitle")}
         action={
           <div className="flex items-center gap-2.5">
             <Link to="/pagos" className={btnSecondary}>
               <ArrowLeft size={15} strokeWidth={2} />
-              Volver a pagos
+              {t("tarjetas.backToPayments")}
             </Link>
             <button type="button" className={btnPrimary} onClick={abrirFormulario}>
               <Plus size={15} strokeWidth={2} />
-              Agregar tarjeta
+              {t("tarjetas.addCard")}
             </button>
             {botonNotificaciones}
           </div>
@@ -241,11 +243,11 @@ const Tarjetas = () => {
       )}
 
       <Section
-        title="Tarjetas guardadas"
+        title={t("tarjetas.savedCards")}
         aside={
           metodos.length > 0 && (
             <span className="text-[12px] text-ink-soft">
-              {metodos.length} {metodos.length === 1 ? "tarjeta activa" : "tarjetas activas"}
+              {metodos.length} {metodos.length === 1 ? t("tarjetas.countSingular") : t("tarjetas.countPlural")}
             </span>
           )
         }
@@ -271,8 +273,8 @@ const Tarjetas = () => {
                   disabled={metodos.length <= 1}
                   title={
                     metodos.length <= 1
-                      ? "Debés conservar al menos una tarjeta"
-                      : "Eliminar tarjeta"
+                      ? t("tarjetas.keepAtLeastOne")
+                      : t("tarjetas.deleteCard")
                   }
                   className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-black/25 text-white backdrop-blur-sm transition-[background-color,transform] duration-150 ease-out hover:bg-danger active:scale-[0.94] disabled:pointer-events-none disabled:opacity-40"
                 >
@@ -283,12 +285,12 @@ const Tarjetas = () => {
           </div>
         ) : (
           <EmptyState
-            title="Todavía no tenés tarjetas"
-            hint="Agregá una Visa o una Mastercard para abonar los paseos de tus mascotas."
+            title={t("tarjetas.empty.title")}
+            hint={t("tarjetas.empty.hint")}
             action={
               <button type="button" className={btnPrimary} onClick={abrirFormulario}>
                 <Plus size={15} strokeWidth={2} />
-                Registrar la primera
+                {t("tarjetas.empty.registerFirst")}
               </button>
             }
           />
@@ -297,12 +299,12 @@ const Tarjetas = () => {
 
       {/* ── Registrar tarjeta ── */}
       {mostrarTarjeta && (
-        <Dialog title="Registrar método de pago" ancho="max-w-[780px]" onClose={cerrarFormulario}>
+        <Dialog title={t("tarjetas.form.dialogTitle")} ancho="max-w-[780px]" onClose={cerrarFormulario}>
           <div className="grid gap-6 p-6 md:grid-cols-[1fr_1.1fr] md:items-start">
             {/* La vista previa se arma sola mientras se escribe: es la
                 forma más rápida de ver que el número quedó bien. */}
             <div>
-              <p className="rotulo mb-3 text-ink-mute">Vista previa</p>
+              <p className="rotulo mb-3 text-ink-mute">{t("tarjetas.form.preview")}</p>
               <TarjetaVisual
                 marca={previewBrand}
                 numero={previewNumber}
@@ -312,7 +314,7 @@ const Tarjetas = () => {
               />
               <p className="mt-4 flex items-center gap-2 text-[12px] text-ink-soft">
                 <ShieldCheck size={16} className="text-ok" />
-                Guardamos solo la marca y los últimos cuatro dígitos.
+                {t("tarjetas.form.storageNotice")}
               </p>
             </div>
 
@@ -320,20 +322,19 @@ const Tarjetas = () => {
               <div className="rounded-[14px] bg-accent-wash px-4 py-3 text-[12px] leading-relaxed text-accent-deep sm:col-span-2">
                 <p className="mb-1 flex items-center gap-1.5 font-semibold">
                   <CreditCard size={14} />
-                  Tarjetas aceptadas
+                  {t("tarjetas.form.acceptedCards")}
                 </p>
                 <p className="text-[11.5px] text-ink-soft">
-                  <strong>Visa</strong> (empieza con 4) y <strong>Mastercard</strong> (51-55 o
-                  2221-2720).
+                  {t("tarjetas.form.acceptedCardsDetail")}
                 </p>
               </div>
 
               <label className={`${fieldLabel} sm:col-span-2`}>
-                Nombre del titular
+                {t("tarjetas.form.holderName")}
                 <input
                   autoComplete="cc-name"
                   className={input}
-                  placeholder="Como aparece en la tarjeta"
+                  placeholder={t("tarjetas.form.holderPlaceholder")}
                   value={form.titular}
                   onBlur={marcar("titular")}
                   onChange={(event) =>
@@ -349,7 +350,7 @@ const Tarjetas = () => {
 
               <label className={`${fieldLabel} sm:col-span-2`}>
                 <span className="flex items-center justify-between">
-                  Número de tarjeta
+                  {t("tarjetas.form.cardNumber")}
                   <span className="nums text-[11px] font-medium normal-case text-ink-soft">
                     {digitosPuestos}/{CARD_NUMBER_LENGTH}
                   </span>
@@ -388,13 +389,13 @@ const Tarjetas = () => {
               </label>
 
               <label className={fieldLabel}>
-                Vencimiento
+                {t("tarjetas.form.expiry")}
                 <input
                   inputMode="numeric"
                   autoComplete="cc-exp"
                   maxLength={5}
                   className={input}
-                  placeholder="MM/AA"
+                  placeholder={t("tarjetaVisual.expiresPlaceholder")}
                   value={form.vencimiento}
                   onKeyDown={soloDigitos}
                   onBlur={marcar("vencimiento")}
@@ -410,7 +411,7 @@ const Tarjetas = () => {
               </label>
 
               <label className={fieldLabel}>
-                Código de seguridad
+                {t("tarjetas.form.securityCode")}
                 <input
                   type="password"
                   inputMode="numeric"
@@ -434,8 +435,7 @@ const Tarjetas = () => {
 
               <p className="flex items-start gap-2 text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
                 <ShieldCheck size={14} className="mt-px shrink-0" />
-                El número completo y el código se comprueban en tu dispositivo. No viajan ni se
-                guardan.
+                {t("tarjetas.form.clientSideNotice")}
               </p>
 
               {dialogError && (
@@ -450,7 +450,7 @@ const Tarjetas = () => {
 
               <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
                 <button type="button" className={btnSecondary} onClick={cerrarFormulario}>
-                  Cancelar
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="button"
@@ -459,7 +459,7 @@ const Tarjetas = () => {
                   onClick={() => void saveCard()}
                 >
                   {saving && <Loader size={14} className="animate-spin" />}
-                  Guardar tarjeta
+                  {t("tarjetas.form.save")}
                 </button>
               </div>
             </div>
@@ -470,15 +470,9 @@ const Tarjetas = () => {
       {/* ── Eliminar tarjeta ── */}
       {porEliminar && (
         <Confirmar
-          titulo="¿Eliminar esta tarjeta?"
-          cuerpo={
-            <>
-              Vas a eliminar la {porEliminar.marca} terminada en{" "}
-              <strong className="nums">{porEliminar.ultimos4}</strong>. Esta acción no se puede
-              deshacer.
-            </>
-          }
-          confirmar="Eliminar"
+          titulo={t("tarjetas.delete.title")}
+          cuerpo={t("tarjetas.delete.body", { marca: porEliminar.marca, ultimos4: porEliminar.ultimos4 })}
+          confirmar={t("tarjetas.delete.confirm")}
           tono="peligro"
           ocupado={eliminando}
           onConfirmar={() => void eliminarTarjeta()}

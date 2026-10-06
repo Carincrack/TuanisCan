@@ -50,6 +50,7 @@ import { listWalkerEarnings, type WalkerEarning } from "../services/payments.ser
 import { listarResenasPaseador } from "../services/resenas-paseador.service";
 import { toggleWalkerAvailability } from "../services/walkers.service";
 import { formatDate, petAge, vaccineStatus } from "../lib/pets";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -61,14 +62,14 @@ import { formatDate, petAge, vaccineStatus } from "../lib/pets";
 
 const hoyISO = () => new Date().toISOString().slice(0, 10);
 
-const subtituloPanel = new Intl.DateTimeFormat("es-CR", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-}).format(new Date());
-
 export const PanelPaseador = () => {
   const { user, getProfile } = useAuth();
+  const { t, localeTag } = useTranslation();
+  const subtituloPanel = new Intl.DateTimeFormat(localeTag, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
   const [disponible, setDisponible] = useState(false);
   const [calificacion, setCalificacion] = useState(0);
   const [totalResenas, setTotalResenas] = useState(0);
@@ -97,11 +98,11 @@ export const PanelPaseador = () => {
       setPendientes(solicitudes);
       setGanancias(ingresos);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo cargar el panel.");
+      setError(cause instanceof Error ? cause.message : t("paseadorPanel.panel.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [getProfile]);
+  }, [getProfile, t]);
 
   useEffect(() => {
     void cargar();
@@ -114,7 +115,7 @@ export const PanelPaseador = () => {
       await toggleWalkerAvailability(user.id, !disponible);
       setDisponible(!disponible);
     } catch (cause) {
-      aviso.error(cause, { respaldo: "No se pudo cambiar tu disponibilidad." });
+      aviso.error(cause, { respaldo: t("paseadorPanel.panel.availabilityError") });
     } finally {
       setCambiandoDisponibilidad(false);
     }
@@ -133,7 +134,7 @@ export const PanelPaseador = () => {
   return (
     <Page>
       <PageHeader
-        title="Panel del paseador"
+        title={t("paseadorPanel.panel.title")}
         subtitle={subtituloPanel}
         action={
           <button
@@ -146,12 +147,12 @@ export const PanelPaseador = () => {
             {disponible ? (
               <>
                 <Pause size={15} strokeWidth={2} />
-                Dejar de recibir solicitudes
+                {t("paseadorPanel.panel.stopReceiving")}
               </>
             ) : (
               <>
                 <Play size={15} strokeWidth={2} />
-                Ponerme disponible
+                {t("paseadorPanel.panel.becomeAvailable")}
               </>
             )}
           </button>
@@ -161,12 +162,12 @@ export const PanelPaseador = () => {
       <div className="bg-surface px-6 py-4">
         <div className="flex items-center gap-3">
           <Badge tono={disponible ? "ok" : "neutral"}>
-            {disponible ? "Disponible" : "No disponible"}
+            {disponible ? t("paseadorPanel.panel.available") : t("paseadorPanel.panel.unavailable")}
           </Badge>
           <p className="text-[13px] text-ink-soft">
             {disponible
-              ? "Los dueños de tu zona pueden enviarte solicitudes."
-              : "No recibirás solicitudes nuevas hasta que te actives."}
+              ? t("paseadorPanel.panel.availableHint")
+              : t("paseadorPanel.panel.unavailableHint")}
           </p>
         </div>
       </div>
@@ -179,36 +180,36 @@ export const PanelPaseador = () => {
 
       {loading ? (
         <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
-          <Loader size={16} className="animate-spin" /> Cargando panel…
+          <Loader size={16} className="animate-spin" /> {t("paseadorPanel.panel.loading")}
         </div>
       ) : (
         <>
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
-              etiqueta="Paseos hoy"
+              etiqueta={t("paseadorPanel.panel.stats.walksToday")}
               valor={String(citasHoy.length)}
-              nota={paseoEnCurso ? "1 en curso" : undefined}
+              nota={paseoEnCurso ? t("paseadorPanel.panel.stats.oneInProgress") : undefined}
             />
-            <Stat etiqueta="Ganado hoy" valor={colones(gananciaHoy)} nota="antes de comisión" />
+            <Stat etiqueta={t("paseadorPanel.panel.stats.earnedToday")} valor={colones(gananciaHoy)} nota={t("paseadorPanel.panel.stats.beforeCommission")} />
             <Stat
-              etiqueta="Esta semana"
+              etiqueta={t("paseadorPanel.panel.stats.thisWeek")}
               valor={colones(gananciaSemana.reduce((sum, g) => sum + g.bruto, 0))}
-              nota={`${gananciaSemana.length} paseos`}
+              nota={`${gananciaSemana.length} ${t("paseadorPanel.panel.stats.walksSuffix")}`}
             />
             <Stat
-              etiqueta="Calificación"
+              etiqueta={t("paseadorPanel.panel.stats.rating")}
               valor={calificacion.toFixed(1)}
-              nota={`${totalResenas} reseñas`}
+              nota={`${totalResenas} ${t("paseadorPanel.panel.stats.reviewsSuffix")}`}
             />
           </div>
 
-          <Section title="Paseo en curso" bodyClass="">
+          <Section title={t("paseadorPanel.panel.ongoingWalk.title")} bodyClass="">
             {paseoEnCurso ? (
               <div className="flex flex-wrap items-center gap-5 px-6 pt-4 pb-6">
                 {paseoEnCurso.foto ? (
                   <MockPhoto
                     src={paseoEnCurso.foto}
-                    alt={`Foto de ${paseoEnCurso.mascota}`}
+                    alt={t("common.photoOf", { nombre: paseoEnCurso.mascota })}
                     className="h-20 w-20 flex-shrink-0"
                   />
                 ) : (
@@ -229,26 +230,26 @@ export const PanelPaseador = () => {
                   </div>
                 </div>
                 <Link to="/p/paseo-activo" className={btnPrimary}>
-                  Ir al seguimiento
+                  {t("paseadorPanel.panel.ongoingWalk.goToTracking")}
                 </Link>
               </div>
             ) : (
               <EmptyState
-                title="No tienes paseos en curso"
-                hint="Cuando inicies un paseo confirmado, aparecerá aquí."
+                title={t("paseadorPanel.panel.ongoingWalk.empty.title")}
+                hint={t("paseadorPanel.panel.ongoingWalk.empty.hint")}
               />
             )}
           </Section>
 
-          <Section title="Próximas solicitudes" bodyClass="">
+          <Section title={t("paseadorPanel.panel.upcomingRequests.title")} bodyClass="">
             {pendientes.length ? (
               <Table
-                caption="Solicitudes pendientes de responder"
+                caption={t("paseadorPanel.panel.upcomingRequests.caption")}
                 columnas={[
-                  { label: "Dueño y mascota" },
-                  { label: "Cuándo" },
-                  { label: "Zona" },
-                  { label: "Pago", align: "right" },
+                  { label: t("paseadorPanel.panel.upcomingRequests.columns.ownerAndPet") },
+                  { label: t("paseadorPanel.panel.upcomingRequests.columns.when") },
+                  { label: t("paseadorPanel.panel.upcomingRequests.columns.zone") },
+                  { label: t("paseadorPanel.panel.upcomingRequests.columns.pay"), align: "right" },
                 ]}
               >
                 {pendientes.slice(0, 5).map((s) => (
@@ -263,7 +264,7 @@ export const PanelPaseador = () => {
                       </div>
                     </td>
                     <td className="nums px-6 py-3.5 text-[12.5px] text-ink-soft">
-                      {new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(
+                      {new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(
                         new Date(`${s.fecha}T00:00:00`),
                       )}{" "}
                       · {s.hora_inicio.slice(0, 5)}
@@ -277,8 +278,8 @@ export const PanelPaseador = () => {
               </Table>
             ) : (
               <EmptyState
-                title="No tienes solicitudes pendientes"
-                hint="Cuando un dueño de tu zona te elija, la solicitud aparece aquí."
+                title={t("paseadorPanel.panel.upcomingRequests.empty.title")}
+                hint={t("paseadorPanel.panel.upcomingRequests.empty.hint")}
               />
             )}
           </Section>
@@ -290,8 +291,8 @@ export const PanelPaseador = () => {
 
 /* ── Solicitudes ─────────────────────────────────────────────── */
 
-const fechaSolicitud = (fecha: string) =>
-  new Intl.DateTimeFormat("es-CR", {
+const fechaSolicitud = (fecha: string, localeTag: string) =>
+  new Intl.DateTimeFormat(localeTag, {
     weekday: "long",
     day: "numeric",
     month: "short",
@@ -306,18 +307,19 @@ const rangoHoras = (hora: string, minutos: number) => {
 
 /* La foto es lo primero que el paseador necesita: así va a reconocer
    a la mascota en el punto de encuentro. Tocarla la abre en grande. */
-const FotoMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) =>
-  s.fotoUrl ? (
+const FotoMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
+  const { t } = useTranslation();
+  return s.fotoUrl ? (
     <a
       href={s.fotoUrl}
       target="_blank"
       rel="noreferrer"
       className="block overflow-hidden rounded-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      aria-label={`Ver la foto de ${s.mascota} en tamaño completo`}
+      aria-label={t("paseadorPanel.requests.card.viewPhotoFull", { mascota: s.mascota })}
     >
       <img
         src={s.fotoUrl}
-        alt={`Foto de ${s.mascota}`}
+        alt={t("common.photoOf", { nombre: s.mascota })}
         loading="lazy"
         className="aspect-[4/3] w-full bg-sunken object-cover transition-transform duration-300 hover:scale-[1.03] md:aspect-[4/5]"
       />
@@ -325,9 +327,10 @@ const FotoMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) =>
   ) : (
     <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-[14px] bg-accent-wash text-accent-deep md:aspect-[4/5]">
       <PawPrint size={36} strokeWidth={1.6} aria-hidden />
-      <span className="text-[12px]">Sin foto</span>
+      <span className="text-[12px]">{t("paseadorPanel.requests.card.noPhoto")}</span>
     </div>
   );
+};
 
 const Dato = ({ rotulo, valor }: { rotulo: string; valor: string }) => (
   <div className="min-w-0">
@@ -340,12 +343,13 @@ const Dato = ({ rotulo, valor }: { rotulo: string; valor: string }) => (
    pesa en la decisión: primero la salud, después cómo es y al final
    las notas sueltas. */
 const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
+  const { t, localeTag } = useTranslation();
   const datos = [
-    ["Peso", s.peso !== null ? `${s.peso} kg` : null],
-    ["Color", s.color],
-    ["Esterilizado", s.esterilizado === null ? null : s.esterilizado ? "Sí" : "No"],
-    ["Microchip", s.microchip],
-    ["Veterinaria", s.veterinaria],
+    [t("paseadorPanel.requests.card.weight"), s.peso !== null ? `${s.peso} kg` : null],
+    [t("paseadorPanel.requests.card.color"), s.color],
+    [t("paseadorPanel.requests.card.sterilized"), s.esterilizado === null ? null : s.esterilizado ? t("paseadorPanel.requests.card.yes") : t("paseadorPanel.requests.card.no")],
+    [t("paseadorPanel.requests.card.microchip"), s.microchip],
+    [t("paseadorPanel.requests.card.vet"), s.veterinaria],
   ].filter((dato): dato is [string, string] => Boolean(dato[1]));
 
   return (
@@ -354,14 +358,14 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
         <p className="flex gap-3 rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] leading-snug text-danger">
           <AlertTriangle size={17} strokeWidth={2} aria-hidden className="mt-px shrink-0" />
           <span>
-            <span className="font-semibold">Alergias: </span>
+            <span className="font-semibold">{t("paseadorPanel.requests.card.allergies")} </span>
             {s.alergias}
           </span>
         </p>
       ) : (
         <p className="flex items-center gap-2.5 text-[13px] text-ok">
           <ShieldCheck size={16} strokeWidth={2} aria-hidden className="shrink-0" />
-          {s.padecimientos.length ? "Sin alergias registradas" : "Sin alergias ni enfermedades registradas"}
+          {s.padecimientos.length ? t("paseadorPanel.requests.card.noAllergiesWithConditions") : t("paseadorPanel.requests.card.noAllergiesNoConditions")}
         </p>
       )}
 
@@ -369,14 +373,14 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
         <div className="rounded-[14px] bg-warn-wash px-4 py-3">
           <h4 className="flex items-center gap-2 text-[13px] font-semibold text-warn">
             <Stethoscope size={16} strokeWidth={2} aria-hidden className="shrink-0" />
-            {s.padecimientos.length === 1 ? "Tiene una enfermedad" : `Tiene ${s.padecimientos.length} enfermedades`}
+            {s.padecimientos.length === 1 ? t("paseadorPanel.requests.card.hasOneCondition") : t("paseadorPanel.requests.card.hasConditions", { count: s.padecimientos.length })}
           </h4>
           <ul className="mt-2 flex flex-col gap-2.5">
             {s.padecimientos.map((p) => (
               <li key={p.nombre} className="pl-6 text-[13px] leading-snug">
                 <span className="font-semibold text-ink">{p.nombre}</span>
                 {p.fecha_diagnostico && (
-                  <span className="nums text-ink-mute"> · desde {formatDate(p.fecha_diagnostico)}</span>
+                  <span className="nums text-ink-mute"> · {t("paseadorPanel.requests.card.since")} {formatDate(p.fecha_diagnostico, localeTag)}</span>
                 )}
                 {p.cuidados && <p className="mt-0.5 whitespace-pre-wrap text-ink-soft">{p.cuidados}</p>}
               </li>
@@ -396,10 +400,10 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
       <div>
         <h4 className="flex items-center gap-2 text-[13px] font-semibold text-ink">
           <Syringe size={15} strokeWidth={1.8} aria-hidden className="text-ink-mute" />
-          Vacunas
+          {t("paseadorPanel.requests.card.vaccines")}
         </h4>
         {s.vacunas.length === 0 ? (
-          <p className="mt-1.5 text-[13px] text-ink-soft">El dueño no registró vacunas.</p>
+          <p className="mt-1.5 text-[13px] text-ink-soft">{t("paseadorPanel.requests.card.noVaccines")}</p>
         ) : (
           <ul className="mt-2 divide-y divide-sunken">
             {s.vacunas.map((v) => {
@@ -411,9 +415,9 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
                 >
                   <span className="text-ink">{v.nombre_vacuna}</span>
                   <span className="flex items-center gap-3">
-                    <span className="nums text-ink-mute">vence {formatDate(v.fecha_vencimiento)}</span>
+                    <span className="nums text-ink-mute">{t("paseadorPanel.requests.card.expires")} {formatDate(v.fecha_vencimiento, localeTag)}</span>
                     <Badge tono={estado === "vigente" ? "ok" : estado === "pendiente" ? "warn" : "danger"}>
-                      {estado === "pendiente" ? "Por vencer" : estado}
+                      {estado === "pendiente" ? t("paseadorPanel.requests.card.statusUpcoming") : estado}
                     </Badge>
                   </span>
                 </li>
@@ -425,7 +429,7 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
 
       {s.notas && (
         <blockquote className="border-l-2 border-accent pl-4 text-[13px] leading-relaxed text-ink-soft">
-          <p className="mb-1 font-semibold text-ink">Lo que el dueño quiere que sepas</p>
+          <p className="mb-1 font-semibold text-ink">{t("paseadorPanel.requests.card.notes")}</p>
           {s.notas}
         </blockquote>
       )}
@@ -446,14 +450,15 @@ const TarjetaSolicitud = ({
   guardando: boolean;
   onResponder: (aprobada: boolean) => void;
 }) => {
+  const { t, localeTag } = useTranslation();
   const esOferta = s.precio !== s.precio_tarifa;
   const diferencia = s.precio_tarifa > 0 ? Math.round(((s.precio - s.precio_tarifa) / s.precio_tarifa) * 100) : 0;
 
   const rasgos = [
     s.especie,
     s.raza,
-    s.sexo === "macho" ? "Macho" : s.sexo === "hembra" ? "Hembra" : null,
-    s.fecha_nacimiento ? petAge(s.fecha_nacimiento) : null,
+    s.sexo === "macho" ? t("paseadorPanel.requests.card.male") : s.sexo === "hembra" ? t("paseadorPanel.requests.card.female") : null,
+    s.fecha_nacimiento ? petAge(s.fecha_nacimiento, t) : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -464,7 +469,7 @@ const TarjetaSolicitud = ({
           <div className="flex items-center gap-3">
             <Avatar nombre={s.dueno} size={34} />
             <div className="min-w-0">
-              <p className="text-[12px] text-ink-mute">Dueño</p>
+              <p className="text-[12px] text-ink-mute">{t("paseadorPanel.requests.card.owner")}</p>
               <p className="truncate text-[13.5px] font-medium text-ink">{s.dueno}</p>
             </div>
           </div>
@@ -486,10 +491,10 @@ const TarjetaSolicitud = ({
             </div>
             {esOferta ? (
               <div className="rounded-[14px] bg-accent-wash px-4 py-2.5 text-right">
-                <p className="text-[12px] font-semibold text-accent-deep">Oferta del dueño</p>
+                <p className="text-[12px] font-semibold text-accent-deep">{t("paseadorPanel.requests.card.ownerOffer")}</p>
                 <p className="nums text-[26px] font-semibold leading-tight text-ink">{colones(s.precio)}</p>
                 <p className="nums text-[12px] text-ink-soft">
-                  Tu tarifa: <span className="line-through">{colones(s.precio_tarifa)}</span>
+                  {t("paseadorPanel.requests.card.yourRate")} <span className="line-through">{colones(s.precio_tarifa)}</span>
                   <span className={`ml-1.5 font-semibold ${diferencia > 0 ? "text-ok" : "text-warn"}`}>
                     {diferencia > 0 ? "+" : ""}{diferencia}%
                   </span>
@@ -498,17 +503,17 @@ const TarjetaSolicitud = ({
             ) : (
               <div className="text-right">
                 <p className="nums text-[26px] font-semibold leading-tight text-ink">{colones(s.precio)}</p>
-                <p className="text-[12px] text-ink-mute">Te pagan por este paseo</p>
+                <p className="text-[12px] text-ink-mute">{t("paseadorPanel.requests.card.paidForThisWalk")}</p>
               </div>
             )}
           </header>
 
           <dl className="nums mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-suelo sm:grid-cols-4">
             {[
-              { icono: CalendarDays, rotulo: "Día", valor: fechaSolicitud(s.fecha) },
-              { icono: Clock, rotulo: "Horario", valor: rangoHoras(s.hora_inicio, s.duracion_min) },
-              { icono: Timer, rotulo: "Duración", valor: `${s.duracion_min} min` },
-              { icono: MapPin, rotulo: "Zona", valor: s.zona },
+              { icono: CalendarDays, rotulo: t("paseadorPanel.requests.card.day"), valor: fechaSolicitud(s.fecha, localeTag) },
+              { icono: Clock, rotulo: t("paseadorPanel.requests.card.schedule"), valor: rangoHoras(s.hora_inicio, s.duracion_min) },
+              { icono: Timer, rotulo: t("paseadorPanel.requests.card.duration"), valor: `${s.duracion_min} min` },
+              { icono: MapPin, rotulo: t("paseadorPanel.requests.card.zone"), valor: s.zona },
             ].map(({ icono: Icono, rotulo, valor }) => (
               <div key={rotulo} className="bg-sunken px-4 py-3">
                 <dt className="flex items-center gap-1.5 text-[12px] text-ink-mute">
@@ -523,7 +528,7 @@ const TarjetaSolicitud = ({
           <p className="mt-3 flex gap-2.5 text-[13px] leading-snug text-ink-soft">
             <Navigation size={15} strokeWidth={1.8} aria-hidden className="mt-0.5 shrink-0 text-accent-dark" />
             <span>
-              <span className="text-ink">Punto de encuentro: </span>
+              <span className="text-ink">{t("paseadorPanel.requests.card.meetingPoint")} </span>
               {s.direccion_encuentro}
             </span>
           </p>
@@ -534,14 +539,14 @@ const TarjetaSolicitud = ({
 
       <footer className="flex flex-col gap-3 border-t border-sunken bg-canvas/60 px-5 py-4 sm:px-6 md:flex-row md:items-end">
         <label className="block flex-1">
-          <span className="text-[12px] text-ink-mute">Mensaje para {s.dueno} (opcional)</span>
+          <span className="text-[12px] text-ink-mute">{t("paseadorPanel.requests.card.messageFor", { nombre: s.dueno })}</span>
           <textarea
             rows={2}
             maxLength={500}
             value={comentario}
             onChange={(e) => onComentario(e.target.value)}
             className={`${input} mt-1.5 resize-y bg-surface`}
-            placeholder="Ej.: Llego 5 minutos antes con correa extra."
+            placeholder={t("paseadorPanel.requests.card.messagePlaceholder")}
           />
         </label>
         <div className="flex gap-2 md:pb-0.5">
@@ -552,7 +557,7 @@ const TarjetaSolicitud = ({
             className={`${btnDanger} flex-1 md:flex-none`}
           >
             <X size={15} strokeWidth={2.2} />
-            Rechazar
+            {t("paseadorPanel.requests.card.reject")}
           </button>
           <button
             type="button"
@@ -561,7 +566,7 @@ const TarjetaSolicitud = ({
             className={`${btnPrimary} flex-1 md:flex-none`}
           >
             <Check size={15} strokeWidth={2.2} />
-            {guardando ? "Guardando..." : esOferta ? `Aceptar ${colones(s.precio)}` : "Aceptar paseo"}
+            {guardando ? t("paseadorPanel.requests.card.saving") : esOferta ? t("paseadorPanel.requests.card.acceptOffer", { monto: colones(s.precio) }) : t("paseadorPanel.requests.card.accept")}
           </button>
         </div>
       </footer>
@@ -571,6 +576,7 @@ const TarjetaSolicitud = ({
 
 export const SolicitudesPaseador = () => {
   const { getProfile, isAdmin } = useAuth();
+  const { t, localeTag } = useTranslation();
   const [pendientes, setPendientes] = useState<WalkerRequest[]>([]);
   const [comentarios, setComentarios] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -595,19 +601,19 @@ export const SolicitudesPaseador = () => {
         setPendientes(solicitudes);
         setHabilitado(isAdmin || perfil?.verificacion.estado === "aprobado");
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "No se pudieron cargar las solicitudes.");
+        setError(cause instanceof Error ? cause.message : t("paseadorPanel.requests.loadError"));
       } finally {
         setLoading(false);
       }
     };
 
     void cargar();
-  }, [getProfile, isAdmin]);
+  }, [getProfile, isAdmin, t]);
 
   const responder = async (solicitud: WalkerRequest, aprobada: boolean) => {
     if (!habilitado) {
-      aviso.ojo("Verificá tu perfil primero", {
-        detalle: "Sin la verificación aprobada no podés aceptar paseos.",
+      aviso.ojo(t("paseadorPanel.requests.verifyFirst"), {
+        detalle: t("paseadorPanel.requests.verifyFirstDetail"),
       });
       return;
     }
@@ -624,17 +630,17 @@ export const SolicitudesPaseador = () => {
         actuales.filter((item) => item.id_paseo !== solicitud.id_paseo),
       );
       if (aprobada) {
-        aviso.ok(`Paseo con ${solicitud.mascota} confirmado`, {
+        aviso.ok(t("paseadorPanel.requests.confirmed", { mascota: solicitud.mascota }), {
           detalle: `${formatoFecha(solicitud.fecha, solicitud.hora_inicio)} · ${solicitud.direccion_encuentro}`,
         });
       } else {
-        aviso.dato(`Solicitud de ${solicitud.mascota} rechazada`, {
-          detalle: "Le avisamos al dueño para que busque otro paseador.",
+        aviso.dato(t("paseadorPanel.requests.rejected", { mascota: solicitud.mascota }), {
+          detalle: t("paseadorPanel.requests.rejectedDetail"),
         });
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo responder la solicitud.");
-      aviso.error(cause, { respaldo: "No se pudo responder la solicitud." });
+      setError(cause instanceof Error ? cause.message : t("paseadorPanel.requests.respondError"));
+      aviso.error(cause, { respaldo: t("paseadorPanel.requests.respondError") });
       /* Puede que el dueño la haya cancelado mientras tanto: se recarga
          para que la tarjeta no quede colgada. */
       listWalkerRequests().then(setPendientes).catch(() => {});
@@ -644,7 +650,7 @@ export const SolicitudesPaseador = () => {
   };
 
   const formatoFecha = (fecha: string, hora: string) =>
-    `${new Intl.DateTimeFormat("es-CR", {
+    `${new Intl.DateTimeFormat(localeTag, {
       day: "numeric",
       month: "short",
     }).format(new Date(`${fecha}T00:00:00`))} · ${hora.slice(0, 5)}`;
@@ -652,8 +658,8 @@ export const SolicitudesPaseador = () => {
   return (
     <Page>
       <PageHeader
-        title="Solicitudes"
-        subtitle="Paseos que te ofrecieron los dueños de tu zona. El dueño puede cancelar mientras no respondas."
+        title={t("paseadorPanel.requests.title")}
+        subtitle={t("paseadorPanel.requests.subtitle")}
       />
 
       {(error || message) && (
@@ -685,13 +691,13 @@ export const SolicitudesPaseador = () => {
         <EmptyState
           title={
             habilitado
-              ? "No tienes solicitudes pendientes"
-              : "Todavía no aparecés en las búsquedas"
+              ? t("paseadorPanel.requests.empty.titleEnabled")
+              : t("paseadorPanel.requests.empty.titleDisabled")
           }
           hint={
             habilitado
-              ? "Cuando un dueño de tu zona te elija, la solicitud aparece aquí."
-              : "Los dueños solo ven paseadores con la verificación aprobada. Completá tus documentos y esperá la revisión."
+              ? t("paseadorPanel.requests.empty.hintEnabled")
+              : t("paseadorPanel.requests.empty.hintDisabled")
           }
         />
       )}
@@ -704,24 +710,25 @@ export const SolicitudesPaseador = () => {
 const tonoCita = (estado: CitaAgendaPaseador["estado"]) =>
   estado === "en_curso" ? "accent" : "ok";
 
-const labelCita = (estado: CitaAgendaPaseador["estado"]) =>
-  estado === "en_curso" ? "En curso" : "Confirmado";
-
-const etiquetaDia = (fechaISO: string) => {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const manana = new Date(hoy);
-  manana.setDate(hoy.getDate() + 1);
-  const fecha = new Date(`${fechaISO}T00:00:00`);
-
-  if (fecha.getTime() === hoy.getTime()) return "Hoy";
-  if (fecha.getTime() === manana.getTime()) return "Mañana";
-
-  const formato = new Intl.DateTimeFormat("es-CR", { weekday: "long", day: "numeric" }).format(fecha);
-  return formato.charAt(0).toUpperCase() + formato.slice(1);
-};
-
 export const AgendaPaseador = () => {
+  const { t, localeTag } = useTranslation();
+  const labelCita = (estado: CitaAgendaPaseador["estado"]) =>
+    estado === "en_curso" ? t("paseadorPanel.agenda.statusInCourse") : t("paseadorPanel.agenda.statusConfirmed");
+
+  const etiquetaDia = useCallback((fechaISO: string) => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const manana = new Date(hoy);
+    manana.setDate(hoy.getDate() + 1);
+    const fecha = new Date(`${fechaISO}T00:00:00`);
+
+    if (fecha.getTime() === hoy.getTime()) return t("paseadorPanel.agenda.today");
+    if (fecha.getTime() === manana.getTime()) return t("paseadorPanel.agenda.tomorrow");
+
+    const formato = new Intl.DateTimeFormat(localeTag, { weekday: "long", day: "numeric" }).format(fecha);
+    return formato.charAt(0).toUpperCase() + formato.slice(1);
+  }, [t, localeTag]);
+
   const [citas, setCitas] = useState<CitaAgendaPaseador[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -736,9 +743,9 @@ export const AgendaPaseador = () => {
         const primerDia = data[0] ? etiquetaDia(data[0].fecha) : "";
         setDia(primerDia);
       })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudo cargar la agenda."))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("paseadorPanel.agenda.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [etiquetaDia, t]);
 
   const agendaPorDia = new Map<string, CitaAgendaPaseador[]>();
   citas.forEach((cita) => {
@@ -755,8 +762,8 @@ export const AgendaPaseador = () => {
   return (
     <Page>
       <PageHeader
-        title="Agenda"
-        subtitle="Paseos que ya aceptaste, ordenados por hora."
+        title={t("paseadorPanel.agenda.title")}
+        subtitle={t("paseadorPanel.agenda.subtitle")}
       />
 
       {error && (
@@ -767,28 +774,28 @@ export const AgendaPaseador = () => {
 
       {loading ? (
         <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
-          <Loader size={16} className="animate-spin" /> Cargando agenda…
+          <Loader size={16} className="animate-spin" /> {t("paseadorPanel.agenda.loading")}
         </div>
       ) : dias.length === 0 ? (
         <EmptyState
-          title="No tienes paseos agendados"
-          hint="Cuando aceptes una solicitud, aparecerá aquí ordenada por día."
+          title={t("paseadorPanel.agenda.empty.title")}
+          hint={t("paseadorPanel.agenda.empty.hint")}
         />
       ) : (
         <>
           <div className="bg-surface">
-            <FilterTabs label="Elegir día" options={dias} value={dia} onChange={setDia} />
+            <FilterTabs label={t("paseadorPanel.agenda.pickDay")} options={dias.map((o) => ({ value: o, label: o }))} value={dia} onChange={setDia} />
           </div>
 
           <Section bodyClass="">
             <Table
-              caption={`Paseos agendados para ${dia}`}
+              caption={t("paseadorPanel.agenda.caption", { dia })}
               columnas={[
-                { label: "Hora" },
-                { label: "Mascota" },
-                { label: "Zona" },
-                { label: "Estado" },
-                { label: "Pago", align: "right" },
+                { label: t("paseadorPanel.agenda.columns.time") },
+                { label: t("paseadorPanel.agenda.columns.pet") },
+                { label: t("paseadorPanel.agenda.columns.zone") },
+                { label: t("paseadorPanel.agenda.columns.status") },
+                { label: t("paseadorPanel.agenda.columns.pay"), align: "right" },
               ]}
             >
               {citasDelDia.map((c) => (
@@ -815,7 +822,7 @@ export const AgendaPaseador = () => {
 
             <div className="flex items-center justify-between bg-sunken px-6 py-3.5">
               <span className="text-[12.5px] font-medium text-ink-soft">
-                Total de {dia.toLowerCase()}
+                {t("paseadorPanel.agenda.totalOf", { dia: dia.toLowerCase() })}
               </span>
               <span className="nums text-[15px] font-semibold text-ink">
                 {colones(total)}
@@ -928,13 +935,18 @@ export const PaseoActivoPaseador = () => (
 /* ── Ganancias ───────────────────────────────────────────────── */
 
 const filtrosIngreso = ["Todos", "Pendientes", "Pagados"];
-
-const fechaIngreso = (fecha: string) =>
-  new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(
-    new Date(`${fecha}T00:00:00`),
-  );
+const claveFiltroIngresoLabel: Record<string, string> = {
+  Todos: "paseadorPanel.earnings.filters.all",
+  Pendientes: "paseadorPanel.earnings.filters.pending",
+  Pagados: "paseadorPanel.earnings.filters.paid",
+};
 
 export const GananciasPaseador = () => {
+  const { t, localeTag } = useTranslation();
+  const fechaIngreso = (fecha: string) =>
+    new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(
+      new Date(`${fecha}T00:00:00`),
+    );
   const [filtro, setFiltro] = useState("Todos");
   const [ingresos, setIngresos] = useState<WalkerEarning[]>([]);
   const [loading, setLoading] = useState(true);
@@ -944,9 +956,9 @@ export const GananciasPaseador = () => {
     setLoading(true);
     listWalkerEarnings()
       .then(setIngresos)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar las ganancias."))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("paseadorPanel.earnings.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const visibles = ingresos.filter((i) =>
     filtro === "Pendientes"
@@ -963,26 +975,26 @@ export const GananciasPaseador = () => {
   return (
     <Page>
       <PageHeader
-        title="Ganancias"
-        subtitle="Ingresos reales por paseo y comisión de la plataforma."
+        title={t("paseadorPanel.earnings.title")}
+        subtitle={t("paseadorPanel.earnings.subtitle")}
         action={
           <span className="flex items-center gap-2 bg-sunken px-4 py-2.5 text-[13px] text-ink-soft">
             <Wallet size={15} strokeWidth={1.9} aria-hidden />
-            Comisión 15%
+            {t("paseadorPanel.earnings.commission")}
           </span>
         }
       />
 
       <div className="grid gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Ganancia disponible" valor={colones(pagados.reduce((sum, item) => sum + item.neto, 0))} nota={`${pagados.length} pagos`} />
-        <Stat etiqueta="Pendiente de pago" valor={colones(pendientes.reduce((sum, item) => sum + item.neto, 0))} nota={`${pendientes.length} paseos`} />
-        <Stat etiqueta="Comisión descontada" valor={colones(pagados.reduce((sum, item) => sum + item.comision, 0))} nota="15%" />
+        <Stat etiqueta={t("paseadorPanel.earnings.stats.available")} valor={colones(pagados.reduce((sum, item) => sum + item.neto, 0))} nota={`${pagados.length} ${t("paseadorPanel.earnings.stats.paymentsSuffix")}`} />
+        <Stat etiqueta={t("paseadorPanel.earnings.stats.pendingPayment")} valor={colones(pendientes.reduce((sum, item) => sum + item.neto, 0))} nota={`${pendientes.length} ${t("paseadorPanel.earnings.stats.walksSuffix")}`} />
+        <Stat etiqueta={t("paseadorPanel.earnings.stats.deductedCommission")} valor={colones(pagados.reduce((sum, item) => sum + item.comision, 0))} nota="15%" />
       </div>
 
       <div className="bg-surface">
         <FilterTabs
-          label="Filtrar ingresos"
-          options={filtrosIngreso}
+          label={t("paseadorPanel.earnings.filters.label")}
+          options={filtrosIngreso.map((o) => ({ value: o, label: t(claveFiltroIngresoLabel[o]) }))}
           value={filtro}
           onChange={setFiltro}
         />
@@ -993,18 +1005,18 @@ export const GananciasPaseador = () => {
           <div role="alert" className="px-6 py-6 text-[13px] text-danger">{error}</div>
         ) : loading ? (
           <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
-            <Loader size={16} className="animate-spin" /> Cargando ganancias…
+            <Loader size={16} className="animate-spin" /> {t("paseadorPanel.earnings.loading")}
           </div>
         ) : visibles.length ? (
           <><Table
-          caption={`Ingresos filtrados por ${filtro.toLowerCase()}`}
+          caption={t("paseadorPanel.earnings.caption", { filtro: t(claveFiltroIngresoLabel[filtro]).toLowerCase() })}
           columnas={[
-            { label: "Fecha" },
-            { label: "Paseo" },
-            { label: "Estado" },
-            { label: "Bruto", align: "right" },
-            { label: "Comisión", align: "right" },
-            { label: "Neto", align: "right" },
+            { label: t("paseadorPanel.earnings.columns.date") },
+            { label: t("paseadorPanel.earnings.columns.walk") },
+            { label: t("paseadorPanel.earnings.columns.status") },
+            { label: t("paseadorPanel.earnings.columns.gross"), align: "right" },
+            { label: t("paseadorPanel.earnings.columns.commission"), align: "right" },
+            { label: t("paseadorPanel.earnings.columns.net"), align: "right" },
           ]}
         >
           {visibles.map((i) => (
@@ -1018,7 +1030,7 @@ export const GananciasPaseador = () => {
               </td>
               <td className="px-6 py-3.5">
                 <Badge tono={i.estado_pago === "pagado" ? "ok" : "warn"}>
-                  {i.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
+                  {i.estado_pago === "pagado" ? t("paseadorPanel.earnings.statusPaid") : t("paseadorPanel.earnings.statusPending")}
                 </Badge>
               </td>
               <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
@@ -1036,7 +1048,7 @@ export const GananciasPaseador = () => {
 
         <div className="flex items-center justify-between bg-sunken px-6 py-3.5">
           <span className="text-[12.5px] font-medium text-ink-soft">
-            Neto de la selección
+            {t("paseadorPanel.earnings.netOfSelection")}
           </span>
           <span className="nums text-[15px] font-semibold text-ink">
             {colones(totalNeto)}
@@ -1044,7 +1056,7 @@ export const GananciasPaseador = () => {
         </div>
         </>
         ) : (
-          <EmptyState title="Sin ganancias todavía" hint="Los pagos de tus paseos aparecerán aquí." />
+          <EmptyState title={t("paseadorPanel.earnings.empty.title")} hint={t("paseadorPanel.earnings.empty.hint")} />
         )}
       </Section>
     </Page>

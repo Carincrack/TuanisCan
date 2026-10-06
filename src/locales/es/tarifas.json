@@ -1,0 +1,68 @@
+{
+  "title": "Tarifas",
+  "subtitle": "Cuánto cobrás por paseo y cuánto de más según el horario y el día.",
+  "save": "Guardar",
+  "saving": "Guardando…",
+  "loadingRates": "Cargando tus tarifas…",
+  "noProfile": {
+    "title": "Todavía no tenés perfil de paseador",
+    "hint": "Solicitalo desde Mi perfil; cuando lo tengas, acá definís tus tarifas.",
+    "goToProfile": "Ir a Mi perfil"
+  },
+  "errors": {
+    "loadFailed": "No se pudo cargar tu tarifa.",
+    "saveFailed": "No se pudieron guardar las tarifas.",
+    "baseRateInvalid": "La tarifa base debe ser mayor a cero.",
+    "surchargeRange": "El recargo {{nombre}} debe estar entre 0 % y 100 %.",
+    "nightRangeMissing": "Indicá desde y hasta qué hora es tu horario nocturno.",
+    "nightRangeSame": "El horario nocturno no puede empezar y terminar a la misma hora.",
+    "surchargeNight": "nocturno",
+    "surchargeWeekend": "de fin de semana",
+    "surchargeSameDay": "de mismo día"
+  },
+  "saved": "Tarifas guardadas",
+  "savedDetail": "Las próximas solicitudes se calculan con estos valores.",
+  "baseRate": {
+    "title": "Tarifa base",
+    "label": "Lo que cobrás por un paseo de 45 minutos, sin recargos."
+  },
+  "surcharges": {
+    "title": "Recargos",
+    "hint": "Se suman a tu tarifa cuando el paseo cae en esa condición. En 0 % no se cobra.",
+    "night": {
+      "title": "Horario nocturno",
+      "hint": "Paseos que empiezan dentro de tu horario nocturno.",
+      "from": "Desde",
+      "to": "Hasta",
+      "withSurcharge": "{{duracion}} con recargo",
+      "durationHoursMinutes": "{{h}} h {{m}} min",
+      "durationHours": "{{h}} h",
+      "pickRange": "Elegí un rango",
+      "ariaRange": "Horario nocturno de {{desde}} a {{hasta}}"
+    },
+    "weekend": {
+      "title": "Fin de semana",
+      "hint": "Sábados y domingos, a cualquier hora."
+    },
+    "sameDay": {
+      "title": "Mismo día",
+      "hint": "Cuando te piden el paseo para hoy."
+    },
+    "sliderAria": "{{etiqueta}} (deslizador)"
+  },
+  "panel": {
+    "label": "Lo que cobrás con esta configuración",
+    "chargeFor": "Lo que cobrás por un paseo de",
+    "durationAria": "Duración del paseo",
+    "priceCaption": "Precio según el día y la hora",
+    "daytime": "De día",
+    "nighttime": "De noche",
+    "weekday": "Entre semana",
+    "weekend": "Fin de semana",
+    "baseRateLabel": "Tarifa base",
+    "sameDayToggle": "Si lo piden para el mismo día",
+    "unsavedChanges": "Tenés cambios sin guardar.",
+    "currentView": "Esto es lo que ven los dueños hoy.",
+    "save": "Guardar tarifas"
+  }
+}
