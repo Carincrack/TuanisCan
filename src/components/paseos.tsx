@@ -2,6 +2,8 @@ import { Fragment, useCallback, useContext, useEffect, useMemo, useState } from 
 import { Link } from "@tanstack/react-router";
 import { CalendarDays, ChevronDown, Search, X } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
+import type { I18nContextValue } from "../context/i18n-context";
 import { listPets } from "../services/pets.service";
 import { cancelWalkRequest, listWalksWithRelations, getWalkStats, isUpcoming } from "../services/walks.service";
 import { aviso } from "../lib/aviso";
@@ -31,6 +33,8 @@ import {
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 
+type T = I18nContextValue["t"];
+
 /* Misma casa que el directorio de Usuarios: métricas con `Stat`, una
    sección de filtros con buscador y combos, la tabla de reparto fijo
    de `lg` para arriba y fichas apiladas debajo, con paginación. Las
@@ -41,27 +45,30 @@ type Vista = "proximos" | "historial" | "todos";
 
 const PAGE_SIZE = 8;
 
-const formatoFecha = (fecha: string) =>
-  new Intl.DateTimeFormat("es-CR", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  }).format(new Date(`${fecha}T00:00:00`));
-
 const chipEstado =
   "inline-flex h-6 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[10px] font-semibold uppercase leading-none tracking-wide";
 
-const estados: Record<string, { label: string; className: string }> = {
-  solicitado: { label: "Solicitado", className: "bg-warn-wash text-warn" },
-  confirmado: { label: "Confirmado", className: "bg-ok-wash text-ok" },
-  en_curso: { label: "En curso", className: "bg-accent-wash text-accent-dark" },
-  finalizado: { label: "Completado", className: "bg-neutral-wash text-ink-soft" },
-  cancelado: { label: "Cancelado", className: "bg-danger-wash text-danger" },
+const claveEstado: Record<string, string> = {
+  solicitado: "paseos.status.requested",
+  confirmado: "paseos.status.confirmed",
+  en_curso: "paseos.status.inCourse",
+  finalizado: "paseos.status.completed",
+  cancelado: "paseos.status.cancelled",
+};
+
+const estadosClase: Record<string, string> = {
+  solicitado: "bg-warn-wash text-warn",
+  confirmado: "bg-ok-wash text-ok",
+  en_curso: "bg-accent-wash text-accent-dark",
+  finalizado: "bg-neutral-wash text-ink-soft",
+  cancelado: "bg-danger-wash text-danger",
 };
 
 const ChipEstado = ({ estado }: { estado: string }) => {
-  const config = estados[estado] ?? { label: estado, className: "bg-sunken text-ink-mute" };
-  return <span className={`${chipEstado} ${config.className}`}>{config.label}</span>;
+  const { t } = useTranslation();
+  const className = estadosClase[estado] ?? "bg-sunken text-ink-mute";
+  const label = claveEstado[estado] ? t(claveEstado[estado]) : estado;
+  return <span className={`${chipEstado} ${className}`}>{label}</span>;
 };
 
 const zonaLabel = (zona: WalkWithRelations["zona"] | Zona | null) =>
@@ -69,12 +76,12 @@ const zonaLabel = (zona: WalkWithRelations["zona"] | Zona | null) =>
     ? [zona.provincia, zona.canton, zona.distrito ?? zona.nombre].filter(Boolean).join(", ")
     : "";
 
-const messageFrom = (cause: unknown) =>
+const messageFrom = (cause: unknown, t: T) =>
   cause instanceof Error
     ? cause.message
     : typeof cause === "object" && cause && "message" in cause
       ? String((cause as { message: string }).message)
-      : "No se pudieron cargar los paseos.";
+      : t("paseos.loadError");
 
 const FotoMascota = ({ paseo, size }: { paseo: WalkWithRelations; size: number }) =>
   paseo.mascota?.fotoUrl ? (
@@ -90,8 +97,9 @@ const FotoMascota = ({ paseo, size }: { paseo: WalkWithRelations; size: number }
     <Avatar nombre={paseo.mascota?.nombre ?? "M"} size={size} />
   );
 
-const Paseador = ({ paseo }: { paseo: WalkWithRelations }) =>
-  paseo.paseador ? (
+const Paseador = ({ paseo }: { paseo: WalkWithRelations }) => {
+  const { t } = useTranslation();
+  return paseo.paseador ? (
     <span className="flex min-w-0 items-center gap-2">
       {paseo.paseador.fotoUrl ? (
         <img src={paseo.paseador.fotoUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
@@ -99,22 +107,24 @@ const Paseador = ({ paseo }: { paseo: WalkWithRelations }) =>
         <Avatar nombre={paseo.paseador.nombre ?? "P"} size={28} />
       )}
       <span className="truncate text-[12.5px] font-medium text-ink" title={paseo.paseador.nombre ?? undefined}>
-        {paseo.paseador.nombre ?? "Sin nombre"}
+        {paseo.paseador.nombre ?? t("paseos.noName")}
       </span>
     </span>
   ) : (
-    <span className="text-[12.5px] text-ink-mute italic">Sin asignar</span>
+    <span className="text-[12.5px] text-ink-mute italic">{t("paseos.unassigned")}</span>
   );
+};
 
 /** El precio, y si fue una oferta, la marca y la tarifa de referencia. */
 const PrecioPaseo = ({ paseo, alinear = "derecha" }: { paseo: WalkWithRelations; alinear?: "derecha" | "izquierda" }) => {
+  const { t } = useTranslation();
   const esOferta = paseo.precio !== paseo.precio_tarifa;
   return (
     <span className={`flex flex-col ${alinear === "derecha" ? "items-end" : "items-start"}`}>
       <span className="text-[13px] font-semibold text-ink">{colones(paseo.precio)}</span>
       {esOferta && (
-        <span className="mt-0.5 text-[11px] text-accent-dark" title={`Tarifa del paseador: ${colones(paseo.precio_tarifa)}`}>
-          Tu oferta · tarifa {colones(paseo.precio_tarifa)}
+        <span className="mt-0.5 text-[11px] text-accent-dark" title={t("paseos.walkerRateTitle", { tarifa: colones(paseo.precio_tarifa) })}>
+          {t("paseos.yourOffer", { tarifa: colones(paseo.precio_tarifa) })}
         </span>
       )}
     </span>
@@ -123,25 +133,35 @@ const PrecioPaseo = ({ paseo, alinear = "derecha" }: { paseo: WalkWithRelations;
 
 /** Lo que no cabe en la fila: dónde se encuentran, cuándo terminó y
     el código para soporte. Igual en la tabla y en la ficha. */
-const DetallePaseo = ({ paseo }: { paseo: WalkWithRelations }) => (
-  <dl className="grid gap-x-6 gap-y-3 text-[12.5px] sm:grid-cols-3">
-    <div className="min-w-0">
-      <dt className="rotulo text-ink-mute">Punto de encuentro</dt>
-      <dd className="mt-1 break-words text-ink">{paseo.direccion_encuentro}</dd>
-    </div>
-    <div>
-      <dt className="rotulo text-ink-mute">Hora de fin</dt>
-      <dd className="nums mt-1 text-ink">{paseo.hora_fin ? paseo.hora_fin.slice(0, 5) : "Aún no finaliza"}</dd>
-    </div>
-    <div className="min-w-0">
-      <dt className="rotulo text-ink-mute">Código de paseo</dt>
-      <dd className="nums mt-1 break-all text-ink">{paseo.id_paseo}</dd>
-    </div>
-  </dl>
-);
+const DetallePaseo = ({ paseo }: { paseo: WalkWithRelations }) => {
+  const { t } = useTranslation();
+  return (
+    <dl className="grid gap-x-6 gap-y-3 text-[12.5px] sm:grid-cols-3">
+      <div className="min-w-0">
+        <dt className="rotulo text-ink-mute">{t("paseos.meetingPoint")}</dt>
+        <dd className="mt-1 break-words text-ink">{paseo.direccion_encuentro}</dd>
+      </div>
+      <div>
+        <dt className="rotulo text-ink-mute">{t("paseos.endTime")}</dt>
+        <dd className="nums mt-1 text-ink">{paseo.hora_fin ? paseo.hora_fin.slice(0, 5) : t("paseos.notFinishedYet")}</dd>
+      </div>
+      <div className="min-w-0">
+        <dt className="rotulo text-ink-mute">{t("paseos.walkCode")}</dt>
+        <dd className="nums mt-1 break-all text-ink">{paseo.id_paseo}</dd>
+      </div>
+    </dl>
+  );
+};
 
 const Paseos = () => {
   const { user } = useAuth();
+  const { t, localeTag } = useTranslation();
+  const formatoFecha = (fecha: string) =>
+    new Intl.DateTimeFormat(localeTag, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    }).format(new Date(`${fecha}T00:00:00`));
   const [walks, setWalks] = useState<WalkWithRelations[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [zonas, setZonas] = useState<Zona[]>([]);
@@ -171,11 +191,11 @@ const Paseos = () => {
       setPets(petsData);
       setZonas(zonasData);
     } catch (cause) {
-      setError(messageFrom(cause));
+      setError(messageFrom(cause, t));
     } finally {
       setLoading(false);
     }
-  }, [user, selectedZonaId]);
+  }, [user, selectedZonaId, t]);
 
   useEffect(() => {
     void load();
@@ -191,12 +211,12 @@ const Paseos = () => {
           w.id_paseo === porCancelar.id_paseo ? { ...w, estado: "cancelado" } : w,
         ),
       );
-      aviso.dato(`Solicitud de ${porCancelar.mascota?.nombre ?? "tu mascota"} cancelada`, {
-        detalle: "Le avisamos al paseador.",
+      aviso.dato(t("paseos.cancelled", { mascota: porCancelar.mascota?.nombre ?? t("home.defaultPet") }), {
+        detalle: t("paseos.cancelledDetail"),
       });
       setPorCancelar(null);
     } catch (cause) {
-      aviso.error(cause, { respaldo: "No se pudo cancelar la solicitud." });
+      aviso.error(cause, { respaldo: t("paseos.cancelFailed") });
       setPorCancelar(null);
       void load();
     } finally {
@@ -206,18 +226,18 @@ const Paseos = () => {
 
   const petOptions = useMemo(
     () => [
-      { value: "", label: "Todas mis mascotas" },
+      { value: "", label: t("paseos.allMyPets") },
       ...pets.map((p) => ({ value: p.id_mascota, label: p.nombre })),
     ],
-    [pets],
+    [pets, t],
   );
 
   const zonaOptions = useMemo(
     () => [
-      { value: "", label: "Todas las zonas" },
+      { value: "", label: t("paseos.allZones") },
       ...zonas.map((z) => ({ value: z.id_zona, label: zonaLabel(z) })),
     ],
-    [zonas],
+    [zonas, t],
   );
 
   const dePaseos = useMemo(
@@ -265,12 +285,12 @@ const Paseos = () => {
       {p.estado === "solicitado" && (
         <button type="button" className={btnDangerCompacto} onClick={() => setPorCancelar(p)}>
           <X size={13} strokeWidth={2.2} />
-          Cancelar
+          {t("paseos.cancel")}
         </button>
       )}
       {p.estado === "en_curso" ? (
         <Link to="/paseo-en-vivo" className={btnSecondaryCompacto}>
-          Ver en vivo
+          {t("paseos.watchLive")}
         </Link>
       ) : (
         <button
@@ -279,7 +299,7 @@ const Paseos = () => {
           aria-expanded={detalleId === p.id_paseo}
           onClick={() => alternarDetalle(p.id_paseo)}
         >
-          Detalle
+          {t("paseos.details")}
           <ChevronDown
             size={13}
             strokeWidth={2.2}
@@ -294,13 +314,13 @@ const Paseos = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Paseos"
-        subtitle="Agenda, seguimiento e historial de los paseos de tus mascotas."
+        title={t("paseos.title")}
+        subtitle={t("paseos.subtitle")}
         action={
           <div className="flex w-full items-center gap-2.5 sm:w-auto">
             <Link to="/paseadores" className={`${btnPrimary} flex-1 sm:flex-none`}>
               <CalendarDays size={15} strokeWidth={2} />
-              Agendar paseo
+              {t("paseos.scheduleWalk")}
             </Link>
             {botonNotificaciones}
           </div>
@@ -308,54 +328,54 @@ const Paseos = () => {
       />
 
       <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat etiqueta="Total de paseos" valor={String(stats.total)} nota="Todos los que agendaste" />
+        <Stat etiqueta={t("paseos.stats.total")} valor={String(stats.total)} nota={t("paseos.stats.totalHint")} />
         <Stat
-          etiqueta="Próximos"
+          etiqueta={t("paseos.stats.upcoming")}
           valor={String(stats.upcoming)}
-          nota={`${porcentaje(stats.upcoming)} % del total`}
+          nota={t("paseos.stats.percentOfTotal", { pct: porcentaje(stats.upcoming) })}
           parte={parte(stats.upcoming)}
         />
         <Stat
-          etiqueta="Completados"
+          etiqueta={t("paseos.stats.completed")}
           valor={String(stats.completed)}
-          nota={`${porcentaje(stats.completed)} % del total`}
+          nota={t("paseos.stats.percentOfTotal", { pct: porcentaje(stats.completed) })}
           parte={parte(stats.completed)}
         />
-        <Stat etiqueta="Total gastado" valor={colones(stats.totalSpent)} nota="En paseos completados" />
+        <Stat etiqueta={t("paseos.stats.totalSpent")} valor={colones(stats.totalSpent)} nota={t("paseos.stats.totalSpentHint")} />
       </div>
 
       <div className="min-w-0">
         <Section
-          title="Filtros"
-          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</Badge>}
+          title={t("paseos.filters.title")}
+          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? t("paseos.filters.resultSingular") : t("paseos.filters.resultPlural")}</Badge>}
           bodyClass="px-4 py-4 sm:px-6"
         >
           <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.6fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_auto]">
             <label className="relative block sm:col-span-2 lg:col-span-1">
               <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" aria-hidden />
-              <span className="sr-only">Buscar paseos</span>
+              <span className="sr-only">{t("paseos.filters.searchAria")}</span>
               <input
                 value={busqueda}
                 onChange={(event) => conFiltro(setBusqueda)(event.target.value)}
                 className={`${input} pl-10`}
-                placeholder="Buscar por mascota, paseador o lugar"
+                placeholder={t("paseos.filters.searchPlaceholder")}
               />
             </label>
-            <Combo value={selectedPetId} onChange={conFiltro(setSelectedPetId)} aria-label="Filtrar por mascota" options={petOptions} />
-            <Combo value={selectedZonaId} onChange={conFiltro(setSelectedZonaId)} aria-label="Filtrar por zona" options={zonaOptions} />
+            <Combo value={selectedPetId} onChange={conFiltro(setSelectedPetId)} aria-label={t("paseos.filters.petAria")} options={petOptions} />
+            <Combo value={selectedZonaId} onChange={conFiltro(setSelectedZonaId)} aria-label={t("paseos.filters.zoneAria")} options={zonaOptions} />
             <Combo
               value={vista}
               onChange={(v) => conFiltro(setVista)(v as Vista)}
-              aria-label="Filtrar por estado"
+              aria-label={t("paseos.filters.statusAria")}
               options={[
-                { value: "proximos", label: "Próximos" },
-                { value: "historial", label: "Historial" },
-                { value: "todos", label: "Todos los paseos" },
+                { value: "proximos", label: t("paseos.filters.upcoming") },
+                { value: "historial", label: t("paseos.filters.history") },
+                { value: "todos", label: t("paseos.filters.all") },
               ]}
             />
             {hayFiltros && (
               <button type="button" className={`${btnSecondary} sm:col-span-2 lg:col-span-1`} onClick={limpiar}>
-                Limpiar
+                {t("paseos.filters.clear")}
               </button>
             )}
           </div>
@@ -375,13 +395,13 @@ const Paseos = () => {
           ) : visibles.length === 0 ? (
             <div className="px-4 py-4 sm:px-6">
               <EmptyState
-                title="No hay paseos en esta vista"
-                hint={hayFiltros ? "Prueba con otra búsqueda o limpia los filtros." : "Agenda el primer paseo de tu mascota."}
+                title={t("paseos.empty.title")}
+                hint={hayFiltros ? t("paseos.empty.withFilters") : t("paseos.empty.withoutFilters")}
                 action={
                   hayFiltros ? (
-                    <button type="button" className={btnSecondary} onClick={limpiar}>Limpiar filtros</button>
+                    <button type="button" className={btnSecondary} onClick={limpiar}>{t("paseos.empty.clearFilters")}</button>
                   ) : (
-                    <Link to="/paseadores" className={btnPrimary}>Agendar paseo</Link>
+                    <Link to="/paseadores" className={btnPrimary}>{t("paseos.scheduleWalk")}</Link>
                   )
                 }
               />
@@ -391,17 +411,17 @@ const Paseos = () => {
               {/* ── De lg para arriba: la tabla ── */}
               <div className="hidden lg:block">
                 <Table
-                  caption="Paseos de tus mascotas"
+                  caption={t("paseos.table.caption")}
                   min="min-w-[900px]"
                   padX="px-4"
                   columnas={[
-                    { label: "Mascota", ancho: "w-[20%]" },
-                    { label: "Paseador", ancho: "w-[17%]" },
-                    { label: "Cuándo", ancho: "w-[14%]" },
-                    { label: "Zona", ancho: "w-[16%]" },
-                    { label: "Estado", ancho: "w-[11%]" },
-                    { label: "Precio", ancho: "w-[9%]", align: "right" },
-                    { label: "Acciones", ancho: "w-[13%]", align: "right", muda: true },
+                    { label: t("paseos.table.pet"), ancho: "w-[20%]" },
+                    { label: t("paseos.table.walker"), ancho: "w-[17%]" },
+                    { label: t("paseos.table.when"), ancho: "w-[14%]" },
+                    { label: t("paseos.table.zone"), ancho: "w-[16%]" },
+                    { label: t("paseos.table.status"), ancho: "w-[11%]" },
+                    { label: t("paseos.table.price"), ancho: "w-[9%]", align: "right" },
+                    { label: t("paseos.table.actions"), ancho: "w-[13%]", align: "right", muda: true },
                   ]}
                 >
                   {paginaPaseos.map((p) => (
@@ -412,7 +432,7 @@ const Paseos = () => {
                             <FotoMascota paseo={p} size={36} />
                             <span className="min-w-0">
                               <span className="block truncate text-[13.5px] font-semibold text-ink" title={p.mascota?.nombre}>
-                                {p.mascota?.nombre ?? "Sin nombre"}
+                                {p.mascota?.nombre ?? t("paseos.noName")}
                               </span>
                               <span className="nums mt-0.5 block text-[11px] text-ink-mute">ID {p.id_paseo.slice(0, 8)}</span>
                             </span>
@@ -428,7 +448,7 @@ const Paseos = () => {
                           </span>
                         </td>
                         <td className={`truncate px-4 py-3 text-[12.5px] ${p.zona ? "text-ink-soft" : "text-ink-mute italic"}`} title={zonaLabel(p.zona)}>
-                          {zonaLabel(p.zona) || "Sin zona"}
+                          {zonaLabel(p.zona) || t("paseos.table.noZone")}
                         </td>
                         <td className="px-4 py-3">
                           <ChipEstado estado={p.estado} />
@@ -457,7 +477,7 @@ const Paseos = () => {
                     <div className={`flex items-start gap-3 transition-opacity duration-200 ${p.estado === "cancelado" ? "opacity-55" : ""}`}>
                       <FotoMascota paseo={p} size={40} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-semibold text-ink">{p.mascota?.nombre ?? "Sin nombre"}</p>
+                        <p className="truncate text-[14px] font-semibold text-ink">{p.mascota?.nombre ?? t("paseos.noName")}</p>
                         <p className="nums mt-0.5 text-[11px] text-ink-mute">ID {p.id_paseo.slice(0, 8)}</p>
                       </div>
                       <ChipEstado estado={p.estado} />
@@ -465,21 +485,21 @@ const Paseos = () => {
 
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
                       <div className="col-span-2">
-                        <dt className="rotulo text-ink-mute">Paseador</dt>
+                        <dt className="rotulo text-ink-mute">{t("paseos.table.walker")}</dt>
                         <dd className="mt-1"><Paseador paseo={p} /></dd>
                       </div>
                       <div>
-                        <dt className="rotulo text-ink-mute">Cuándo</dt>
+                        <dt className="rotulo text-ink-mute">{t("paseos.table.when")}</dt>
                         <dd className="nums mt-1 text-ink first-letter:uppercase">{formatoFecha(p.fecha)}</dd>
                         <dd className="nums mt-0.5 text-ink-mute">{p.hora_inicio.slice(0, 5)} · {p.duracion_min} min</dd>
                       </div>
                       <div>
-                        <dt className="rotulo text-ink-mute">Precio</dt>
+                        <dt className="rotulo text-ink-mute">{t("paseos.table.price")}</dt>
                         <dd className="nums mt-1"><PrecioPaseo paseo={p} alinear="izquierda" /></dd>
                       </div>
                       <div className="col-span-2">
-                        <dt className="rotulo text-ink-mute">Zona</dt>
-                        <dd className={`mt-1 break-words ${p.zona ? "text-ink-soft" : "text-ink-mute italic"}`}>{zonaLabel(p.zona) || "Sin zona"}</dd>
+                        <dt className="rotulo text-ink-mute">{t("paseos.table.zone")}</dt>
+                        <dd className={`mt-1 break-words ${p.zona ? "text-ink-soft" : "text-ink-mute italic"}`}>{zonaLabel(p.zona) || t("paseos.table.noZone")}</dd>
                       </div>
                     </dl>
 
@@ -495,14 +515,14 @@ const Paseos = () => {
               </ul>
 
               <Paginacion
-                etiqueta="Paginación de paseos"
+                etiqueta={t("paseos.pagination.label")}
                 actual={paginaActual}
                 total={totalPaginas}
                 onCambiar={setPagina}
                 desde={inicioPagina + 1}
                 hasta={finPagina}
                 cuantos={visibles.length}
-                nombre={["paseo", "paseos"]}
+                nombre={[t("paseos.pagination.singular"), t("paseos.pagination.plural")]}
               />
             </>
           )}
@@ -511,10 +531,13 @@ const Paseos = () => {
 
       {porCancelar && (
         <Confirmar
-          titulo="¿Cancelar la solicitud?"
-          cuerpo={`${porCancelar.paseador?.nombre ?? "El paseador"} todavía no respondió. Si la cancelás, se le avisa y el paseo de ${porCancelar.mascota?.nombre ?? "tu mascota"} no se agenda.`}
-          confirmar="Cancelar solicitud"
-          cancelar="Volver"
+          titulo={t("paseos.cancelDialog.title")}
+          cuerpo={t("paseos.cancelDialog.body", {
+            paseador: porCancelar.paseador?.nombre ?? t("paseos.cancelDialog.defaultWalker"),
+            mascota: porCancelar.mascota?.nombre ?? t("home.defaultPet"),
+          })}
+          confirmar={t("paseos.cancelDialog.confirm")}
+          cancelar={t("paseos.cancelDialog.back")}
           tono="peligro"
           ocupado={cancelando}
           onConfirmar={() => void cancelarSolicitud()}

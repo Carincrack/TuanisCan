@@ -1,0 +1,81 @@
+{
+  "title": "Walks",
+  "subtitle": "Schedule, tracking and history of your pets' walks.",
+  "scheduleWalk": "Schedule walk",
+  "status": {
+    "requested": "Requested",
+    "confirmed": "Confirmed",
+    "inCourse": "In progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "unassigned": "Unassigned",
+  "noName": "No name",
+  "yourOffer": "Your offer · rate {{tarifa}}",
+  "walkerRateTitle": "Walker's rate: {{tarifa}}",
+  "meetingPoint": "Meeting point",
+  "endTime": "End time",
+  "notFinishedYet": "Not finished yet",
+  "walkCode": "Walk code",
+  "loadError": "Could not load the walks.",
+  "cancelled": "{{mascota}}'s request cancelled",
+  "cancelledDetail": "We notified the walker.",
+  "cancelFailed": "Could not cancel the request.",
+  "allMyPets": "All my pets",
+  "allZones": "All zones",
+  "cancel": "Cancel",
+  "watchLive": "Watch live",
+  "details": "Details",
+  "stats": {
+    "total": "Total walks",
+    "totalHint": "All the ones you've scheduled",
+    "upcoming": "Upcoming",
+    "percentOfTotal": "{{pct}}% of total",
+    "completed": "Completed",
+    "totalSpent": "Total spent",
+    "totalSpentHint": "On completed walks"
+  },
+  "filters": {
+    "title": "Filters",
+    "resultSingular": "result",
+    "resultPlural": "results",
+    "searchAria": "Search walks",
+    "searchPlaceholder": "Search by pet, walker or place",
+    "petAria": "Filter by pet",
+    "zoneAria": "Filter by zone",
+    "statusAria": "Filter by status",
+    "upcoming": "Upcoming",
+    "history": "History",
+    "all": "All walks",
+    "clear": "Clear"
+  },
+  "empty": {
+    "title": "No walks in this view",
+    "withFilters": "Try another search or clear the filters.",
+    "withoutFilters": "Schedule your pet's first walk.",
+    "clearFilters": "Clear filters"
+  },
+  "table": {
+    "caption": "Your pets' walks",
+    "pet": "Pet",
+    "walker": "Walker",
+    "when": "When",
+    "zone": "Zone",
+    "status": "Status",
+    "price": "Price",
+    "actions": "Actions",
+    "noZone": "No zone"
+  },
+  "pagination": {
+    "label": "Walks pagination",
+    "singular": "walk",
+    "plural": "walks"
+  },
+  "cancelDialog": {
+    "title": "Cancel the request?",
+    "body": "{{paseador}} hasn't responded yet. If you cancel it, they'll be notified and {{mascota}}'s walk won't be scheduled.",
+    "defaultWalker": "The walker",
+    "confirm": "Cancel request",
+    "back": "Go back"
+  }
+}
