@@ -1,0 +1,162 @@
+{
+  "panel": {
+    "title": "Panel del paseador",
+    "stopReceiving": "Dejar de recibir solicitudes",
+    "becomeAvailable": "Ponerme disponible",
+    "available": "Disponible",
+    "unavailable": "No disponible",
+    "availableHint": "Los dueños de tu zona pueden enviarte solicitudes.",
+    "unavailableHint": "No recibirás solicitudes nuevas hasta que te actives.",
+    "loading": "Cargando panel…",
+    "loadError": "No se pudo cargar el panel.",
+    "availabilityError": "No se pudo cambiar tu disponibilidad.",
+    "stats": {
+      "walksToday": "Paseos hoy",
+      "oneInProgress": "1 en curso",
+      "earnedToday": "Ganado hoy",
+      "beforeCommission": "antes de comisión",
+      "thisWeek": "Esta semana",
+      "walksSuffix": "paseos",
+      "rating": "Calificación",
+      "reviewsSuffix": "reseñas"
+    },
+    "ongoingWalk": {
+      "title": "Paseo en curso",
+      "goToTracking": "Ir al seguimiento",
+      "empty": {
+        "title": "No tienes paseos en curso",
+        "hint": "Cuando inicies un paseo confirmado, aparecerá aquí."
+      }
+    },
+    "upcomingRequests": {
+      "title": "Próximas solicitudes",
+      "caption": "Solicitudes pendientes de responder",
+      "columns": {
+        "ownerAndPet": "Dueño y mascota",
+        "when": "Cuándo",
+        "zone": "Zona",
+        "pay": "Pago"
+      },
+      "empty": {
+        "title": "No tienes solicitudes pendientes",
+        "hint": "Cuando un dueño de tu zona te elija, la solicitud aparece aquí."
+      }
+    }
+  },
+  "requests": {
+    "title": "Solicitudes",
+    "subtitle": "Paseos que te ofrecieron los dueños de tu zona. El dueño puede cancelar mientras no respondas.",
+    "loadError": "No se pudieron cargar las solicitudes.",
+    "respondError": "No se pudo responder la solicitud.",
+    "verifyFirst": "Verificá tu perfil primero",
+    "verifyFirstDetail": "Sin la verificación aprobada no podés aceptar paseos.",
+    "confirmed": "Paseo con {{mascota}} confirmado",
+    "rejected": "Solicitud de {{mascota}} rechazada",
+    "rejectedDetail": "Le avisamos al dueño para que busque otro paseador.",
+    "card": {
+      "noPhoto": "Sin foto",
+      "viewPhotoFull": "Ver la foto de {{mascota}} en tamaño completo",
+      "owner": "Dueño",
+      "ownerOffer": "Oferta del dueño",
+      "yourRate": "Tu tarifa:",
+      "paidForThisWalk": "Te pagan por este paseo",
+      "day": "Día",
+      "schedule": "Horario",
+      "duration": "Duración",
+      "zone": "Zona",
+      "meetingPoint": "Punto de encuentro:",
+      "messageFor": "Mensaje para {{nombre}} (opcional)",
+      "messagePlaceholder": "Ej.: Llego 5 minutos antes con correa extra.",
+      "reject": "Rechazar",
+      "accept": "Aceptar paseo",
+      "acceptOffer": "Aceptar {{monto}}",
+      "saving": "Guardando...",
+      "male": "Macho",
+      "female": "Hembra",
+      "allergies": "Alergias:",
+      "noAllergiesWithConditions": "Sin alergias registradas",
+      "noAllergiesNoConditions": "Sin alergias ni enfermedades registradas",
+      "hasOneCondition": "Tiene una enfermedad",
+      "hasConditions": "Tiene {{count}} enfermedades",
+      "since": "desde",
+      "vaccines": "Vacunas",
+      "noVaccines": "El dueño no registró vacunas.",
+      "expires": "vence",
+      "statusUpcoming": "Por vencer",
+      "notes": "Lo que el dueño quiere que sepas",
+      "weight": "Peso",
+      "color": "Color",
+      "sterilized": "Esterilizado",
+      "yes": "Sí",
+      "no": "No",
+      "microchip": "Microchip",
+      "vet": "Veterinaria"
+    },
+    "empty": {
+      "titleEnabled": "No tienes solicitudes pendientes",
+      "titleDisabled": "Todavía no aparecés en las búsquedas",
+      "hintEnabled": "Cuando un dueño de tu zona te elija, la solicitud aparece aquí.",
+      "hintDisabled": "Los dueños solo ven paseadores con la verificación aprobada. Completá tus documentos y esperá la revisión."
+    }
+  },
+  "agenda": {
+    "title": "Agenda",
+    "subtitle": "Paseos que ya aceptaste, ordenados por hora.",
+    "loading": "Cargando agenda…",
+    "loadError": "No se pudo cargar la agenda.",
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "pickDay": "Elegir día",
+    "statusInCourse": "En curso",
+    "statusConfirmed": "Confirmado",
+    "caption": "Paseos agendados para {{dia}}",
+    "columns": {
+      "time": "Hora",
+      "pet": "Mascota",
+      "zone": "Zona",
+      "status": "Estado",
+      "pay": "Pago"
+    },
+    "totalOf": "Total de {{dia}}",
+    "empty": {
+      "title": "No tienes paseos agendados",
+      "hint": "Cuando aceptes una solicitud, aparecerá aquí ordenada por día."
+    }
+  },
+  "earnings": {
+    "title": "Ganancias",
+    "subtitle": "Ingresos reales por paseo y comisión de la plataforma.",
+    "commission": "Comisión 15%",
+    "loading": "Cargando ganancias…",
+    "loadError": "No se pudieron cargar las ganancias.",
+    "stats": {
+      "available": "Ganancia disponible",
+      "paymentsSuffix": "pagos",
+      "pendingPayment": "Pendiente de pago",
+      "walksSuffix": "paseos",
+      "deductedCommission": "Comisión descontada"
+    },
+    "filters": {
+      "label": "Filtrar ingresos",
+      "all": "Todos",
+      "pending": "Pendientes",
+      "paid": "Pagados"
+    },
+    "caption": "Ingresos filtrados por {{filtro}}",
+    "columns": {
+      "date": "Fecha",
+      "walk": "Paseo",
+      "status": "Estado",
+      "gross": "Bruto",
+      "commission": "Comisión",
+      "net": "Neto"
+    },
+    "statusPaid": "Pagado",
+    "statusPending": "Pendiente",
+    "netOfSelection": "Neto de la selección",
+    "empty": {
+      "title": "Sin ganancias todavía",
+      "hint": "Los pagos de tus paseos aparecerán aquí."
+    }
+  }
+}
