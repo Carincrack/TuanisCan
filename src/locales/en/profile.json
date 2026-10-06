@@ -1,8 +1,253 @@
 {
   "tabs": {
-    "datos": "My data",
+    "datos": "My info",
     "verificacion": "Verification",
     "perfiles": "My profiles",
     "configuracion": "Settings"
-  }
+  },
+  "roles": {
+    "dueno": "Pet owner",
+    "paseador": "Walker",
+    "negocio": "Business account",
+    "admin": "Administrator"
+  },
+  "roleMeta": {
+    "dueno": {
+      "title": "Owner profile",
+      "text": "Register your pets and manage their information from a single account."
+    },
+    "paseador": {
+      "title": "Walker profile",
+      "text": "Offer walks, set your rate and receive requests from other users."
+    },
+    "negocio": {
+      "title": "Business profile",
+      "text": "Publish a veterinary clinic, store or shelter in the directory."
+    }
+  },
+  "roleRequirements": {
+    "dueno": ["Uses your current data", "Manages your pets"],
+    "paseador": ["Describe your experience", "Set a base rate", "Requires approval"],
+    "negocio": ["Business information", "Address and zone", "Business hours"]
+  },
+  "verification": {
+    "documentLabels": {
+      "cedula_frente": "ID card (front)",
+      "cedula_reverso": "ID card (back)",
+      "hoja_delincuencia": "Background check",
+      "permiso_funcionamiento": "Operating permit"
+    },
+    "statusLabels": {
+      "sin_solicitud": "Not verified",
+      "pendiente": "Under review",
+      "aprobado": "Verified profile",
+      "rechazado": "Needs corrections"
+    }
+  },
+  "errors": {
+    "generic": "Could not complete the operation.",
+    "nameRequired": "Full name is required.",
+    "phoneRequiredForRole": "Add your phone before activating another profile.",
+    "zoneRequiredForRole": "Select your zone before activating another profile.",
+    "noActiveSession": "There's no active session.",
+    "businessNameRequired": "The business name is required.",
+    "descriptionTooShort": "Describe your experience with at least 20 characters.",
+    "rateMustBePositive": "The base rate must be greater than zero.",
+    "businessFieldsRequired": "Complete name, zone, phone, address and business hours.",
+    "photoInvalid": "The image must be JPG, PNG or WebP and under 5 MB.",
+    "documentInvalid": "The document must be PDF, JPG, PNG or WebP and under 10 MB.",
+    "profileNotFound": "We couldn't find your profile."
+  },
+  "toasts": {
+    "profileUpdated": "Profile updated",
+    "profileUpdatedDetail": "The data is shared across all your profiles.",
+    "profileSaveFailed": "Could not save the profile.",
+    "ownerActivated": "Owner profile activated",
+    "ownerActivatedDetail": "You can now register pets and request walks.",
+    "ownerActivateFailed": "Could not activate the owner profile.",
+    "walkerRequested": "Walker request sent",
+    "walkerRequestedDetail": "You can already enter the panel. Approval is still needed to accept walks.",
+    "walkerRequestFailed": "Could not send the request.",
+    "businessActivated": "Business profile activated",
+    "businessActivatedDetail": "It appears in the directory once verification is approved.",
+    "businessActivateFailed": "Could not activate the business profile.",
+    "verificationSent": "Verification sent",
+    "verificationSentDetail": "Administration will review it and we'll let you know the result.",
+    "verificationSendFailed": "Could not send the verification.",
+    "uploadingDocument": "Uploading {{documento}}…",
+    "documentUploaded": "{{documento}} uploaded",
+    "documentUploadFailed": "Could not upload {{documento}}."
+  },
+  "steps": {
+    "uploadDocuments": "Upload documents",
+    "uploadDocumentsDetail": "{{listos}} of {{total}} ready",
+    "sendForReview": "Send for review",
+    "alreadySent": "Already sent",
+    "enabledWithAllDocuments": "Enabled once all documents are in",
+    "response": "Response",
+    "verifiedAccount": "Verified account",
+    "reviewTime": "Administration responds in 1 or 2 business days"
+  },
+  "header": {
+    "title": "My profile",
+    "subtitle": "Manage your personal information, verification and associated profiles.",
+    "changePassword": "Change password",
+    "viewPhoto": "View profile photo full size",
+    "noPhotoYet": "No profile photo yet",
+    "changePhoto": "Change profile photo",
+    "accountActive": "Active account",
+    "accountInactive": "Inactive account",
+    "administrator": "Administrator",
+    "removePhoto": "Remove photo",
+    "photoHint": "Tap the photo to see it full size · The camera button changes it · JPG, PNG or WebP · 5 MB max."
+  },
+  "tablist": {
+    "ariaLabel": "Profile sections",
+    "pendingStepsAria": "You have pending steps"
+  },
+  "dataTab": {
+    "title": "Personal information",
+    "subtitle": "This data is shared across all the profiles linked to your account.",
+    "fullName": "Full name",
+    "email": "Email",
+    "phone": "Phone",
+    "phonePlaceholder": "E.g. 8888-8888",
+    "zone": "Zone",
+    "selectZone": "Select a zone",
+    "saving": "Saving…",
+    "saveChanges": "Save changes"
+  },
+  "verificationTab": {
+    "title": "Identity verification",
+    "subtitle": "With your identity confirmed you can register pets, request walks and receive payments.",
+    "needsFix": "Something needs fixing:",
+    "verifiedMessage": "Your identity is confirmed. The badge appears next to your name across the platform.",
+    "documents": "Documents",
+    "documentsCount": "{{listos}} of {{total}} · PDF, JPG, PNG or WebP · 10 MB max",
+    "missingFile": "Not uploaded yet",
+    "uploading": "Uploading…",
+    "replace": "Replace",
+    "upload": "Upload",
+    "missingDocuments": "Still need to upload: {{documentos}}.",
+    "allReady": "All set. Administration will review it and let you know by email.",
+    "sending": "Sending…",
+    "sendVerification": "Send verification"
+  },
+  "ownerCard": {
+    "title": "Owner profile",
+    "text": "Manage your pets, vaccines, information and ID cards from a dedicated section.",
+    "manage": "Manage pets"
+  },
+  "walkerCard": {
+    "title": "Walker profile",
+    "subtitle": "Information owners will see.",
+    "experience": "Experience and description",
+    "experiencePlaceholder": "Tell owners about your experience with pets...",
+    "baseRate": "Base rate per walk",
+    "undefinedRate": "Not set",
+    "ratesHint": "Surcharges and hours in Rates.",
+    "configure": "Configure",
+    "available": "Available",
+    "availableHint": "Allow new walk requests.",
+    "verification": "Verification",
+    "rating": "Rating"
+  },
+  "businessCard": {
+    "title": "Business information",
+    "subtitle": "Public information shown in the directory.",
+    "photo": "Business photo",
+    "photoOf": "Photo of {{nombre}}",
+    "theBusiness": "the business",
+    "changePhoto": "Change photo",
+    "uploadPhoto": "Upload photo",
+    "remove": "Remove",
+    "photoHint": "JPG, PNG or WebP · 5 MB max. Shown in the directory.",
+    "name": "Business name",
+    "type": "Type",
+    "types": {
+      "veterinaria": "Veterinary clinic",
+      "tienda": "Store",
+      "refugio": "Shelter"
+    },
+    "zone": "Zone",
+    "selectZone": "Select a zone",
+    "phone": "Phone",
+    "address": "Address",
+    "mapLocation": "Location on the map",
+    "loadingMap": "Loading map…",
+    "schedule": "Hours",
+    "schedulePlaceholder": "E.g. Monday to Saturday, 8:00 a.m. – 5:00 p.m."
+  },
+  "addRole": {
+    "title": "Add another profile",
+    "subtitle": "Use the same account for different functions within TuanisCan.",
+    "rejected": "The previous request was rejected.",
+    "pendingReview": "Your request is being reviewed.",
+    "reviewRequest": "Review request",
+    "configuring": "Configuring",
+    "startSetup": "Start setup →",
+    "allActiveTitle": "All profiles are active",
+    "allActiveHint": "You can switch between them from the sidebar selector."
+  },
+  "roleSetup": {
+    "newProfile": "New profile",
+    "configuring": "Set up {{perfil}}",
+    "close": "Close",
+    "owner": {
+      "activate": "Activate owner profile",
+      "activateHint": "You don't need to fill out another form. We'll use your current personal information.",
+      "name": "Name",
+      "phone": "Phone",
+      "zone": "Zone",
+      "incomplete": "Not complete",
+      "activating": "Activating…"
+    },
+    "walker": {
+      "requestTitle": "Request to become a walker",
+      "requestText": "Tell us about your experience and set your initial rate. Administration will review the request.",
+      "experienceLabel": "Experience as a walker *",
+      "experiencePlaceholder": "E.g. I have 3 years of experience walking dogs of different sizes. I also have experience with nervous dogs and puppies...",
+      "minChars": "Minimum 20 characters.",
+      "baseRate": "Base rate per walk *",
+      "ratePlaceholder": "4500",
+      "rateHint": "You'll be able to change it later.",
+      "availableOnApproval": "Available once approved",
+      "availableOnApprovalHint": "You'll be able to receive requests immediately.",
+      "submitHint": "Once you send the request, your profile will stay pending until administration approves it.",
+      "sending": "Sending…",
+      "updateRequest": "Update request",
+      "sendRequest": "Send request"
+    },
+    "business": {
+      "registerTitle": "Register a business",
+      "registerText": "Complete the information users will see in the TuanisCan directory.",
+      "basicInfoTitle": "Basic information",
+      "basicInfoText": "Identify your business within the directory.",
+      "name": "Business name *",
+      "namePlaceholder": "E.g. Huellitas Veterinary Clinic",
+      "type": "Business type *",
+      "types": {
+        "veterinaria": "Veterinary clinic",
+        "tienda": "Pet store",
+        "refugio": "Shelter"
+      },
+      "phone": "Phone *",
+      "phonePlaceholder": "E.g. 2222-2222",
+      "schedule": "Business hours *",
+      "schedulePlaceholder": "E.g. Mon - Sat, 8:00 a.m. - 5:00 p.m.",
+      "locationTitle": "Location",
+      "locationText": "Help users find your business.",
+      "zone": "Zone *",
+      "selectZone": "Select a zone",
+      "address": "Address *",
+      "addressPlaceholder": "E.g. 100 m north of the central park",
+      "coordsTitle": "Coordinates",
+      "coordsText": "Optional · Use them for a more precise location on the map.",
+      "loadingMap": "Loading map…",
+      "creating": "Creating business…",
+      "createAndActivate": "Create and activate business"
+    }
+  },
+  "photoAlt": "Profile photo of {{nombre}}",
+  "profileNotFoundRetry": "Refresh session and retry"
 }

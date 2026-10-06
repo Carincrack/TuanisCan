@@ -155,49 +155,46 @@ const formFromProfile = (profile: UserProfile): ProfileForm => ({
    ROLES
    ========================================================= */
 
-const roleLabel = {
-  dueno: "Dueño de mascota",
-  paseador: "Paseador",
-  negocio: "Cuenta de negocio",
-  admin: "Administrador",
+const claveRoleLabel = {
+  dueno: "profile.roles.dueno",
+  paseador: "profile.roles.paseador",
+  negocio: "profile.roles.negocio",
+  admin: "profile.roles.admin",
 };
 
 const roleMeta = {
   dueno: {
-    title: "Perfil de dueño",
-    text: "Registra tus mascotas y administra su información desde una misma cuenta.",
+    claveTitulo: "profile.roleMeta.dueno.title",
+    claveTexto: "profile.roleMeta.dueno.text",
     Icon: PawPrint,
   },
 
   paseador: {
-    title: "Perfil de paseador",
-    text: "Ofrece paseos, establece tu tarifa y recibe solicitudes de otros usuarios.",
+    claveTitulo: "profile.roleMeta.paseador.title",
+    claveTexto: "profile.roleMeta.paseador.text",
     Icon: Footprints,
   },
 
   negocio: {
-    title: "Perfil de negocio",
-    text: "Publica una veterinaria, tienda o refugio dentro del directorio.",
+    claveTitulo: "profile.roleMeta.negocio.title",
+    claveTexto: "profile.roleMeta.negocio.text",
     Icon: Store,
   },
 };
 
-const roleRequirements: Record<RolPublico, string[]> = {
-  dueno: [
-    "Utiliza tus datos actuales",
-    "Administra tus mascotas",
-  ],
+const roleRequirementClaves: Record<RolPublico, string[]> = {
+  dueno: ["profile.roleRequirements.dueno.0", "profile.roleRequirements.dueno.1"],
 
   paseador: [
-    "Describe tu experiencia",
-    "Define una tarifa base",
-    "Requiere aprobación",
+    "profile.roleRequirements.paseador.0",
+    "profile.roleRequirements.paseador.1",
+    "profile.roleRequirements.paseador.2",
   ],
 
   negocio: [
-    "Información del negocio",
-    "Dirección y zona",
-    "Horario de atención",
+    "profile.roleRequirements.negocio.0",
+    "profile.roleRequirements.negocio.1",
+    "profile.roleRequirements.negocio.2",
   ],
 };
 

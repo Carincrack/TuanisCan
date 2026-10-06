@@ -40,6 +40,10 @@ import { aviso } from "../lib/aviso";
 import { listAdminFinances, type AdminFinanceMovement } from "../services/payments.service";
 import { listAdminWalks, type AdminWalkMovement, type EstadoPaseo } from "../services/walks.service";
 import type { Rol } from "../lib/nav";
+import { useTranslation } from "../hooks/useTranslation";
+import type { I18nContextValue } from "../context/i18n-context";
+
+type T = I18nContextValue["t"];
 
 /* ─────────────────────────────────────────────────────────────
    Panel de la plataforma. Solo para el equipo de TuanisCan:
@@ -89,6 +93,7 @@ const StatIcono = ({
 
 export const PanelAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
+  const { t, localeTag } = useTranslation();
   const { usuarios } = useAdminUsuarios();
   const { paseadores } = useAdminPaseadores();
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
@@ -101,7 +106,7 @@ export const PanelAdmin = () => {
   const mesesIngreso = Array.from({ length: 6 }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
     return {
-      mes: new Intl.DateTimeFormat("es-CR", { month: "short" }).format(date).replace(".", ""),
+      mes: new Intl.DateTimeFormat(localeTag, { month: "short" }).format(date).replace(".", ""),
       bruto: pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(date)).reduce((sum, item) => sum + item.bruto, 0),
       actual: key(date) === key(now),
     };
@@ -135,41 +140,41 @@ export const PanelAdmin = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Resumen de actividad"
-        subtitle="Ingresos, paseadores y cobertura de la plataforma en un vistazo."
+        title={t("admin.panel.title")}
+        subtitle={t("admin.panel.subtitle")}
         action={botonNotificaciones}
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatIcono
           icono={Wallet}
-          etiqueta="Comisión del mes"
+          etiqueta={t("admin.panel.monthCommission")}
           valor={colones(actuales.reduce((sum, item) => sum + item.comision, 0))}
-          nota={`${actuales.length} ${actuales.length === 1 ? "pago confirmado" : "pagos confirmados"}`}
+          nota={`${actuales.length} ${actuales.length === 1 ? t("admin.panel.paymentConfirmedSingular") : t("admin.panel.paymentConfirmedPlural")}`}
         />
-        <StatIcono icono={Footprints} etiqueta="Paseos del mes" valor={String(actuales.length)} nota="Pagos confirmados" />
+        <StatIcono icono={Footprints} etiqueta={t("admin.panel.monthWalks")} valor={String(actuales.length)} nota={t("admin.panel.confirmedPayments")} />
         <StatIcono
           icono={UserCheck}
-          etiqueta="Paseadores activos"
+          etiqueta={t("admin.panel.activeWalkers")}
           valor={String(paseadoresActivos.length)}
-          nota={`de ${paseadores.length} registrados`}
+          nota={t("admin.panel.ofRegistered", { total: paseadores.length })}
           parte={paseadores.length ? paseadoresActivos.length / paseadores.length : undefined}
         />
         <StatIcono
           icono={Users}
-          etiqueta="Dueños activos"
+          etiqueta={t("admin.panel.activeOwners")}
           valor={String(new Set(actuales.map((item) => item.dueno)).size)}
-          nota={`${usuarios.filter((item) => item.activo).length} cuentas activas`}
+          nota={t("admin.panel.activeAccounts", { count: usuarios.filter((item) => item.activo).length })}
         />
       </div>
 
       <div className="grid gap-3 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <Section
-            title="Volumen bruto por mes"
+            title={t("admin.panel.grossVolume")}
             aside={
               <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
-                <TrendingUp size={13} className="text-accent" aria-hidden /> Últimos 6 meses
+                <TrendingUp size={13} className="text-accent" aria-hidden /> {t("admin.panel.last6Months")}
               </span>
             }
             bodyClass="px-6 pt-6 pb-7"
@@ -194,16 +199,16 @@ export const PanelAdmin = () => {
                 ))}
               </ul>
             ) : (
-              <EmptyState title="Sin volumen todavía" hint="El gráfico se llena en cuanto haya pagos confirmados." />
+              <EmptyState title={t("admin.panel.noVolume.title")} hint={t("admin.panel.noVolume.hint")} />
             )}
           </Section>
         </div>
 
         <Section
-          title="Cobertura por zona"
+          title={t("admin.panel.coverageByZone")}
           aside={
             <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
-              <MapPin size={13} className="text-accent" aria-hidden /> Paseadores activos
+              <MapPin size={13} className="text-accent" aria-hidden /> {t("admin.panel.activeWalkersShort")}
             </span>
           }
           bodyClass="px-6 pt-4 pb-6"
@@ -224,16 +229,16 @@ export const PanelAdmin = () => {
               ))}
             </ul>
           ) : (
-            <EmptyState title="Sin cobertura" hint="Aparecerá cuando haya paseadores activos por zona." />
+            <EmptyState title={t("admin.panel.noCoverage.title")} hint={t("admin.panel.noCoverage.hint")} />
           )}
         </Section>
       </div>
 
-      <Section title="Top paseadores del mes">
+      <Section title={t("admin.panel.topWalkers")}>
         {top.length ? (
           <Table
-            caption="Paseadores con pagos confirmados"
-            columnas={[{ label: "Paseador" }, { label: "Paseos", align: "right" }, { label: "Generado", align: "right" }]}
+            caption={t("admin.panel.topWalkersCaption")}
+            columnas={[{ label: t("admin.panel.walker") }, { label: t("admin.panel.walks"), align: "right" }, { label: t("admin.panel.generated"), align: "right" }]}
           >
             {top.map((item, index) => (
               <tr key={item.n} className="transition-colors duration-150 hover:bg-sunken">
@@ -251,7 +256,7 @@ export const PanelAdmin = () => {
             ))}
           </Table>
         ) : (
-          <EmptyState title="Sin pagos este mes" hint="Los resultados aparecerán cuando haya pagos confirmados." />
+          <EmptyState title={t("admin.panel.noPaymentsMonth.title")} hint={t("admin.panel.noPaymentsMonth.hint")} />
         )}
       </Section>
     </Page>
@@ -262,6 +267,12 @@ export const PanelAdmin = () => {
 
 export const FinanzasAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
+  const { t } = useTranslation();
+  const claveFiltroFinanzas: Record<string, string> = {
+    Todos: "admin.finances.filters.all",
+    Pendientes: "admin.finances.filters.pending",
+    Pagados: "admin.finances.filters.paid",
+  };
   const [filtro, setFiltro] = useState("Todos");
   const [pagina, setPagina] = useState(1);
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
@@ -272,9 +283,9 @@ export const FinanzasAdmin = () => {
     setLoading(true);
     listAdminFinances()
       .then(setMovimientos)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar las finanzas."))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("admin.finances.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const visibles = movimientos.filter((movement) =>
     filtro === "Pagados"
@@ -297,7 +308,7 @@ export const FinanzasAdmin = () => {
   const brutoPagado = pagados.reduce((sum, movement) => sum + movement.bruto, 0);
   const exportar = () => {
     const rows = [
-      ["Fecha", "Mascota", "Dueño", "Paseador", "Bruto", "Comisión", "Neto", "Estado"],
+      [t("admin.finances.csv.date"), t("admin.finances.csv.pet"), t("admin.finances.csv.owner"), t("admin.finances.csv.walker"), t("admin.finances.csv.gross"), t("admin.finances.csv.commission"), t("admin.finances.csv.net"), t("admin.finances.csv.status")],
       ...visibles.map((movement) => [movement.fecha, movement.mascota, movement.dueno, movement.paseador, String(movement.bruto), String(movement.comision), String(movement.neto_paseador), movement.estado_pago]),
     ];
     const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
@@ -312,27 +323,27 @@ export const FinanzasAdmin = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Pagos y comisiones"
-        subtitle="Pagos, ganancias de paseadores y comisión de la plataforma."
+        title={t("admin.finances.title")}
+        subtitle={t("admin.finances.subtitle")}
         action={botonNotificaciones}
       />
 
       <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? "pago completado" : "pagos completados"}`} />
-        <Stat etiqueta="Comisión pendiente" valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} ${pendientes.length === 1 ? "pago" : "pagos"}`} />
-        <Stat etiqueta="Volumen pagado" valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} paseos` : "sin pagos"} />
+        <Stat etiqueta={t("admin.finances.earnedCommission")} valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? t("admin.finances.paymentCompletedSingular") : t("admin.finances.paymentCompletedPlural")}`} />
+        <Stat etiqueta={t("admin.finances.pendingCommission")} valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} ${pendientes.length === 1 ? t("admin.finances.paymentSingular") : t("admin.finances.paymentPlural")}`} />
+        <Stat etiqueta={t("admin.finances.paidVolume")} valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} ${t("admin.finances.walksSuffix")}` : t("admin.finances.noPayments")} />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2.5 bg-surface px-3 py-3">
         <FilterTabs
-          label="Filtrar pagos"
-          options={["Todos", "Pendientes", "Pagados"].map((o) => ({ value: o, label: o }))}
+          label={t("admin.finances.filterLabel")}
+          options={["Todos", "Pendientes", "Pagados"].map((o) => ({ value: o, label: t(claveFiltroFinanzas[o]) }))}
           value={filtro}
           onChange={cambiarFiltro}
         />
         <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
           <Download size={14} strokeWidth={1.9} />
-          Exportar
+          {t("admin.finances.export")}
         </button>
       </div>
 
@@ -341,20 +352,20 @@ export const FinanzasAdmin = () => {
           <div role="alert" className="bg-danger-wash px-6 py-5 text-[13px] text-danger">{error}</div>
         ) : loading ? (
           <div className="flex items-center gap-2 px-6 py-10 text-[13px] text-ink-soft">
-            <Loader size={16} className="animate-spin" /> Cargando finanzas…
+            <Loader size={16} className="animate-spin" /> {t("admin.finances.loading")}
           </div>
         ) : visibles.length > 0 ? (
           <>
             <Table
-              caption={`Pagos filtrados por ${filtro.toLowerCase()}`}
+              caption={t("admin.finances.caption", { filtro: t(claveFiltroFinanzas[filtro]).toLowerCase() })}
               columnas={[
-                { label: "Paseo" },
-                { label: "Dueño" },
-                { label: "Paseador" },
-                { label: "Bruto", align: "right" },
-                { label: "Comisión", align: "right" },
-                { label: "Neto", align: "right" },
-                { label: "Estado" },
+                { label: t("admin.finances.columns.walk") },
+                { label: t("admin.finances.columns.owner") },
+                { label: t("admin.finances.columns.walker") },
+                { label: t("admin.finances.columns.gross"), align: "right" },
+                { label: t("admin.finances.columns.commission"), align: "right" },
+                { label: t("admin.finances.columns.net"), align: "right" },
+                { label: t("admin.finances.columns.status") },
               ]}
             >
               {paginaMovimientos.map((movement) => (
@@ -380,7 +391,7 @@ export const FinanzasAdmin = () => {
                   </td>
                   <td className="px-6 py-4 align-top">
                     <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
-                      {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
+                      {movement.estado_pago === "pagado" ? t("admin.finances.statusPaid") : t("admin.finances.statusPending")}
                     </Badge>
                   </td>
                 </tr>
@@ -388,20 +399,20 @@ export const FinanzasAdmin = () => {
             </Table>
 
             <Paginacion
-              etiqueta="Paginación de pagos"
+              etiqueta={t("admin.finances.pagination")}
               actual={paginaActual}
               total={totalPaginas}
               onCambiar={setPagina}
               desde={inicioPagina + 1}
               hasta={finPagina}
               cuantos={visibles.length}
-              nombre={["pago", "pagos"]}
+              nombre={[t("admin.finances.paymentWord"), t("admin.finances.paymentsWord")]}
             />
           </>
         ) : (
           <EmptyState
-            title="Sin pagos en este filtro"
-            hint="Los movimientos aparecerán cuando los paseadores acepten solicitudes."
+            title={t("admin.finances.empty.title")}
+            hint={t("admin.finances.empty.hint")}
           />
         )}
       </Section>
@@ -411,10 +422,10 @@ export const FinanzasAdmin = () => {
 
 /* ── Paseadores ──────────────────────────────────────────────── */
 
-const estadoPaseadorLabel: Record<AdminWalker["estado"], string> = {
-  activo: "Activo",
-  inactivo: "Inactivo",
-  suspendido: "Suspendido",
+const claveEstadoPaseador: Record<AdminWalker["estado"], string> = {
+  activo: "admin.walkers.status.active",
+  inactivo: "admin.walkers.status.inactive",
+  suspendido: "admin.walkers.status.suspended",
 };
 
 const tonoPaseador = (estado: AdminWalker["estado"]) =>
@@ -422,6 +433,13 @@ const tonoPaseador = (estado: AdminWalker["estado"]) =>
 
 export const PaseadoresAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
+  const { t } = useTranslation();
+  const claveFiltroPaseadores: Record<string, string> = {
+    Todos: "admin.walkers.filters.all",
+    Activos: "admin.walkers.filters.active",
+    Inactivos: "admin.walkers.filters.inactive",
+    Suspendidos: "admin.walkers.filters.suspended",
+  };
   const { paseadores, loading, error } = useAdminPaseadores();
   const [filtro, setFiltro] = useState("Todos");
   const [pagina, setPagina] = useState(1);
@@ -447,15 +465,15 @@ export const PaseadoresAdmin = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Directorio de paseadores"
-        subtitle="Todos los paseadores registrados en la plataforma."
+        title={t("admin.walkers.title")}
+        subtitle={t("admin.walkers.subtitle")}
         action={botonNotificaciones}
       />
 
       <div className="bg-surface px-3 py-3">
         <FilterTabs
-          label="Filtrar paseadores"
-          options={["Todos", "Activos", "Inactivos", "Suspendidos"].map((o) => ({ value: o, label: o }))}
+          label={t("admin.walkers.filterLabel")}
+          options={["Todos", "Activos", "Inactivos", "Suspendidos"].map((o) => ({ value: o, label: t(claveFiltroPaseadores[o]) }))}
           value={filtro}
           onChange={cambiarFiltro}
         />
@@ -470,22 +488,22 @@ export const PaseadoresAdmin = () => {
       <div className="min-w-0">
         <Section bodyClass="">
           {loading ? (
-            <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando paseadores...</p>
+            <p className="px-6 py-8 text-[13px] text-ink-soft">{t("admin.walkers.loading")}</p>
           ) : visibles.length > 0 ? (
             <>
               {/* ── De lg para arriba: la tabla ── */}
               <div className="hidden lg:block">
                 <Table
-                  caption={`Paseadores filtrados por ${filtro.toLowerCase()}`}
+                  caption={t("admin.walkers.caption", { filtro: t(claveFiltroPaseadores[filtro]).toLowerCase() })}
                   min="min-w-[900px]"
                   padX="px-4"
                   columnas={[
-                    { label: "Paseador", ancho: "w-[28%]" },
-                    { label: "Zona", ancho: "w-[20%]" },
-                    { label: "Paseos", align: "right", ancho: "w-[13%]" },
-                    { label: "Rating", align: "right", ancho: "w-[13%]" },
-                    { label: "Generado", align: "right", ancho: "w-[16%]" },
-                    { label: "Estado", ancho: "w-[10%]" },
+                    { label: t("admin.walkers.columns.walker"), ancho: "w-[28%]" },
+                    { label: t("admin.walkers.columns.zone"), ancho: "w-[20%]" },
+                    { label: t("admin.walkers.columns.walks"), align: "right", ancho: "w-[13%]" },
+                    { label: t("admin.walkers.columns.rating"), align: "right", ancho: "w-[13%]" },
+                    { label: t("admin.walkers.columns.generated"), align: "right", ancho: "w-[16%]" },
+                    { label: t("admin.walkers.columns.status"), ancho: "w-[10%]" },
                   ]}
                 >
                   {paginaPaseadores.map((p) => (
@@ -518,7 +536,7 @@ export const PaseadoresAdmin = () => {
                         {colones(p.generado)}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
+                        <Badge tono={tonoPaseador(p.estado)}>{t(claveEstadoPaseador[p.estado])}</Badge>
                       </td>
                     </tr>
                   ))}
@@ -544,7 +562,7 @@ export const PaseadoresAdmin = () => {
                         <p className="truncate text-[14px] font-semibold text-ink">{p.nombre}</p>
                         <p className="truncate text-[11.5px] text-ink-mute">{p.zona}</p>
                       </div>
-                      <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
+                      <Badge tono={tonoPaseador(p.estado)}>{t(claveEstadoPaseador[p.estado])}</Badge>
                     </div>
 
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
@@ -591,26 +609,21 @@ export const PaseadoresAdmin = () => {
 
 /* ── Verificaciones ──────────────────────────────────────────── */
 
-const documentLabel: Record<VerificationDocumentType, string> = {
-  cedula_frente: "Cédula (frente)",
-  cedula_reverso: "Cédula (reverso)",
-  hoja_delincuencia: "Hoja de delincuencia",
-  permiso_funcionamiento: "Permiso de funcionamiento",
+const claveDocumentLabel: Record<VerificationDocumentType, string> = {
+  cedula_frente: "admin.verifications.documentLabels.cedula_frente",
+  cedula_reverso: "admin.verifications.documentLabels.cedula_reverso",
+  hoja_delincuencia: "admin.verifications.documentLabels.hoja_delincuencia",
+  permiso_funcionamiento: "admin.verifications.documentLabels.permiso_funcionamiento",
 };
 
-const verificationRoleLabel: Record<RolPublico, string> = {
-  dueno: "Dueño",
-  paseador: "Paseador",
-  negocio: "Negocio",
+const claveVerificationRoleLabel: Record<RolPublico, string> = {
+  dueno: "admin.verifications.roleLabels.dueno",
+  paseador: "admin.verifications.roleLabels.paseador",
+  negocio: "admin.verifications.roleLabels.negocio",
 };
 
-const verificationDate = new Intl.DateTimeFormat("es-CR", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-const errorMessage = (cause: unknown) =>
-  cause instanceof Error ? cause.message : "No se pudo completar la revisión.";
+const errorMessage = (cause: unknown, t: T) =>
+  cause instanceof Error ? cause.message : t("admin.verifications.reviewError");
 
 /* ─────────────────────────────────────────────────────────────
    EL VISOR DE DOCUMENTOS
@@ -666,6 +679,7 @@ const VisorDocumentos = ({
     observacion?: string,
   ) => Promise<void>;
 }) => {
+  const { t } = useTranslation();
   const [activo, setActivo] = useState(inicial);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(false);
@@ -760,7 +774,7 @@ const VisorDocumentos = ({
         }
       })
       .catch((cause) => {
-        if (vivo) setFallo(errorMessage(cause));
+        if (vivo) setFallo(errorMessage(cause, t));
       })
       .finally(() => {
         if (vivo) setCargando(false);
@@ -811,10 +825,10 @@ const VisorDocumentos = ({
     setFallo(null);
     try {
       await downloadVerificationDocument(documento);
-      aviso.ok("Documento descargado", { detalle: documento.nombre_archivo });
+      aviso.ok(t("admin.verifications.viewer.downloaded"), { detalle: documento.nombre_archivo });
     } catch (cause) {
-      setFallo(errorMessage(cause));
-      aviso.error(cause, { respaldo: "No se pudo descargar el documento." });
+      setFallo(errorMessage(cause, t));
+      aviso.error(cause, { respaldo: t("admin.verifications.viewer.downloadFailed") });
     } finally {
       setDescargando(false);
     }
@@ -822,7 +836,7 @@ const VisorDocumentos = ({
 
   const resolver = async (estado: "aprobado" | "rechazado") => {
     if (estado === "rechazado" && observacion.trim().length < 5) {
-      setFallo("Escribí una observación de al menos 5 caracteres para rechazar.");
+      setFallo(t("admin.verifications.rejectMinLength"));
       return;
     }
     setVeredicto(estado);
@@ -834,16 +848,16 @@ const VisorDocumentos = ({
       );
       onClose();
       if (estado === "aprobado") {
-        aviso.ok(`${solicitud.nombre} quedó verificado`, {
-          detalle: "Ya puede operar en la plataforma con todos sus perfiles.",
+        aviso.ok(t("admin.verifications.verified", { nombre: solicitud.nombre }), {
+          detalle: t("admin.verifications.verifiedDetail"),
         });
       } else {
-        aviso.dato(`Verificación de ${solicitud.nombre} rechazada`, {
-          detalle: "Recibió tu observación y puede volver a enviarla.",
+        aviso.dato(t("admin.verifications.rejected", { nombre: solicitud.nombre }), {
+          detalle: t("admin.verifications.rejectedDetail"),
         });
       }
     } catch (cause) {
-      setFallo(errorMessage(cause));
+      setFallo(errorMessage(cause, t));
       setVeredicto(null);
     }
   };
@@ -933,7 +947,7 @@ const VisorDocumentos = ({
     <div className="suave fixed inset-0 z-[100] flex p-2.5 sm:p-6">
       <button
         type="button"
-        aria-label="Cerrar visor"
+        aria-label={t("admin.verifications.viewer.close")}
         onClick={onClose}
         className="anim-fade absolute inset-0 bg-rail/80 backdrop-blur-[2px]"
       />
@@ -979,13 +993,13 @@ const VisorDocumentos = ({
             ) : (
               <Download size={14} />
             )}
-            <span className="hidden sm:inline">Descargar</span>
+            <span className="hidden sm:inline">{t("admin.verifications.viewer.download")}</span>
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar visor"
+            aria-label={t("admin.verifications.viewer.close")}
             className={botonHerramienta}
           >
             <X size={18} />
@@ -998,7 +1012,7 @@ const VisorDocumentos = ({
               sitio: en un teléfono una columna de 190 px se come la
               mitad del ancho útil. */}
           <nav
-            aria-label="Documentos de la solicitud"
+            aria-label={t("admin.verifications.viewer.documentsAria")}
             className="flex shrink-0 gap-1.5 overflow-x-auto bg-sunken p-2 sm:w-[212px] sm:flex-col sm:overflow-x-visible sm:overflow-y-auto sm:p-2.5"
           >
             {documentos.map((doc) => {
@@ -1028,7 +1042,7 @@ const VisorDocumentos = ({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[12.5px] font-medium whitespace-nowrap sm:whitespace-normal">
-                      {documentLabel[doc.tipo_documento]}
+                      {t(claveDocumentLabel[doc.tipo_documento])}
                     </span>
                     <span
                       className={`hidden truncate text-[10.5px] sm:block ${
@@ -1051,19 +1065,19 @@ const VisorDocumentos = ({
                 type="button"
                 onClick={() => mover(-1)}
                 disabled={documentos.length < 2}
-                aria-label="Documento anterior"
+                aria-label={t("admin.verifications.viewer.previousDocument")}
                 className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
               >
                 <ChevronLeft size={17} />
               </button>
               <span className="nums min-w-[3.5rem] text-center text-[11.5px] font-medium text-ink-mute">
-                {indice + 1} de {documentos.length}
+                {t("admin.verifications.viewer.ofTotal", { actual: indice + 1, total: documentos.length })}
               </span>
               <button
                 type="button"
                 onClick={() => mover(1)}
                 disabled={documentos.length < 2}
-                aria-label="Documento siguiente"
+                aria-label={t("admin.verifications.viewer.nextDocument")}
                 className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
               >
                 <ChevronRight size={17} />
@@ -1077,7 +1091,7 @@ const VisorDocumentos = ({
                     type="button"
                     onClick={() => acercar(-0.5)}
                     disabled={escala <= ESCALA_MIN}
-                    aria-label="Alejar"
+                    aria-label={t("admin.verifications.viewer.zoomOut")}
                     className={`${botonHerramienta} text-[17px] leading-none font-semibold text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
                   >
                     −
@@ -1093,7 +1107,7 @@ const VisorDocumentos = ({
                     type="button"
                     onClick={() => acercar(0.5)}
                     disabled={escala >= ESCALA_MAX}
-                    aria-label="Acercar"
+                    aria-label={t("admin.verifications.viewer.zoomIn")}
                     className={`${botonHerramienta} text-[17px] leading-none font-semibold text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
                   >
                     +
@@ -1102,7 +1116,7 @@ const VisorDocumentos = ({
                   <button
                     type="button"
                     onClick={() => setGiro((actual) => (actual + 90) % 360)}
-                    aria-label="Girar un cuarto de vuelta"
+                    aria-label={t("admin.verifications.viewer.rotate")}
                     className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink`}
                   >
                     <RefreshCw size={15} />
@@ -1111,8 +1125,7 @@ const VisorDocumentos = ({
               )}
 
               <span className="ml-auto hidden shrink-0 pr-1 text-[11px] whitespace-nowrap text-ink-mute lg:block">
-                ← → cambian de documento · rueda o pellizco acercan · 0
-                encuadra
+                {t("admin.verifications.viewer.shortcutsHint")}
               </span>
             </div>
 
@@ -1131,8 +1144,7 @@ const VisorDocumentos = ({
             >
               {cargando && (
                 <p className="flex items-center gap-2 text-[13px] text-ink-soft">
-                  <Loader size={16} className="animate-spin" /> Abriendo
-                  documento…
+                  <Loader size={16} className="animate-spin" /> {t("admin.verifications.viewer.opening")}
                 </p>
               )}
 
@@ -1144,7 +1156,7 @@ const VisorDocumentos = ({
                     className="mx-auto text-danger"
                   />
                   <p className="mt-2 text-[13px] font-semibold text-ink">
-                    No se pudo abrir el documento
+                    {t("admin.verifications.viewer.openFailed")}
                   </p>
                   <p className="mt-1 text-[12.5px] text-ink-soft">{fallo}</p>
                 </div>
@@ -1154,13 +1166,13 @@ const VisorDocumentos = ({
                 pdf ? (
                   <iframe
                     src={url}
-                    title={documentLabel[documento.tipo_documento]}
+                    title={t(claveDocumentLabel[documento.tipo_documento])}
                     className="h-full w-full bg-white"
                   />
                 ) : (
                   <img
                     src={url}
-                    alt={documentLabel[documento.tipo_documento]}
+                    alt={t(claveDocumentLabel[documento.tipo_documento])}
                     draggable={false}
                     onPointerDown={tomar}
                     onPointerMove={llevar}
@@ -1209,7 +1221,7 @@ const VisorDocumentos = ({
                 htmlFor="visor-observacion"
                 className="rotulo text-ink-mute"
               >
-                Qué debe corregir *
+                {t("admin.verifications.viewer.whatToFix")}
               </label>
               <textarea
                 id="visor-observacion"
@@ -1218,7 +1230,7 @@ const VisorDocumentos = ({
                 maxLength={500}
                 value={observacion}
                 onChange={(evento) => setObservacion(evento.target.value)}
-                placeholder="Indicá qué documento está mal y por qué. Lo va a leer la persona."
+                placeholder={t("admin.verifications.viewer.whatToFixPlaceholder")}
                 className={`${input} mt-1.5 resize-y`}
               />
             </div>
@@ -1236,7 +1248,7 @@ const VisorDocumentos = ({
                 }}
                 className={`${btnQuiet} w-full sm:w-auto`}
               >
-                Cancelar
+                {t("common.cancel")}
               </button>
             )}
 
@@ -1257,7 +1269,7 @@ const VisorDocumentos = ({
               ) : (
                 <X size={15} strokeWidth={2.2} />
               )}
-              {rechazando ? "Confirmar rechazo" : "Rechazar"}
+              {rechazando ? t("admin.verifications.confirmReject") : t("admin.verifications.reject")}
             </button>
 
             {!rechazando && (
@@ -1272,7 +1284,7 @@ const VisorDocumentos = ({
                 ) : (
                   <Check size={15} strokeWidth={2.2} />
                 )}
-                Aprobar perfil
+                {t("admin.verifications.approveProfile")}
               </button>
             )}
           </div>
@@ -1284,6 +1296,11 @@ const VisorDocumentos = ({
 };
 
 export const VerificacionesAdmin = () => {
+  const { t, localeTag } = useTranslation();
+  const verificationDate = new Intl.DateTimeFormat(localeTag, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
   const [pendientes, setPendientes] = useState<AdminVerificationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -1302,11 +1319,11 @@ export const VerificacionesAdmin = () => {
     try {
       setPendientes(await listVerificationRequests());
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(errorMessage(cause, t));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -1326,7 +1343,7 @@ export const VerificacionesAdmin = () => {
 
   const review = async (request: AdminVerificationRequest, status: "aprobado" | "rechazado") => {
     if (status === "rechazado" && observation.trim().length < 5) {
-      setError("Escribe una observación de al menos 5 caracteres para rechazar.");
+      setError(t("admin.verifications.rejectMinLength"));
       return;
     }
     setProcessingId(request.id_usuario);
@@ -1336,17 +1353,17 @@ export const VerificacionesAdmin = () => {
       setRejectingId(null);
       setObservation("");
       if (status === "aprobado") {
-        aviso.ok(`${request.nombre} quedó verificado`, {
-          detalle: "Ya puede operar en la plataforma con todos sus perfiles.",
+        aviso.ok(t("admin.verifications.verified", { nombre: request.nombre }), {
+          detalle: t("admin.verifications.verifiedDetail"),
         });
       } else {
-        aviso.dato(`Verificación de ${request.nombre} rechazada`, {
-          detalle: "Recibió tu observación y puede volver a enviarla.",
+        aviso.dato(t("admin.verifications.rejected", { nombre: request.nombre }), {
+          detalle: t("admin.verifications.rejectedDetail"),
         });
       }
     } catch (cause) {
-      setError(errorMessage(cause));
-      aviso.error(cause, { respaldo: "No se pudo registrar la revisión." });
+      setError(errorMessage(cause, t));
+      aviso.error(cause, { respaldo: t("admin.verifications.reviewFailed") });
     } finally {
       setProcessingId(null);
     }
@@ -1355,9 +1372,9 @@ export const VerificacionesAdmin = () => {
   return (
     <Page>
       <PageHeader
-        title="Verificaciones"
-        subtitle="Solicitudes de identidad pendientes de revisión administrativa."
-        action={<Badge tono="warn">{pendientes.length} pendientes</Badge>}
+        title={t("admin.verifications.title")}
+        subtitle={t("admin.verifications.subtitle")}
+        action={<Badge tono="warn">{t("admin.verifications.pendingBadge", { count: pendientes.length })}</Badge>}
       />
 
       {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
@@ -1371,27 +1388,27 @@ export const VerificacionesAdmin = () => {
       {pendientes.map((v) => (
         <article key={v.id_usuario} className="anim-rise bg-surface px-6 py-5">
           <div className="flex flex-wrap items-start gap-5">
-            {v.foto_perfil ? <img src={v.foto_perfil} alt={`Foto de ${v.nombre}`} className="h-16 w-16 flex-shrink-0 rounded-full bg-sunken object-cover" /> : <Avatar nombre={v.nombre} size={64} />}
+            {v.foto_perfil ? <img src={v.foto_perfil} alt={t("common.photoOf", { nombre: v.nombre })} className="h-16 w-16 flex-shrink-0 rounded-full bg-sunken object-cover" /> : <Avatar nombre={v.nombre} size={64} />}
 
             <div className="min-w-[200px] flex-1">
               <h3 className="text-[15px] font-semibold text-ink">{v.nombre}</h3>
               <p className="mt-0.5 text-[12.5px] text-ink-soft">
                 {v.correo} · {v.zona}
               </p>
-              <p className="mt-1 text-[11.5px] text-ink-mute">{v.roles.map((role) => verificationRoleLabel[role]).join(" + ") || "Perfil de paseador solicitado"} · enviado {verificationDate.format(new Date(v.fecha_solicitud))}</p>
+              <p className="mt-1 text-[11.5px] text-ink-mute">{v.roles.map((role) => t(claveVerificationRoleLabel[role])).join(" + ") || t("admin.verifications.walkerProfileRequested")} · {t("admin.verifications.sentOn", { fecha: verificationDate.format(new Date(v.fecha_solicitud)) })}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {v.documentos.length === 0 ? (
-                  <p className="text-[12.5px] text-ink-mute">Sin documentos adjuntos.</p>
+                  <p className="text-[12.5px] text-ink-mute">{t("admin.verifications.noDocuments")}</p>
                 ) : (
                   <>
                     <button type="button" onClick={() => setRevision({ solicitud: v, inicial: v.documentos[0].id_documento })} className={btnPrimary}>
-                      <Eye size={14} /> Revisar {v.documentos.length} documento{v.documentos.length === 1 ? "" : "s"}
+                      <Eye size={14} /> {t(v.documentos.length === 1 ? "admin.verifications.reviewDocuments" : "admin.verifications.reviewDocumentsPlural", { count: v.documentos.length })}
                     </button>
                     {/* Cada documento sigue teniendo su propia entrada:
                         abren la misma ventana, ya puesta en ese. */}
                     {v.documentos.map((documento) => (
                       <button key={documento.id_documento} type="button" onClick={() => setRevision({ solicitud: v, inicial: documento.id_documento })} className={btnSecondary}>
-                        {documentLabel[documento.tipo_documento]}
+                        {t(claveDocumentLabel[documento.tipo_documento])}
                       </button>
                     ))}
                   </>
@@ -1399,8 +1416,8 @@ export const VerificacionesAdmin = () => {
               </div>
               {rejectingId === v.id_usuario && (
                 <div className="mt-4">
-                  <label htmlFor={`observation-${v.id_usuario}`} className="rotulo text-ink-mute">Observación para el usuario *</label>
-                  <textarea id={`observation-${v.id_usuario}`} value={observation} onChange={(event) => setObservation(event.target.value)} rows={3} maxLength={500} className={`${input} mt-2 resize-y`} placeholder="Indica qué documento debe corregir y por qué." />
+                  <label htmlFor={`observation-${v.id_usuario}`} className="rotulo text-ink-mute">{t("admin.verifications.observationLabel")}</label>
+                  <textarea id={`observation-${v.id_usuario}`} value={observation} onChange={(event) => setObservation(event.target.value)} rows={3} maxLength={500} className={`${input} mt-2 resize-y`} placeholder={t("admin.verifications.observationPlaceholder")} />
                 </div>
               )}
             </div>
@@ -1413,7 +1430,7 @@ export const VerificacionesAdmin = () => {
                 className={btnPrimary}
               >
                 {processingId === v.id_usuario ? <Loader size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.2} />}
-                Aprobar perfil
+                {t("admin.verifications.approveProfile")}
               </button>
               <button
                 type="button"
@@ -1425,7 +1442,7 @@ export const VerificacionesAdmin = () => {
                 className={btnDanger}
               >
                 <X size={15} strokeWidth={2.2} />
-                {rejectingId === v.id_usuario ? "Confirmar rechazo" : "Rechazar"}
+                {rejectingId === v.id_usuario ? t("admin.verifications.confirmReject") : t("admin.verifications.reject")}
               </button>
             </div>
           </div>
@@ -1434,8 +1451,8 @@ export const VerificacionesAdmin = () => {
 
       {!loading && pendientes.length === 0 && (
         <EmptyState
-          title="No hay verificaciones pendientes"
-          hint="Todas las solicitudes fueron revisadas."
+          title={t("admin.verifications.empty.title")}
+          hint={t("admin.verifications.empty.hint")}
         />
       )}
 
@@ -1482,21 +1499,25 @@ export const VerificacionesAdmin = () => {
        inactiva sin necesitar la palabra.
      · Debajo de `lg` no hay tabla: fichas apiladas, sin borde. */
 
-const rolLabel: Record<Rol, string> = { dueno: "Dueño", paseador: "Paseador", negocio: "Negocio", admin: "Administrador" };
-const rolesLabel = (roles: Rol[]) => roles.map((rol) => rolLabel[rol]).join(" + ") || "Sin rol";
+const claveRolLabel: Record<Rol, string> = {
+  dueno: "admin.users.roleLabels.dueno",
+  paseador: "admin.users.roleLabels.paseador",
+  negocio: "admin.users.roleLabels.negocio",
+  admin: "admin.users.roleLabels.admin",
+};
+const rolesLabel = (roles: Rol[], t: T) => roles.map((rol) => t(claveRolLabel[rol])).join(" + ") || t("admin.users.noRole");
 /** Chip para la cuenta sin rol. `label` es corto porque vive en una
     columna de cien píxeles; `detalle` es la explicación completa y va
     en el tooltip. */
-const perfilSinRol = (estado: AdminUser["estado_paseador"]) =>
+const perfilSinRol = (estado: AdminUser["estado_paseador"], t: T) =>
   estado === "pendiente"
-    ? { label: "Pendiente", detalle: "Solicitud de paseador pendiente de aprobación", className: "bg-warn-wash text-warn" }
+    ? { label: t("admin.users.noRoleStatus.pendingLabel"), detalle: t("admin.users.noRoleStatus.pendingDetail"), className: "bg-warn-wash text-warn" }
     : estado === "rechazado"
-      ? { label: "Rechazado", detalle: "Solicitud de paseador rechazada", className: "bg-danger-wash text-danger" }
+      ? { label: t("admin.users.noRoleStatus.rejectedLabel"), detalle: t("admin.users.noRoleStatus.rejectedDetail"), className: "bg-danger-wash text-danger" }
       : estado === "aprobado"
-        ? { label: "Falta rol", detalle: "Aprobado como paseador, pero sin el rol asignado todavía", className: "bg-danger-wash text-danger" }
-        : { label: "Sin rol", detalle: "La cuenta no tiene ningún rol asignado", className: "bg-sunken text-ink-mute" };
+        ? { label: t("admin.users.noRoleStatus.missingRoleLabel"), detalle: t("admin.users.noRoleStatus.missingRoleDetail"), className: "bg-danger-wash text-danger" }
+        : { label: t("admin.users.noRoleStatus.noneLabel"), detalle: t("admin.users.noRoleStatus.noneDetail"), className: "bg-sunken text-ink-mute" };
 const PAGE_SIZE = 8;
-const dateFormatter = new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" });
 
 const chipRol =
   "inline-flex h-6 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[10px] font-semibold uppercase leading-none tracking-wide";
@@ -1510,17 +1531,18 @@ const chipRolTono: Record<Rol, string> = {
 /** Los chips de rol de un usuario, o el chip de «sin rol» que dice
     por qué. Igual en la tabla y en la ficha. */
 const ChipsRol = ({ usuario }: { usuario: AdminUser }) => {
+  const { t } = useTranslation();
   if (usuario.roles.length) {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
         {usuario.roles.map((rol) => (
-          <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{rolLabel[rol]}</span>
+          <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{t(claveRolLabel[rol])}</span>
         ))}
       </div>
     );
   }
 
-  const perfil = perfilSinRol(usuario.estado_paseador);
+  const perfil = perfilSinRol(usuario.estado_paseador, t);
   return (
     <span className={`${chipRol} ${perfil.className}`} title={perfil.detalle}>
       {perfil.label}
@@ -1544,6 +1566,8 @@ const FotoUsuario = ({ usuario, size }: { usuario: AdminUser; size: number }) =>
 
 export const UsuariosAdmin = () => {
   const { user } = useAuth();
+  const { t, localeTag } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "medium" });
   const { usuarios, loading, procesandoId, error, mensaje, cambiarEstado, clearMessage } = useAdminUsuarios();
   const [busqueda, setBusqueda] = useState("");
   const [filtroRol, setFiltroRol] = useState<"todos" | Rol>("todos");
@@ -1566,7 +1590,8 @@ export const UsuariosAdmin = () => {
   const cambiarFiltroRol = (value: "todos" | Rol) => { setFiltroRol(value); setPagina(1); };
   const cambiarFiltroEstado = (value: "todos" | "activos" | "inactivos") => { setFiltroEstado(value); setPagina(1); };
   const exportar = () => {
-    const csv = ["Nombre,Correo,Telefono,Roles,Zona,Registro,Estado", ...visibles.map((u) => [u.nombre, u.correo ?? "", u.telefono ?? "", rolesLabel(u.roles), u.zona?.nombre ?? "Sin zona", u.fecha_registro, u.activo ? "Activo" : "Inactivo"].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
+    const encabezado = [t("admin.users.csv.name"), t("admin.users.csv.email"), t("admin.users.csv.phone"), t("admin.users.csv.roles"), t("admin.users.csv.zone"), t("admin.users.csv.registration"), t("admin.users.csv.status")].join(",");
+    const csv = [encabezado, ...visibles.map((u) => [u.nombre, u.correo ?? "", u.telefono ?? "", rolesLabel(u.roles, t), u.zona?.nombre ?? t("admin.users.csv.noZone"), u.fecha_registro, u.activo ? t("admin.users.csv.active") : t("admin.users.csv.inactive")].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
     const enlace = document.createElement("a");
     enlace.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     enlace.download = "usuarios-tuaniscan.csv";
@@ -1574,8 +1599,8 @@ export const UsuariosAdmin = () => {
     enlace.click();
     enlace.remove();
     URL.revokeObjectURL(enlace.href);
-    aviso.ok("Directorio exportado", {
-      detalle: `${visibles.length} ${visibles.length === 1 ? "fila" : "filas"} en usuarios-tuaniscan.csv`,
+    aviso.ok(t("admin.users.exported"), {
+      detalle: t(visibles.length === 1 ? "admin.users.exportedRowSingular" : "admin.users.exportedRowPlural", { count: visibles.length }),
     });
   };
 
@@ -1590,10 +1615,10 @@ export const UsuariosAdmin = () => {
         activo={usuario.activo}
         etiqueta={
           esCuentaActual
-            ? "Es tu cuenta: no se puede inactivar desde acá"
+            ? t("admin.users.isYourAccountSwitch")
             : usuario.activo
-              ? `Inactivar a ${usuario.nombre}`
-              : `Activar a ${usuario.nombre}`
+              ? t("admin.users.deactivateSwitch", { nombre: usuario.nombre })
+              : t("admin.users.activateSwitch", { nombre: usuario.nombre })
         }
         deshabilitado={esCuentaActual}
         ocupado={procesandoId === usuario.id_usuario}
@@ -1607,12 +1632,12 @@ export const UsuariosAdmin = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Usuarios"
-        subtitle="Directorio general de las personas y negocios registrados."
+        title={t("admin.users.title")}
+        subtitle={t("admin.users.subtitle")}
         action={
           <div className="flex w-full items-center gap-2.5 sm:w-auto">
             <button type="button" onClick={exportar} className={`${btnSecondary} flex-1 sm:flex-none`}>
-              <Download size={14} strokeWidth={1.9} /> Exportar vista
+              <Download size={14} strokeWidth={1.9} /> {t("admin.users.exportView")}
             </button>
             {botonNotificaciones}
           </div>
@@ -1620,40 +1645,40 @@ export const UsuariosAdmin = () => {
       />
 
       <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas" />
+        <Stat etiqueta={t("admin.users.stats.registered")} valor={String(usuarios.length)} nota={t("admin.users.stats.allAccounts")} />
         <Stat
-          etiqueta="Cuentas activas"
+          etiqueta={t("admin.users.stats.activeAccounts")}
           valor={String(activos)}
-          nota={`${porcentaje(activos)} % del total`}
+          nota={t("admin.users.stats.percentOfTotal", { pct: porcentaje(activos) })}
           parte={usuarios.length ? activos / usuarios.length : 0}
         />
         <Stat
-          etiqueta="Dueños de mascotas"
+          etiqueta={t("admin.users.stats.petOwners")}
           valor={String(duenos)}
-          nota={`${porcentaje(duenos)} % del total`}
+          nota={t("admin.users.stats.percentOfTotal", { pct: porcentaje(duenos) })}
           parte={usuarios.length ? duenos / usuarios.length : 0}
         />
       </div>
 
       <div className="min-w-0">
         <Section
-          title="Directorio"
-          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</Badge>}
+          title={t("admin.users.directory")}
+          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? t("admin.users.resultSingular") : t("admin.users.resultPlural")}</Badge>}
           bodyClass="px-4 py-4 sm:px-6"
         >
           <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.6fr)_minmax(150px,1fr)_minmax(150px,1fr)]">
             <label className="relative block sm:col-span-2 lg:col-span-1">
               <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" aria-hidden />
-              <span className="sr-only">Buscar usuarios</span>
+              <span className="sr-only">{t("admin.users.searchAria")}</span>
               <input
                 value={busqueda}
                 onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }}
                 className={`${input} pl-10`}
-                placeholder="Buscar por nombre, teléfono o zona"
+                placeholder={t("admin.users.searchPlaceholder")}
               />
             </label>
-            <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label="Filtrar por rol" options={[{ value: "todos", label: "Todos los roles" }, { value: "dueno", label: "Dueños" }, { value: "paseador", label: "Paseadores" }, { value: "negocio", label: "Negocios" }, { value: "admin", label: "Administradores" }]} />
-            <Combo value={filtroEstado} onChange={(v) => cambiarFiltroEstado(v as typeof filtroEstado)} aria-label="Filtrar por estado" options={[{ value: "todos", label: "Todos los estados" }, { value: "activos", label: "Activos" }, { value: "inactivos", label: "Inactivos" }]} />
+            <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label={t("admin.users.roleFilterAria")} options={[{ value: "todos", label: t("admin.users.allRoles") }, { value: "dueno", label: t("admin.users.owners") }, { value: "paseador", label: t("admin.users.walkers") }, { value: "negocio", label: t("admin.users.businesses") }, { value: "admin", label: t("admin.users.administrators") }]} />
+            <Combo value={filtroEstado} onChange={(v) => cambiarFiltroEstado(v as typeof filtroEstado)} aria-label={t("admin.users.statusFilterAria")} options={[{ value: "todos", label: t("admin.users.allStatuses") }, { value: "activos", label: t("admin.users.active") }, { value: "inactivos", label: t("admin.users.inactive") }]} />
           </div>
         </Section>
       </div>
@@ -1670,7 +1695,7 @@ export const UsuariosAdmin = () => {
             <Skeleton name="admin-tabla" loading><div /></Skeleton>
           ) : visibles.length === 0 ? (
             <div className="px-4 py-4 sm:px-6">
-              <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} />
+              <EmptyState title={t("admin.users.empty.title")} hint={error ? t("admin.users.empty.withError") : t("admin.users.empty.withoutError")} />
             </div>
           ) : (
             <>
@@ -1680,16 +1705,16 @@ export const UsuariosAdmin = () => {
                   puntos y se lee entero al pasar el cursor. */}
               <div className="hidden lg:block">
                 <Table
-                  caption="Directorio de usuarios"
+                  caption={t("admin.users.directory")}
                   min="min-w-[840px]"
                   padX="px-4"
                   columnas={[
-                    { label: "Usuario", ancho: "w-[25%]" },
-                    { label: "Roles", ancho: "w-[16%]" },
-                    { label: "Contacto", ancho: "w-[22%]" },
-                    { label: "Zona", ancho: "w-[12%]" },
-                    { label: "Registro", ancho: "w-[13%]" },
-                    { label: "Activa", ancho: "w-[12%]", align: "right" },
+                    { label: t("admin.users.columns.user"), ancho: "w-[25%]" },
+                    { label: t("admin.users.columns.roles"), ancho: "w-[16%]" },
+                    { label: t("admin.users.columns.contact"), ancho: "w-[22%]" },
+                    { label: t("admin.users.columns.zone"), ancho: "w-[12%]" },
+                    { label: t("admin.users.columns.registration"), ancho: "w-[13%]" },
+                    { label: t("admin.users.columns.active"), ancho: "w-[12%]", align: "right" },
                   ]}
                 >
                   {paginaUsuarios.map((usuario) => {
@@ -1702,7 +1727,7 @@ export const UsuariosAdmin = () => {
                             <span className="min-w-0">
                               <span className="block truncate text-[13.5px] font-semibold text-ink" title={usuario.nombre}>{usuario.nombre}</span>
                               {esCuentaActual ? (
-                                <span className="mt-0.5 block text-[11px] font-medium text-accent-deep">Tu cuenta</span>
+                                <span className="mt-0.5 block text-[11px] font-medium text-accent-deep">{t("admin.users.yourAccount")}</span>
                               ) : (
                                 <span className="nums mt-0.5 block text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</span>
                               )}
@@ -1713,10 +1738,10 @@ export const UsuariosAdmin = () => {
                           <ChipsRol usuario={usuario} />
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`block truncate text-[12.5px] ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`} title={usuario.correo ?? undefined}>{usuario.correo || "Sin correo"}</span>
-                          <span className="nums mt-0.5 block truncate text-[11.5px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span>
+                          <span className={`block truncate text-[12.5px] ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`} title={usuario.correo ?? undefined}>{usuario.correo || t("admin.users.noEmail")}</span>
+                          <span className="nums mt-0.5 block truncate text-[11.5px] text-ink-mute">{usuario.telefono || t("admin.users.noPhone")}</span>
                         </td>
-                        <td className={`truncate px-4 py-3 text-[12.5px] ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`} title={usuario.zona?.nombre}>{usuario.zona?.nombre || "Sin zona"}</td>
+                        <td className={`truncate px-4 py-3 text-[12.5px] ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`} title={usuario.zona?.nombre}>{usuario.zona?.nombre || t("admin.users.noZone")}</td>
                         <td className="nums px-4 py-3 text-[12.5px] whitespace-nowrap text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td>
                         <td className="px-4 py-3 text-right">
                           {interruptorDe(usuario)}
@@ -1738,7 +1763,7 @@ export const UsuariosAdmin = () => {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14px] font-semibold text-ink">{usuario.nombre}</p>
                           {esCuentaActual ? (
-                            <p className="mt-0.5 text-[11px] font-medium text-accent-deep">Tu cuenta</p>
+                            <p className="mt-0.5 text-[11px] font-medium text-accent-deep">{t("admin.users.yourAccount")}</p>
                           ) : (
                             <p className="nums mt-0.5 text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p>
                           )}
@@ -1751,23 +1776,23 @@ export const UsuariosAdmin = () => {
 
                       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
                         <div className="col-span-2">
-                          <dt className="rotulo text-ink-mute">Contacto</dt>
-                          <dd className={`mt-1 break-words ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`}>{usuario.correo || "Sin correo"}</dd>
-                          <dd className="nums mt-0.5 text-ink-mute">{usuario.telefono || "Sin teléfono"}</dd>
+                          <dt className="rotulo text-ink-mute">{t("admin.users.columns.contact")}</dt>
+                          <dd className={`mt-1 break-words ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`}>{usuario.correo || t("admin.users.noEmail")}</dd>
+                          <dd className="nums mt-0.5 text-ink-mute">{usuario.telefono || t("admin.users.noPhone")}</dd>
                         </div>
                         <div>
-                          <dt className="rotulo text-ink-mute">Zona</dt>
-                          <dd className={`mt-1 break-words ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`}>{usuario.zona?.nombre || "Sin zona"}</dd>
+                          <dt className="rotulo text-ink-mute">{t("admin.users.columns.zone")}</dt>
+                          <dd className={`mt-1 break-words ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`}>{usuario.zona?.nombre || t("admin.users.noZone")}</dd>
                         </div>
                         <div>
-                          <dt className="rotulo text-ink-mute">Registro</dt>
+                          <dt className="rotulo text-ink-mute">{t("admin.users.columns.registration")}</dt>
                           <dd className="nums mt-1 text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</dd>
                         </div>
                       </dl>
 
                       <div className="mt-3.5 flex items-center justify-between gap-3">
                         <span className="text-[12px] text-ink-soft">
-                          {esCuentaActual ? "No se puede inactivar la cuenta propia" : usuario.activo ? "Cuenta activa" : "Cuenta inactiva"}
+                          {esCuentaActual ? t("admin.users.cannotDeactivateOwn") : usuario.activo ? t("admin.users.accountActive") : t("admin.users.accountInactive")}
                         </span>
                         {interruptorDe(usuario)}
                       </div>
@@ -1777,14 +1802,14 @@ export const UsuariosAdmin = () => {
               </ul>
 
               <Paginacion
-                etiqueta="Paginación de usuarios"
+                etiqueta={t("admin.users.pagination")}
                 actual={paginaActual}
                 total={totalPaginas}
                 onCambiar={setPagina}
                 desde={inicioPagina + 1}
                 hasta={finPagina}
                 cuantos={visibles.length}
-                nombre={["usuario", "usuarios"]}
+                nombre={[t("admin.users.userWord"), t("admin.users.usersWord")]}
               />
             </>
           )}
@@ -1793,18 +1818,18 @@ export const UsuariosAdmin = () => {
 
       {confirmar && (
         <Confirmar
-          titulo={confirmar.activo ? "Inactivar usuario" : "Activar usuario"}
+          titulo={confirmar.activo ? t("admin.users.deactivateTitle") : t("admin.users.activateTitle")}
           tono={confirmar.activo ? "peligro" : "normal"}
-          confirmar={confirmar.activo ? "Sí, inactivar" : "Sí, activar"}
+          confirmar={confirmar.activo ? t("admin.users.confirmDeactivate") : t("admin.users.confirmActivate")}
           ocupado={procesandoId === confirmar.id_usuario}
           onCancelar={() => setConfirmar(null)}
           onConfirmar={() => void cambiarEstado(confirmar).then(() => setConfirmar(null)).catch(() => undefined)}
           cuerpo={
             <>
-              Vas a {confirmar.activo ? "inactivar" : "activar"} a <strong className="font-semibold text-ink">{confirmar.nombre}</strong>.{" "}
+              {confirmar.activo ? t("admin.users.willDeactivate") : t("admin.users.willActivate")} <strong className="font-semibold text-ink">{confirmar.nombre}</strong>.{" "}
               {confirmar.activo
-                ? "La cuenta no podrá usar funciones protegidas aunque conserve una sesión anterior."
-                : "La cuenta recuperará acceso a las funciones protegidas."}
+                ? t("admin.users.bodyDeactivate")
+                : t("admin.users.bodyActivate")}
               {error && <span className="mt-3 block rounded-[10px] bg-danger-wash px-3 py-2 text-danger">{error}</span>}
             </>
           }
@@ -1816,12 +1841,18 @@ export const UsuariosAdmin = () => {
 
 /* ── Paseos de la plataforma ─────────────────────────────────── */
 
-const estadoPaseoLabel: Record<EstadoPaseo, string> = {
-  solicitado: "Solicitado",
-  confirmado: "Confirmado",
-  en_curso: "En curso",
-  finalizado: "Completado",
-  cancelado: "Cancelado",
+const claveEstadoPaseo: Record<EstadoPaseo, string> = {
+  solicitado: "admin.walks.status.requested",
+  confirmado: "admin.walks.status.confirmed",
+  en_curso: "admin.walks.status.inCourse",
+  finalizado: "admin.walks.status.completed",
+  cancelado: "admin.walks.status.cancelled",
+};
+
+const claveFiltroPaseosAdmin: Record<string, string> = {
+  Todos: "admin.walks.filters.all",
+  "En curso": "admin.walks.filters.inCourse",
+  Incidencias: "admin.walks.filters.incidents",
 };
 
 const tonoPaseo = (estado: EstadoPaseo) =>
@@ -1835,10 +1866,11 @@ const tonoPaseo = (estado: EstadoPaseo) =>
           ? "warn"
           : "danger";
 
-const formatoCuando = (fecha: string, hora: string) =>
-  `${new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(new Date(`${fecha}T00:00:00`))} ${hora.slice(0, 5)}`;
+const formatoCuando = (fecha: string, hora: string, localeTag: string) =>
+  `${new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(new Date(`${fecha}T00:00:00`))} ${hora.slice(0, 5)}`;
 
 export const PaseosAdmin = () => {
+  const { t, localeTag } = useTranslation();
   const botonNotificaciones = useContext(NotificationButtonContext);
   const [filtro, setFiltro] = useState("Todos");
   const [pagina, setPagina] = useState(1);
@@ -1850,9 +1882,9 @@ export const PaseosAdmin = () => {
     setLoading(true);
     listAdminWalks()
       .then(setPaseos)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar los paseos."))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("admin.walks.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const enCurso = paseos.filter((p) => p.estado === "en_curso");
 
@@ -1878,11 +1910,11 @@ export const PaseosAdmin = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Paseos"
-        subtitle="Actividad de toda la plataforma en tiempo real."
+        title={t("admin.walks.title")}
+        subtitle={t("admin.walks.subtitle")}
         action={
           <div className="flex items-center gap-2.5">
-            <Badge tono="accent">{enCurso.length} en curso</Badge>
+            <Badge tono="accent">{t("admin.walks.inCourse", { count: enCurso.length })}</Badge>
             {botonNotificaciones}
           </div>
         }
@@ -1890,8 +1922,8 @@ export const PaseosAdmin = () => {
 
       <div className="bg-surface px-3 py-3">
         <FilterTabs
-          label="Filtrar paseos"
-          options={["Todos", "En curso", "Incidencias"].map((o) => ({ value: o, label: o }))}
+          label={t("admin.walks.filterLabel")}
+          options={["Todos", "En curso", "Incidencias"].map((o) => ({ value: o, label: t(claveFiltroPaseosAdmin[o]) }))}
           value={filtro}
           onChange={cambiarFiltro}
         />
@@ -1902,19 +1934,19 @@ export const PaseosAdmin = () => {
           <div role="alert" className="bg-danger-wash px-6 py-5 text-[13px] text-danger">{error}</div>
         ) : loading ? (
           <div className="flex items-center gap-2 px-6 py-10 text-[13px] text-ink-soft">
-            <Loader size={16} className="animate-spin" /> Cargando paseos…
+            <Loader size={16} className="animate-spin" /> {t("admin.walks.loading")}
           </div>
         ) : visibles.length > 0 ? (
           <>
             <Table
-              caption={`Paseos de la plataforma filtrados por ${filtro.toLowerCase()}`}
+              caption={t("admin.walks.caption", { filtro: t(claveFiltroPaseosAdmin[filtro]).toLowerCase() })}
               columnas={[
-                { label: "Paseo" },
-                { label: "Dueño" },
-                { label: "Paseador" },
-                { label: "Cuándo" },
-                { label: "Estado" },
-                { label: "Monto", align: "right" },
+                { label: t("admin.walks.columns.walk") },
+                { label: t("admin.walks.columns.owner") },
+                { label: t("admin.walks.columns.walker") },
+                { label: t("admin.walks.columns.when") },
+                { label: t("admin.walks.columns.status") },
+                { label: t("admin.walks.columns.amount"), align: "right" },
               ]}
             >
               {paginaPaseos.map((p) => (
@@ -1930,10 +1962,10 @@ export const PaseosAdmin = () => {
                     {p.paseador}
                   </td>
                   <td className="nums px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                    {formatoCuando(p.fecha, p.hora_inicio)}
+                    {formatoCuando(p.fecha, p.hora_inicio, localeTag)}
                   </td>
                   <td className="px-6 py-4 align-top">
-                    <Badge tono={tonoPaseo(p.estado)}>{estadoPaseoLabel[p.estado]}</Badge>
+                    <Badge tono={tonoPaseo(p.estado)}>{t(claveEstadoPaseo[p.estado])}</Badge>
                   </td>
                   <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
                     {colones(p.precio)}
@@ -1943,18 +1975,18 @@ export const PaseosAdmin = () => {
             </Table>
 
             <Paginacion
-              etiqueta="Paginación de paseos"
+              etiqueta={t("admin.walks.pagination")}
               actual={paginaActual}
               total={totalPaginas}
               onCambiar={setPagina}
               desde={inicioPagina + 1}
               hasta={finPagina}
               cuantos={visibles.length}
-              nombre={["paseo", "paseos"]}
+              nombre={[t("admin.walks.walkWord"), t("admin.walks.walksWord")]}
             />
           </>
         ) : (
-          <EmptyState title="Sin paseos" hint="Cambia el filtro para ver el resto." />
+          <EmptyState title={t("admin.walks.empty.title")} hint={t("admin.walks.empty.hint")} />
         )}
       </Section>
     </Page>
