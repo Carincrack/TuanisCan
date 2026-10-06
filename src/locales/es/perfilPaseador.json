@@ -1,0 +1,25 @@
+{
+  "title": "Mi perfil",
+  "subtitle": "Tus datos públicos y las mascotas que ya paseaste.",
+  "editProfile": "Editar perfil",
+  "publicProfile": "Perfil público",
+  "defaultWalker": "Paseador",
+  "loading": "Cargando…",
+  "noDescription": "Agrega una descripción desde Editar perfil.",
+  "noZone": "Sin zona asignada",
+  "stats": {
+    "finishedWalks": "Paseos finalizados",
+    "petsWalked": "Mascotas paseadas",
+    "earned": "Generado"
+  },
+  "history": {
+    "title": "Historial de mascotas paseadas",
+    "owner": "Dueño: {{nombre}} · {{zona}}",
+    "minutes": "{{duracion}} min"
+  },
+  "empty": {
+    "title": "Aún no has finalizado paseos",
+    "hint": "Cuando completes un paseo, la mascota aparecerá aquí."
+  },
+  "loadError": "No se pudo cargar tu perfil de paseador."
+}

@@ -50,6 +50,7 @@ import { listWalkerEarnings, type WalkerEarning } from "../services/payments.ser
 import { listarResenasPaseador } from "../services/resenas-paseador.service";
 import { toggleWalkerAvailability } from "../services/walkers.service";
 import { formatDate, petAge, vaccineStatus } from "../lib/pets";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -340,6 +341,7 @@ const Dato = ({ rotulo, valor }: { rotulo: string; valor: string }) => (
    pesa en la decisión: primero la salud, después cómo es y al final
    las notas sueltas. */
 const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
+  const { localeTag } = useTranslation();
   const datos = [
     ["Peso", s.peso !== null ? `${s.peso} kg` : null],
     ["Color", s.color],
@@ -376,7 +378,7 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
               <li key={p.nombre} className="pl-6 text-[13px] leading-snug">
                 <span className="font-semibold text-ink">{p.nombre}</span>
                 {p.fecha_diagnostico && (
-                  <span className="nums text-ink-mute"> · desde {formatDate(p.fecha_diagnostico)}</span>
+                  <span className="nums text-ink-mute"> · desde {formatDate(p.fecha_diagnostico, localeTag)}</span>
                 )}
                 {p.cuidados && <p className="mt-0.5 whitespace-pre-wrap text-ink-soft">{p.cuidados}</p>}
               </li>
@@ -411,7 +413,7 @@ const FichaMascota = ({ solicitud: s }: { solicitud: WalkerRequest }) => {
                 >
                   <span className="text-ink">{v.nombre_vacuna}</span>
                   <span className="flex items-center gap-3">
-                    <span className="nums text-ink-mute">vence {formatDate(v.fecha_vencimiento)}</span>
+                    <span className="nums text-ink-mute">vence {formatDate(v.fecha_vencimiento, localeTag)}</span>
                     <Badge tono={estado === "vigente" ? "ok" : estado === "pendiente" ? "warn" : "danger"}>
                       {estado === "pendiente" ? "Por vencer" : estado}
                     </Badge>
@@ -446,6 +448,7 @@ const TarjetaSolicitud = ({
   guardando: boolean;
   onResponder: (aprobada: boolean) => void;
 }) => {
+  const { t } = useTranslation();
   const esOferta = s.precio !== s.precio_tarifa;
   const diferencia = s.precio_tarifa > 0 ? Math.round(((s.precio - s.precio_tarifa) / s.precio_tarifa) * 100) : 0;
 
@@ -453,7 +456,7 @@ const TarjetaSolicitud = ({
     s.especie,
     s.raza,
     s.sexo === "macho" ? "Macho" : s.sexo === "hembra" ? "Hembra" : null,
-    s.fecha_nacimiento ? petAge(s.fecha_nacimiento) : null,
+    s.fecha_nacimiento ? petAge(s.fecha_nacimiento, t) : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -777,7 +780,7 @@ export const AgendaPaseador = () => {
       ) : (
         <>
           <div className="bg-surface">
-            <FilterTabs label="Elegir día" options={dias} value={dia} onChange={setDia} />
+            <FilterTabs label="Elegir día" options={dias.map((o) => ({ value: o, label: o }))} value={dia} onChange={setDia} />
           </div>
 
           <Section bodyClass="">
@@ -982,7 +985,7 @@ export const GananciasPaseador = () => {
       <div className="bg-surface">
         <FilterTabs
           label="Filtrar ingresos"
-          options={filtrosIngreso}
+          options={filtrosIngreso.map((o) => ({ value: o, label: o }))}
           value={filtro}
           onChange={setFiltro}
         />

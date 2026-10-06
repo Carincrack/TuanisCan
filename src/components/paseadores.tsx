@@ -328,7 +328,7 @@ const Paseadores = () => {
 
         <FilterTabs
           label="Filtrar por zona"
-          options={zonas}
+          options={zonas.map((o) => ({ value: o, label: o }))}
           value={zona}
           onChange={setZona}
         />

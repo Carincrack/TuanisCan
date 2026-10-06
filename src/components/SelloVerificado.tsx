@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    EL SELLO DE VERIFICADO
@@ -50,7 +51,7 @@ const SelloVerificado = ({
   size = 18,
   aro = true,
   className = "",
-  title = "Perfil verificado",
+  title,
 }: {
   size?: number;
   /** El anillo blanco que lo despega del fondo. Se apaga cuando el
@@ -59,11 +60,14 @@ const SelloVerificado = ({
   className?: string;
   title?: string;
 }) => {
+  const { t } = useTranslation();
+
   /* El degradado vive dentro del propio SVG, así que su identificador
      tiene que ser único: dos sellos en la misma pantalla con el mismo
      `id` hacen que el segundo tome el degradado del primero, y si el
      primero se desmonta el segundo se queda sin relleno. */
   const azul = `sello-${useId().replace(/:/g, "")}`;
+  const tituloFinal = title ?? t("common.verifiedProfile");
 
   return (
     <svg
@@ -71,10 +75,10 @@ const SelloVerificado = ({
       width={size}
       height={size}
       role="img"
-      aria-label={title}
+      aria-label={tituloFinal}
       className={`shrink-0 ${className}`}
     >
-      <title>{title}</title>
+      <title>{tituloFinal}</title>
 
       <defs>
         <linearGradient id={azul} x1="0" y1="0" x2="0" y2="1">

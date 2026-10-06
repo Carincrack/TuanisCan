@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
 import { Camera, IdCard, Pencil, Plus, Stethoscope, Trash2, X } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 import { formatDate, petAge } from "../lib/pets";
 import {
   deleteCondition,
@@ -32,25 +33,32 @@ import {
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
+import type { I18nContextValue } from "../context/i18n-context";
 
-const messageFrom = (error: unknown) =>
-  error instanceof Error ? error.message : "No se pudo completar la operación.";
+type T = I18nContextValue["t"];
 
-const Dialog = ({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) => createPortal(
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
-    <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-[#0b2331]/75" />
-    <section role="dialog" aria-modal="true" aria-labelledby="pet-dialog-title" className="anim-rise relative max-h-[92dvh] w-full max-w-[720px] overflow-y-auto bg-surface">
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-rail px-5 py-4">
-        <h2 id="pet-dialog-title" className="text-[16px] font-semibold text-white">{title}</h2>
-        <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-rail-text hover:bg-rail-hover hover:text-white"><X size={18} /></button>
-      </header>
-      {children}
-    </section>
-  </div>,
-  document.body
-);
+const messageFrom = (error: unknown, t: T) =>
+  error instanceof Error ? error.message : t("common.genericError");
+
+const Dialog = ({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) => {
+  const { t } = useTranslation();
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+      <button type="button" aria-label={t("common.close")} onClick={onClose} className="absolute inset-0 bg-[#0b2331]/75" />
+      <section role="dialog" aria-modal="true" aria-labelledby="pet-dialog-title" className="anim-rise relative max-h-[92dvh] w-full max-w-[720px] overflow-y-auto bg-surface">
+        <header className="sticky top-0 z-10 flex items-center justify-between bg-rail px-5 py-4">
+          <h2 id="pet-dialog-title" className="text-[16px] font-semibold text-white">{title}</h2>
+          <button type="button" onClick={onClose} aria-label={t("common.close")} className="p-2 text-rail-text hover:bg-rail-hover hover:text-white"><X size={18} /></button>
+        </header>
+        {children}
+      </section>
+    </div>,
+    document.body
+  );
+};
 
 const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: string; onClose: () => void; onSaved: () => Promise<void> }) => {
+  const { t } = useTranslation();
   const [values, setValues] = useState({
     nombre: pet?.nombre ?? "",
     especie: pet?.especie ?? "Perro",
@@ -84,7 +92,7 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
   const selectPhoto = (file: File | null) => {
     setError("");
     if (file && (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024)) {
-      setError("La foto debe ser JPG, PNG o WebP y pesar menos de 5 MB.");
+      setError(t("mascotas.petForm.photoInvalid"));
       setPhoto(null);
       return;
     }
@@ -113,12 +121,12 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
       await savePet(userId, payload, pet ?? undefined, photo);
       await onSaved();
       onClose();
-      aviso.ok(pet ? `${values.nombre} actualizado` : `${values.nombre} quedó registrado`, {
-        detalle: pet ? undefined : "Su carné digital ya está disponible.",
+      aviso.ok(pet ? t("mascotas.petForm.updated", { nombre: values.nombre }) : t("mascotas.petForm.created", { nombre: values.nombre }), {
+        detalle: pet ? undefined : t("mascotas.petForm.createdDetail"),
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo guardar la mascota." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("mascotas.petForm.saveFailed") });
     } finally {
       setBusy(false);
     }
@@ -127,21 +135,21 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className={fieldLabel}>Nombre *<input className={input} required maxLength={100} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
-        <label className={fieldLabel}>Especie *<input className={input} required list="pet-species" maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /><datalist id="pet-species"><option value="Perro" /><option value="Gato" /><option value="Conejo" /><option value="Ave" /></datalist></label>
-        <label className={fieldLabel}>Raza *<input className={input} required maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
-        <label className={fieldLabel}>Sexo *<Combo required value={values.sexo} onChange={(v) => update("sexo", v)} options={[{ value: "macho", label: "Macho" }, { value: "hembra", label: "Hembra" }]} /></label>
-        <label className={fieldLabel}>Fecha de nacimiento *<input className={input} required type="date" max={new Date().toISOString().slice(0, 10)} value={values.fecha_nacimiento} onChange={(e) => update("fecha_nacimiento", e.target.value)} /></label>
-        <label className={fieldLabel}>Peso (kg) *<input className={input} required type="number" min="0.01" max="9999" step="0.01" value={values.peso} onChange={(e) => update("peso", e.target.value)} /></label>
-        <label className={fieldLabel}>Color *<input className={input} required maxLength={100} value={values.color} onChange={(e) => update("color", e.target.value)} /></label>
-        <label className={fieldLabel}>Número de microchip<input className={input} maxLength={50} value={values.microchip} onChange={(e) => update("microchip", e.target.value)} /></label>
-        <label className={fieldLabel}>Veterinaria habitual<input className={input} maxLength={150} value={values.veterinaria} onChange={(e) => update("veterinaria", e.target.value)} /></label>
-        <label className={fieldLabel}>Estado reproductivo<span className="flex min-h-10 items-center gap-2 bg-sunken px-3"><input type="checkbox" checked={values.esterilizado} onChange={(e) => update("esterilizado", e.target.checked)} />Está esterilizado/a</span></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.name")}<input className={input} required maxLength={100} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.species")}<input className={input} required list="pet-species" maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /><datalist id="pet-species"><option value="Perro" /><option value="Gato" /><option value="Conejo" /><option value="Ave" /></datalist></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.breed")}<input className={input} required maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.sex")}<Combo required value={values.sexo} onChange={(v) => update("sexo", v)} options={[{ value: "macho", label: t("mascotas.basicData.male") }, { value: "hembra", label: t("mascotas.basicData.female") }]} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.birthDate")}<input className={input} required type="date" max={new Date().toISOString().slice(0, 10)} value={values.fecha_nacimiento} onChange={(e) => update("fecha_nacimiento", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.weight")}<input className={input} required type="number" min="0.01" max="9999" step="0.01" value={values.peso} onChange={(e) => update("peso", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.color")}<input className={input} required maxLength={100} value={values.color} onChange={(e) => update("color", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.microchipNumber")}<input className={input} maxLength={50} value={values.microchip} onChange={(e) => update("microchip", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.usualVet")}<input className={input} maxLength={150} value={values.veterinaria} onChange={(e) => update("veterinaria", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.reproductiveStatus")}<span className="flex min-h-10 items-center gap-2 bg-sunken px-3"><input type="checkbox" checked={values.esterilizado} onChange={(e) => update("esterilizado", e.target.checked)} />{t("mascotas.petForm.isSterilized")}</span></label>
       </div>
-      <label className={fieldLabel}>Alergias<textarea placeholder="Ej.: pollo, picadura de pulga, penicilina" className={`${input} min-h-20 resize-y`} maxLength={1000} value={values.alergias} onChange={(e) => update("alergias", e.target.value)} /></label>
-      <label className={fieldLabel}>Cuidados, comportamiento y notas<textarea className={`${input} min-h-24 resize-y`} maxLength={2000} value={values.notas} onChange={(e) => update("notas", e.target.value)} /></label>
+      <label className={fieldLabel}>{t("mascotas.petForm.allergies")}<textarea placeholder={t("mascotas.petForm.allergiesPlaceholder")} className={`${input} min-h-20 resize-y`} maxLength={1000} value={values.alergias} onChange={(e) => update("alergias", e.target.value)} /></label>
+      <label className={fieldLabel}>{t("mascotas.petForm.careNotes")}<textarea className={`${input} min-h-24 resize-y`} maxLength={2000} value={values.notas} onChange={(e) => update("notas", e.target.value)} /></label>
       <div className={fieldLabel}>
-        Foto de perfil
+        {t("mascotas.petForm.profilePhoto")}
         <div className="flex items-center gap-4">
           {photoPreview || pet?.fotoUrl ? (
             <img src={photoPreview ?? pet?.fotoUrl ?? undefined} alt="" className="h-16 w-16 flex-shrink-0 rounded-[14px] bg-sunken object-cover" />
@@ -149,19 +157,20 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
             <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-[14px] bg-sunken text-ink-mute"><Camera size={20} strokeWidth={1.6} aria-hidden /></div>
           )}
           <label className={`${btnSecondary} cursor-pointer`}>
-            {pet?.fotoUrl ? "Cambiar foto" : "Elegir foto"}
+            {pet?.fotoUrl ? t("mascotas.petForm.changePhoto") : t("mascotas.petForm.choosePhoto")}
             <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { selectPhoto(e.target.files?.[0] ?? null); e.target.value = ""; }} />
           </label>
-          <span className="font-normal text-ink-mute">JPG, PNG o WebP. Máximo 5 MB.</span>
+          <span className="font-normal text-ink-mute">{t("mascotas.petForm.photoHint")}</span>
         </div>
       </div>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Guardando…" : "Guardar mascota"}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>{t("common.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.petForm.saving") : t("mascotas.petForm.save")}</button></div>
     </form>
   );
 };
 
 const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Vaccine | null; onClose: () => void; onSaved: () => Promise<void> }) => {
+  const { t } = useTranslation();
   const [values, setValues] = useState({
     nombre_vacuna: vaccine?.nombre_vacuna ?? "",
     fecha_aplicacion: vaccine?.fecha_aplicacion ?? "",
@@ -176,7 +185,7 @@ const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Va
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (values.fecha_vencimiento < values.fecha_aplicacion) {
-      setError("La fecha de vencimiento no puede ser anterior a la aplicación.");
+      setError(t("mascotas.vaccineForm.expirationBeforeApplication"));
       return;
     }
     const payload: VaccineInput = {
@@ -193,12 +202,12 @@ const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Va
       await saveVaccine(pet.id_mascota, payload, vaccine ?? undefined);
       await onSaved();
       onClose();
-      aviso.ok(vaccine ? "Vacuna actualizada" : "Vacuna registrada", {
+      aviso.ok(vaccine ? t("mascotas.vaccineForm.updated") : t("mascotas.vaccineForm.created"), {
         detalle: `${values.nombre_vacuna} · ${pet.nombre}`,
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo guardar el registro." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("mascotas.vaccineForm.saveFailed") });
     } finally {
       setBusy(false);
     }
@@ -206,16 +215,16 @@ const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Va
 
   return (
     <form onSubmit={submit} className="grid gap-4 p-5 sm:p-6">
-      <label className={fieldLabel}>Vacuna o tratamiento *<input className={input} required maxLength={150} value={values.nombre_vacuna} onChange={(e) => update("nombre_vacuna", e.target.value)} /></label>
+      <label className={fieldLabel}>{t("mascotas.vaccineForm.vaccineOrTreatment")}<input className={input} required maxLength={150} value={values.nombre_vacuna} onChange={(e) => update("nombre_vacuna", e.target.value)} /></label>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className={fieldLabel}>Fecha de aplicación *<input className={input} required type="date" value={values.fecha_aplicacion} onChange={(e) => update("fecha_aplicacion", e.target.value)} /></label>
-        <label className={fieldLabel}>Fecha de vencimiento *<input className={input} required type="date" min={values.fecha_aplicacion} value={values.fecha_vencimiento} onChange={(e) => update("fecha_vencimiento", e.target.value)} /></label>
-        <label className={fieldLabel}>Veterinaria<input className={input} maxLength={150} value={values.veterinaria} onChange={(e) => update("veterinaria", e.target.value)} /></label>
-        <label className={fieldLabel}>Lote o comprobante<input className={input} maxLength={80} value={values.lote} onChange={(e) => update("lote", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.vaccineForm.applicationDate")}<input className={input} required type="date" value={values.fecha_aplicacion} onChange={(e) => update("fecha_aplicacion", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.vaccineForm.expirationDate")}<input className={input} required type="date" min={values.fecha_aplicacion} value={values.fecha_vencimiento} onChange={(e) => update("fecha_vencimiento", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.vaccineForm.vet")}<input className={input} maxLength={150} value={values.veterinaria} onChange={(e) => update("veterinaria", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.vaccineForm.batch")}<input className={input} maxLength={80} value={values.lote} onChange={(e) => update("lote", e.target.value)} /></label>
       </div>
-      <label className={fieldLabel}>Notas<textarea className={`${input} min-h-20 resize-y`} maxLength={1000} value={values.notas} onChange={(e) => update("notas", e.target.value)} /></label>
+      <label className={fieldLabel}>{t("mascotas.vaccineForm.notes")}<textarea className={`${input} min-h-20 resize-y`} maxLength={1000} value={values.notas} onChange={(e) => update("notas", e.target.value)} /></label>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Guardando…" : "Guardar registro"}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>{t("common.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.vaccineForm.saving") : t("mascotas.vaccineForm.save")}</button></div>
     </form>
   );
 };
@@ -224,6 +233,7 @@ const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Va
    cuidados que necesita, que es lo que el paseador lee antes de
    aceptar el paseo. */
 const ConditionForm = ({ pet, condition, onClose, onSaved }: { pet: Pet; condition: Condition | null; onClose: () => void; onSaved: () => Promise<void> }) => {
+  const { t } = useTranslation();
   const [values, setValues] = useState({
     nombre: condition?.nombre ?? "",
     cuidados: condition?.cuidados ?? "",
@@ -245,12 +255,12 @@ const ConditionForm = ({ pet, condition, onClose, onSaved }: { pet: Pet; conditi
       await saveCondition(pet.id_mascota, payload, condition ?? undefined);
       await onSaved();
       onClose();
-      aviso.ok(condition ? "Enfermedad actualizada" : "Enfermedad registrada", {
+      aviso.ok(condition ? t("mascotas.conditionForm.updated") : t("mascotas.conditionForm.created"), {
         detalle: `${payload.nombre} · ${pet.nombre}`,
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo guardar la enfermedad." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("mascotas.conditionForm.saveFailed") });
     } finally {
       setBusy(false);
     }
@@ -259,35 +269,39 @@ const ConditionForm = ({ pet, condition, onClose, onSaved }: { pet: Pet; conditi
   return (
     <form onSubmit={submit} className="grid gap-4 p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
-        <label className={fieldLabel}>Enfermedad o condición *<input className={input} required maxLength={150} placeholder="Ej.: Displasia de cadera, epilepsia, diabetes" value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
-        <label className={fieldLabel}>Fecha de diagnóstico<input className={input} type="date" min={pet.fecha_nacimiento} max={new Date().toISOString().slice(0, 10)} value={values.fecha_diagnostico} onChange={(e) => update("fecha_diagnostico", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.conditionForm.nameOrCondition")}<input className={input} required maxLength={150} placeholder={t("mascotas.conditionForm.namePlaceholder")} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.conditionForm.diagnosisDate")}<input className={input} type="date" min={pet.fecha_nacimiento} max={new Date().toISOString().slice(0, 10)} value={values.fecha_diagnostico} onChange={(e) => update("fecha_diagnostico", e.target.value)} /></label>
       </div>
       <label className={fieldLabel}>
-        Cuidados durante el paseo
-        <textarea className={`${input} min-h-24 resize-y`} maxLength={1000} placeholder="Ej.: Paseos cortos y sin saltos. Si convulsiona, alejar objetos y llamar al dueño." value={values.cuidados} onChange={(e) => update("cuidados", e.target.value)} />
-        <span className="font-normal text-ink-mute">El paseador lo ve en la solicitud antes de aceptar.</span>
+        {t("mascotas.conditionForm.careLabel")}
+        <textarea className={`${input} min-h-24 resize-y`} maxLength={1000} placeholder={t("mascotas.conditionForm.carePlaceholder")} value={values.cuidados} onChange={(e) => update("cuidados", e.target.value)} />
+        <span className="font-normal text-ink-mute">{t("mascotas.conditionForm.careHint")}</span>
       </label>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>Cancelar</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? "Guardando…" : "Guardar enfermedad"}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>{t("common.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.conditionForm.saving") : t("mascotas.conditionForm.save")}</button></div>
     </form>
   );
 };
 
-const petHealth = (pet: Pet) => {
-  if (pet.vacunas.some((item) => item.estado === "vencida")) return { label: "Vacuna vencida", tone: "danger" as const };
-  if (pet.vacunas.some((item) => item.estado === "pendiente")) return { label: "Próxima a vencer", tone: "warn" as const };
-  if (!pet.vacunas.length) return { label: "Sin vacunas", tone: "neutral" as const };
-  return { label: "Al día", tone: "ok" as const };
+const petHealth = (pet: Pet, t: T) => {
+  if (pet.vacunas.some((item) => item.estado === "vencida")) return { label: t("mascotas.health.expired"), tone: "danger" as const };
+  if (pet.vacunas.some((item) => item.estado === "pendiente")) return { label: t("mascotas.health.upcoming"), tone: "warn" as const };
+  if (!pet.vacunas.length) return { label: t("mascotas.health.none"), tone: "neutral" as const };
+  return { label: t("mascotas.health.upToDate"), tone: "ok" as const };
 };
 
-const PetPhoto = ({ pet, className }: { pet: Pet; className: string }) => pet.fotoUrl ? (
-  <img src={pet.fotoUrl} alt={`Foto de ${pet.nombre}`} className={`${className} bg-sunken object-cover`} />
-) : (
-  <div className={`${className} flex items-center justify-center bg-sunken text-ink-mute`}><Camera size={32} strokeWidth={1.4} aria-hidden /></div>
-);
+const PetPhoto = ({ pet, className }: { pet: Pet; className: string }) => {
+  const { t } = useTranslation();
+  return pet.fotoUrl ? (
+    <img src={pet.fotoUrl} alt={t("common.photoOf", { nombre: pet.nombre })} className={`${className} bg-sunken object-cover`} />
+  ) : (
+    <div className={`${className} flex items-center justify-center bg-sunken text-ink-mute`}><Camera size={32} strokeWidth={1.4} aria-hidden /></div>
+  );
+};
 
 const Mascotas = () => {
   const { user, getProfile, isAdmin } = useAuth();
+  const { t, localeTag } = useTranslation();
   const navigate = useNavigate();
   const [pets, setPets] = useState<Pet[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -306,11 +320,11 @@ const Mascotas = () => {
       setCanOperate(isAdmin || profile?.verificacion.estado === "aprobado");
       setSelectedId((current) => current && next.some((pet) => pet.id_mascota === current) ? current : null);
     } catch (cause) {
-      setError(messageFrom(cause));
+      setError(messageFrom(cause, t));
     } finally {
       setLoading(false);
     }
-  }, [getProfile, isAdmin]);
+  }, [getProfile, isAdmin, t]);
   useEffect(() => { void load(); }, [load]);
   const selected = pets.find((pet) => pet.id_mascota === selectedId) ?? null;
 
@@ -348,10 +362,10 @@ const Mascotas = () => {
       else await deleteCondition(porBorrar.condition.id_padecimiento);
       setPorBorrar(null);
       await load();
-      aviso.ok(`${nombreBorrado} eliminado`);
+      aviso.ok(t("mascotas.delete.deleted", { nombre: nombreBorrado }));
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo eliminar." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("mascotas.delete.deleteFailed") });
     } finally {
       setBorrando(false);
     }
@@ -367,7 +381,7 @@ const Mascotas = () => {
 
   return (
     <Page>
-      <PageHeader title="Mis mascotas" subtitle={loading ? "Cargando perfiles…" : `${pets.length} ${pets.length === 1 ? "mascota registrada" : "mascotas registradas"} en tu cuenta.`} action={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingPet(null)}><Plus size={15} /> Registrar mascota</button>} />
+      <PageHeader title={t("mascotas.title")} subtitle={loading ? t("mascotas.loadingProfiles") : t(pets.length === 1 ? "mascotas.countSingular" : "mascotas.countPlural", { count: pets.length })} action={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingPet(null)}><Plus size={15} /> {t("mascotas.registerPet")}</button>} />
       {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
 
       {loading ? (
@@ -375,11 +389,11 @@ const Mascotas = () => {
           <div />
         </Skeleton>
       ) : !pets.length ? (
-        <div className="bg-surface p-5"><EmptyState title="Aún no tienes mascotas" hint="Registra su información para crear el carné digital y llevar el control de vacunas." /></div>
+        <div className="bg-surface p-5"><EmptyState title={t("mascotas.empty.title")} hint={t("mascotas.empty.hint")} /></div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {pets.map((pet) => {
-            const health = petHealth(pet);
+            const health = petHealth(pet, t);
             return (
               <article key={pet.id_mascota} className="flex flex-col bg-surface">
                 <div className="relative"><PetPhoto pet={pet} className="aspect-[4/3] w-full" /><span className="absolute top-0 left-0"><Badge tono={health.tone}>{health.label}</Badge></span></div>
@@ -387,41 +401,48 @@ const Mascotas = () => {
                   <div className="flex items-baseline justify-between gap-2"><h3 className="text-[17px] font-semibold text-ink">{pet.nombre}</h3><span className="text-[11.5px] text-ink-mute">{pet.especie}</span></div>
                   <p className="mt-1 text-[12.5px] text-ink-soft">{pet.raza}</p>
                   <dl className="mt-4 grid grid-cols-3 gap-2.5">
-                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">Edad</dt><dd className="mt-1 text-[12px] text-ink">{petAge(pet.fecha_nacimiento)}</dd></div>
-                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">Peso</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.peso} kg</dd></div>
-                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">Vacunas</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.vacunas.length}</dd></div>
+                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">{t("mascotas.card.age")}</dt><dd className="mt-1 text-[12px] text-ink">{petAge(pet.fecha_nacimiento, t)}</dd></div>
+                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">{t("mascotas.card.weight")}</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.peso} kg</dd></div>
+                    <div className="bg-sunken p-3"><dt className="rotulo text-ink-mute">{t("mascotas.card.vaccines")}</dt><dd className="nums mt-1 text-[12px] text-ink">{pet.vacunas.length}</dd></div>
                   </dl>
-                  <button type="button" className={`${btnSecondary} mt-4 w-full`} onClick={() => setSelectedId(pet.id_mascota)}>Gestionar perfil</button>
+                  <button type="button" className={`${btnSecondary} mt-4 w-full`} onClick={() => setSelectedId(pet.id_mascota)}>{t("mascotas.manageProfile")}</button>
                 </div>
               </article>
             );
           })}
-          <button type="button" disabled={!canOperate} className="flex min-h-[240px] flex-col items-center justify-center gap-3 bg-sunken text-ink-mute hover:bg-neutral-wash hover:text-ink disabled:cursor-not-allowed disabled:opacity-50" onClick={() => setEditingPet(null)}><Plus size={22} aria-hidden /><span className="text-[13px] font-medium">Registrar otra mascota</span></button>
+          <button type="button" disabled={!canOperate} className="flex min-h-[240px] flex-col items-center justify-center gap-3 bg-sunken text-ink-mute hover:bg-neutral-wash hover:text-ink disabled:cursor-not-allowed disabled:opacity-50" onClick={() => setEditingPet(null)}><Plus size={22} aria-hidden /><span className="text-[13px] font-medium">{t("mascotas.registerAnother")}</span></button>
         </div>
       )}
 
       {selected && (
         <>
-          <div ref={gestionRef} className="anim-rise scroll-mt-4 flex flex-wrap items-center gap-4 bg-rail px-5 py-4" aria-label={`Gestión de ${selected.nombre}`}>
+          <div ref={gestionRef} className="anim-rise scroll-mt-4 flex flex-wrap items-center gap-4 bg-rail px-5 py-4" aria-label={t("mascotas.management.aria", { nombre: selected.nombre })}>
             <PetPhoto pet={selected} className="h-14 w-14 flex-shrink-0" />
             <div className="min-w-0"><h3 className="truncate text-[18px] font-semibold text-white">{selected.nombre}</h3><p className="text-[12px] text-rail-text">{selected.especie} · {selected.raza}</p></div>
             <div className="ml-auto flex flex-wrap gap-1">
-              <button type="button" className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white"} onClick={() => openCard(selected)}><IdCard size={15} /> Carné</button>
-              <button type="button" disabled={!canOperate} className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"} onClick={() => setEditingPet(selected)}><Pencil size={15} /> Editar</button>
-              <button type="button" disabled={!canOperate} className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"} onClick={() => void removePet(selected)}><Trash2 size={15} /> Eliminar</button>
-              <button type="button" aria-label="Cerrar perfil" className="p-2 text-rail-text hover:bg-rail-hover hover:text-white" onClick={() => setSelectedId(null)}><X size={18} /></button>
+              <button type="button" className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white"} onClick={() => openCard(selected)}><IdCard size={15} /> {t("mascotas.management.card")}</button>
+              <button type="button" disabled={!canOperate} className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"} onClick={() => setEditingPet(selected)}><Pencil size={15} /> {t("mascotas.management.edit")}</button>
+              <button type="button" disabled={!canOperate} className={btnQuiet + " text-rail-text hover:bg-rail-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"} onClick={() => void removePet(selected)}><Trash2 size={15} /> {t("mascotas.management.delete")}</button>
+              <button type="button" aria-label={t("mascotas.management.closeProfile")} className="p-2 text-rail-text hover:bg-rail-hover hover:text-white" onClick={() => setSelectedId(null)}><X size={18} /></button>
             </div>
           </div>
 
-          <Section title="Datos básicos" bodyClass="p-5">
+          <Section title={t("mascotas.basicData.title")} bodyClass="p-5">
             <dl className="grid gap-2.5 sm:grid-cols-3">
-              {[["Nacimiento", formatDate(selected.fecha_nacimiento)], ["Sexo", selected.sexo === "macho" ? "Macho" : "Hembra"], ["Color", selected.color], ["Microchip", selected.microchip || "No registrado"], ["Esterilizado", selected.esterilizado ? "Sí" : "No"], ["Veterinaria", selected.veterinaria || "No registrada"]].map(([label, value]) => <div key={label} className="bg-sunken px-5 py-3"><dt className="rotulo text-ink-mute">{label}</dt><dd className="mt-1 text-[13px] text-ink">{value}</dd></div>)}
+              {[
+                [t("mascotas.basicData.birth"), formatDate(selected.fecha_nacimiento, localeTag)],
+                [t("mascotas.basicData.sex"), selected.sexo === "macho" ? t("mascotas.basicData.male") : t("mascotas.basicData.female")],
+                [t("mascotas.basicData.color"), selected.color],
+                [t("mascotas.basicData.microchip"), selected.microchip || t("mascotas.basicData.notRegistered")],
+                [t("mascotas.basicData.sterilized"), selected.esterilizado ? t("mascotas.basicData.yes") : t("mascotas.basicData.no")],
+                [t("mascotas.basicData.vet"), selected.veterinaria || t("mascotas.basicData.notRegisteredF")],
+              ].map(([label, value]) => <div key={label} className="bg-sunken px-5 py-3"><dt className="rotulo text-ink-mute">{label}</dt><dd className="mt-1 text-[13px] text-ink">{value}</dd></div>)}
             </dl>
           </Section>
 
           <Section
-            title="Enfermedades y condiciones"
-            aside={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingCondition(null)}><Plus size={14} /> Agregar enfermedad</button>}
+            title={t("mascotas.conditions.title")}
+            aside={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingCondition(null)}><Plus size={14} /> {t("mascotas.conditions.add")}</button>}
             bodyClass="p-5"
           >
             {selected.padecimientos.length ? (
@@ -433,52 +454,52 @@ const Mascotas = () => {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h4 className="break-words text-[14px] font-semibold text-ink">{condition.nombre}</h4>
-                          {condition.fecha_diagnostico && <p className="nums mt-0.5 text-[11.5px] text-ink-mute">Diagnosticada el {formatDate(condition.fecha_diagnostico)}</p>}
+                          {condition.fecha_diagnostico && <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{t("mascotas.conditions.diagnosedOn", { fecha: formatDate(condition.fecha_diagnostico, localeTag) })}</p>}
                         </div>
                         <span className="-mt-1 -mr-2 flex shrink-0">
-                          <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 disabled:cursor-not-allowed disabled:opacity-50`} aria-label={`Editar ${condition.nombre}`} onClick={() => setEditingCondition(condition)}><Pencil size={14} /></button>
-                          <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 text-danger disabled:cursor-not-allowed disabled:opacity-50`} aria-label={`Eliminar ${condition.nombre}`} onClick={() => removeCondition(condition)}><Trash2 size={14} /></button>
+                          <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.conditions.edit", { nombre: condition.nombre })} onClick={() => setEditingCondition(condition)}><Pencil size={14} /></button>
+                          <button type="button" disabled={!canOperate} className={`${btnQuiet} px-2.5 text-danger disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.conditions.delete", { nombre: condition.nombre })} onClick={() => removeCondition(condition)}><Trash2 size={14} /></button>
                         </span>
                       </div>
-                      <p className={`mt-2 whitespace-pre-wrap text-[13px] ${condition.cuidados ? "text-ink-soft" : "text-ink-mute italic"}`}>{condition.cuidados || "Sin cuidados indicados"}</p>
+                      <p className={`mt-2 whitespace-pre-wrap text-[13px] ${condition.cuidados ? "text-ink-soft" : "text-ink-mute italic"}`}>{condition.cuidados || t("mascotas.conditions.noCareNotes")}</p>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <EmptyState title="Sin enfermedades registradas" hint="Si tiene alguna condición de salud, regístrala para que el paseador sepa cómo cuidarla." />
+              <EmptyState title={t("mascotas.conditions.empty.title")} hint={t("mascotas.conditions.empty.hint")} />
             )}
           </Section>
 
           {(selected.alergias || selected.notas) && (
-            <Section title="Alergias y cuidados" bodyClass="grid gap-2.5 p-5 sm:grid-cols-2">
-              <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">Alergias</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || "Ninguna registrada"}</p></div>
-              <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">Cuidados y notas</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || "Sin notas"}</p></div>
+            <Section title={t("mascotas.allergies.title")} bodyClass="grid gap-2.5 p-5 sm:grid-cols-2">
+              <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">{t("mascotas.allergies.allergiesLabel")}</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.alergias || t("mascotas.allergies.noneRegistered")}</p></div>
+              <div className="bg-sunken p-5"><h4 className="rotulo text-ink-mute">{t("mascotas.allergies.careLabel")}</h4><p className="mt-2 whitespace-pre-wrap text-[13px] text-ink-soft">{selected.notas || t("mascotas.allergies.noNotes")}</p></div>
             </Section>
           )}
 
           <Section
-            title="Historial de vacunas"
-            aside={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingVaccine(null)}><Plus size={14} /> Agregar vacuna</button>}
+            title={t("mascotas.vaccineHistory.title")}
+            aside={<button type="button" disabled={!canOperate} className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => setEditingVaccine(null)}><Plus size={14} /> {t("mascotas.vaccineHistory.add")}</button>}
             bodyClass=""
           >
             {selected.vacunas.length ? (
-              <Table caption={`Vacunas de ${selected.nombre}`} columnas={[{ label: "Vacuna" }, { label: "Aplicada" }, { label: "Vence" }, { label: "Estado" }, { label: "Acciones", align: "right" }]}>
+              <Table caption={t("mascotas.vaccineHistory.caption", { nombre: selected.nombre })} columnas={[{ label: t("mascotas.vaccineHistory.columns.vaccine") }, { label: t("mascotas.vaccineHistory.columns.applied") }, { label: t("mascotas.vaccineHistory.columns.expires") }, { label: t("mascotas.vaccineHistory.columns.status") }, { label: t("mascotas.vaccineHistory.columns.actions"), align: "right" }]}>
                 {selected.vacunas.map((vaccine) => <tr key={vaccine.id_vacuna}>
                   <td className="px-6 py-3 text-[13px] font-medium text-ink"><span className="block">{vaccine.nombre_vacuna}</span>{vaccine.veterinaria && <span className="text-[11px] font-normal text-ink-mute">{vaccine.veterinaria}</span>}</td>
-                  <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_aplicacion)}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_vencimiento)}</td>
-                  <td className="px-6 py-3"><Badge tono={vaccine.estado === "vigente" ? "ok" : vaccine.estado === "pendiente" ? "warn" : "danger"}>{vaccine.estado === "pendiente" ? "Por vencer" : vaccine.estado}</Badge></td>
-                  <td className="px-4 py-2 text-right"><button type="button" disabled={!canOperate} className={`${btnQuiet} disabled:cursor-not-allowed disabled:opacity-50`} aria-label={`Editar ${vaccine.nombre_vacuna}`} onClick={() => setEditingVaccine(vaccine)}><Pencil size={14} /></button><button type="button" disabled={!canOperate} className={btnQuiet + " text-danger disabled:cursor-not-allowed disabled:opacity-50"} aria-label={`Eliminar ${vaccine.nombre_vacuna}`} onClick={() => removeVaccine(vaccine)}><Trash2 size={14} /></button></td>
+                  <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_aplicacion, localeTag)}</td><td className="nums px-6 py-3 text-[12.5px] text-ink-soft">{formatDate(vaccine.fecha_vencimiento, localeTag)}</td>
+                  <td className="px-6 py-3"><Badge tono={vaccine.estado === "vigente" ? "ok" : vaccine.estado === "pendiente" ? "warn" : "danger"}>{vaccine.estado === "pendiente" ? t("mascotas.vaccineHistory.statusUpcoming") : vaccine.estado}</Badge></td>
+                  <td className="px-4 py-2 text-right"><button type="button" disabled={!canOperate} className={`${btnQuiet} disabled:cursor-not-allowed disabled:opacity-50`} aria-label={t("mascotas.vaccineHistory.edit", { nombre: vaccine.nombre_vacuna })} onClick={() => setEditingVaccine(vaccine)}><Pencil size={14} /></button><button type="button" disabled={!canOperate} className={btnQuiet + " text-danger disabled:cursor-not-allowed disabled:opacity-50"} aria-label={t("mascotas.vaccineHistory.delete", { nombre: vaccine.nombre_vacuna })} onClick={() => removeVaccine(vaccine)}><Trash2 size={14} /></button></td>
                 </tr>)}
               </Table>
-            ) : <div className="px-5 pb-5"><EmptyState title="Sin registros de vacunación" hint="Agrega la primera vacuna o desparasitación de esta mascota." /></div>}
+            ) : <div className="px-5 pb-5"><EmptyState title={t("mascotas.vaccineHistory.empty.title")} hint={t("mascotas.vaccineHistory.empty.hint")} /></div>}
           </Section>
         </>
       )}
 
-      {editingPet !== undefined && user && <Dialog title={editingPet ? `Editar a ${editingPet.nombre}` : "Registrar mascota"} onClose={() => setEditingPet(undefined)}><PetForm pet={editingPet} userId={user.id} onClose={() => setEditingPet(undefined)} onSaved={load} /></Dialog>}
-      {editingCondition !== undefined && selected && <Dialog title={editingCondition ? `Editar ${editingCondition.nombre}` : `Agregar enfermedad de ${selected.nombre}`} onClose={() => setEditingCondition(undefined)}><ConditionForm pet={selected} condition={editingCondition} onClose={() => setEditingCondition(undefined)} onSaved={load} /></Dialog>}
-      {editingVaccine !== undefined && selected && <Dialog title={editingVaccine ? "Editar vacuna" : `Agregar vacuna de ${selected.nombre}`} onClose={() => setEditingVaccine(undefined)}><VaccineForm pet={selected} vaccine={editingVaccine} onClose={() => setEditingVaccine(undefined)} onSaved={load} /></Dialog>}
+      {editingPet !== undefined && user && <Dialog title={editingPet ? t("mascotas.dialogs.editPet", { nombre: editingPet.nombre }) : t("mascotas.dialogs.registerPet")} onClose={() => setEditingPet(undefined)}><PetForm pet={editingPet} userId={user.id} onClose={() => setEditingPet(undefined)} onSaved={load} /></Dialog>}
+      {editingCondition !== undefined && selected && <Dialog title={editingCondition ? t("mascotas.dialogs.editCondition", { nombre: editingCondition.nombre }) : t("mascotas.dialogs.addCondition", { nombre: selected.nombre })} onClose={() => setEditingCondition(undefined)}><ConditionForm pet={selected} condition={editingCondition} onClose={() => setEditingCondition(undefined)} onSaved={load} /></Dialog>}
+      {editingVaccine !== undefined && selected && <Dialog title={editingVaccine ? t("mascotas.dialogs.editVaccine") : t("mascotas.dialogs.addVaccine", { nombre: selected.nombre })} onClose={() => setEditingVaccine(undefined)}><VaccineForm pet={selected} vaccine={editingVaccine} onClose={() => setEditingVaccine(undefined)} onSaved={load} /></Dialog>}
 
       {/* Reemplaza a dos `window.confirm`. El de la mascota decía
           "Esta acción no se puede deshacer" y no podía decir mucho
@@ -486,26 +507,15 @@ const Mascotas = () => {
       {porBorrar && (
         <Confirmar
           tono="peligro"
-          titulo={porBorrar.tipo === "mascota" ? `Eliminar a ${porBorrar.pet.nombre}` : porBorrar.tipo === "vacuna" ? "Eliminar registro de vacuna" : "Eliminar enfermedad"}
+          titulo={porBorrar.tipo === "mascota" ? t("mascotas.delete.petTitle", { nombre: porBorrar.pet.nombre }) : porBorrar.tipo === "vacuna" ? t("mascotas.delete.vaccineTitle") : t("mascotas.delete.conditionTitle")}
           cuerpo={
-            porBorrar.tipo === "mascota" ? (
-              <>
-                Se borran también su carné digital y sus {porBorrar.pet.vacunas.length}{" "}
-                {porBorrar.pet.vacunas.length === 1 ? "registro de vacunación" : "registros de vacunación"}. No se puede deshacer.
-              </>
-            ) : porBorrar.tipo === "vacuna" ? (
-              <>
-                Se borra el registro de <strong className="font-semibold text-ink">{porBorrar.vaccine.nombre_vacuna}</strong>.
-                El resto del historial no se toca.
-              </>
-            ) : (
-              <>
-                Se borra <strong className="font-semibold text-ink">{porBorrar.condition.nombre}</strong> del perfil y del carné,
-                y los paseadores dejan de verla en las solicitudes.
-              </>
-            )
+            porBorrar.tipo === "mascota"
+              ? t(porBorrar.pet.vacunas.length === 1 ? "mascotas.delete.petBodySingular" : "mascotas.delete.petBodyPlural", { count: porBorrar.pet.vacunas.length })
+              : porBorrar.tipo === "vacuna"
+                ? t("mascotas.delete.vaccineBody", { nombre: porBorrar.vaccine.nombre_vacuna })
+                : t("mascotas.delete.conditionBody", { nombre: porBorrar.condition.nombre })
           }
-          confirmar={porBorrar.tipo === "mascota" ? "Eliminar mascota" : porBorrar.tipo === "vacuna" ? "Eliminar registro" : "Eliminar enfermedad"}
+          confirmar={porBorrar.tipo === "mascota" ? t("mascotas.delete.confirmPet") : porBorrar.tipo === "vacuna" ? t("mascotas.delete.confirmVaccine") : t("mascotas.delete.confirmCondition")}
           ocupado={borrando}
           onConfirmar={() => void confirmarBorrado()}
           onCancelar={() => setPorBorrar(null)}

@@ -9,6 +9,7 @@ import {
   CircleCheckBig,
   FileText,
   Footprints,
+  Globe,
   Lock,
   MapPin,
   PawPrint,
@@ -50,8 +51,10 @@ import {
   input,
 } from "../components/ui";
 import { Combo } from "../components/Combo";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 
 import {
   createBusinessProfile,
@@ -244,9 +247,10 @@ const verificationStatusLabels = {
    ========================================================= */
 
 const pestanas = [
-  { id: "datos", rotulo: "Mis datos", Icon: UserRound },
-  { id: "verificacion", rotulo: "Verificación", Icon: ShieldCheck },
-  { id: "perfiles", rotulo: "Mis perfiles", Icon: Sparkles },
+  { id: "datos", rotuloClave: "profile.tabs.datos", Icon: UserRound },
+  { id: "verificacion", rotuloClave: "profile.tabs.verificacion", Icon: ShieldCheck },
+  { id: "perfiles", rotuloClave: "profile.tabs.perfiles", Icon: Sparkles },
+  { id: "configuracion", rotuloClave: "profile.tabs.configuracion", Icon: Globe },
 ] as const;
 
 type Pestana = (typeof pestanas)[number]["id"];
@@ -314,6 +318,8 @@ const ProfilePage = () => {
     updateProfile,
     addRole,
   } = useAuth();
+
+  const { t } = useTranslation();
 
   const navigate = useNavigate();
 
@@ -1589,7 +1595,7 @@ const ProfilePage = () => {
       >
         {pestanas
           .filter(({ id }) => !(id === "verificacion" && profile.isAdmin))
-          .map(({ id, rotulo, Icon }) => {
+          .map(({ id, rotuloClave, Icon }) => {
             const activa = pestana === id;
 
             return (
@@ -1606,7 +1612,7 @@ const ProfilePage = () => {
                 }`}
               >
                 <Icon size={15} strokeWidth={1.9} aria-hidden />
-                {rotulo}
+                {t(rotuloClave)}
 
                 {/* El punto solo aparece donde hay algo que hacer.
                     Una insignia permanente deja de significar nada
@@ -2053,6 +2059,31 @@ const ProfilePage = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          CONFIGURACIÓN
+
+          Por ahora solo vive acá el idioma. El selector mismo no
+          sabe nada del perfil: es `LanguageSwitcher`, reutilizable
+          en cualquier otra pantalla que llegue a necesitarlo.
+         ===================================================== */}
+
+      {pestana === "configuracion" && (
+        /* Sin `overflow-hidden`: a diferencia del resto de las
+           tarjetas, esta termina justo donde termina el selector de
+           idioma, y su lista desplegable —que no usa portal, como sí
+           hacen otros combos del armazón— necesita salir por encima
+           del borde inferior sin que la tarjeta se la recorte. */
+        <div className="rounded-2xl border border-black/[0.06] bg-surface p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03),0_10px_35px_rgb(0_0_0/0.025)] sm:p-7">
+          <div className="mb-5">
+            <h3 className="text-[15px] font-semibold text-ink">
+              {t("settings.tab")}
+            </h3>
+          </div>
+
+          <LanguageSwitcher />
         </div>
       )}
 

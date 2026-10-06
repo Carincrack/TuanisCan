@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef } 
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Loader, X } from "../lib/iconos";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    Piezas compartidas del sistema.
@@ -162,6 +163,18 @@ export const Section = ({
     Van dentro de una pista hundida en vez de pegados unos a otros:
     con píldoras sueltas no se lee que son un solo control con una
     sola respuesta posible. */
+/** Cada pestaña separa lo que la IDENTIFICA (`value`, estable, lo que
+    compara `onChange`/`cuentas`) de lo que se LEE (`label`, el texto
+    traducido). Antes `options` era `string[]` y la pestaña activa se
+    decidía comparando ese mismo string contra `value`: funcionaba
+    mientras el texto nunca cambiara, pero con el idioma cambiando en
+    caliente el string mostrado deja de ser un identificador seguro.
+    Mismo par `{value, label}` que ya usa `Combo`, a propósito. */
+export interface OpcionFiltro {
+  value: string;
+  label: string;
+}
+
 export const FilterTabs = ({
   options,
   value,
@@ -169,13 +182,14 @@ export const FilterTabs = ({
   label,
   cuentas,
 }: {
-  options: string[];
+  options: OpcionFiltro[];
   value: string;
   onChange: (v: string) => void;
   label: string;
-  /** Cuántos elementos cae en cada opción. Opcional: sin esto las
-      pestañas son solo etiquetas. Con esto se ve de un vistazo si
-      vale la pena entrar a una —una pestaña en cero no se pulsa—. */
+  /** Cuántos elementos cae en cada opción, por `value`. Opcional: sin
+      esto las pestañas son solo etiquetas. Con esto se ve de un
+      vistazo si vale la pena entrar a una —una pestaña en cero no se
+      pulsa—. */
   cuentas?: Record<string, number>;
 }) => (
   <div
@@ -184,22 +198,22 @@ export const FilterTabs = ({
     className="inline-flex flex-wrap gap-1 rounded-full bg-sunken p-1"
   >
     {options.map((o) => {
-      const activa = value === o;
-      const cuenta = cuentas?.[o];
+      const activa = value === o.value;
+      const cuenta = cuentas?.[o.value];
 
       return (
         <button
-          key={o}
+          key={o.value}
           type="button"
           aria-pressed={activa}
-          onClick={() => onChange(o)}
+          onClick={() => onChange(o.value)}
           className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
             activa
               ? "bg-rail text-white"
               : "text-ink-soft hover:bg-white/70 hover:text-ink"
           }`}
         >
-          {o}
+          {o.label}
           {cuenta !== undefined && (
             <span
               className={`nums rounded-full px-1.5 text-[11px] font-semibold ${
@@ -483,6 +497,7 @@ export const Paginacion = ({
   /** Para el lector de pantalla: «Paginación de usuarios». */
   etiqueta: string;
 }) => {
+  const { t } = useTranslation();
   const ultima = Math.max(1, total);
   const pagina = Math.min(Math.max(1, actual), ultima);
 
@@ -502,7 +517,7 @@ export const Paginacion = ({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          aria-label="Página anterior"
+          aria-label={t("common.pagination.previous")}
           disabled={pagina === 1}
           onClick={() => onCambiar(pagina - 1)}
           className={btnPaso}
@@ -529,7 +544,7 @@ export const Paginacion = ({
                 key={numero}
                 type="button"
                 aria-current={numero === pagina ? "page" : undefined}
-                aria-label={`Página ${numero}`}
+                aria-label={t("common.pagination.page", { numero })}
                 onClick={() => onCambiar(numero)}
                 className={btnNumero(numero === pagina)}
               >
@@ -541,7 +556,7 @@ export const Paginacion = ({
 
         <button
           type="button"
-          aria-label="Página siguiente"
+          aria-label={t("common.pagination.next")}
           disabled={pagina === ultima}
           onClick={() => onCambiar(pagina + 1)}
           className={btnPaso}
@@ -590,6 +605,7 @@ export const Dialog = ({
       pide más aire que una confirmación de una línea. */
   ancho?: string;
 }) => {
+  const { t } = useTranslation();
   const titleId = useId();
   const cerrar = useRef(onClose);
 
@@ -624,7 +640,7 @@ export const Dialog = ({
     <div className="suave fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
       <button
         type="button"
-        aria-label="Cerrar"
+        aria-label={t("common.close")}
         onClick={() => cerrar.current()}
         className="anim-fade absolute inset-0 bg-rail/70 backdrop-blur-[2px]"
       />
@@ -642,7 +658,7 @@ export const Dialog = ({
           <button
             type="button"
             onClick={() => cerrar.current()}
-            aria-label="Cerrar"
+            aria-label={t("common.close")}
             className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-150 ease-out hover:bg-rail-hover hover:text-white active:scale-[0.94]"
           >
             <X size={17} />
@@ -675,8 +691,8 @@ export const Dialog = ({
 export const Confirmar = ({
   titulo,
   cuerpo,
-  confirmar = "Confirmar",
-  cancelar = "Cancelar",
+  confirmar,
+  cancelar,
   tono = "normal",
   ocupado = false,
   onConfirmar,
@@ -691,39 +707,43 @@ export const Confirmar = ({
   ocupado?: boolean;
   onConfirmar: () => void;
   onCancelar: () => void;
-}) => (
-  <Dialog
-    title={titulo}
-    ancho="max-w-[440px]"
-    onClose={() => {
-      if (!ocupado) onCancelar();
-    }}
-  >
-    <div className="px-6 py-5">
-      <p className="text-[13.5px] leading-relaxed text-ink-soft">{cuerpo}</p>
+}) => {
+  const { t } = useTranslation();
 
-      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          disabled={ocupado}
-          onClick={onCancelar}
-          className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}
-        >
-          {cancelar}
-        </button>
-        <button
-          type="button"
-          disabled={ocupado}
-          onClick={onConfirmar}
-          className={`${tono === "peligro" ? btnDanger : btnPrimary} w-full disabled:cursor-wait disabled:opacity-60 sm:w-auto`}
-        >
-          {ocupado && <Loader size={14} className="animate-spin" />}
-          {confirmar}
-        </button>
+  return (
+    <Dialog
+      title={titulo}
+      ancho="max-w-[440px]"
+      onClose={() => {
+        if (!ocupado) onCancelar();
+      }}
+    >
+      <div className="px-6 py-5">
+        <p className="text-[13.5px] leading-relaxed text-ink-soft">{cuerpo}</p>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={onCancelar}
+            className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}
+          >
+            {cancelar ?? t("common.cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={onConfirmar}
+            className={`${tono === "peligro" ? btnDanger : btnPrimary} w-full disabled:cursor-wait disabled:opacity-60 sm:w-auto`}
+          >
+            {ocupado && <Loader size={14} className="animate-spin" />}
+            {confirmar ?? t("common.confirm")}
+          </button>
+        </div>
       </div>
-    </div>
-  </Dialog>
-);
+    </Dialog>
+  );
+};
 
 /* ── Imágenes ficticias ──────────────────────────────────────── */
 

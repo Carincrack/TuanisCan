@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MARCA } from "../lib/nav";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* Pantalla de entrada después del login. La marca aparece, se sostiene
    un instante y se acerca hasta salir de cuadro; debajo queda la
@@ -13,6 +14,7 @@ const SALE_MS = 620;
 export const DURACION_SPLASH = APARECE_MS + SOSTIENE_MS + SALE_MS;
 
 const Splash = ({ onFin }: { onFin: () => void }) => {
+  const { t } = useTranslation();
   const [saliendo, setSaliendo] = useState(false);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ const Splash = ({ onFin }: { onFin: () => void }) => {
           <span className="anim-bar block h-full bg-accent [animation-duration:1080ms]" />
         </span>
 
-        <span className="sr-only">Cargando la plataforma</span>
+        <span className="sr-only">{t("common.loadingPlatform")}</span>
       </div>
     </div>
   );

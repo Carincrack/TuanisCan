@@ -828,7 +828,7 @@ const MascotasPerdidas = () => {
             <p className="mt-0.5 text-[12px] text-ink-mute">Filtrá por estado, provincia, cantón, distrito o texto.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <FilterTabs label="Filtrar reportes" options={filtros} value={filtro} onChange={setFiltro} />
+            <FilterTabs label="Filtrar reportes" options={filtros.map((o) => ({ value: o, label: o }))} value={filtro} onChange={setFiltro} />
             {/* Limpiar es una acción sobre el conjunto de filtros, así que
                 va con el resumen y no como quinta columna de la rejilla.
                 Y aparece solo cuando hay algo que limpiar: un botón

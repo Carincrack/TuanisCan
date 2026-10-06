@@ -4,10 +4,11 @@ import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, Check, Menu, ShieldAlert, Trash2 } from "../lib/iconos";
 
-import { inicioDeRol, RUTA_ADMIN, tituloDeRuta, type Rol } from "../lib/nav";
+import { inicioDeRol, MARCA, RUTA_ADMIN, tituloDeRuta, type Rol } from "../lib/nav";
 import { NotificationButtonContext, PageWidthContext } from "./ui";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 import { GooeyToaster } from "goey-toast";
 import {
   deleteAllNotifications,
@@ -68,6 +69,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     pathname === "/pagos/tarjetas" ||
     pathname === "/directorio";
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [contenidoAncho, setContenidoAncho] = useState(false);
@@ -109,9 +111,9 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       setNotificacionesError(null);
     } catch {
       setNotificaciones([]);
-      setNotificacionesError("No se pudieron cargar las notificaciones.");
+      setNotificacionesError(t("shell.notifications.loadError"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void cargarNotificaciones();
@@ -149,7 +151,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       await markNotificationRead(id);
       await cargarNotificaciones();
     } catch {
-      setNotificacionesError("No se pudo marcar como leida.");
+      setNotificacionesError(t("shell.notifications.markReadError"));
     } finally {
       setAccionNotificacion(null);
     }
@@ -179,7 +181,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       await markAllNotificationsRead();
       await cargarNotificaciones();
     } catch {
-      setNotificacionesError("No se pudieron marcar como leidas.");
+      setNotificacionesError(t("shell.notifications.markAllReadError"));
     } finally {
       setAccionNotificacion(null);
     }
@@ -192,7 +194,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       await deleteNotification(id);
       await cargarNotificaciones();
     } catch {
-      setNotificacionesError("No se pudo eliminar la notificacion.");
+      setNotificacionesError(t("shell.notifications.deleteError"));
     } finally {
       setAccionNotificacion(null);
     }
@@ -205,7 +207,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       await deleteAllNotifications();
       await cargarNotificaciones();
     } catch {
-      setNotificacionesError("No se pudieron eliminar las notificaciones.");
+      setNotificacionesError(t("shell.notifications.deleteAllError"));
     } finally {
       setAccionNotificacion(null);
     }
@@ -226,7 +228,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     <button
       ref={notifBotonRef}
       type="button"
-      aria-label="Notificaciones"
+      aria-label={t("shell.notifications.button")}
       aria-expanded={notificacionesAbiertas}
       onClick={() => void abrirNotificaciones()}
       className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
@@ -304,7 +306,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           <button
             type="button"
             onClick={() => setMenuAbierto(true)}
-            aria-label="Abrir menú"
+            aria-label={t("shell.menu.open")}
             aria-expanded={menuAbierto}
             className="flota flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94] md:hidden"
           >
@@ -313,7 +315,10 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
           {!conEncabezadoPropio && (
             <h1 className="titular min-w-0 flex-1 truncate text-[20px] text-ink">
-              {tituloDeRuta(rol, pathname)}
+              {(() => {
+                const clave = tituloDeRuta(rol, pathname);
+                return clave ? t(clave) : MARCA.completo;
+              })()}
             </h1>
           )}
           {conEncabezadoPropio && <div className="min-w-0 flex-1" />}
@@ -328,7 +333,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
               <>
                 <button
                   type="button"
-                  aria-label="Cerrar notificaciones"
+                  aria-label={t("shell.notifications.closeAria")}
                   onClick={() => setNotificacionesAbiertas(false)}
                   className="fixed inset-0 z-[110] cursor-default"
                 />
@@ -337,7 +342,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                   style={{ top: notifPanelPos?.top ?? 76, right: notifPanelPos?.right ?? 16 }}
                 >
                 <div className="flex items-center justify-between gap-3 border-b border-sunken px-4 py-3">
-                  <h2 className="rotulo text-ink-mute">Notificaciones</h2>
+                  <h2 className="rotulo text-ink-mute">{t("shell.notifications.title")}</h2>
                   {notificaciones.length > 0 && (
                     <div className="flex items-center gap-3">
                       {pendientes > 0 && (
@@ -347,7 +352,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                           disabled={accionNotificacion !== null}
                           className="text-[12px] font-semibold text-accent-dark hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          Marcar leidas
+                          {t("shell.notifications.markAllRead")}
                         </button>
                       )}
                       <button
@@ -356,7 +361,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                         disabled={accionNotificacion !== null}
                         className="text-[12px] font-semibold text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Eliminar todas
+                        {t("shell.notifications.deleteAll")}
                       </button>
                     </div>
                   )}
@@ -369,7 +374,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                   )}
                   {notificaciones.length === 0 ? (
                     <p className="px-4 py-6 text-center text-[13px] text-ink-soft">
-                      No tienes notificaciones.
+                      {t("shell.notifications.empty")}
                     </p>
                   ) : (
                     notificaciones.map((n) => (
@@ -411,13 +416,13 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                                 e.stopPropagation();
                                 void leerNotificacion(n.id_notificacion);
                               }}
-                              aria-label="Marcar como leída"
-                              title="Marcar como leída"
+                              aria-label={t("shell.notifications.markRead")}
+                              title={t("shell.notifications.markRead")}
                               disabled={accionNotificacion !== null}
                               className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-ok-wash hover:text-ok disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Check size={14} />
-                              Leida
+                              {t("shell.notifications.read")}
                             </button>
                           )}
                           <button
@@ -426,13 +431,13 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                               e.stopPropagation();
                               void eliminarNotificacion(n.id_notificacion);
                             }}
-                            aria-label="Eliminar notificación"
-                            title="Eliminar notificación"
+                            aria-label={t("shell.notifications.delete")}
+                            title={t("shell.notifications.delete")}
                             disabled={accionNotificacion !== null}
                             className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-danger-wash hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2 size={14} />
-                            Eliminar
+                            {t("common.delete")}
                           </button>
                         </div>
                       </div>
@@ -454,10 +459,14 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             <ShieldAlert size={16} aria-hidden className="shrink-0" />
             <span className="min-w-[16rem] flex-1">
               {profile?.verificacion.estado === "pendiente"
-                ? "Tu verificación está en revisión. Puedes consultar información, pero las operaciones siguen bloqueadas."
+                ? t("shell.verificationBanner.pending")
                 : profile?.verificacion.estado === "rechazado"
-                  ? `Debes corregir tu verificación: ${profile.verificacion.observacion ?? "revisa los documentos enviados."}`
-                  : "Verifica tu perfil para registrar mascotas, solicitar paseos y usar las funciones de la plataforma."}
+                  ? t("shell.verificationBanner.rejected", {
+                      detail:
+                        profile.verificacion.observacion ??
+                        t("shell.verificationBanner.rejectedFallback"),
+                    })
+                  : t("shell.verificationBanner.none")}
             </span>
             {/* El fragmento no es decorativo: el perfil abre por
                 pestañas y sin él este enlace deja al usuario en "Mis
@@ -467,7 +476,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
               hash="verificacion"
               className="font-semibold underline underline-offset-2"
             >
-              Ir a verificación
+              {t("shell.verificationBanner.link")}
             </Link>
           </div>
         )}

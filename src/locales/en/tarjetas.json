@@ -1,0 +1,50 @@
+{
+  "title": "Payment methods",
+  "subtitle": "Register and manage the cards you use to pay for walks.",
+  "backToPayments": "Back to payments",
+  "addCard": "Add card",
+  "savedCards": "Saved cards",
+  "countSingular": "active card",
+  "countPlural": "active cards",
+  "deleteCard": "Delete card",
+  "keepAtLeastOne": "You need to keep at least one card",
+  "empty": {
+    "title": "You don't have any cards yet",
+    "hint": "Add a Visa or Mastercard to pay for your pets' walks.",
+    "registerFirst": "Register the first one"
+  },
+  "form": {
+    "dialogTitle": "Register payment method",
+    "preview": "Preview",
+    "storageNotice": "We only store the brand and the last four digits.",
+    "acceptedCards": "Accepted cards",
+    "acceptedCardsDetail": "Visa (starts with 4) and Mastercard (51-55 or 2221-2720).",
+    "holderName": "Cardholder name",
+    "holderPlaceholder": "As it appears on the card",
+    "cardNumber": "Card number",
+    "expiry": "Expiry",
+    "securityCode": "Security code",
+    "clientSideNotice": "The full number and the code are checked on your device. They don't travel or get stored.",
+    "save": "Save card",
+    "saving": "Registering the card…",
+    "saved": "Card registered",
+    "saveFailed": "Could not register the card."
+  },
+  "delete": {
+    "title": "Delete this card?",
+    "body": "You're about to delete the {{marca}} ending in {{ultimos4}}. This action cannot be undone.",
+    "confirm": "Delete",
+    "deleting": "Deleting the card…",
+    "deleted": "Card deleted",
+    "deleteFailed": "Could not delete the card."
+  },
+  "errors": {
+    "loadFailed": "Could not load your cards.",
+    "holderTooShort": "Type the name as it appears on the card, letters only.",
+    "missingDigits": "{{count}} digits missing.",
+    "unsupportedBrand": "We only accept Visa and Mastercard.",
+    "invalidNumber": "That number doesn't exist. Check the digits.",
+    "invalidExpiry": "Invalid or expired date. Use MM/YY.",
+    "invalidCvv": "It's the three digits on the back."
+  }
+}

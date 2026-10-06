@@ -1,0 +1,25 @@
+{
+  "title": "My profile",
+  "subtitle": "Your public data and the pets you've already walked.",
+  "editProfile": "Edit profile",
+  "publicProfile": "Public profile",
+  "defaultWalker": "Walker",
+  "loading": "Loading…",
+  "noDescription": "Add a description from Edit profile.",
+  "noZone": "No zone assigned",
+  "stats": {
+    "finishedWalks": "Finished walks",
+    "petsWalked": "Pets walked",
+    "earned": "Earned"
+  },
+  "history": {
+    "title": "History of pets walked",
+    "owner": "Owner: {{nombre}} · {{zona}}",
+    "minutes": "{{duracion}} min"
+  },
+  "empty": {
+    "title": "You haven't finished any walks yet",
+    "hint": "Once you complete a walk, the pet will show up here."
+  },
+  "loadError": "Could not load your walker profile."
+}

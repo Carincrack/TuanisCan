@@ -381,7 +381,7 @@ const Directorio = () => {
 
             <FilterTabs
               label="Filtrar por tipo de negocio"
-              options={tipos}
+              options={tipos.map((o) => ({ value: o, label: o }))}
               value={tipo}
               onChange={setTipo}
             />

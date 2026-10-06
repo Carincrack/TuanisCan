@@ -1,0 +1,35 @@
+{
+  "save": "Save",
+  "saving": "Saving…",
+  "cancel": "Cancel",
+  "close": "Close",
+  "back": "Back",
+  "continue": "Continue",
+  "loading": "Loading…",
+  "retry": "Retry",
+  "delete": "Delete",
+  "edit": "Edit",
+  "confirm": "Confirm",
+  "logout": "Log out",
+  "genericError": "The operation could not be completed.",
+  "activeProfile": "Active profile",
+  "changeProfile": "Switch profile",
+  "defaultUserName": "User",
+  "role": {
+    "dueno": "Owner",
+    "paseador": "Walker",
+    "negocio": "Business",
+    "admin": "Administrator"
+  },
+  "pagination": {
+    "previous": "Previous page",
+    "next": "Next page",
+    "page": "Page {{numero}}"
+  },
+  "verifiedProfile": "Verified profile",
+  "photoOf": "Photo of {{nombre}}",
+  "initialsOf": "Initials of {{nombre}}",
+  "closePhoto": "Close the photo",
+  "loadingPlatform": "Loading the platform",
+  "select": "Select"
+}

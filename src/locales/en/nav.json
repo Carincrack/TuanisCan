@@ -1,0 +1,56 @@
+{
+  "group": {
+    "operacion": "Operations",
+    "misMascotas": "My pets",
+    "miCuenta": "My account",
+    "comunidad": "Community",
+    "miNegocio": "My business",
+    "plataforma": "Platform",
+    "gestion": "Management"
+  },
+  "item": {
+    "panelGeneral": "Overview",
+    "paseos": "Walks",
+    "paseoEnVivo": "Live walk",
+    "misMascotas": "My pets",
+    "carnetDigital": "Digital ID card",
+    "pagos": "Payments",
+    "resenas": "Reviews",
+    "misDatos": "My data",
+    "buscarPaseadores": "Find walkers",
+    "mascotasPerdidas": "Lost pets",
+    "directorio": "Directory",
+    "panel": "Dashboard",
+    "solicitudes": "Requests",
+    "agenda": "Schedule",
+    "paseoActivo": "Active walk",
+    "ganancias": "Earnings",
+    "tarifas": "Rates",
+    "miPerfil": "My profile",
+    "perfilPublico": "Public profile",
+    "resenasRecibidas": "Reviews received",
+    "finanzas": "Finance",
+    "paseadores": "Walkers",
+    "verificaciones": "Verifications",
+    "usuarios": "Users",
+    "zonas": "Zones"
+  },
+  "role": {
+    "dueno": {
+      "titulo": "Owner",
+      "descripcion": "Manage your pets, vaccines and walk requests."
+    },
+    "paseador": {
+      "titulo": "Walker",
+      "descripcion": "Manage requests, availability and walking services."
+    },
+    "negocio": {
+      "titulo": "Business",
+      "descripcion": "Manage your business and presence in the directory."
+    },
+    "admin": {
+      "titulo": "Administrator",
+      "descripcion": "Manage users, verifications and general settings."
+    }
+  }
+}

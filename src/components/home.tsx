@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarDays, Loader, PawPrint, Siren, Syringe } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 import { listPets } from "../services/pets.service";
 import { listWalksWithRelations, isUpcoming, type WalkWithRelations } from "../services/walks.service";
 import { listOwnerPayments, type PaymentMovement } from "../services/payments.service";
@@ -22,15 +23,6 @@ import {
   colones,
 } from "./ui";
 
-const accesos = [
-  { to: "/paseadores", label: "Buscar paseador", descripcion: "Perfiles verificados de tu zona." },
-  { to: "/mascotas", label: "Registrar mascota", descripcion: "Agrega un perfil nuevo." },
-  { to: "/mascotas-perdidas", label: "Reportar pérdida", descripcion: "Avisa a la comunidad." },
-];
-
-const fechaCorta = (fecha: string) =>
-  new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(new Date(`${fecha}T00:00:00`));
-
 const esMismoMes = (fecha: string, referencia: Date) => {
   const valor = new Date(`${fecha}T00:00:00`);
   return valor.getMonth() === referencia.getMonth() && valor.getFullYear() === referencia.getFullYear();
@@ -44,14 +36,9 @@ const esEstaSemana = (fecha: string) => {
   return valor >= inicio;
 };
 
-const subtituloHoy = new Intl.DateTimeFormat("es-CR", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-}).format(new Date());
-
 const EmployeeHome = () => {
   const { user, getProfile } = useAuth();
+  const { t, localeTag } = useTranslation();
   const [mascotas, setMascotas] = useState<Pet[]>([]);
   const [paseos, setPaseos] = useState<WalkWithRelations[]>([]);
   const [pagos, setPagos] = useState<PaymentMovement[]>([]);
@@ -59,6 +46,21 @@ const EmployeeHome = () => {
   const [sinCalificar, setSinCalificar] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const fechaCorta = (fecha: string) =>
+    new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(new Date(`${fecha}T00:00:00`));
+
+  const accesos = [
+    { to: "/paseadores", label: t("home.quickAccess.walkers.label"), descripcion: t("home.quickAccess.walkers.descripcion") },
+    { to: "/mascotas", label: t("home.quickAccess.registerPet.label"), descripcion: t("home.quickAccess.registerPet.descripcion") },
+    { to: "/mascotas-perdidas", label: t("home.quickAccess.reportLost.label"), descripcion: t("home.quickAccess.reportLost.descripcion") },
+  ];
+
+  const subtituloHoy = new Intl.DateTimeFormat(localeTag, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
 
   const cargar = useCallback(async () => {
     if (!user) return;
@@ -82,11 +84,11 @@ const EmployeeHome = () => {
         zonaId ? perdidas.filter((p) => p.estado === "perdida" && p.zona_id === zonaId).length : 0,
       );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo cargar tu panel.");
+      setError(cause instanceof Error ? cause.message : t("home.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [user, getProfile]);
+  }, [user, getProfile, t]);
 
   useEffect(() => {
     void cargar();
@@ -118,10 +120,10 @@ const EmployeeHome = () => {
       alertas.push({
         icono: Syringe,
         tono: vacuna.estado === "vencida" ? "text-danger" : "text-warn",
-        texto:
-          vacuna.estado === "vencida"
-            ? `Vacuna ${vacuna.nombre_vacuna} de ${m.nombre} venció el ${fechaCorta(vacuna.fecha_vencimiento)}.`
-            : `Vacuna ${vacuna.nombre_vacuna} de ${m.nombre} vence el ${fechaCorta(vacuna.fecha_vencimiento)}.`,
+        texto: t(
+          vacuna.estado === "vencida" ? "home.alerts.vaccineExpired" : "home.alerts.vaccineExpiring",
+          { vacuna: vacuna.nombre_vacuna, mascota: m.nombre, fecha: fechaCorta(vacuna.fecha_vencimiento) },
+        ),
       });
     }
   });
@@ -129,26 +131,26 @@ const EmployeeHome = () => {
     alertas.push({
       icono: Siren,
       tono: "text-danger",
-      texto: `${perdidasEnZona} ${perdidasEnZona === 1 ? "mascota reportada" : "mascotas reportadas"} como perdidas en tu zona.`,
+      texto: t(perdidasEnZona === 1 ? "home.alerts.lostPetsSingular" : "home.alerts.lostPetsPlural", { count: perdidasEnZona }),
     });
   }
   if (sinCalificar > 0) {
     alertas.push({
       icono: PawPrint,
       tono: "text-ink-mute",
-      texto: `Tienes ${sinCalificar} ${sinCalificar === 1 ? "paseo sin calificar" : "paseos sin calificar"}.`,
+      texto: t(sinCalificar === 1 ? "home.alerts.unratedSingular" : "home.alerts.unratedPlural", { count: sinCalificar }),
     });
   }
 
   return (
     <Page>
       <PageHeader
-        title="Panel general"
-        subtitle={loading ? "Cargando..." : `${subtituloHoy} · resumen de tu cuenta`}
+        title={t("home.title")}
+        subtitle={loading ? t("home.loading") : t("home.subtitleSummary", { fecha: subtituloHoy })}
         action={
           <Link to="/paseadores" className={btnPrimary}>
             <CalendarDays size={15} strokeWidth={2} />
-            Agendar paseo
+            {t("home.scheduleWalk")}
           </Link>
         }
       />
@@ -161,41 +163,41 @@ const EmployeeHome = () => {
 
       {loading ? (
         <div className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-soft">
-          <Loader size={16} className="animate-spin" /> Cargando tu panel…
+          <Loader size={16} className="animate-spin" /> {t("home.loadingPanel")}
         </div>
       ) : (
         <>
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
-              etiqueta="Mascotas"
+              etiqueta={t("home.stats.pets")}
               valor={String(mascotas.length)}
               nota={
                 mascotasConVacunaPendiente.length
-                  ? `${mascotasConVacunaPendiente.length} con vacuna pendiente`
+                  ? t("home.stats.petsPendingVaccine", { count: mascotasConVacunaPendiente.length })
                   : undefined
               }
             />
             <Stat
-              etiqueta="Paseos del mes"
+              etiqueta={t("home.stats.walksThisMonth")}
               valor={String(paseosDelMes.length)}
-              nota={`${paseosEstaSemana.length} esta semana`}
+              nota={t("home.stats.walksThisWeek", { count: paseosEstaSemana.length })}
             />
-            <Stat etiqueta="Gasto del mes" valor={colones(gastoDelMes)} nota={`${paseosDelMes.filter((p) => p.estado === "finalizado").length} paseos pagados`} />
+            <Stat etiqueta={t("home.stats.monthSpend")} valor={colones(gastoDelMes)} nota={t("home.stats.paidWalks", { count: paseosDelMes.filter((p) => p.estado === "finalizado").length })} />
             <Stat
-              etiqueta="Pendiente"
+              etiqueta={t("home.stats.pending")}
               valor={colones(pagosPendientes.reduce((sum, p) => sum + p.monto, 0))}
-              nota={`${pagosPendientes.length} cobro${pagosPendientes.length === 1 ? "" : "s"}`}
+              nota={`${pagosPendientes.length} ${pagosPendientes.length === 1 ? t("home.stats.chargeSingular") : t("home.stats.chargePlural")}`}
             />
           </div>
 
           <Section
-            title="Próximos paseos"
+            title={t("home.upcomingWalks.title")}
             aside={
               <Link
                 to="/paseos"
                 className="flex items-center gap-1 text-[12.5px] font-semibold text-accent-dark hover:underline"
               >
-                Ver todos
+                {t("home.upcomingWalks.viewAll")}
                 <ArrowRight size={13} strokeWidth={2.2} aria-hidden />
               </Link>
             }
@@ -203,13 +205,13 @@ const EmployeeHome = () => {
           >
             {proximos.length ? (
               <Table
-                caption="Paseos programados y en curso"
+                caption={t("home.upcomingWalks.caption")}
                 columnas={[
-                  { label: "Cuándo" },
-                  { label: "Mascota" },
-                  { label: "Paseador" },
-                  { label: "Estado" },
-                  { label: "Precio", align: "right" },
+                  { label: t("home.upcomingWalks.columns.when") },
+                  { label: t("home.upcomingWalks.columns.pet") },
+                  { label: t("home.upcomingWalks.columns.walker") },
+                  { label: t("home.upcomingWalks.columns.status") },
+                  { label: t("home.upcomingWalks.columns.price"), align: "right" },
                 ]}
               >
                 {proximos.map((p) => (
@@ -218,14 +220,14 @@ const EmployeeHome = () => {
                       {fechaCorta(p.fecha)} · {p.hora_inicio.slice(0, 5)}
                     </td>
                     <td className="px-6 py-3.5 text-[13px] font-medium text-ink">
-                      {p.mascota?.nombre ?? "Sin nombre"}
+                      {p.mascota?.nombre ?? t("home.upcomingWalks.noPetName")}
                     </td>
                     <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">
-                      {p.paseador?.nombre ?? "Sin asignar"}
+                      {p.paseador?.nombre ?? t("home.upcomingWalks.unassigned")}
                     </td>
                     <td className="px-6 py-3.5">
                       <Badge tono={p.estado === "en_curso" ? "accent" : "ok"}>
-                        {p.estado === "en_curso" ? "En curso" : "Programado"}
+                        {p.estado === "en_curso" ? t("home.upcomingWalks.statusInCourse") : t("home.upcomingWalks.statusScheduled")}
                       </Badge>
                     </td>
                     <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
@@ -236,8 +238,8 @@ const EmployeeHome = () => {
               </Table>
             ) : (
               <EmptyState
-                title="No tienes paseos programados"
-                hint="Busca un paseador de tu zona para agendar el próximo."
+                title={t("home.upcomingWalks.empty.title")}
+                hint={t("home.upcomingWalks.empty.hint")}
               />
             )}
           </Section>
@@ -245,13 +247,13 @@ const EmployeeHome = () => {
           <div className="grid gap-3 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <Section
-                title="Mis mascotas"
+                title={t("home.myPets.title")}
                 aside={
                   <Link
                     to="/mascotas"
                     className="flex items-center gap-1 text-[12.5px] font-semibold text-accent-dark hover:underline"
                   >
-                    Administrar
+                    {t("home.myPets.manage")}
                     <ArrowRight size={13} strokeWidth={2.2} aria-hidden />
                   </Link>
                 }
@@ -264,10 +266,10 @@ const EmployeeHome = () => {
                       return (
                         <li key={m.id_mascota} className="bg-sunken">
                           {m.fotoUrl ? (
-                            <MockPhoto src={m.fotoUrl} alt={`Foto de ${m.nombre}`} />
+                            <MockPhoto src={m.fotoUrl} alt={t("common.photoOf", { nombre: m.nombre })} />
                           ) : (
                             <div className="flex aspect-square items-center justify-center bg-neutral-wash text-[13px] text-ink-mute">
-                              Sin foto
+                              {t("home.myPets.noPhoto")}
                             </div>
                           )}
                           <div className="px-4 py-3">
@@ -275,7 +277,7 @@ const EmployeeHome = () => {
                             <p className="mt-0.5 text-[12px] text-ink-soft">{m.raza}</p>
                             <span className="mt-2 inline-block">
                               <Badge tono={alDia ? "ok" : "warn"}>
-                                {alDia ? "Al día" : "Vacuna pendiente"}
+                                {alDia ? t("home.myPets.upToDate") : t("home.myPets.pendingVaccine")}
                               </Badge>
                             </span>
                           </div>
@@ -284,13 +286,13 @@ const EmployeeHome = () => {
                     })}
                   </ul>
                 ) : (
-                  <EmptyState title="Aún no registras mascotas" hint="Agrega una para poder agendar paseos." />
+                  <EmptyState title={t("home.myPets.empty.title")} hint={t("home.myPets.empty.hint")} />
                 )}
               </Section>
             </div>
 
             <div className="flex flex-col gap-3">
-              <Section title="Requiere atención" bodyClass="px-6 pt-4 pb-5">
+              <Section title={t("home.alerts.title")} bodyClass="px-6 pt-4 pb-5">
                 {alertas.length ? (
                   <ul className="flex flex-col gap-3">
                     {alertas.map((a, i) => (
@@ -301,11 +303,11 @@ const EmployeeHome = () => {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-[12.5px] leading-snug text-ink-soft">Todo al día, sin pendientes.</p>
+                  <p className="text-[12.5px] leading-snug text-ink-soft">{t("home.alerts.none")}</p>
                 )}
               </Section>
 
-              <Section title="Accesos rápidos" bodyClass="px-6 pt-4 pb-5">
+              <Section title={t("home.quickAccessTitle")} bodyClass="px-6 pt-4 pb-5">
                 <ul className="flex flex-col gap-2">
                   {accesos.map((a) => (
                     <li key={a.to}>

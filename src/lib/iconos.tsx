@@ -32,6 +32,7 @@ import {
   EyeOff as EyeOffVivo,
   FileText as FileTextVivo,
   Footprints as FootprintsVivo,
+  Globe as GlobeVivo,
   Heart as HeartVivo,
   Image as ImageVivo,
   Inbox as InboxVivo,
@@ -468,6 +469,7 @@ export const Eye = animado(EyeVivo);
 export const EyeOff = animado(EyeOffVivo);
 export const FileText = animado(FileTextVivo);
 export const Footprints = animado(FootprintsVivo);
+export const Globe = animado(GlobeVivo);
 export const Heart = animado(HeartVivo);
 export const Image = animado(ImageVivo);
 export const Inbox = animado(InboxVivo);

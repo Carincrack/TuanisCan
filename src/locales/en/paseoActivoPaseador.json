@@ -1,0 +1,31 @@
+{
+  "title": "Active walk",
+  "subtitleIdle": "Share your location during the walk.",
+  "subtitleActive": "Your location is only shared while the walk is in progress.",
+  "statusInCourse": "In progress",
+  "confirmedTodayTitle": "Walk confirmed for today",
+  "confirmedTodayHint": "Start it to enable real-time tracking for the owner.",
+  "starting": "Starting…",
+  "startWalk": "Start walk",
+  "empty": {
+    "title": "You have no walks in progress",
+    "hint": "Tracking is enabled once you start a walk."
+  },
+  "trackingSection": "Real-time tracking",
+  "trackingHint": "Allow location on your phone so the owner can see the updated route.",
+  "stopSharing": "Stop sharing",
+  "shareLocation": "Share location",
+  "finishing": "Finishing…",
+  "finishWalk": "Finish walk",
+  "errors": {
+    "loadFailed": "Could not check the active walk.",
+    "noGeolocation": "This browser does not allow sharing location.",
+    "locationShared": "Location shared with the owner.",
+    "sendFailed": "Could not send the location.",
+    "locationFailed": "Could not get your location.",
+    "finishFailed": "Could not finish the walk. Try again.",
+    "finishedMessage": "Walk finished. The owner can now leave a review.",
+    "startFailed": "Could not start the walk. Check that it's for today.",
+    "startedMessage": "Walk started. You can now share your location."
+  }
+}

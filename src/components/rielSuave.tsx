@@ -27,6 +27,7 @@ import type { UserProfile } from "../types/auth.types";
 import { useMedia } from "../hooks/useMedia";
 import { usePreferencia } from "../hooks/usePreferencia";
 import { useCajon } from "../hooks/useCajon";
+import { useTranslation } from "../hooks/useTranslation";
 import ProfileAvatar from "./ProfileAvatar";
 
 /* ─────────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ const NavLink = ({
   onNavegar?: () => void;
 }) => {
   const { pathname } = useLocation();
+  const { t } = useTranslation();
   const activo = item.to === pathname;
   const { Icon } = item;
 
@@ -120,7 +122,7 @@ const NavLink = ({
       to={item.to}
       onClick={onNavegar}
       aria-current={activo ? "page" : undefined}
-      title={expandido ? undefined : item.label}
+      title={expandido ? undefined : t(item.label)}
       style={{ animationDelay: `${40 + orden * 26}ms` }}
       className={`anim-nav-in group flex h-11 items-center gap-2.5 rounded-full px-2.5 text-[13.5px] transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.97] ${
         activo
@@ -148,7 +150,7 @@ const NavLink = ({
 
       <Texto expandido={expandido}>
         <span className="truncate transition-transform duration-300 ease-out group-hover:translate-x-0.5">
-          {item.label}
+          {t(item.label)}
         </span>
         {item.badge != null && (
           <span
@@ -180,7 +182,8 @@ const Grupo = ({
   onNavegar?: () => void;
 }) => {
   const { pathname } = useLocation();
-  const id = `grupo-suave-${grupo.titulo.replace(/\s+/g, "-").toLowerCase()}`;
+  const { t } = useTranslation();
+  const id = `grupo-suave-${grupo.titulo.replace(/[.\s]+/g, "-").toLowerCase()}`;
   const contieneActiva = grupo.items.some((item) => item.to === pathname);
 
   /* Plegar solo tiene sentido con el riel abierto. Cerrado, el título
@@ -211,7 +214,7 @@ const Grupo = ({
           </span>
           <Texto expandido={expandido}>
             <span className="rotulo truncate text-rail-mute transition-colors duration-200 group-hover:text-white">
-              {grupo.titulo}
+              {t(grupo.titulo)}
             </span>
             {/* Plegado con la pantalla activa adentro: el grupo tiene
                 que seguir diciendo dónde está parado el usuario. */}
@@ -293,11 +296,11 @@ const Marca = ({
   </div>
 );
 
-const etiquetaRol: Record<Rol, string> = {
-  dueno: "Dueño",
-  paseador: "Paseador",
-  negocio: "Negocio",
-  admin: "Administración",
+const claveEtiquetaRol: Record<Rol, string> = {
+  dueno: "common.role.dueno",
+  paseador: "common.role.paseador",
+  negocio: "common.role.negocio",
+  admin: "common.role.admin",
 };
 
 const iconoRol: Record<Rol, ElementType> = {
@@ -335,6 +338,7 @@ const MenuRol = ({
   roles: Rol[];
   onCambiar: (rol: Rol) => void;
 }) => {
+  const { t } = useTranslation();
   const [abierto, setAbierto] = useState(false);
   const [activo, setActivo] = useState(0);
   const [caja, setCaja] = useState({ izquierda: 0, abajo: 0, ancho: 0 });
@@ -440,7 +444,7 @@ const MenuRol = ({
   return (
     <div className="px-2.5 pt-1 pb-2">
       <span className="rotulo mb-1.5 block px-1 text-rail-mute">
-        Perfil activo
+        {t("common.activeProfile")}
       </span>
 
       <button
@@ -451,7 +455,7 @@ const MenuRol = ({
         aria-expanded={abierto}
         aria-controls={abierto ? idLista : undefined}
         aria-activedescendant={abierto ? `${idLista}-${activo}` : undefined}
-        aria-label="Cambiar de perfil"
+        aria-label={t("common.changeProfile")}
         onClick={() => (abierto ? cerrar() : abrir())}
         onKeyDown={alTeclear}
         className={`flex h-10 w-full items-center gap-2.5 rounded-full px-3 text-[12.5px] font-medium text-white transition-[background-color,transform] duration-200 ease-out focus:outline-2 focus:outline-offset-2 focus:outline-accent active:scale-[0.98] ${
@@ -465,7 +469,7 @@ const MenuRol = ({
           className="shrink-0 text-accent"
         />
         <span className="min-w-0 flex-1 truncate text-left">
-          {etiquetaRol[rol]}
+          {t(claveEtiquetaRol[rol])}
         </span>
         <ChevronsUpDown
           size={14}
@@ -481,7 +485,7 @@ const MenuRol = ({
             ref={panel}
             id={idLista}
             role="listbox"
-            aria-label="Cambiar de perfil"
+            aria-label={t("common.changeProfile")}
             tabIndex={-1}
             style={{
               position: "fixed",
@@ -524,7 +528,7 @@ const MenuRol = ({
                     className="shrink-0"
                   />
                   <span className="min-w-0 flex-1 truncate">
-                    {etiquetaRol[item]}
+                    {t(claveEtiquetaRol[item])}
                   </span>
                   {elegido && (
                     <Check
@@ -559,7 +563,8 @@ const PiePerfil = ({
   onRoleChange: (rol: Rol) => void;
   onLogout?: () => void;
 }) => {
-  const nombre = profile?.nombre || "Usuario";
+  const { t } = useTranslation();
+  const nombre = profile?.nombre || t("common.defaultUserName");
 
   return (
     <div className="shrink-0">
@@ -582,7 +587,7 @@ const PiePerfil = ({
               {nombre}
             </span>
             <span className="block truncate text-[11.5px] text-rail-mute">
-              {etiquetaRol[rol]}
+              {t(claveEtiquetaRol[rol])}
             </span>
           </span>
         </Texto>
@@ -598,7 +603,7 @@ const PiePerfil = ({
         <button
           type="button"
           onClick={onLogout}
-          title={expandido ? undefined : "Cerrar sesión"}
+          title={expandido ? undefined : t("common.logout")}
           className="group flex h-11 w-full items-center gap-2.5 rounded-full px-2.5 text-[13.5px] text-rail-text transition-[background-color,color,transform] duration-200 ease-out hover:bg-white/10 hover:text-white active:scale-[0.97]"
         >
           <span className={CAJA_ICONO}>
@@ -609,7 +614,7 @@ const PiePerfil = ({
             />
           </span>
           <Texto expandido={expandido}>
-            <span className="truncate">Cerrar sesión</span>
+            <span className="truncate">{t("common.logout")}</span>
           </Texto>
         </button>
       )}
@@ -642,6 +647,8 @@ const Panel = ({
   anclado,
   onAnclar,
 }: PanelProps) => {
+  const { t } = useTranslation();
+
   /* Un juego de grupos plegados por rol: la navegación de un paseador
      no se parece a la de un administrador, y plegar "Gestión" no
      tiene por qué afectarle a nadie más. */
@@ -653,7 +660,7 @@ const Panel = ({
   const alternar = (titulo: string) =>
     setPlegados((previos) =>
       previos.includes(titulo)
-        ? previos.filter((t) => t !== titulo)
+        ? previos.filter((item) => item !== titulo)
         : [...previos, titulo],
     );
 
@@ -664,7 +671,7 @@ const Panel = ({
       <Marca expandido={expandido} anclado={anclado} onAnclar={onAnclar} />
 
       <nav
-        aria-label="Navegación principal"
+        aria-label={t("shell.menu.navigation")}
         className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto py-1"
       >
         {navPorRol[rol].map((grupo) => {
@@ -775,6 +782,7 @@ type CajonProps = Omit<PanelProps, "expandido" | "anclado" | "onAnclar"> & {
 };
 
 export const CajonSuave = ({ abierto, cerrar, ...props }: CajonProps) => {
+  const { t } = useTranslation();
   const panel = useRef<HTMLDivElement>(null);
   const hayRiel = useMedia("(min-width: 768px)");
   const montado = useCajon(abierto && !hayRiel, cerrar, panel, MS_SALIDA);
@@ -802,7 +810,7 @@ export const CajonSuave = ({ abierto, cerrar, ...props }: CajonProps) => {
         ref={panel}
         role="dialog"
         aria-modal="true"
-        aria-label="Menú de navegación"
+        aria-label={t("shell.menu.dialogLabel")}
         className={`riel-suave relative flex w-[272px] max-w-[86%] flex-col overflow-hidden rounded-[26px] bg-rail p-2.5 ${
           abierto ? "anim-slide-left" : "anim-cajon-out"
         }`}
@@ -810,7 +818,7 @@ export const CajonSuave = ({ abierto, cerrar, ...props }: CajonProps) => {
         <button
           type="button"
           onClick={cerrar}
-          aria-label="Cerrar menú"
+          aria-label={t("shell.menu.close")}
           className="absolute top-2.5 right-2.5 z-10 grid h-9 w-9 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-200 ease-out hover:bg-white/10 hover:text-white active:scale-[0.94]"
         >
           <X size={18} />

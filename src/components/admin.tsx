@@ -326,7 +326,7 @@ export const FinanzasAdmin = () => {
       <div className="flex flex-wrap items-center justify-between gap-2.5 bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar pagos"
-          options={["Todos", "Pendientes", "Pagados"]}
+          options={["Todos", "Pendientes", "Pagados"].map((o) => ({ value: o, label: o }))}
           value={filtro}
           onChange={cambiarFiltro}
         />
@@ -455,7 +455,7 @@ export const PaseadoresAdmin = () => {
       <div className="bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar paseadores"
-          options={["Todos", "Activos", "Inactivos", "Suspendidos"]}
+          options={["Todos", "Activos", "Inactivos", "Suspendidos"].map((o) => ({ value: o, label: o }))}
           value={filtro}
           onChange={cambiarFiltro}
         />
@@ -1891,7 +1891,7 @@ export const PaseosAdmin = () => {
       <div className="bg-surface px-3 py-3">
         <FilterTabs
           label="Filtrar paseos"
-          options={["Todos", "En curso", "Incidencias"]}
+          options={["Todos", "En curso", "Incidencias"].map((o) => ({ value: o, label: o }))}
           value={filtro}
           onChange={cambiarFiltro}
         />

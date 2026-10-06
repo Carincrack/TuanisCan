@@ -2,6 +2,7 @@
    y el oro del chip son constantes compartidas, no componentes; ver carnet.tsx. */
 import { Star } from "../lib/iconos";
 import type { CardBrand } from "../lib/payment-card";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    LA TARJETA
@@ -149,6 +150,7 @@ export const TarjetaVisual = ({
   esPrincipal?: boolean;
   className?: string;
 }) => {
+  const { t } = useTranslation();
   const tema = temaDe(marca);
 
   return (
@@ -200,7 +202,7 @@ export const TarjetaVisual = ({
           {esPrincipal && (
             <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-white ring-1 ring-white/25 backdrop-blur-sm">
               <Star size={9} className="fill-[#f2c14e] text-[#f2c14e]" />
-              Principal
+              {t("tarjetaVisual.primary")}
             </span>
           )}
         </div>
@@ -218,24 +220,24 @@ export const TarjetaVisual = ({
       <div className="relative flex items-end justify-between gap-4">
         <div className="min-w-0 max-w-[70%]">
           <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-white/55">
-            Titular
+            {t("tarjetaVisual.holder")}
           </p>
           <p
             className="mt-0.5 truncate text-[12px] font-semibold uppercase tracking-[0.06em] text-white"
             style={REPUJADO}
           >
-            {titular || "Nombre del titular"}
+            {titular || t("tarjetaVisual.holderPlaceholder")}
           </p>
         </div>
         <div className="shrink-0 text-right">
           <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-white/55">
-            Vence
+            {t("tarjetaVisual.expires")}
           </p>
           <p
             className="nums mt-0.5 text-[12px] font-semibold tracking-wider text-white"
             style={REPUJADO}
           >
-            {vencimiento || "MM/AA"}
+            {vencimiento || t("tarjetaVisual.expiresPlaceholder")}
           </p>
         </div>
       </div>

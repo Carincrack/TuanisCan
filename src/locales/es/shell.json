@@ -1,0 +1,37 @@
+{
+  "roleChooser": {
+    "title": "¿Cómo quieres ingresar?",
+    "subtitle": "Elegí el perfil que vas a usar. Podés cambiarlo después sin volver a entrar.",
+    "noProfiles": "Esta cuenta no tiene perfiles activos.",
+    "noProfilesHint": "Escribile a administración si creés que es un error."
+  },
+  "menu": {
+    "open": "Abrir menú",
+    "navigation": "Navegación principal",
+    "dialogLabel": "Menú de navegación",
+    "close": "Cerrar menú"
+  },
+  "notifications": {
+    "button": "Notificaciones",
+    "title": "Notificaciones",
+    "closeAria": "Cerrar notificaciones",
+    "markAllRead": "Marcar leidas",
+    "deleteAll": "Eliminar todas",
+    "empty": "No tienes notificaciones.",
+    "markRead": "Marcar como leída",
+    "delete": "Eliminar notificación",
+    "read": "Leida",
+    "loadError": "No se pudieron cargar las notificaciones.",
+    "markReadError": "No se pudo marcar como leida.",
+    "markAllReadError": "No se pudieron marcar como leidas.",
+    "deleteError": "No se pudo eliminar la notificacion.",
+    "deleteAllError": "No se pudieron eliminar las notificaciones."
+  },
+  "verificationBanner": {
+    "pending": "Tu verificación está en revisión. Puedes consultar información, pero las operaciones siguen bloqueadas.",
+    "rejected": "Debes corregir tu verificación: {{detail}}",
+    "rejectedFallback": "revisa los documentos enviados.",
+    "none": "Verifica tu perfil para registrar mascotas, solicitar paseos y usar las funciones de la plataforma.",
+    "link": "Ir a verificación"
+  }
+}

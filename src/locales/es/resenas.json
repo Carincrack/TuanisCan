@@ -1,0 +1,35 @@
+{
+  "title": "Reseñas",
+  "subtitle": "Califica los paseos finalizados y consulta tu historial.",
+  "averageGiven": "Promedio que has dado",
+  "counts": "{{written}} reseñas · {{pending}} pendientes",
+  "filters": {
+    "label": "Filtrar reseñas",
+    "written": "Escritas",
+    "pending": "Pendientes"
+  },
+  "walkOf": "Paseo de {{mascota}}",
+  "defaultPet": "tu mascota",
+  "defaultWalker": "Paseador",
+  "empty": {
+    "writtenTitle": "Aún no has escrito reseñas",
+    "writtenHint": "Cuando termine un paseo aparecerá aquí para calificarlo.",
+    "pendingTitle": "No tienes reseñas pendientes",
+    "pendingHint": "Todas tus reseñas están al día."
+  },
+  "editReview": "Editar reseña",
+  "rate": "Calificar",
+  "dialog": {
+    "aria": "Calificar paseo",
+    "title": "Calificar a {{walker}}",
+    "commentLabel": "Comentario opcional",
+    "save": "Guardar reseña",
+    "saving": "Guardando…"
+  },
+  "starsAria": "{{value}} de 5 estrellas",
+  "rateWithStarsAria": "Calificar con {{n}} estrellas",
+  "errors": {
+    "loadFailed": "No se pudieron cargar las reseñas.",
+    "saveFailed": "No se pudo guardar la reseña."
+  }
+}

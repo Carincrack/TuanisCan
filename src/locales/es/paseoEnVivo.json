@@ -1,0 +1,23 @@
+{
+  "title": "Paseo en vivo",
+  "searching": "Buscando un paseo en curso…",
+  "trackingSubtitle": "Seguimiento de la ubicación durante el paseo.",
+  "statusInCourse": "En curso",
+  "empty": {
+    "title": "No hay paseos en curso",
+    "hint": "Cuando tu paseador inicie un paseo, podrás seguirlo desde aquí."
+  },
+  "defaultPet": "Tu mascota",
+  "defaultWalker": "su paseador",
+  "withWalker": "{{mascota}} está de paseo con {{paseador}}.",
+  "updatedAt": "Actualizado a las {{hora}}.",
+  "waitingLocation": "Esperando la ubicación del paseador.",
+  "mapPlaceholder": "El paseo ya empezó. El mapa aparecerá cuando el paseador comparta su ubicación.",
+  "noLocationYet": "Sin ubicación todavía",
+  "walkerSection": "Paseador",
+  "walkerSectionHint": "Seguimiento compartido durante el paseo",
+  "activitySection": "Actividad del paseo",
+  "locationShared": "Ubicación compartida",
+  "noActivity": "Aún no hay ubicaciones registradas.",
+  "loadError": "No se pudo cargar el paseo."
+}

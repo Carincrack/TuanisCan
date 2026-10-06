@@ -524,7 +524,7 @@ const Pagos = () => {
         <div className="-mx-3.5 overflow-x-auto px-3.5 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
           <FilterTabs
             label="Filtrar movimientos"
-            options={["Todos", "Pagados", "Pendientes", "Reembolsos"]}
+            options={["Todos", "Pagados", "Pendientes", "Reembolsos"].map((o) => ({ value: o, label: o }))}
             value={filtro}
             onChange={(v) => setFiltro(v as FiltroTipo)}
             cuentas={contadores}
