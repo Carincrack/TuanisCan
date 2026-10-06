@@ -157,6 +157,19 @@
     "empty": {
       "title": "No earnings yet",
       "hint": "Your walk payments will show up here."
-    }
+    },
+    "commissionPill": "{{pct}}% commission",
+    "summary": {
+      "available": "Available",
+      "availableNote": "{{count}} payments received",
+      "availableNoteOne": "1 payment received",
+      "pending": "To collect",
+      "pendingNote": "{{count}} walks",
+      "pendingNoteOne": "1 walk",
+      "commission": "Commission deducted",
+      "commissionNote": "{{pct}}% of what you collected"
+    },
+    "monthNet": "Month net",
+    "grossLine": "Gross {{bruto}} · fee −{{comision}}"
   }
 }

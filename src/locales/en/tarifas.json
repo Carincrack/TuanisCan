@@ -63,6 +63,10 @@
     "sameDayToggle": "If they request it for the same day",
     "unsavedChanges": "You have unsaved changes.",
     "currentView": "This is what owners see today.",
-    "save": "Save rates"
+    "save": "Save rates",
+    "title": "What you charge",
+    "perWalk": "per {{min}}-min walk",
+    "heroCaption": "Weekdays, daytime, no surcharges",
+    "base": "Base"
   }
 }

@@ -207,7 +207,7 @@ export const FilterTabs = ({
           type="button"
           aria-pressed={activa}
           onClick={() => onChange(o.value)}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[13px] sm:gap-2 font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] sm:px-4 ${
             activa
               ? "bg-rail text-white"
               : "text-ink-soft hover:bg-white/70 hover:text-ink"

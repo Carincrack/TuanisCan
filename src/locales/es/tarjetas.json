@@ -16,7 +16,7 @@
   "form": {
     "dialogTitle": "Registrar método de pago",
     "preview": "Vista previa",
-    "storageNotice": "Guardamos solo la marca y los últimos cuatro dígitos.",
+    "storageNotice": "Guardamos el titular, la marca, los últimos cuatro dígitos y el vencimiento.",
     "acceptedCards": "Tarjetas aceptadas",
     "acceptedCardsDetail": "Visa (empieza con 4) y Mastercard (51-55 o 2221-2720).",
     "holderName": "Nombre del titular",
@@ -46,5 +46,16 @@
     "invalidNumber": "Ese número no existe. Revisá los dígitos.",
     "invalidExpiry": "Fecha inválida o ya vencida. Usá MM/AA.",
     "invalidCvv": "Son los tres dígitos del reverso."
-  }
+  },
+  "card": {
+    "endingIn": "{{marca}} terminada en {{ultimos4}}",
+    "expiresOn": "Vence {{fecha}}",
+    "expired": "Vencida",
+    "expiresSoon": "Por vencer",
+    "primary": "Principal",
+    "delete": "Eliminar",
+    "onlyCard": "Es tu única tarjeta"
+  },
+  "addTile": "Agregar tarjeta",
+  "securityNote": "Solo guardamos el titular, la marca, los últimos cuatro dígitos y el vencimiento. El número completo y el código de seguridad nunca salen de tu dispositivo."
 }

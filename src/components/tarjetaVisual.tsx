@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- GUILLOCHE, REPUJADO
    y el oro del chip son constantes compartidas, no componentes; ver carnet.tsx. */
-import { Star } from "../lib/iconos";
 import type { CardBrand } from "../lib/payment-card";
 import { useTranslation } from "../hooks/useTranslation";
 
@@ -51,28 +50,21 @@ export const GUILLOCHE = [
   "repeating-linear-gradient(64deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 5px)",
 ].join(", ");
 
-/** El brillo del plástico. Una sola banda ancha en diagonal. Se
-    desplaza al pasar el puntero, y eso no es adorno: en el diálogo de
-    pago la tarjeta se elige, y el brillo es lo que dice que responde. */
-const BRILLO =
-  "linear-gradient(104deg, transparent 20%, rgba(255,255,255,0.14) 42%, rgba(255,255,255,0.03) 54%, transparent 72%)";
+/** La luz. Antes era una banda diagonal marcada que se corría al
+    pasar el puntero: se leía como plástico brillante de juguete.
+    Las tarjetas buenas —las de metal, las de banco privado— no
+    brillan en franja: tienen una luz suave que cae de un costado y
+    el canto oscuro del otro. Son dos degradados radiales quietos. */
+const LUZ =
+  "radial-gradient(120% 85% at 0% 0%, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 55%), radial-gradient(90% 75% at 100% 100%, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0) 60%)";
 
-/** El repujado de los números. Luz arriba, sombra abajo: un píxel
-    cada una, que es lo que hace la máquina de repujar. */
-export const REPUJADO = {
-  textShadow: "0 1px 0 rgba(255,255,255,0.26), 0 -1px 1px rgba(0,0,0,0.5)",
-};
-
-/** El gradiente dorado del chip EMV, suelto para que otras piezas —el
-    sello del carné, por ejemplo— lo usen sin ser una tarjeta de pago. */
-export const GRADIENTE_ORO =
-  "linear-gradient(135deg,#fbeec4 0%,#e4c780 38%,#c69a4a 68%,#8f6a2a 100%)";
-export const RELIEVE_ORO =
-  "inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.4)";
+/** Un roce muy leve al pasar el puntero, en vez de la banda: dice que
+    la tarjeta responde sin parecer una vitrina. */
+const ROCE =
+  "linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.07) 48%, transparent 66%)";
 
 interface TemaTarjeta {
   fondo: string;
-  filete: string;
   logo: React.ReactNode;
 }
 
@@ -81,10 +73,9 @@ const temaDe = (marca: string): TemaTarjeta => {
 
   if (nombre.includes("visa")) {
     return {
-      fondo: "bg-[linear-gradient(135deg,#0b2033_0%,#16405e_52%,#1f5e86_100%)]",
-      filete: "ring-sky-300/25",
+      fondo: "bg-[linear-gradient(140deg,#0b1f33_0%,#123552_48%,#1a4c72_100%)]",
       logo: (
-        <span className="select-none text-[19px] font-black italic tracking-wider text-white">
+        <span className="select-none text-[21px] leading-none font-black tracking-[0.02em] text-white italic">
           VISA
         </span>
       ),
@@ -93,26 +84,20 @@ const temaDe = (marca: string): TemaTarjeta => {
 
   if (nombre.includes("mastercard")) {
     return {
-      fondo: "bg-[linear-gradient(135deg,#1a181c_0%,#2b262d_50%,#3d2e28_100%)]",
-      filete: "ring-amber-300/25",
+      fondo: "bg-[linear-gradient(140deg,#141317_0%,#232026_50%,#302824_100%)]",
       logo: (
-        <span className="flex select-none items-center -space-x-2.5" aria-label="Mastercard">
-          <span className="h-6 w-6 rounded-full bg-[#eb001b] opacity-90" />
-          <span className="h-6 w-6 rounded-full bg-[#f79e1b] opacity-90" />
+        <span className="flex select-none items-center -space-x-3" aria-label="Mastercard">
+          <span className="h-7 w-7 rounded-full bg-[#eb001b]" />
+          <span className="h-7 w-7 rounded-full bg-[#f79e1b] mix-blend-screen" />
         </span>
       ),
     };
   }
 
-  /* La de la casa: el navy del riel abriendo al celeste del login. */
+  /* La de la casa: el navy del riel. */
   return {
-    fondo: "bg-[linear-gradient(135deg,#0f2a3a_0%,#1a4257_50%,#2e6584_100%)]",
-    filete: "ring-accent/30",
-    logo: (
-      <span className="titular select-none text-[15px] font-bold tracking-tight text-white">
-        TuanisCan
-      </span>
-    ),
+    fondo: "bg-[linear-gradient(140deg,#0e2737_0%,#1a4257_52%,#2a5f7d_100%)]",
+    logo: null,
   };
 };
 
@@ -120,34 +105,58 @@ const temaDe = (marca: string): TemaTarjeta => {
     centro, que es el trazado real de la norma ISO/IEC 7816. */
 const ChipEmv = () => (
   <span
-    className="relative block h-[26px] w-[34px] overflow-hidden rounded-[5px] bg-[linear-gradient(135deg,#fbeec4_0%,#e4c780_38%,#c69a4a_68%,#8f6a2a_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.65),inset_0_-1px_1px_rgba(0,0,0,0.25),0_1px_2px_rgba(0,0,0,0.4)]"
+    className="relative block h-[25px] w-[33px] overflow-hidden rounded-[5px] bg-[linear-gradient(135deg,#f6e7b8_0%,#dcbd78_40%,#bf9447_70%,#8c6a2c_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_-1px_1px_rgba(0,0,0,0.25),0_1px_2px_rgba(0,0,0,0.35)]"
     aria-hidden="true"
   >
     <svg
       viewBox="0 0 34 26"
-      className="absolute inset-0 h-full w-full text-[#6d5219]/55"
+      className="absolute inset-0 h-full w-full text-[#6d5219]/50"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1"
+      strokeWidth="0.9"
     >
       <path d="M0 8h11M23 8h11M0 18h11M23 18h11M11 0v26M23 0v26M11 13h12" />
     </svg>
   </span>
 );
 
+/** El número. Los grupos tapados se dibujan como puntos de verdad: el
+    carácter "•" de la letra del sistema sale cuadrado y grueso a este
+    tamaño, y cuatro cuadrados seguidos se leen "▪▪▪▪", no "••••".
+    Lo que sí es dígito —los últimos cuatro, o lo que se va escribiendo
+    en la vista previa— va en cifras de ancho fijo. */
+const Numero = ({ numero }: { numero: string }) => {
+  const grupos = (numero || "•••• •••• •••• ••••").trim().split(/\s+/);
+
+  return (
+    <p className="nums relative flex items-center gap-[14px] text-[17px] font-medium tracking-[0.16em] text-white/95 sm:text-[18px]">
+      {grupos.map((grupo, i) =>
+        /^•+$/.test(grupo) ? (
+          <span key={i} aria-hidden className="flex gap-[4px]">
+            {Array.from({ length: grupo.length }, (_, j) => (
+              <span key={j} className="h-[5px] w-[5px] rounded-full bg-white/55" />
+            ))}
+          </span>
+        ) : (
+          <span key={i}>{grupo}</span>
+        ),
+      )}
+      <span className="sr-only">{numero}</span>
+    </p>
+  );
+};
+
 export const TarjetaVisual = ({
   marca,
   numero,
   titular,
   vencimiento,
-  esPrincipal = false,
   className = "",
 }: {
   marca: CardBrand | string;
   numero: string;
   titular: string;
   vencimiento: string;
-  esPrincipal?: boolean;
   className?: string;
 }) => {
   const { t } = useTranslation();
@@ -155,90 +164,77 @@ export const TarjetaVisual = ({
 
   return (
     <div
-      className={`group relative flex aspect-[1.586/1] w-full max-w-[360px] flex-col justify-between overflow-hidden rounded-[20px] p-5 text-white ring-1 ${tema.filete} ${tema.fondo} shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_14px_30px_rgba(15,35,55,0.28)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-1.5 hover:shadow-[0_1px_0_rgba(255,255,255,0.1)_inset,0_26px_50px_rgba(15,35,55,0.34)] ${className}`}
+      className={`group relative flex aspect-[1.586/1] w-full max-w-[360px] flex-col overflow-hidden rounded-[16px] px-6 pt-5 pb-5 text-white ${tema.fondo} shadow-[0_1px_2px_rgba(10,25,40,0.25),0_18px_36px_-16px_rgba(10,25,40,0.6)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_2px_4px_rgba(10,25,40,0.25),0_26px_44px_-18px_rgba(10,25,40,0.65)] ${className}`}
     >
-      {/* El filo del plástico: un realce muy sutil arriba, como si la
-          luz de la mesa pegara en el canto de la tarjeta. */}
-      <span
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/25"
-        aria-hidden="true"
-      />
+      {/* La luz y el canto */}
+      <span className="pointer-events-none absolute inset-0" style={{ backgroundImage: LUZ }} aria-hidden="true" />
 
-      {/* El grabado */}
+      {/* El grabado, más callado que antes: se descubre, no se ve. */}
       <span
-        className="pointer-events-none absolute inset-0 mix-blend-overlay"
+        className="pointer-events-none absolute inset-0 opacity-60 mix-blend-overlay"
         style={{ backgroundImage: GUILLOCHE }}
         aria-hidden="true"
       />
 
-      {/* El brillo, que se corre al pasar el puntero */}
+      {/* El roce al pasar el puntero */}
       <span
-        className="pointer-events-none absolute -inset-x-1/3 inset-y-0 transition-transform duration-700 ease-out group-hover:translate-x-[16%]"
-        style={{ backgroundImage: BRILLO }}
+        className="pointer-events-none absolute -inset-x-1/2 inset-y-0 opacity-0 transition-[opacity,transform] duration-700 ease-out group-hover:translate-x-[18%] group-hover:opacity-100"
+        style={{ backgroundImage: ROCE }}
         aria-hidden="true"
       />
 
-      {/* Chip, contactless y marca */}
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <ChipEmv />
-          <svg
-            className="h-5 w-5 text-white/70"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            <path d="M8.5 16.5a5 5 0 0 1 0-7" />
-            <path d="M12 19a8.5 8.5 0 0 1 0-14" />
-            <path d="M15.5 21.5a12 12 0 0 1 0-19" />
-          </svg>
-        </div>
+      {/* El canto: un filo de luz alrededor, como el borde pulido. */}
+      <span
+        className="pointer-events-none absolute inset-0 rounded-[16px] ring-1 ring-white/12 ring-inset"
+        aria-hidden="true"
+      />
 
-        <div className="flex flex-col items-end gap-1.5">
-          {tema.logo}
-          {esPrincipal && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-white ring-1 ring-white/25 backdrop-blur-sm">
-              <Star size={9} className="fill-[#f2c14e] text-[#f2c14e]" />
-              {t("tarjetaVisual.primary")}
-            </span>
-          )}
-        </div>
+      {/* Arriba: la casa, chiquita, y el contactless. */}
+      <div className="relative flex items-center justify-between">
+        <span className="titular text-[12px] tracking-[0.02em] text-white/75 select-none">
+          Tuanis<span className="text-accent/90">Can</span>
+        </span>
+        <svg
+          className="h-[18px] w-[18px] text-white/70"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M7 9a4.5 4.5 0 0 1 0 6" />
+          <path d="M10.5 6.5a8 8 0 0 1 0 11" />
+          <path d="M14 4a11.5 11.5 0 0 1 0 16" />
+        </svg>
       </div>
 
-      {/* El número, repujado */}
-      <p
-        className="nums relative my-auto pt-2 text-[18px] font-medium tracking-[0.14em] text-white/95 sm:text-[20px]"
-        style={REPUJADO}
-      >
-        {numero || "•••• •••• •••• ••••"}
-      </p>
+      {/* El chip, a la altura donde lo pone la norma. */}
+      <div className="relative mt-[13%]">
+        <ChipEmv />
+      </div>
 
-      {/* Titular y vencimiento */}
-      <div className="relative flex items-end justify-between gap-4">
-        <div className="min-w-0 max-w-[70%]">
-          <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-white/55">
-            {t("tarjetaVisual.holder")}
-          </p>
-          <p
-            className="mt-0.5 truncate text-[12px] font-semibold uppercase tracking-[0.06em] text-white"
-            style={REPUJADO}
-          >
+      <div className="relative mt-auto">
+        <Numero numero={numero} />
+
+        {/* El orden de una tarjeta emitida: el vencimiento en su
+            renglón, con el rótulo al costado ("VENCE 12/28"), y abajo el
+            titular con TODO el ancho que deja la red. Compartiendo
+            renglón con el vencimiento y el logo, un nombre de tres
+            palabras se cortaba. */}
+        <p className="mt-2.5 flex items-baseline gap-2">
+          <span className="text-[7.5px] leading-none font-semibold tracking-[0.2em] text-white/50 uppercase">
+            {t("tarjetaVisual.expires")}
+          </span>
+          <span className="nums text-[12px] leading-none font-medium tracking-[0.12em] text-white/90">
+            {vencimiento || t("tarjetaVisual.expiresPlaceholder")}
+          </span>
+        </p>
+        <div className="mt-2.5 flex items-end justify-between gap-4">
+          <p className="min-w-0 truncate text-[12.5px] font-medium tracking-[0.1em] text-white/90 uppercase">
             {titular || t("tarjetaVisual.holderPlaceholder")}
           </p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-white/55">
-            {t("tarjetaVisual.expires")}
-          </p>
-          <p
-            className="nums mt-0.5 text-[12px] font-semibold tracking-wider text-white"
-            style={REPUJADO}
-          >
-            {vencimiento || t("tarjetaVisual.expiresPlaceholder")}
-          </p>
+          <div className="shrink-0">{tema.logo}</div>
         </div>
       </div>
     </div>

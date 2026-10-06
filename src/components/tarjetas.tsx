@@ -20,6 +20,7 @@ import {
   type PaymentMethod,
 } from "../services/payments.service";
 import {
+  Badge,
   Confirmar,
   Dialog,
   EmptyState,
@@ -28,6 +29,7 @@ import {
   PageHeader,
   Section,
   btnPrimary,
+  btnQuiet,
   btnSecondary,
   fieldLabel,
   input,
@@ -80,8 +82,23 @@ const soloDigitos = (event: React.KeyboardEvent<HTMLInputElement>) => {
 
 type CampoTarjeta = "titular" | "numero" | "vencimiento" | "cvv";
 
+/** En qué punto de su vida está la tarjeta. Vence el ÚLTIMO día del
+    mes impreso —una 12/28 sirve todo diciembre—, y se avisa desde dos
+    meses antes, que es lo que tarda un banco en mandar el reemplazo. */
+const estadoVencimiento = (metodo: PaymentMethod): "vigente" | "pronto" | "vencida" => {
+  const fin = new Date(metodo.exp_ano, metodo.exp_mes, 0, 23, 59, 59);
+  const hoy = new Date();
+  if (fin < hoy) return "vencida";
+  const enDosMeses = new Date(hoy.getFullYear(), hoy.getMonth() + 2, hoy.getDate());
+  return fin <= enDosMeses ? "pronto" : "vigente";
+};
+
 const Tarjetas = () => {
-  const { t } = useTranslation();
+  const { t, localeTag } = useTranslation();
+  const mesVence = (metodo: PaymentMethod) =>
+    new Intl.DateTimeFormat(localeTag, { month: "long", year: "numeric" })
+      .format(new Date(metodo.exp_ano, metodo.exp_mes - 1, 1))
+      .replace(" de ", " ");
   const [metodos, setMetodos] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -257,32 +274,79 @@ const Tarjetas = () => {
             <div />
           </Skeleton>
         ) : metodos.length ? (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {metodos.map((method) => (
-              <div key={method.id_metodo_pago} className="relative mx-auto w-full max-w-[360px]">
-                <TarjetaVisual
-                  marca={method.marca}
-                  numero={`•••• •••• •••• ${method.ultimos4}`}
-                  titular={method.titular}
-                  vencimiento={`${String(method.exp_mes).padStart(2, "0")}/${String(method.exp_ano).slice(-2)}`}
-                  esPrincipal={method.es_principal}
-                />
-                <button
-                  type="button"
-                  onClick={() => setPorEliminar(method)}
-                  disabled={metodos.length <= 1}
-                  title={
-                    metodos.length <= 1
-                      ? t("tarjetas.keepAtLeastOne")
-                      : t("tarjetas.deleteCard")
-                  }
-                  className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-black/25 text-white backdrop-blur-sm transition-[background-color,transform] duration-150 ease-out hover:bg-danger active:scale-[0.94] disabled:pointer-events-none disabled:opacity-40"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
+          <>
+            {/* Cada tarjeta lleva DEBAJO su ficha: qué tarjeta es en
+                palabras, cuándo vence y el botón para quitarla. El botón
+                de borrar vivía ENCIMA de la tarjeta, en la esquina de
+                arriba, y caía justo sobre el logo de la marca —con una
+                sola tarjeta, además, se veía a medias porque no se
+                puede borrar la última—. */}
+            <div className="grid gap-x-5 gap-y-7 sm:grid-cols-2 xl:grid-cols-3">
+              {metodos.map((method) => {
+                const vence = estadoVencimiento(method);
+                const unica = metodos.length <= 1;
+                return (
+                  <article key={method.id_metodo_pago} className="mx-auto flex w-full max-w-[360px] flex-col gap-3.5">
+                    <TarjetaVisual
+                      marca={method.marca}
+                      numero={`•••• •••• •••• ${method.ultimos4}`}
+                      titular={method.titular}
+                      vencimiento={`${String(method.exp_mes).padStart(2, "0")}/${String(method.exp_ano).slice(-2)}`}
+                    />
+                    <div className="flex items-start justify-between gap-3 px-1">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-[13.5px] font-semibold text-ink">
+                          {t("tarjetas.card.endingIn", { marca: method.marca, ultimos4: method.ultimos4 })}
+                        </p>
+                        <p className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-ink-soft">
+                          {t("tarjetas.card.expiresOn", { fecha: mesVence(method) })}
+                          {/* "Principal" vivía impreso en la cara de la tarjeta;
+                              ninguna tarjeta real lo lleva. Es un dato de la app,
+                              y va en la ficha de la app. */}
+                          {method.es_principal && <Badge tono="accent">{t("tarjetas.card.primary")}</Badge>}
+                          {vence !== "vigente" && (
+                            <Badge tono={vence === "vencida" ? "danger" : "warn"}>
+                              {vence === "vencida" ? t("tarjetas.card.expired") : t("tarjetas.card.expiresSoon")}
+                            </Badge>
+                          )}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPorEliminar(method)}
+                        disabled={unica}
+                        title={unica ? t("tarjetas.keepAtLeastOne") : t("tarjetas.deleteCard")}
+                        aria-label={`${t("tarjetas.deleteCard")}: ${t("tarjetas.card.endingIn", { marca: method.marca, ultimos4: method.ultimos4 })}`}
+                        className={`${btnQuiet} shrink-0 px-3 py-1.5 text-[12.5px] hover:bg-danger-wash hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
+                      >
+                        <Trash2 size={14} />
+                        {t("tarjetas.card.delete")}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+
+              {/* Agregar otra, en el lugar donde iría. */}
+              <button
+                type="button"
+                onClick={abrirFormulario}
+                className="mx-auto flex aspect-[1.586/1] w-full max-w-[360px] flex-col items-center justify-center gap-2.5 rounded-[20px] bg-sunken/70 text-ink-soft outline-2 -outline-offset-[10px] outline-ink-mute/25 outline-dashed transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken hover:text-ink active:scale-[0.98]"
+              >
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-surface text-rail">
+                  <Plus size={18} strokeWidth={2} />
+                </span>
+                <span className="text-[13px] font-semibold">{t("tarjetas.addTile")}</span>
+              </button>
+            </div>
+
+            {/* Lo que se preguntaba: el código de seguridad no se ve
+                porque no existe en ningún lado. Dicho, no supuesto. */}
+            <div className="mt-6 flex items-start gap-2 border-t border-sunken pt-4 text-[12px] leading-relaxed text-ink-soft">
+              <ShieldCheck size={15} className="mt-px shrink-0 text-ok" aria-hidden />
+              {t("tarjetas.securityNote")}
+            </div>
+          </>
         ) : (
           <EmptyState
             title={t("tarjetas.empty.title")}

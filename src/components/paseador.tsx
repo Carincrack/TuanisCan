@@ -934,6 +934,21 @@ export const PaseoActivoPaseador = () => (
 
 /* ── Ganancias ───────────────────────────────────────────────── */
 
+/* Se lee como un estado de cuenta, que es lo que es:
+
+     · Un solo resumen, no tres tarjetas sueltas. Lo disponible manda
+       —es la plata que ya es del paseador— y al lado van lo que falta
+       cobrar y lo que se llevó la plataforma.
+     · Los movimientos en orden, del más nuevo al más viejo, agrupados
+       por mes con el neto de cada mes. Antes salían en el orden en que
+       llegaban de la base —24 sept, 26 sept, 24 sept, 1 sept, 1 oct—,
+       que en una planilla de plata se lee como desorden.
+     · Debajo de `lg` no hay tabla: fichas. La tabla de seis columnas
+       partía la fecha y el nombre en dos renglones y dejaba Bruto,
+       Comisión y Neto fuera de la pantalla.
+
+   Los números son los mismos de antes, calculados igual. */
+
 const filtrosIngreso = ["Todos", "Pendientes", "Pagados"];
 const claveFiltroIngresoLabel: Record<string, string> = {
   Todos: "paseadorPanel.earnings.filters.all",
@@ -941,12 +956,23 @@ const claveFiltroIngresoLabel: Record<string, string> = {
   Pagados: "paseadorPanel.earnings.filters.paid",
 };
 
+/** El porcentaje que se queda la plataforma. Es el mismo 15 que ya
+    decía la pantalla; vive en una constante para no escribirlo tres
+    veces. */
+const COMISION_PCT = 15;
+
 export const GananciasPaseador = () => {
   const { t, localeTag } = useTranslation();
   const fechaIngreso = (fecha: string) =>
     new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(
       new Date(`${fecha}T00:00:00`),
     );
+  const nombreMes = (clave: string) => {
+    const texto = new Intl.DateTimeFormat(localeTag, { month: "long", year: "numeric" })
+      .format(new Date(`${clave}-01T00:00:00`))
+      .replace(" de ", " ");
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+  };
   const [filtro, setFiltro] = useState("Todos");
   const [ingresos, setIngresos] = useState<WalkerEarning[]>([]);
   const [loading, setLoading] = useState(true);
@@ -960,17 +986,37 @@ export const GananciasPaseador = () => {
       .finally(() => setLoading(false));
   }, [t]);
 
-  const visibles = ingresos.filter((i) =>
-    filtro === "Pendientes"
-      ? i.estado_pago === "pendiente"
-      : filtro === "Pagados"
-        ? i.estado_pago === "pagado"
-        : true
-  );
+  const visibles = ingresos
+    .filter((i) =>
+      filtro === "Pendientes"
+        ? i.estado_pago === "pendiente"
+        : filtro === "Pagados"
+          ? i.estado_pago === "pagado"
+          : true,
+    )
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   const pagados = ingresos.filter((i) => i.estado_pago === "pagado");
   const pendientes = ingresos.filter((i) => i.estado_pago === "pendiente");
   const totalNeto = visibles.reduce((s, i) => s + i.neto, 0);
+  const netoPagado = pagados.reduce((sum, item) => sum + item.neto, 0);
+  const netoPendiente = pendientes.reduce((sum, item) => sum + item.neto, 0);
+  const comisionPagada = pagados.reduce((sum, item) => sum + item.comision, 0);
+
+  /* Los meses, en el orden en que ya vienen los movimientos. */
+  const meses: { clave: string; items: WalkerEarning[] }[] = [];
+  for (const item of visibles) {
+    const clave = item.fecha.slice(0, 7);
+    const ultimo = meses[meses.length - 1];
+    if (ultimo?.clave === clave) ultimo.items.push(item);
+    else meses.push({ clave, items: [item] });
+  }
+
+  const estado = (i: WalkerEarning) => (
+    <Badge tono={i.estado_pago === "pagado" ? "ok" : "warn"}>
+      {i.estado_pago === "pagado" ? t("paseadorPanel.earnings.statusPaid") : t("paseadorPanel.earnings.statusPending")}
+    </Badge>
+  );
 
   return (
     <Page>
@@ -978,29 +1024,62 @@ export const GananciasPaseador = () => {
         title={t("paseadorPanel.earnings.title")}
         subtitle={t("paseadorPanel.earnings.subtitle")}
         action={
-          <span className="flex items-center gap-2 bg-sunken px-4 py-2.5 text-[13px] text-ink-soft">
+          <span className="inline-flex items-center gap-2 rounded-full bg-sunken px-4 py-2 text-[12.5px] font-medium text-ink-soft">
             <Wallet size={15} strokeWidth={1.9} aria-hidden />
-            {t("paseadorPanel.earnings.commission")}
+            {t("paseadorPanel.earnings.commissionPill", { pct: COMISION_PCT })}
           </span>
         }
       />
 
-      <div className="grid gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta={t("paseadorPanel.earnings.stats.available")} valor={colones(pagados.reduce((sum, item) => sum + item.neto, 0))} nota={`${pagados.length} ${t("paseadorPanel.earnings.stats.paymentsSuffix")}`} />
-        <Stat etiqueta={t("paseadorPanel.earnings.stats.pendingPayment")} valor={colones(pendientes.reduce((sum, item) => sum + item.neto, 0))} nota={`${pendientes.length} ${t("paseadorPanel.earnings.stats.walksSuffix")}`} />
-        <Stat etiqueta={t("paseadorPanel.earnings.stats.deductedCommission")} valor={colones(pagados.reduce((sum, item) => sum + item.comision, 0))} nota="15%" />
-      </div>
+      {/* ── El resumen ── */}
+      <section className="rounded-[18px] bg-surface">
+        <div className="grid sm:grid-cols-[1.35fr_1fr_1fr]">
+          <div className="px-6 pt-5 pb-4">
+            <p className="rotulo text-ink-mute">{t("paseadorPanel.earnings.summary.available")}</p>
+            <p className="titular nums mt-2 text-[32px] leading-none text-rail">{colones(netoPagado)}</p>
+            <p className="mt-2 text-[12px] text-ink-soft">
+              {pagados.length === 1
+                ? t("paseadorPanel.earnings.summary.availableNoteOne")
+                : t("paseadorPanel.earnings.summary.availableNote", { count: pagados.length })}
+            </p>
+          </div>
 
-      <div className="bg-surface">
-        <FilterTabs
-          label={t("paseadorPanel.earnings.filters.label")}
-          options={filtrosIngreso.map((o) => ({ value: o, label: t(claveFiltroIngresoLabel[o]) }))}
-          value={filtro}
-          onChange={setFiltro}
-        />
-      </div>
+          <div className="border-t border-sunken px-6 pt-5 pb-4 sm:border-t-0 sm:border-l">
+            <p className="rotulo flex items-center gap-1.5 text-ink-mute">
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-warn" />
+              {t("paseadorPanel.earnings.summary.pending")}
+            </p>
+            <p className="nums mt-2.5 text-[21px] leading-none font-semibold text-ink">{colones(netoPendiente)}</p>
+            <p className="mt-2 text-[12px] text-ink-soft">
+              {pendientes.length === 1
+                ? t("paseadorPanel.earnings.summary.pendingNoteOne")
+                : t("paseadorPanel.earnings.summary.pendingNote", { count: pendientes.length })}
+            </p>
+          </div>
 
+          <div className="border-t border-sunken px-6 pt-5 pb-4 sm:border-t-0 sm:border-l">
+            <p className="rotulo text-ink-mute">{t("paseadorPanel.earnings.summary.commission")}</p>
+            <p className="nums mt-2.5 text-[21px] leading-none font-semibold text-ink-soft">−{colones(comisionPagada)}</p>
+            <p className="mt-2 text-[12px] text-ink-soft">
+              {t("paseadorPanel.earnings.summary.commissionNote", { pct: COMISION_PCT })}
+            </p>
+          </div>
+        </div>
+
+      </section>
+
+      {/* ── Los movimientos ── */}
       <Section bodyClass="">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-3 pt-4 pb-3 sm:px-5">
+          <FilterTabs
+            label={t("paseadorPanel.earnings.filters.label")}
+            options={filtrosIngreso.map((o) => ({ value: o, label: t(claveFiltroIngresoLabel[o]) }))}
+            value={filtro}
+            onChange={setFiltro}
+            cuentas={{ Todos: ingresos.length, Pendientes: pendientes.length, Pagados: pagados.length }}
+          />
+        </div>
+
         {error ? (
           <div role="alert" className="px-6 py-6 text-[13px] text-danger">{error}</div>
         ) : loading ? (
@@ -1008,55 +1087,97 @@ export const GananciasPaseador = () => {
             <Loader size={16} className="animate-spin" /> {t("paseadorPanel.earnings.loading")}
           </div>
         ) : visibles.length ? (
-          <><Table
-          caption={t("paseadorPanel.earnings.caption", { filtro: t(claveFiltroIngresoLabel[filtro]).toLowerCase() })}
-          columnas={[
-            { label: t("paseadorPanel.earnings.columns.date") },
-            { label: t("paseadorPanel.earnings.columns.walk") },
-            { label: t("paseadorPanel.earnings.columns.status") },
-            { label: t("paseadorPanel.earnings.columns.gross"), align: "right" },
-            { label: t("paseadorPanel.earnings.columns.commission"), align: "right" },
-            { label: t("paseadorPanel.earnings.columns.net"), align: "right" },
-          ]}
-        >
-          {visibles.map((i) => (
-            <tr key={i.id_pago}>
-              <td className="nums px-6 py-3.5 text-[12.5px] text-ink-soft">
-                {fechaIngreso(i.fecha)}
-              </td>
-              <td className="px-6 py-3.5">
-                <p className="text-[13px] font-medium text-ink">{i.mascota}</p>
-                <p className="text-[11.5px] text-ink-soft">{i.dueno}</p>
-              </td>
-              <td className="px-6 py-3.5">
-                <Badge tono={i.estado_pago === "pagado" ? "ok" : "warn"}>
-                  {i.estado_pago === "pagado" ? t("paseadorPanel.earnings.statusPaid") : t("paseadorPanel.earnings.statusPending")}
-                </Badge>
-              </td>
-              <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
-                {colones(i.bruto)}
-              </td>
-              <td className="nums px-6 py-3.5 text-right text-[12.5px] text-ink-soft">
-                −{colones(i.comision)}
-              </td>
-              <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
-                {colones(i.neto)}
-              </td>
-            </tr>
-          ))}
-        </Table>
+          <>
+            {/* De lg para arriba: la tabla, con un renglón por mes. */}
+            <div className="hidden lg:block">
+              <Table
+                caption={t("paseadorPanel.earnings.caption", { filtro: t(claveFiltroIngresoLabel[filtro]).toLowerCase() })}
+                min="min-w-[640px]"
+                padX="px-4"
+                columnas={[
+                  { label: t("paseadorPanel.earnings.columns.date"), ancho: "w-[13%]" },
+                  { label: t("paseadorPanel.earnings.columns.walk"), ancho: "w-[29%]" },
+                  { label: t("paseadorPanel.earnings.columns.status"), ancho: "w-[16%]" },
+                  { label: t("paseadorPanel.earnings.columns.gross"), ancho: "w-[14%]", align: "right" },
+                  { label: t("paseadorPanel.earnings.columns.commission"), ancho: "w-[14%]", align: "right" },
+                  { label: t("paseadorPanel.earnings.columns.net"), ancho: "w-[14%]", align: "right" },
+                ]}
+              >
+                {meses.flatMap((mes) => [
+                  <tr key={`mes-${mes.clave}`} className="bg-surface!">
+                    <th colSpan={6} scope="colgroup" className="px-4 pt-5 pb-2 text-left">
+                      <span className="flex items-baseline justify-between gap-3">
+                        <span className="titular text-[14px] text-ink">{nombreMes(mes.clave)}</span>
+                        <span className="nums text-[12px] font-medium text-ink-soft">
+                          {t("paseadorPanel.earnings.monthNet")}{" "}
+                          <span className="font-semibold text-ink">{colones(mes.items.reduce((s, i) => s + i.neto, 0))}</span>
+                        </span>
+                      </span>
+                    </th>
+                  </tr>,
+                  ...mes.items.map((i) => (
+                    <tr key={i.id_pago}>
+                      <td className="nums px-4 py-3 text-[12.5px] whitespace-nowrap text-ink-soft">{fechaIngreso(i.fecha)}</td>
+                      <td className="px-4 py-3">
+                        <p className="truncate text-[13px] font-semibold text-ink" title={i.mascota}>{i.mascota}</p>
+                        <p className="truncate text-[11.5px] text-ink-soft" title={i.dueno}>{i.dueno}</p>
+                      </td>
+                      <td className="px-4 py-3">{estado(i)}</td>
+                      <td className="nums px-4 py-3 text-right text-[12.5px] whitespace-nowrap text-ink-soft">{colones(i.bruto)}</td>
+                      <td className="nums px-4 py-3 text-right text-[12.5px] whitespace-nowrap text-ink-mute">−{colones(i.comision)}</td>
+                      <td className="nums px-4 py-3 text-right text-[13.5px] font-semibold whitespace-nowrap text-ink">{colones(i.neto)}</td>
+                    </tr>
+                  )),
+                ])}
+              </Table>
+            </div>
 
-        <div className="flex items-center justify-between bg-sunken px-6 py-3.5">
-          <span className="text-[12.5px] font-medium text-ink-soft">
-            {t("paseadorPanel.earnings.netOfSelection")}
-          </span>
-          <span className="nums text-[15px] font-semibold text-ink">
-            {colones(totalNeto)}
-          </span>
-        </div>
-        </>
+            {/* Debajo de lg: fichas agrupadas por mes. */}
+            <div className="flex flex-col gap-4 px-4 pb-2 lg:hidden">
+              {meses.map((mes) => (
+                <section key={mes.clave}>
+                  <div className="flex items-baseline justify-between gap-3 px-1 pb-2">
+                    <h3 className="titular text-[14px] text-ink">{nombreMes(mes.clave)}</h3>
+                    <span className="nums text-[12px] font-semibold text-ink">{colones(mes.items.reduce((s, i) => s + i.neto, 0))}</span>
+                  </div>
+                  <ul className="flex flex-col gap-2">
+                    {mes.items.map((i) => (
+                      <li key={i.id_pago} className="rounded-[14px] bg-sunken/60 px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[13.5px] font-semibold text-ink">{i.mascota}</p>
+                            <p className="truncate text-[11.5px] text-ink-soft">{i.dueno}</p>
+                          </div>
+                          <span className="nums shrink-0 text-[15px] font-semibold text-ink">{colones(i.neto)}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                          {estado(i)}
+                          <span className="nums text-[11.5px] text-ink-mute">{fechaIngreso(i.fecha)}</span>
+                          {/* Siempre en su renglón: al lado de la insignia entraba o
+                              no según lo larga que fuera, y las fichas quedaban
+                              de alturas distintas. */}
+                          <span className="nums basis-full text-[11.5px] text-ink-mute">
+                            {t("paseadorPanel.earnings.grossLine", { bruto: colones(i.bruto), comision: colones(i.comision) })}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+
+            <div className="mt-2 flex items-center justify-between rounded-b-[18px] bg-sunken/70 px-5 py-3.5">
+              <span className="text-[12.5px] font-medium text-ink-soft">
+                {t("paseadorPanel.earnings.netOfSelection")}
+              </span>
+              <span className="titular nums text-[17px] text-rail">{colones(totalNeto)}</span>
+            </div>
+          </>
         ) : (
-          <EmptyState title={t("paseadorPanel.earnings.empty.title")} hint={t("paseadorPanel.earnings.empty.hint")} />
+          <div className="px-4 pb-4 sm:px-5">
+            <EmptyState title={t("paseadorPanel.earnings.empty.title")} hint={t("paseadorPanel.earnings.empty.hint")} />
+          </div>
         )}
       </Section>
     </Page>

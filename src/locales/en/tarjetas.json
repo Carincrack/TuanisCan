@@ -16,7 +16,7 @@
   "form": {
     "dialogTitle": "Register payment method",
     "preview": "Preview",
-    "storageNotice": "We only store the brand and the last four digits.",
+    "storageNotice": "We store the cardholder, brand, last four digits and expiry date.",
     "acceptedCards": "Accepted cards",
     "acceptedCardsDetail": "Visa (starts with 4) and Mastercard (51-55 or 2221-2720).",
     "holderName": "Cardholder name",
@@ -46,5 +46,16 @@
     "invalidNumber": "That number doesn't exist. Check the digits.",
     "invalidExpiry": "Invalid or expired date. Use MM/YY.",
     "invalidCvv": "It's the three digits on the back."
-  }
+  },
+  "card": {
+    "endingIn": "{{marca}} ending in {{ultimos4}}",
+    "expiresOn": "Expires {{fecha}}",
+    "expired": "Expired",
+    "expiresSoon": "Expiring soon",
+    "primary": "Primary",
+    "delete": "Remove",
+    "onlyCard": "It is your only card"
+  },
+  "addTile": "Add card",
+  "securityNote": "We only store the cardholder, brand, last four digits and expiry date. The full number and security code never leave your device."
 }

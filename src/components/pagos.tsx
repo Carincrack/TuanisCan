@@ -13,7 +13,6 @@ import {
   Repeat,
   Search,
   ShieldCheck,
-  TrendingUp,
   Wallet,
 } from "../lib/iconos";
 import { aviso, motivo } from "../lib/aviso";
@@ -372,47 +371,39 @@ const Pagos = () => {
         </div>
       )}
 
-      {/* ── Las tres cifras ── */}
+      {/* ── Las tres cifras ──
+          Las tres iguales: blancas, mismo disco gris para el ícono y el
+          monto en tinta. La de pendiente se levantaba entera en ámbar
+          —fondo, filete, disco macizo y monto— y desde lejos parecía un
+          error, no un dato. Ahora lo dice un punto ámbar junto al
+          rótulo, el mismo de "Por cobrar" en Ganancias. */}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-[18px] bg-surface px-5 py-4">
           <div className="flex items-center justify-between gap-2">
             <p className="rotulo text-ink-mute">{t("pagos.stats.spentThisMonth", { mes: stats.mesNombre })}</p>
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sunken text-ink-soft">
               <Wallet size={15} />
             </span>
           </div>
           <p className="nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] text-ink">
             {colones(stats.spent)}
           </p>
-          <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-soft">
-            <TrendingUp size={13} className="text-ok" />
+          <p className="mt-1.5 text-[12px] text-ink-soft">
             {stats.count} {t(stats.count === 1 ? "pagos.stats.paymentSingular" : "pagos.stats.paymentPlural")}
-          </div>
+          </p>
         </div>
 
-        {/* La única que puede pedir algo. Con deuda se levanta con un
-            filete cálido apenas visible; en cero se calla y se ve como
-            las otras dos. */}
-        <div
-          className={`rounded-[18px] px-5 py-4 ${
-            stats.pending > 0 ? "bg-warn-wash/60 ring-1 ring-warn/20" : "bg-surface"
-          }`}
-        >
+        <div className="rounded-[18px] bg-surface px-5 py-4">
           <div className="flex items-center justify-between gap-2">
-            <p className="rotulo text-ink-mute">{t("pagos.stats.pendingToCollect")}</p>
-            <span
-              className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${
-                stats.pending > 0 ? "bg-warn text-white" : "bg-sunken text-ink-mute"
-              }`}
-            >
+            <p className="rotulo flex items-center gap-1.5 text-ink-mute">
+              {stats.pending > 0 && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-warn" />}
+              {t("pagos.stats.pendingToCollect")}
+            </p>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sunken text-ink-soft">
               <Clock size={15} />
             </span>
           </div>
-          <p
-            className={`nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] ${
-              stats.pending > 0 ? "text-warn" : "text-ink"
-            }`}
-          >
+          <p className="nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] text-ink">
             {colones(stats.pending)}
           </p>
           <p className="mt-1.5 text-[12px] text-ink-soft">
@@ -425,11 +416,11 @@ const Pagos = () => {
         <div className="rounded-[18px] bg-surface px-5 py-4">
           <div className="flex items-center justify-between gap-2">
             <p className="rotulo text-ink-mute">{t("pagos.stats.totalRefunded")}</p>
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ok-wash text-ok">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sunken text-ink-soft">
               <Banknote size={15} />
             </span>
           </div>
-          <p className="nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] text-ok">
+          <p className="nums mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] text-ink">
             {colones(stats.refunded)}
           </p>
           <p className="mt-1.5 text-[12px] text-ink-soft">
@@ -440,43 +431,20 @@ const Pagos = () => {
         </div>
       </div>
 
-      {/* ── Las tarjetas ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-surface px-5 py-3.5">
-        {loading ? (
-          <Skeleton name="mascotas-rejilla" loading>
-            <div />
-          </Skeleton>
-        ) : metodos.length ? (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] text-ink-soft">
-                {metodos.length} {t(metodos.length === 1 ? "pagos.cards.savedSingular" : "pagos.cards.savedPlural")}
-              </span>
-              <div className="flex -space-x-1.5">
-                {metodos.map((method) => (
-                  <SelloTarjeta
-                    key={method.id_metodo_pago}
-                    marca={method.marca}
-                    className="h-6 w-9 ring-2 ring-surface"
-                  />
-                ))}
-              </div>
-            </div>
-            <Link to="/pagos/tarjetas" className={btnSecondary}>
-              <CreditCard size={14} strokeWidth={1.9} />
-              {t("pagos.manageCards")}
-            </Link>
-          </>
-        ) : (
-          <>
-            <span className="text-[13px] text-ink-soft">{t("pagos.cards.none")}</span>
-            <Link to="/pagos/tarjetas" className={btnPrimary}>
-              <CreditCard size={15} strokeWidth={2} />
-              {t("pagos.cards.addCard")}
-            </Link>
-          </>
-        )}
-      </div>
+      {/* ── Sin tarjetas ──
+          Con tarjetas guardadas esta franja repetía el "Gestionar
+          tarjetas" de la cabecera. Queda solo para cuando no hay
+          ninguna: ahí sí hace falta decirlo, porque sin tarjeta no se
+          puede abonar un paseo. */}
+      {!loading && !metodos.length && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-surface px-5 py-3.5">
+          <span className="text-[13px] text-ink-soft">{t("pagos.cards.none")}</span>
+          <Link to="/pagos/tarjetas" className={btnPrimary}>
+            <CreditCard size={15} strokeWidth={2} />
+            {t("pagos.cards.addCard")}
+          </Link>
+        </div>
+      )}
 
       {/* ── Filtros y búsqueda ── */}
       <div className="flex flex-col gap-3 rounded-[18px] bg-surface p-3.5 lg:flex-row lg:items-center lg:gap-4">

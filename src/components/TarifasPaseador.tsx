@@ -14,6 +14,7 @@ import { updateWalkerPricing } from "../services/walkers.service";
 import type { I18nContextValue } from "../context/i18n-context";
 import {
   EmptyState,
+  Interruptor,
   Page,
   PageHeader,
   Section,
@@ -178,7 +179,14 @@ const CampoPorcentaje = ({
         value={n}
         onChange={(event) => onChange(event.target.value)}
         aria-label={t("tarifas.surcharges.sliderAria", { etiqueta })}
-        className="h-1.5 w-full min-w-[120px] cursor-pointer accent-rail"
+        /* El deslizador del navegador es gris y de otro mundo. Este
+           pinta lo recorrido en navy y el resto en el hundido de la
+           casa, con la perilla blanca de borde navy: el mismo par de
+           colores que el interruptor. */
+        style={{
+          background: `linear-gradient(to right, var(--color-rail) ${n}%, var(--color-sunken) ${n}%)`,
+        }}
+        className="h-1.5 w-full min-w-[120px] cursor-pointer appearance-none rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-rail [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-rail [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(20,36,46,0.25)] [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-150 active:[&::-webkit-slider-thumb]:scale-110"
       />
       <span className="relative block w-[88px] shrink-0">
         <input
@@ -238,8 +246,18 @@ const FilaRecargo = ({
   </div>
 );
 
-/** El resultado. Navy, fijo al hacer scroll, y con la duración y el
-    "para hoy" como palancas para ver cualquier caso. */
+/** El resultado: lo que cobra con esta configuración, en vivo. Fijo
+    al hacer scroll, con la duración y el "para hoy" como palancas
+    para ver cualquier caso.
+
+    Antes era un bloque navy entero —píldora blanca para la duración,
+    celdas translúcidas, porcentajes en turquesa pleno sobre navy—, y
+    junto a una página clara se sentía chillón: todo competía con
+    todo. Ahora el navy queda donde tiene sentido, en la cabecera con
+    el precio, que ES el resultado; el resto es papel claro con las
+    piezas de siempre de la casa: la pista de píldoras de los filtros,
+    el interruptor, el botón navy. Los recargos se marcan con el
+    lavado turquesa en vez del turquesa a pleno. */
 const PanelPrecio = ({
   form,
   cambios,
@@ -263,94 +281,134 @@ const PanelPrecio = ({
     { rotulo: t("tarifas.panel.weekend"), finDeSemana: true },
   ];
 
-  return (
-    <aside className="rounded-[18px] bg-rail p-5 text-white lg:sticky lg:top-4 sm:p-6" aria-label={t("tarifas.panel.label")}>
-      <p className="text-[13px] text-rail-text">{t("tarifas.panel.chargeFor")}</p>
+  /* La cifra grande es la de base —entre semana, de día, sin "para
+     hoy"—: la que el paseador reconoce como "su precio". Las demás
+     viven en la grilla, como variaciones de esta. */
+  const base = precioSegunCondiciones(tarifa, r, duracion, {
+    finDeSemana: false,
+    nocturno: false,
+    mismoDia: false,
+  });
 
-      <div role="group" aria-label={t("tarifas.panel.durationAria")} className="mt-2.5 grid grid-cols-4 gap-1 rounded-full bg-white/10 p-1">
-        {DURACIONES.map((min) => (
-          <button
-            key={min}
-            type="button"
-            aria-pressed={duracion === min}
-            onClick={() => setDuracion(min)}
-            className={`nums rounded-full py-1.5 text-[12.5px] font-semibold transition-colors duration-150 ${
-              duracion === min ? "bg-white text-rail" : "text-rail-text hover:text-white"
-            }`}
-          >
-            {min} min
-          </button>
-        ))}
+  return (
+    <aside
+      className="overflow-hidden rounded-[18px] bg-surface lg:sticky lg:top-4"
+      aria-label={t("tarifas.panel.label")}
+    >
+      {/* ── La cabecera: el resultado ── */}
+      <div className="bg-rail px-5 pt-5 pb-6 sm:px-6">
+        <p className="rotulo text-rail-mute">{t("tarifas.panel.title")}</p>
+        <p className="mt-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <span className="titular nums text-[34px] leading-none text-white">{colones(base.total)}</span>
+          <span className="nums text-[13px] text-rail-text">{t("tarifas.panel.perWalk", { min: duracion })}</span>
+        </p>
+        <p className="mt-1.5 text-[12px] text-rail-mute">{t("tarifas.panel.heroCaption")}</p>
       </div>
 
-      <table className="nums mt-5 w-full border-separate border-spacing-1.5 text-left">
-        <caption className="sr-only">{t("tarifas.panel.priceCaption")}</caption>
-        <thead>
-          <tr>
-            <td />
-            <th scope="col" className="px-1 text-[11.5px] font-medium text-rail-mute">{t("tarifas.panel.daytime")}</th>
-            <th scope="col" className="px-1 text-[11.5px] font-medium text-rail-mute">
-              {t("tarifas.panel.nighttime")}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {filas.map((fila) => (
-            <tr key={fila.rotulo}>
-              <th scope="row" className="w-[74px] pr-1 align-middle text-[12px] leading-tight font-medium text-rail-text">
-                {fila.rotulo}
-              </th>
-              {[false, true].map((nocturno) => {
-                const precio = celda(fila.finDeSemana, nocturno);
-                const suma = precio.aplicados.reduce((t, a) => t + a.porcentaje, 0);
-                return (
-                  <td key={String(nocturno)} className="rounded-[12px] bg-white/[0.08] px-3 py-3 align-top">
-                    <span className="block text-[19px] leading-none font-semibold tracking-[-0.01em]">
-                      {colones(precio.total)}
-                    </span>
-                    <span className={`mt-1.5 block text-[11px] ${suma > 0 ? "text-accent" : "text-rail-mute"}`}>
-                      {suma > 0 ? `+${suma} %` : t("tarifas.panel.baseRateLabel")}
-                    </span>
-                  </td>
-                );
-              })}
-            </tr>
+      <div className="px-5 pt-5 pb-5 sm:px-6">
+        {/* La duración: la misma pista de píldoras que los filtros. */}
+        <div
+          role="group"
+          aria-label={t("tarifas.panel.durationAria")}
+          className="grid grid-cols-4 gap-1 rounded-full bg-sunken p-1"
+        >
+          {DURACIONES.map((min) => (
+            <button
+              key={min}
+              type="button"
+              aria-pressed={duracion === min}
+              onClick={() => setDuracion(min)}
+              className={`nums rounded-full py-2 text-[12.5px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
+                duracion === min ? "bg-rail font-semibold text-white" : "text-ink-soft hover:bg-white/70 hover:text-ink"
+              }`}
+            >
+              {min} min
+            </button>
           ))}
-        </tbody>
-      </table>
+        </div>
 
-      <button
-        type="button"
-        role="switch"
-        aria-checked={hoy}
-        onClick={() => setHoy(!hoy)}
-        className="mt-3 flex w-full items-center justify-between gap-3 rounded-[12px] bg-white/[0.06] px-3.5 py-2.5 text-left transition-colors hover:bg-white/10"
-      >
-        <span className="text-[12.5px] text-rail-text">
-          {t("tarifas.panel.sameDayToggle")}
-          <span className="nums ml-1 text-white">+{r.recargo_mismo_dia} %</span>
-        </span>
-        <span
-          aria-hidden
-          className={`relative inline-flex h-[20px] w-[34px] shrink-0 items-center rounded-full p-[3px] transition-colors ${hoy ? "bg-accent" : "bg-white/20"}`}
-        >
-          <span className={`h-3.5 w-3.5 rounded-full bg-white transition-transform duration-200 ${hoy ? "translate-x-3.5" : ""}`} />
-        </span>
-      </button>
+        {/* ── La grilla: día y noche, entre semana y fin de semana ── */}
+        <table className="nums mt-4 w-full border-separate border-spacing-1 text-left">
+          <caption className="sr-only">{t("tarifas.panel.priceCaption")}</caption>
+          <thead>
+            <tr>
+              <td />
+              <th scope="col" className="px-2 pb-1 text-[11px] font-semibold tracking-[0.04em] text-ink-mute">
+                {t("tarifas.panel.daytime")}
+              </th>
+              <th scope="col" className="px-2 pb-1 text-[11px] font-semibold tracking-[0.04em] text-ink-mute">
+                {t("tarifas.panel.nighttime")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((fila) => (
+              <tr key={fila.rotulo}>
+                <th
+                  scope="row"
+                  className="w-[78px] pr-1 align-middle text-[12px] leading-tight font-medium text-ink-soft"
+                >
+                  {fila.rotulo}
+                </th>
+                {[false, true].map((nocturno) => {
+                  const precio = celda(fila.finDeSemana, nocturno);
+                  const suma = precio.aplicados.reduce((total, a) => total + a.porcentaje, 0);
+                  return (
+                    <td key={String(nocturno)} className="rounded-[12px] bg-sunken/60 px-3 py-2.5 align-top">
+                      <span className="block text-[16px] leading-none font-semibold tracking-[-0.01em] text-ink">
+                        {colones(precio.total)}
+                      </span>
+                      {suma > 0 ? (
+                        <span className="mt-1.5 inline-block rounded-full bg-accent-wash px-1.5 py-0.5 text-[10.5px] font-semibold text-accent-deep">
+                          +{suma} %
+                        </span>
+                      ) : (
+                        <span className="mt-1.5 inline-block py-0.5 text-[10.5px] font-medium text-ink-mute">
+                          {t("tarifas.panel.base")}
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      <div className="mt-5 border-t border-white/10 pt-5">
-        <p aria-live="polite" className="mb-3 text-[12px] text-rail-text">
-          {cambios ? t("tarifas.panel.unsavedChanges") : t("tarifas.panel.currentView")}
-        </p>
-        <button
-          type="submit"
-          form="form-tarifas"
-          disabled={saving || !cambios}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-rail transition-[filter,transform] duration-150 hover:brightness-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-rail-text"
-        >
-          {saving ? <Loader size={15} className="animate-spin" /> : <Save size={15} />}
-          {saving ? t("tarifas.saving") : t("tarifas.panel.save")}
-        </button>
+        {/* "Para hoy": el interruptor de la casa. */}
+        {/* Sin fondo: el interruptor apagado es gris claro y sobre un
+            gris de la misma familia desaparecía. */}
+        <div className="mt-3 flex items-center justify-between gap-3 px-1 py-1.5">
+          <span className="text-[12.5px] text-ink-soft">
+            {t("tarifas.panel.sameDayToggle")}
+            <span className="nums ml-1 font-semibold text-ink">+{r.recargo_mismo_dia} %</span>
+          </span>
+          <Interruptor
+            activo={hoy}
+            etiqueta={t("tarifas.panel.sameDayToggle")}
+            onCambio={() => setHoy(!hoy)}
+          />
+        </div>
+
+        {/* ── Guardar ── */}
+        <div className="mt-5 border-t border-sunken pt-4">
+          <p aria-live="polite" className="mb-3 flex items-center gap-2 text-[12px] text-ink-soft">
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${cambios ? "bg-warn" : "bg-ok"}`}
+            />
+            {cambios ? t("tarifas.panel.unsavedChanges") : t("tarifas.panel.currentView")}
+          </p>
+          <button
+            type="submit"
+            form="form-tarifas"
+            disabled={saving || !cambios}
+            className={`${btnPrimary} w-full disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100`}
+          >
+            {saving ? <Loader size={15} className="animate-spin" /> : <Save size={15} />}
+            {saving ? t("tarifas.saving") : t("tarifas.panel.save")}
+          </button>
+        </div>
       </div>
     </aside>
   );

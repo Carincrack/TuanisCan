@@ -157,6 +157,19 @@
     "empty": {
       "title": "Sin ganancias todavía",
       "hint": "Los pagos de tus paseos aparecerán aquí."
-    }
+    },
+    "commissionPill": "Comisión {{pct}} %",
+    "summary": {
+      "available": "Disponible",
+      "availableNote": "{{count}} pagos acreditados",
+      "availableNoteOne": "1 pago acreditado",
+      "pending": "Por cobrar",
+      "pendingNote": "{{count}} paseos",
+      "pendingNoteOne": "1 paseo",
+      "commission": "Comisión descontada",
+      "commissionNote": "{{pct}} % de lo cobrado"
+    },
+    "monthNet": "Neto del mes",
+    "grossLine": "Bruto {{bruto}} · comisión −{{comision}}"
   }
 }

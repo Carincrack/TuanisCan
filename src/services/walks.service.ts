@@ -107,6 +107,13 @@ interface PerfilRow {
   foto_perfil: string | null;
 }
 
+/** Lo que el directorio público dice de cada paseador. */
+interface PaseadorPublicoRow {
+  id_usuario: string;
+  nombre: string | null;
+  foto_perfil: string | null;
+}
+
 export interface ListWalksFilters {
   zonaId?: string | null;
   estado?: string | null;
@@ -131,16 +138,28 @@ export const listWalksWithRelations = async (
     query = query.eq("estado", filters.estado);
   }
 
+  /* El nombre y la foto del paseador. `perfil_usuario` solo deja leer
+     la fila propia —y todas al admin—, así que para el dueño cualquier
+     otro paseador llegaba sin nombre: «Sin nombre» en cada fila. El
+     directorio público (`buscar_paseadores`) sí los da, que es de
+     donde el dueño los conoció al agendar. Se piden todos, no solo los
+     disponibles: el que hoy no está disponible igual paseó ayer. */
   const [
     walksResult,
     mascotasResult,
     paseadoresResult,
     zonasResult,
+    directorioResult,
   ] = await Promise.all([
     query,
     supabase.from("mascotas").select("id_mascota, nombre, foto"),
     supabase.from("paseadores").select("id_usuario"),
     supabase.from("zonas").select("id_zona, nombre, canton, provincia, distrito"),
+    supabase.rpc("buscar_paseadores", {
+      p_zona_id: null,
+      p_solo_disponibles: false,
+      p_calificacion_min: null,
+    }),
   ]);
 
   if (walksResult.error) throw walksResult.error;
@@ -153,6 +172,19 @@ export const listWalksWithRelations = async (
 
   const zonasMap = new Map<string, ZonaRow>();
   (zonasResult.data ?? []).forEach((z: ZonaRow) => zonasMap.set(z.id_zona, z));
+
+  const directorioMap = new Map<string, PaseadorPublicoRow>();
+  ((directorioResult.data ?? []) as PaseadorPublicoRow[]).forEach((p) => directorioMap.set(p.id_usuario, p));
+
+  /* Una firma por foto, no una por fila: la misma mascota en veinte
+     paseos pedía veinte URLs firmadas de la misma imagen. */
+  const firmas = new Map<string, Promise<string | null>>();
+  const firmar = (bucket: string, path: string | null) => {
+    if (!path) return Promise.resolve(null);
+    const clave = `${bucket}/${path}`;
+    if (!firmas.has(clave)) firmas.set(clave, photoUrl(bucket, path));
+    return firmas.get(clave)!;
+  };
 
   const paseadorIds = [...paseadoresMap.keys()];
   const perfilUsuarioMap = new Map<string, PerfilRow>();
@@ -176,6 +208,8 @@ export const listWalksWithRelations = async (
       const mascota = mascotasMap.get(row.id_mascota);
       const paseadorRaw = row.id_paseador ? paseadoresMap.get(row.id_paseador) : null;
       const perfil = row.id_paseador ? perfilUsuarioMap.get(row.id_paseador) : null;
+      const publico = row.id_paseador ? directorioMap.get(row.id_paseador) : null;
+      const fotoPaseador = perfil?.foto_perfil ?? publico?.foto_perfil ?? null;
 
       return {
         id_paseo: row.id_paseo,
@@ -196,15 +230,15 @@ export const listWalksWithRelations = async (
               id_mascota: mascota.id_mascota,
               nombre: mascota.nombre,
               foto: mascota.foto,
-              fotoUrl: await photoUrl(MASCOTA_BUCKET, mascota.foto),
+              fotoUrl: await firmar(MASCOTA_BUCKET, mascota.foto),
             }
           : null,
         paseador: paseadorRaw
           ? {
               id_usuario: paseadorRaw.id_usuario,
-              nombre: perfil?.nombre ?? null,
-              foto: perfil?.foto_perfil ?? null,
-              fotoUrl: await photoUrl(PERFIL_BUCKET, perfil?.foto_perfil ?? null),
+              nombre: perfil?.nombre ?? publico?.nombre ?? null,
+              foto: fotoPaseador,
+              fotoUrl: await firmar(PERFIL_BUCKET, fotoPaseador),
             }
           : null,
         zona: row.zona_id ? zonasMap.get(row.zona_id) ?? null : null,
@@ -259,16 +293,42 @@ export const listAdminWalks = async (): Promise<AdminWalkMovement[]> => {
   }));
 };
 
-export const isUpcoming = (walk: { estado: string }): boolean => {
+/** Lo mínimo para ubicar un paseo en el tiempo. Los campos de fecha
+    son opcionales para que lo use quien solo tiene el estado. */
+interface PaseoEnElTiempo {
+  estado: string;
+  fecha?: string;
+  hora_inicio?: string;
+  duracion_min?: number;
+}
+
+/** Cuándo debía terminar: inicio más duración. */
+export const finPrevisto = (walk: Required<Pick<PaseoEnElTiempo, "fecha" | "hora_inicio" | "duracion_min">>) => {
+  const inicio = new Date(`${walk.fecha}T${walk.hora_inicio.slice(0, 5)}:00`);
+  return new Date(inicio.getTime() + walk.duracion_min * 60_000);
+};
+
+/** Pasó la hora en que debía terminar y nunca arrancó: una solicitud
+    que nadie respondió o un paseo confirmado que no se inició. La base
+    no lo marca —el estado se queda donde quedó—, así que sin esto un
+    paseo de hace un mes seguía saliendo como «próximo». */
+export const isOverdue = (walk: PaseoEnElTiempo): boolean => {
+  if (walk.estado !== "solicitado" && walk.estado !== "confirmado") return false;
+  if (!walk.fecha || !walk.hora_inicio || walk.duracion_min === undefined) return false;
+  return finPrevisto({ fecha: walk.fecha, hora_inicio: walk.hora_inicio, duracion_min: walk.duracion_min }) < new Date();
+};
+
+export const isUpcoming = (walk: PaseoEnElTiempo): boolean => {
   const status = walk.estado;
-  return status === "solicitado" || status === "confirmado" || status === "en_curso";
+  if (status === "en_curso") return true;
+  return (status === "solicitado" || status === "confirmado") && !isOverdue(walk);
 };
 
 export const isPast = (walk: { estado: string }): boolean => {
   return walk.estado === "finalizado" || walk.estado === "cancelado";
 };
 
-export const getWalkStats = (walks: { estado: string; precio: number }[]) => {
+export const getWalkStats = (walks: (PaseoEnElTiempo & { precio: number })[]) => {
   const total = walks.length;
   const completed = walks.filter((w) => w.estado === "finalizado").length;
   const upcoming = walks.filter((w) => isUpcoming(w)).length;

@@ -63,6 +63,10 @@
     "sameDayToggle": "Si lo piden para el mismo día",
     "unsavedChanges": "Tenés cambios sin guardar.",
     "currentView": "Esto es lo que ven los dueños hoy.",
-    "save": "Guardar tarifas"
+    "save": "Guardar tarifas",
+    "title": "Lo que cobrás",
+    "perWalk": "por paseo de {{min}} min",
+    "heroCaption": "Entre semana, de día, sin recargos",
+    "base": "Base"
   }
 }
