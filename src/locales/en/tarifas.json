@@ -1,0 +1,68 @@
+{
+  "title": "Rates",
+  "subtitle": "How much you charge per walk and how much extra depending on time and day.",
+  "save": "Save",
+  "saving": "Saving…",
+  "loadingRates": "Loading your rates…",
+  "noProfile": {
+    "title": "You don't have a walker profile yet",
+    "hint": "Request it from My profile; once you have it, you'll set your rates here.",
+    "goToProfile": "Go to My profile"
+  },
+  "errors": {
+    "loadFailed": "Could not load your rate.",
+    "saveFailed": "Could not save the rates.",
+    "baseRateInvalid": "The base rate must be greater than zero.",
+    "surchargeRange": "The {{nombre}} surcharge must be between 0% and 100%.",
+    "nightRangeMissing": "Indicate the start and end time of your night schedule.",
+    "nightRangeSame": "The night schedule can't start and end at the same time.",
+    "surchargeNight": "night",
+    "surchargeWeekend": "weekend",
+    "surchargeSameDay": "same-day"
+  },
+  "saved": "Rates saved",
+  "savedDetail": "Upcoming requests are calculated with these values.",
+  "baseRate": {
+    "title": "Base rate",
+    "label": "What you charge for a 45-minute walk, no surcharges."
+  },
+  "surcharges": {
+    "title": "Surcharges",
+    "hint": "These add to your rate when the walk falls under that condition. At 0% nothing is charged.",
+    "night": {
+      "title": "Night schedule",
+      "hint": "Walks that start within your night schedule.",
+      "from": "From",
+      "to": "To",
+      "withSurcharge": "{{duracion}} with surcharge",
+      "durationHoursMinutes": "{{h}}h {{m}}min",
+      "durationHours": "{{h}}h",
+      "pickRange": "Pick a range",
+      "ariaRange": "Night schedule from {{desde}} to {{hasta}}"
+    },
+    "weekend": {
+      "title": "Weekend",
+      "hint": "Saturdays and Sundays, any time."
+    },
+    "sameDay": {
+      "title": "Same day",
+      "hint": "When they request the walk for today."
+    },
+    "sliderAria": "{{etiqueta}} (slider)"
+  },
+  "panel": {
+    "label": "What you charge with this setup",
+    "chargeFor": "What you charge for a walk of",
+    "durationAria": "Walk duration",
+    "priceCaption": "Price by day and time",
+    "daytime": "Daytime",
+    "nighttime": "Nighttime",
+    "weekday": "Weekday",
+    "weekend": "Weekend",
+    "baseRateLabel": "Base rate",
+    "sameDayToggle": "If they request it for the same day",
+    "unsavedChanges": "You have unsaved changes.",
+    "currentView": "This is what owners see today.",
+    "save": "Save rates"
+  }
+}
