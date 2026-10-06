@@ -2,6 +2,7 @@ import Onda from "../componentes/Onda";
 import { MARCA } from "../../lib/nav";
 import { ENLACES } from "../datos";
 import { CANVAS, HUESO } from "../tokens";
+import { useTranslation } from "../../hooks/useTranslation";
 
 /* El pie va sobre el fondo de la página: es el único bloque que no
    trae su propia banda de color.
@@ -14,7 +15,9 @@ import { CANVAS, HUESO } from "../tokens";
    reserva nada; la línea de abajo sí dice de quién es la marca y
    qué se reserva. */
 
-const Pie = () => (
+const Pie = () => {
+  const { t } = useTranslation();
+  return (
   <footer className="relative overflow-hidden px-6 pt-32 pb-10 sm:px-10">
     <Onda color={HUESO} />
 
@@ -39,7 +42,7 @@ const Pie = () => (
             className="rotulo transition-opacity duration-150 hover:opacity-60"
             style={{ color: CANVAS }}
           >
-            {e.label}
+            {t(e.label)}
           </a>
         ))}
       </nav>
@@ -50,14 +53,13 @@ const Pie = () => (
       style={{ borderColor: `${CANVAS}24` }}
     >
       <p className="text-[12.5px] leading-relaxed" style={{ color: `${CANVAS}A6` }}>
-        © {new Date().getFullYear()} {MARCA.completo}. Todos los derechos
-        reservados. La marca, el logotipo y el diseño de este sitio son
-        propiedad de {MARCA.completo}.
+        © {new Date().getFullYear()} {MARCA.completo}. {t("landing.pie.rightsReserved", { marca: MARCA.completo })}
         <br />
-        Hecho en Costa Rica.
+        {t("landing.pie.madeIn")}
       </p>
     </div>
   </footer>
-);
+  );
+};
 
 export default Pie;

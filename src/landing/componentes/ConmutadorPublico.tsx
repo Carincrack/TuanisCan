@@ -1,5 +1,6 @@
 import { PUBLICOS, type ClavePublico } from "../datos";
 import { CANVAS, NAVY, TURQUESA } from "../tokens";
+import { useTranslation } from "../../hooks/useTranslation";
 
 /* Conmutador de público, abajo a la derecha. Ocupa el lugar del
    selector perro/gato de la referencia, pero cambia algo de verdad:
@@ -14,35 +15,39 @@ interface ConmutadorPublicoProps {
   onCambio: (clave: ClavePublico) => void;
 }
 
-const ConmutadorPublico = ({ valor, onCambio }: ConmutadorPublicoProps) => (
-  <div
-    role="group"
-    aria-label="¿Quién sos?"
-    className="flex items-center gap-1 rounded-full p-1.5"
-    style={{ background: CANVAS }}
-  >
-    {PUBLICOS.map(({ clave, Icon, label }) => {
-      const activo = clave === valor;
-      return (
-        <button
-          key={clave}
-          type="button"
-          onClick={() => onCambio(clave)}
-          aria-pressed={activo}
-          title={label}
-          className="grid h-11 w-11 place-items-center rounded-full transition-[background-color,opacity,transform] duration-150 ease-out active:scale-[0.94]"
-          style={{
-            background: activo ? TURQUESA : "transparent",
-            color: NAVY,
-            opacity: activo ? 1 : 0.5,
-          }}
-        >
-          <Icon size={21} strokeWidth={2.1} aria-hidden />
-          <span className="sr-only">{label}</span>
-        </button>
-      );
-    })}
-  </div>
-);
+const ConmutadorPublico = ({ valor, onCambio }: ConmutadorPublicoProps) => {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="group"
+      aria-label={t("landing.publicos.ariaLabel")}
+      className="flex items-center gap-1 rounded-full p-1.5"
+      style={{ background: CANVAS }}
+    >
+      {PUBLICOS.map(({ clave, Icon, label }) => {
+        const activo = clave === valor;
+        const texto = t(label);
+        return (
+          <button
+            key={clave}
+            type="button"
+            onClick={() => onCambio(clave)}
+            aria-pressed={activo}
+            title={texto}
+            className="grid h-11 w-11 place-items-center rounded-full transition-[background-color,opacity,transform] duration-150 ease-out active:scale-[0.94]"
+            style={{
+              background: activo ? TURQUESA : "transparent",
+              color: NAVY,
+              opacity: activo ? 1 : 0.5,
+            }}
+          >
+            <Icon size={21} strokeWidth={2.1} aria-hidden />
+            <span className="sr-only">{texto}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 export default ConmutadorPublico;

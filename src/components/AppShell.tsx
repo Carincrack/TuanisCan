@@ -6,6 +6,7 @@ import { Bell, Check, Menu, ShieldAlert, Trash2 } from "../lib/iconos";
 
 import { inicioDeRol, MARCA, RUTA_ADMIN, tituloDeRuta, type Rol } from "../lib/nav";
 import { NotificationButtonContext, PageWidthContext } from "./ui";
+import QuickLanguageSwitcher from "./QuickLanguageSwitcher";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
@@ -322,6 +323,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             </h1>
           )}
           {conEncabezadoPropio && <div className="min-w-0 flex-1" />}
+
+          <QuickLanguageSwitcher className="flota flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]" />
 
           <div className="relative">
             {/* En "Usuarios" este botón se pinta desde su propio

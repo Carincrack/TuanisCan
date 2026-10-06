@@ -8,6 +8,7 @@ import { Correa, Rayas } from "../componentes/Garabatos";
 import { PUBLICOS, type ClavePublico } from "../datos";
 import { AZUL, CIELO, NAVY, TINTA } from "../tokens";
 import type { ConAcceso } from "../tipos";
+import { useTranslation } from "../../hooks/useTranslation";
 
 const LETRAS = [
   ...MARCA.nombre.toUpperCase().split("").map((letra) => ({ letra, color: NAVY })),
@@ -23,6 +24,7 @@ interface HeroProps extends ConAcceso {
 const PASO_MS = 6000;
 
 const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
+  const { t } = useTranslation();
   const [publico, setPublico] = useState<ClavePublico>("dueno");
   const [quieto, setQuieto] = useState(false);
   /* Cambia cada vez que alguien elige a mano: reinicia la cuenta, así
@@ -80,7 +82,7 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
             ))}
           </span>
           <span className="sr-only">
-            {MARCA.completo} — paseos, veterinarias y mascotas perdidas en Costa Rica
+            {MARCA.completo} {t("landing.hero.srSuffix")}
           </span>
         </h1>
 
@@ -89,7 +91,7 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
             className="min-h-[4.5rem] text-[15.5px] leading-relaxed font-medium sm:min-h-[3.5rem]"
             style={{ color: TINTA }}
           >
-            {actual.entrada}
+            {t(actual.entrada)}
           </p>
         </div>
       </div>
@@ -119,7 +121,7 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
               <img
                 key={clave}
                 src={foto}
-                alt={visible ? fotoAlt : ""}
+                alt={visible ? t(fotoAlt) : ""}
                 aria-hidden={!visible || undefined}
                 fetchPriority={clave === "dueno" ? "high" : "low"}
                 decoding="async"
@@ -154,7 +156,7 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
             actual.ruta ? void navegar({ to: actual.ruta }) : onEntrar("registro")
           }
         >
-          {actual.cta}
+          {t(actual.cta)}
         </PildoraCTA>
         <ConmutadorPublico valor={publico} onCambio={elegir} />
       </div>
