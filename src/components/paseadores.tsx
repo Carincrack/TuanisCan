@@ -12,6 +12,8 @@ import { listPets } from "../services/pets.service";
 import { listActiveWalkers, requestWalk } from "../services/walkers.service";
 import { estimarPrecioPaseo, RECARGOS_POR_DEFECTO } from "../lib/precios";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
+import type { I18nContextValue } from "../context/i18n-context";
 import type { PublicWalker, WalkRequestInput } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import {
@@ -32,6 +34,8 @@ import SelloVerificado from "./SelloVerificado";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 
+type T = I18nContextValue["t"];
+
 interface RequestForm {
   id_mascota: string;
   fecha: string;
@@ -51,18 +55,18 @@ const emptyRequest: RequestForm = {
   oferta: "",
 };
 
-const messageFrom = (error: unknown) => {
+const messageFrom = (error: unknown, t: T) => {
   if (error instanceof Error) return error.message;
   if (typeof error === "object" && error && "message" in error) {
     return String(error.message);
   }
-  return "No se pudo completar la operacion.";
+  return t("paseadores.errors.generic");
 };
 
 const normalizar = (value: string) =>
   value
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
 
 /* ─────────────────────────────────────────────────────────────
@@ -92,6 +96,7 @@ const FotoPaseador = ({
   walker: PublicWalker;
   medida: number;
 }) => {
+  const { t } = useTranslation();
   const [rota, setRota] = useState(false);
 
   return (
@@ -114,7 +119,7 @@ const FotoPaseador = ({
 
       <SelloVerificado
         size={Math.round(medida * 0.34)}
-        title={`${walker.nombre} tiene la verificación aprobada`}
+        title={t("paseadores.verifiedTitle", { nombre: walker.nombre })}
         className="pointer-events-none absolute right-0 bottom-0 translate-x-[12%] translate-y-[12%]"
       />
     </span>
@@ -129,19 +134,22 @@ const FotoPaseador = ({
 
     El turquesa acá está bien: es un disco, que es donde vive en la
     portada. Como texto sobre blanco no pasaría AA. */
-const Disponibilidad = ({ disponible }: { disponible: boolean }) => (
-  <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-medium">
-    <span
-      aria-hidden
-      className={`h-2 w-2 rounded-full ${
-        disponible ? "bg-accent" : "bg-ink-mute"
-      }`}
-    />
-    <span className={disponible ? "text-ink" : "text-ink-mute"}>
-      {disponible ? "Disponible" : "No disponible"}
+const Disponibilidad = ({ disponible }: { disponible: boolean }) => {
+  const { t } = useTranslation();
+  return (
+    <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-medium">
+      <span
+        aria-hidden
+        className={`h-2 w-2 rounded-full ${
+          disponible ? "bg-accent" : "bg-ink-mute"
+        }`}
+      />
+      <span className={disponible ? "text-ink" : "text-ink-mute"}>
+        {disponible ? t("paseadores.available") : t("paseadores.unavailable")}
+      </span>
     </span>
-  </span>
-);
+  );
+};
 
 const PildoraZona = ({ zona }: { zona: string }) => (
   <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-sunken px-2.5 py-1 text-[11.5px] font-medium text-ink-soft">
@@ -152,6 +160,7 @@ const PildoraZona = ({ zona }: { zona: string }) => (
 
 const Paseadores = () => {
   const { getProfile, isAdmin } = useAuth();
+  const { t } = useTranslation();
   const [walkers, setWalkers] = useState<PublicWalker[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [zona, setZona] = useState("Todas");
@@ -178,9 +187,9 @@ const Paseadores = () => {
           id_mascota: current.id_mascota || nextPets[0]?.id_mascota || "",
         }));
       })
-      .catch((cause) => setError(messageFrom(cause)))
+      .catch((cause) => setError(messageFrom(cause, t)))
       .finally(() => setLoading(false));
-  }, [getProfile, isAdmin]);
+  }, [getProfile, isAdmin, t]);
 
   const zonas = useMemo(
     () => ["Todas", ...Array.from(new Set(walkers.map((w) => w.zona))).sort()],
@@ -207,9 +216,9 @@ const Paseadores = () => {
 
   const openRequest = (walker: PublicWalker) => {
     if (!canOperate) {
-      aviso.ojo("Verificá tu perfil primero", {
-        detalle: "Sin la verificación aprobada no podés solicitar paseos.",
-        accion: { label: "Ir a verificación", onClick: () => { window.location.href = "/perfil#verificacion"; } },
+      aviso.ojo(t("paseadores.verificationGate.title"), {
+        detalle: t("paseadores.verificationGate.detail"),
+        accion: { label: t("paseadores.verificationGate.action"), onClick: () => { window.location.href = "/perfil#verificacion"; } },
       });
       return;
     }
@@ -250,15 +259,15 @@ const Paseadores = () => {
   const submitRequest = async () => {
     if (!solicitud) return;
     if (!form.id_mascota) {
-      setError("Primero registra una mascota para solicitar un paseo.");
+      setError(t("paseadores.errors.noPet"));
       return;
     }
     if (!form.direccion_encuentro.trim()) {
-      setError("Indica la direccion de encuentro.");
+      setError(t("paseadores.errors.noAddress"));
       return;
     }
     if (ofertaInvalida) {
-      setError(`La oferta debe estar entre ${colones(ofertaMin)} y ${colones(ofertaMax)}.`);
+      setError(t("paseadores.errors.offerRange", { min: colones(ofertaMin), max: colones(ofertaMax) }));
       return;
     }
 
@@ -277,14 +286,14 @@ const Paseadores = () => {
     try {
       await requestWalk(payload);
       setSolicitud(null);
-      aviso.ok(`Solicitud enviada a ${solicitud.nombre}`, {
+      aviso.ok(t("paseadores.success.sent", { nombre: solicitud.nombre }), {
         detalle: payload.precio_ofrecido
-          ? `Le ofreciste ${colones(payload.precio_ofrecido)}. Te avisamos apenas conteste.`
-          : "Te avisamos apenas conteste. Mientras tanto podés cancelarla desde Paseos.",
+          ? t("paseadores.success.withOffer", { monto: colones(payload.precio_ofrecido) })
+          : t("paseadores.success.withoutOffer"),
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo enviar la solicitud." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("paseadores.errors.sendFailed") });
     } finally {
       setSaving(false);
     }
@@ -293,13 +302,13 @@ const Paseadores = () => {
   return (
     <Page>
       <PageHeader
-        title="Buscar paseadores"
-        subtitle="Perfiles verificados cerca de tu zona, con calificación de la comunidad."
+        title={t("paseadores.title")}
+        subtitle={t("paseadores.subtitle")}
         action={
           loading ? null : (
             <p className="nums rounded-full bg-sunken px-3.5 py-1.5 text-[12.5px] font-medium text-ink-soft">
               {visibles.length}{" "}
-              {visibles.length === 1 ? "paseador" : "paseadores"}
+              {visibles.length === 1 ? t("paseadores.countSingular") : t("paseadores.countPlural")}
             </p>
           )
         }
@@ -308,14 +317,14 @@ const Paseadores = () => {
       <div className="flex flex-col gap-3 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-[300px]">
           <label htmlFor="buscar-paseador" className="sr-only">
-            Buscar paseador por nombre o zona
+            {t("paseadores.searchAria")}
           </label>
           <input
             id="buscar-paseador"
             type="search"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o zona"
+            placeholder={t("paseadores.searchPlaceholder")}
             className={`${input} pl-10`}
           />
           <Search
@@ -327,8 +336,8 @@ const Paseadores = () => {
         </div>
 
         <FilterTabs
-          label="Filtrar por zona"
-          options={zonas.map((o) => ({ value: o, label: o }))}
+          label={t("paseadores.zoneFilterLabel")}
+          options={zonas.map((o) => ({ value: o, label: o === "Todas" ? t("paseadores.allZones") : o }))}
           value={zona}
           onChange={setZona}
         />
@@ -386,7 +395,7 @@ const Paseadores = () => {
                     <span aria-hidden className="text-ink-mute">
                       ·
                     </span>
-                    <span>{w.total_paseos} paseos</span>
+                    <span>{w.total_paseos} {t("paseadores.walksSuffix")}</span>
                   </div>
 
                   <span className="mt-2 flex">
@@ -400,7 +409,7 @@ const Paseadores = () => {
                   dos; el `line-clamp` impide que una tercera las
                   desalinee al revés. */}
               <p className="mt-4 line-clamp-2 min-h-[34px] text-[12.5px] leading-snug text-ink-soft">
-                {w.descripcion || "Paseador verificado por TuanisCan."}
+                {w.descripcion || t("paseadores.defaultDescription")}
               </p>
 
               <div className="mt-4 flex items-center justify-between gap-3 rounded-[14px] bg-sunken px-4 py-3">
@@ -408,7 +417,7 @@ const Paseadores = () => {
                   <p className="nums text-[17px] leading-none font-semibold text-ink">
                     {colones(w.tarifa_base ?? 0)}
                   </p>
-                  <p className="mt-1 text-[11px] text-ink-mute">por paseo</p>
+                  <p className="mt-1 text-[11px] text-ink-mute">{t("paseadores.perWalk")}</p>
                 </div>
                 <Disponibilidad disponible={w.disponible} />
               </div>
@@ -419,7 +428,7 @@ const Paseadores = () => {
                   onClick={() => setPerfil(w)}
                   className={`${btnSecondary} flex-1`}
                 >
-                  Ver perfil
+                  {t("paseadores.viewProfile")}
                 </button>
                 <button
                   type="button"
@@ -427,7 +436,7 @@ const Paseadores = () => {
                   disabled={!canOperate || !w.disponible || !w.tarifa_base}
                   className={`${btnPrimary} flex-1 disabled:cursor-not-allowed disabled:opacity-50`}
                 >
-                  Solicitar
+                  {t("paseadores.request")}
                 </button>
               </div>
             </article>
@@ -439,13 +448,13 @@ const Paseadores = () => {
         <EmptyState
           title={
             filtrando
-              ? "No hay paseadores con ese criterio"
-              : "Todavía no hay paseadores disponibles"
+              ? t("paseadores.empty.filteredTitle")
+              : t("paseadores.empty.emptyTitle")
           }
           hint={
             filtrando
-              ? "Probá con otra zona o quitá el texto de búsqueda."
-              : "En cuanto administración apruebe los primeros perfiles, aparecen acá."
+              ? t("paseadores.empty.filteredHint")
+              : t("paseadores.empty.emptyHint")
           }
           action={
             filtrando ? (
@@ -454,7 +463,7 @@ const Paseadores = () => {
                 onClick={limpiarFiltros}
                 className={btnSecondary}
               >
-                Ver todos
+                {t("paseadores.empty.viewAll")}
               </button>
             ) : undefined
           }
@@ -462,7 +471,7 @@ const Paseadores = () => {
       )}
 
       {perfil && (
-        <Dialog title="Perfil del paseador" onClose={() => setPerfil(null)}>
+        <Dialog title={t("paseadores.profileDialog.title")} onClose={() => setPerfil(null)}>
           <div className="px-6 py-5">
             <div className="flex items-center gap-4">
               <FotoPaseador walker={perfil} medida={64} />
@@ -479,11 +488,11 @@ const Paseadores = () => {
             <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
               {[
                 {
-                  rotulo: "Calificación",
+                  rotulo: t("paseadores.profileDialog.rating"),
                   valor: perfil.calificacion_promedio.toFixed(1),
                 },
-                { rotulo: "Reseñas", valor: String(perfil.total_resenas) },
-                { rotulo: "Paseos", valor: String(perfil.total_paseos) },
+                { rotulo: t("paseadores.profileDialog.reviews"), valor: String(perfil.total_resenas) },
+                { rotulo: t("paseadores.profileDialog.walks"), valor: String(perfil.total_paseos) },
               ].map((dato) => (
                 /* Antes estos tres eran `bg-surface` dentro de un panel
                    que también es `bg-surface`: cajas blancas invisibles
@@ -502,7 +511,7 @@ const Paseadores = () => {
 
             <p className="mt-5 text-[13px] leading-relaxed text-ink-soft">
               {perfil.descripcion ||
-                "Este paseador todavía no agregó una descripción pública."}
+                t("paseadores.profileDialog.noDescription")}
             </p>
 
             <div className="mt-5 flex items-center justify-between gap-3 rounded-[14px] bg-sunken px-4 py-3">
@@ -510,7 +519,7 @@ const Paseadores = () => {
                 <p className="nums text-[18px] leading-none font-semibold text-ink">
                   {colones(perfil.tarifa_base ?? 0)}
                 </p>
-                <p className="mt-1 text-[11px] text-ink-mute">por paseo</p>
+                <p className="mt-1 text-[11px] text-ink-mute">{t("paseadores.perWalk")}</p>
               </div>
               {/* Acá decía "Disponible hoy" a secas, escrito a mano y
                   sin mirar el dato: un paseador no disponible se
@@ -520,14 +529,14 @@ const Paseadores = () => {
 
             <dl className="nums mt-2.5 grid grid-cols-3 gap-2 text-center">
               {[
-                { rotulo: `Nocturno ${perfil.nocturno_desde}–${perfil.nocturno_hasta}`, valor: perfil.recargo_nocturno },
-                { rotulo: "Fin de semana", valor: perfil.recargo_fin_semana },
-                { rotulo: "Mismo día", valor: perfil.recargo_mismo_dia },
+                { rotulo: t("paseadores.profileDialog.nightRange", { desde: perfil.nocturno_desde, hasta: perfil.nocturno_hasta }), valor: perfil.recargo_nocturno },
+                { rotulo: t("paseadores.profileDialog.weekend"), valor: perfil.recargo_fin_semana },
+                { rotulo: t("paseadores.profileDialog.sameDay"), valor: perfil.recargo_mismo_dia },
               ].map(({ rotulo, valor }) => (
                 <div key={rotulo} className="flex flex-col-reverse rounded-[12px] bg-sunken/60 px-2 py-2">
                   <dt className="mt-0.5 text-[10.5px] leading-tight text-ink-mute">{rotulo}</dt>
                   <dd className={`text-[14px] font-semibold ${valor > 0 ? "text-ink" : "text-ink-mute"}`}>
-                    {valor > 0 ? `+${valor}%` : "Sin recargo"}
+                    {valor > 0 ? `+${valor}%` : t("paseadores.profileDialog.noSurcharge")}
                   </dd>
                 </div>
               ))}
@@ -539,7 +548,7 @@ const Paseadores = () => {
                 onClick={() => setPerfil(null)}
                 className={btnSecondary}
               >
-                Cerrar
+                {t("paseadores.profileDialog.close")}
               </button>
               <button
                 type="button"
@@ -552,7 +561,7 @@ const Paseadores = () => {
                 }
                 className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
               >
-                Solicitar paseo
+                {t("paseadores.profileDialog.requestWalk")}
               </button>
             </div>
           </div>
@@ -560,7 +569,7 @@ const Paseadores = () => {
       )}
 
       {solicitud && (
-        <Dialog title="Solicitar paseo" onClose={() => setSolicitud(null)}>
+        <Dialog title={t("paseadores.requestDialog.title")} onClose={() => setSolicitud(null)}>
           <div className="px-6 py-5">
             {/* Con quién es el paseo va acá arriba y no en un subtítulo
                 de la cabecera: es un dato, no el nombre de la ventana,
@@ -581,14 +590,14 @@ const Paseadores = () => {
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="sm:col-span-2">
-                <span className="rotulo text-ink-mute">Mascota</span>
+                <span className="rotulo text-ink-mute">{t("paseadores.requestDialog.pet")}</span>
                 <Combo
                   className="mt-2"
                   value={form.id_mascota}
                   onChange={(v) => setForm({ ...form, id_mascota: v })}
                   disabled={!pets.length}
-                  textoInactivo="No tienes mascotas registradas"
-                  placeholder="Elegí una mascota"
+                  textoInactivo={t("paseadores.requestDialog.noPets")}
+                  placeholder={t("paseadores.requestDialog.choosePet")}
                   options={pets.map((pet) => ({
                     value: pet.id_mascota,
                     label: pet.nombre,
@@ -598,7 +607,7 @@ const Paseadores = () => {
 
               <label>
                 <span className="rotulo flex items-center gap-1.5 text-ink-mute">
-                  <CalendarDays size={13} /> Fecha
+                  <CalendarDays size={13} /> {t("paseadores.requestDialog.date")}
                 </span>
                 <input
                   type="date"
@@ -611,7 +620,7 @@ const Paseadores = () => {
 
               <label>
                 <span className="rotulo flex items-center gap-1.5 text-ink-mute">
-                  <Clock size={13} /> Hora
+                  <Clock size={13} /> {t("paseadores.requestDialog.time")}
                 </span>
                 <input
                   type="time"
@@ -624,20 +633,20 @@ const Paseadores = () => {
               </label>
 
               <label>
-                <span className="rotulo text-ink-mute">Duración</span>
+                <span className="rotulo text-ink-mute">{t("paseadores.requestDialog.duration")}</span>
                 <Combo
                   className="mt-2"
                   value={form.duracion_min}
                   onChange={(v) => setForm({ ...form, duracion_min: v })}
                   options={[30, 45, 60, 90].map((m) => ({
                     value: String(m),
-                    label: `${m} minutos`,
+                    label: t("paseadores.requestDialog.minutes", { m }),
                   }))}
                 />
               </label>
 
               <div className="rounded-[14px] bg-sunken px-4 py-3">
-                <p className="rotulo text-ink-mute">Según su tarifa</p>
+                <p className="rotulo text-ink-mute">{t("paseadores.requestDialog.accordingToRate")}</p>
                 <p className="nums mt-1.5 text-[20px] leading-none font-semibold text-ink">
                   {colones(estimado.total)}
                 </p>
@@ -646,7 +655,7 @@ const Paseadores = () => {
                     resultado para que la persona lo vea antes de pedir
                     el paseo. */}
                 <p className="mt-1.5 text-[11px] leading-snug text-ink-mute">
-                  {colones(solicitud.tarifa_base ?? 0)} base · {form.duracion_min} min
+                  {t("paseadores.requestDialog.baseAndDuration", { base: colones(solicitud.tarifa_base ?? 0), duracion: form.duracion_min })}
                   {recargosActivos.length > 0 && ` · +${recargosActivos.join(", +")}`}
                 </p>
               </div>
@@ -654,7 +663,7 @@ const Paseadores = () => {
               <div className="rounded-[14px] border border-dashed border-suelo px-4 py-3.5 sm:col-span-2">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <label className="min-w-[180px] flex-1">
-                    <span className="rotulo text-ink-mute">Tu oferta (opcional)</span>
+                    <span className="rotulo text-ink-mute">{t("paseadores.requestDialog.offerLabel")}</span>
                     <span className="relative mt-2 block">
                       <span aria-hidden className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[13.5px] text-ink-mute">₡</span>
                       <input
@@ -671,7 +680,7 @@ const Paseadores = () => {
                       />
                     </span>
                   </label>
-                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ofertas sugeridas">
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("paseadores.requestDialog.suggestedOffers")}>
                     {sugerencias.map((monto, i) => (
                       <button
                         key={monto}
@@ -689,23 +698,28 @@ const Paseadores = () => {
                     ))}
                     {form.oferta && (
                       <button type="button" onClick={() => setForm({ ...form, oferta: "" })} className={btnSecondaryCompacto}>
-                        Quitar
+                        {t("paseadores.requestDialog.remove")}
                       </button>
                     )}
                   </div>
                 </div>
                 <p id="oferta-ayuda" aria-live="polite" className={`mt-2 text-[12px] leading-snug ${ofertaInvalida ? "text-danger" : "text-ink-mute"}`}>
                   {ofertaInvalida
-                    ? `Tiene que estar entre ${colones(ofertaMin)} y ${colones(ofertaMax)}.`
+                    ? t("paseadores.requestDialog.offerHelp.invalid", { min: colones(ofertaMin), max: colones(ofertaMax) })
                     : oferta !== null && oferta !== estimado.total
-                      ? `${solicitud.nombre} verá tu oferta de ${colones(oferta)} (${diferenciaOferta > 0 ? "+" : ""}${diferenciaOferta}% sobre su tarifa) y decide si la acepta.`
-                      : "Si la dejás vacía se paga la tarifa. Ofrecer más puede ayudar a que acepte un paseo de último momento."}
+                      ? t("paseadores.requestDialog.offerHelp.preview", {
+                          nombre: solicitud.nombre,
+                          monto: colones(oferta),
+                          signo: diferenciaOferta > 0 ? "+" : "",
+                          porcentaje: diferenciaOferta,
+                        })
+                      : t("paseadores.requestDialog.offerHelp.default")}
                 </p>
               </div>
 
               <label className="sm:col-span-2">
                 <span className="rotulo text-ink-mute">
-                  Dirección de encuentro
+                  {t("paseadores.requestDialog.meetingAddress")}
                 </span>
                 <textarea
                   rows={3}
@@ -714,7 +728,7 @@ const Paseadores = () => {
                     setForm({ ...form, direccion_encuentro: e.target.value })
                   }
                   className={`${input} mt-2 resize-y`}
-                  placeholder="Casa, condominio, parque o punto de referencia"
+                  placeholder={t("paseadores.requestDialog.meetingAddressPlaceholder")}
                 />
               </label>
 
@@ -734,7 +748,7 @@ const Paseadores = () => {
                   onClick={() => setSolicitud(null)}
                   className={btnSecondary}
                 >
-                  Cancelar
+                  {t("paseadores.requestDialog.cancel")}
                 </button>
                 <button
                   type="button"
@@ -748,10 +762,10 @@ const Paseadores = () => {
                     <PawPrint size={14} />
                   )}
                   {saving
-                    ? "Enviando..."
+                    ? t("paseadores.requestDialog.sending")
                     : oferta !== null && !ofertaInvalida && oferta !== estimado.total
-                      ? `Enviar oferta de ${colones(oferta)}`
-                      : "Confirmar solicitud"}
+                      ? t("paseadores.requestDialog.sendOffer", { monto: colones(oferta) })
+                      : t("paseadores.requestDialog.confirmRequest")}
                 </button>
               </div>
             </div>
