@@ -782,7 +782,7 @@ const MascotasPerdidas = () => {
               <Eye size={15} strokeWidth={2} />
               {t("mascotasPerdidas.foundPet")}
             </button>
-            <button type="button" className={btnPrimary} onClick={() => setReporting(true)} disabled={!pets.length} title={!pets.length ? t("mascotasPerdidas.registerPetFirst") : undefined}><Siren size={15} strokeWidth={2} />{t("mascotasPerdidas.reportLostPet")}</button>
+            <button type="button" className={btnPrimary} onClick={() => setReporting(true)}><Siren size={15} strokeWidth={2} />{t("mascotasPerdidas.reportLostPet")}</button>
           </div>
         }
       />
@@ -1040,7 +1040,21 @@ const MascotasPerdidas = () => {
 
       {reporting && user && (
         <Dialog ancho="max-w-[760px]" title={t("mascotasPerdidas.reportLostPet")} onClose={() => setReporting(false)}>
-          <ReportForm userId={user.id} pets={pets} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReporting(false)} onSaved={refresh} />
+          {pets.length === 0 ? (
+            <div className="p-5 sm:p-6">
+              <EmptyState
+                title={t("mascotasPerdidas.noRegisteredPetsTitle")}
+                hint={t("mascotasPerdidas.noRegisteredPetsHint")}
+                action={
+                  <button type="button" className={btnPrimary} onClick={() => { setReporting(false); window.location.href = "/mascotas"; }}>
+                    {t("mascotasPerdidas.registerPet")}
+                  </button>
+                }
+              />
+            </div>
+          ) : (
+            <ReportForm userId={user.id} pets={pets} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReporting(false)} onSaved={refresh} />
+          )}
         </Dialog>
       )}
       {reportingFound && user && (
