@@ -1,6 +1,7 @@
 import type { AuthResponse, Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { normalizarRecargos } from "../lib/precios";
+import { PAIS_PREDETERMINADO } from "../types/auth.types";
 import type {
   NegocioProfile,
   PaseadorProfile,
@@ -26,7 +27,10 @@ export const register = async (
     email,
     password,
     options: {
-      data: profile,
+      data: {
+        ...profile,
+        pais: profile.pais?.trim() || PAIS_PREDETERMINADO,
+      },
     },
   });
 

@@ -26,7 +26,9 @@ import { getZonas } from "../services/auth.service";
 import { Combo } from "../components/Combo";
 import { Dialog } from "../components/ui";
 import TerminosCondiciones from "../components/TerminosCondiciones";
+import { PAIS_PREDETERMINADO } from "../types/auth.types";
 import type { RolPublico, Zona } from "../types/auth.types";
+import { opcionesDePais } from "../lib/paises";
 
 /* Leaflet pesa ~150 kB y solo hace falta en el paso de negocio del
    registro: se carga aparte para no sumarle peso al arranque de toda
@@ -144,7 +146,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   onBack,
 }) => {
   const { login, register, accessError } = useAuth();
-  const { t } = useTranslation();
+  const { t, localeTag } = useTranslation();
   const navigate = useNavigate();
   // Rol elegido. Se comparte entre iniciar sesión y registrarse.
   const [rol, setRol] = useState<RolPublico>("dueno");
@@ -184,6 +186,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regPassword, setRegPassword] = useState("");
   const [regPasswordConfirmation, setRegPasswordConfirmation] = useState("");
   const [regTelefono, setRegTelefono] = useState("");
+  const [regPais, setRegPais] = useState<string>(PAIS_PREDETERMINADO);
   const [regZonaId, setRegZonaId] = useState("");
   const [regDescripcion, setRegDescripcion] = useState("");
   const [regTarifa, setRegTarifa] = useState("");
@@ -273,6 +276,15 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setRegZonaId("");
   };
 
+  const elegirPais = (valor: string) => {
+    setRegPais(valor);
+    if (valor && valor !== PAIS_PREDETERMINADO) {
+      setRegProvincia("");
+      setRegCanton("");
+      setRegZonaId("");
+    }
+  };
+
   useEffect(() => {
     const mq = window.matchMedia(MEDIA_ANCHO);
     const alCambiar = (e: MediaQueryListEvent) => setAncho(e.matches);
@@ -339,7 +351,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!regUsername.trim() || !regEmail.trim() || !regPassword || !regPasswordConfirmation || !regTelefono.trim() || !regZonaId) {
+    const paisSeleccionado = regPais || PAIS_PREDETERMINADO;
+    if (!regUsername.trim() || !regEmail.trim() || !regPassword || !regPasswordConfirmation || !regTelefono.trim() || (paisSeleccionado === PAIS_PREDETERMINADO && !regZonaId)) {
       setError(t("auth.errors.missingRequiredFields"));
       setShowError(true);
       return;
@@ -396,7 +409,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
         {
           nombre: regUsername.trim(),
           telefono: regTelefono.trim(),
-          zona_id: regZonaId,
+          pais: regPais || PAIS_PREDETERMINADO,
+          zona_id: regZonaId || undefined,
           tipo_usuario: rol,
           roles: [rol],
           descripcion: rol === "paseador" ? regDescripcion.trim() : undefined,
@@ -446,7 +460,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     }
 
     if (registrationStep === 3) {
-      if (!regZonaId) {
+      if ((regPais || PAIS_PREDETERMINADO) === PAIS_PREDETERMINADO && !regZonaId) {
         setError(t("auth.errors.zoneRequired"));
         setShowError(true);
         return;
@@ -789,6 +803,16 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
                   {registrationStep === 2 && (
                     <div className="space-y-4">
+                      <Combo
+                        tono="login"
+                        Icon={MapPin}
+                        vacio
+                        value={regPais}
+                        onChange={elegirPais}
+                        placeholder={t("auth.fields.country")}
+                        aria-label={t("auth.fields.country")}
+                        options={opcionesDePais(localeTag)}
+                      />
                       <div className="relative">
                         <User className={iconBase} size={18} />
                         <input type="text" autoComplete="name" placeholder={t("auth.fields.fullName")} value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className={inputBase} maxLength={150} required />
@@ -812,8 +836,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           Icon={MapPin}
                           value={regProvincia}
                           onChange={elegirProvincia}
-                          disabled={zonasLoading}
-                          textoInactivo={t("auth.location.loadingZones")}
+                           disabled={zonasLoading || Boolean(regPais && regPais !== PAIS_PREDETERMINADO)}
+                           textoInactivo={regPais && regPais !== PAIS_PREDETERMINADO ? t("auth.location.countryNoZones") : t("auth.location.loadingZones")}
                           placeholder={t("auth.location.province")}
                           aria-label={t("auth.location.provinceAria")}
                           options={provinciasReg.map((item) => ({
@@ -826,8 +850,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           tono="login"
                           value={regCanton}
                           onChange={elegirCanton}
-                          disabled={!regProvincia}
-                          textoInactivo={t("auth.location.selectProvince")}
+                           disabled={!regProvincia || Boolean(regPais && regPais !== PAIS_PREDETERMINADO)}
+                           textoInactivo={regPais && regPais !== PAIS_PREDETERMINADO ? t("auth.location.countryNoZones") : t("auth.location.selectProvince")}
                           placeholder={t("auth.location.canton")}
                           aria-label={t("auth.location.cantonAria")}
                           options={cantonesReg.map((item) => ({
@@ -844,8 +868,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
                             setError(null);
                             setShowError(false);
                           }}
-                          disabled={!regCanton}
-                          textoInactivo={t("auth.location.selectCanton")}
+                           disabled={!regCanton || Boolean(regPais && regPais !== PAIS_PREDETERMINADO)}
+                           textoInactivo={regPais && regPais !== PAIS_PREDETERMINADO ? t("auth.location.countryNoZones") : t("auth.location.selectCanton")}
                           placeholder={t("auth.location.district")}
                           aria-label={t("auth.location.districtAria")}
                           options={distritosReg.map((zona) => ({
