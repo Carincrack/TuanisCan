@@ -20,7 +20,9 @@ import { useTranslation } from "../hooks/useTranslation";
 import {
   listOwnerPayments,
   listPaymentMethods,
+  processDigitalWalletPayment,
   processPayment,
+  type DigitalWallet,
   type PaymentMethod,
   type PaymentMovement,
   type PaymentStatus,
@@ -60,6 +62,12 @@ import { SelloTarjeta } from "./tarjetaVisual";
 type FiltroTipo = "Todos" | "Pagados" | "Pendientes" | "Reembolsos";
 
 type Tono = "ok" | "warn" | "danger" | "accent" | "neutral";
+
+const DIGITAL_WALLETS: Array<{ id: string; nombre: DigitalWallet; clave: string }> = [
+  { id: "wallet:paypal", nombre: "PayPal", clave: "paypal" },
+  { id: "wallet:google-pay", nombre: "Google Pay", clave: "googlePay" },
+  { id: "wallet:apple-pay", nombre: "Apple Pay", clave: "applePay" },
+];
 
 const estadoConfig: Record<
   PaymentStatus,
@@ -154,7 +162,7 @@ const MetodoBreve = ({ metodo }: { metodo: string }) => {
 
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-[11.5px] text-ink-soft">
-      <SelloTarjeta marca={metodo} className="h-4 w-[26px]" />
+      {ultimos ? <SelloTarjeta marca={metodo} className="h-4 w-[26px]" /> : <Wallet size={15} className="shrink-0" />}
       <span className="nums truncate">{ultimos ? `•••• ${ultimos}` : metodo}</span>
     </span>
   );
@@ -281,13 +289,26 @@ const Pagos = () => {
     setDialogError("");
     try {
       const monto = pagoSeleccionado.monto;
-      await aviso.proceso(processPayment(pagoSeleccionado.id_paseo, metodoSeleccionado), {
+      const wallet = DIGITAL_WALLETS.find((option) => option.id === metodoSeleccionado);
+      const operation = wallet
+        ? processDigitalWalletPayment(pagoSeleccionado.id_paseo, wallet.nombre)
+        : processPayment(pagoSeleccionado.id_paseo, metodoSeleccionado);
+
+      await aviso.proceso(operation, {
         esperando: t("pagos.payDialog.paying", { monto: colones(monto) }),
         bien: t("pagos.payDialog.paid", { monto: colones(monto) }),
         mal: t("pagos.payDialog.payFailed"),
       });
       setPagoSeleccionado(null);
-      await load();
+      if (wallet) {
+        setMovimientos((current) => current.map((movement) => (
+          movement.id_paseo === pagoSeleccionado.id_paseo
+            ? { ...movement, estado_pago: "pagado", metodo_pago: wallet.nombre, fecha_pago: new Date().toISOString() }
+            : movement
+        )));
+      } else {
+        await load();
+      }
     } catch (cause) {
       setDialogError(motivo(cause));
     } finally {
@@ -671,9 +692,9 @@ const Pagos = () => {
               </div>
             </div>
 
-            {metodos.length ? (
+            {(metodos.length || DIGITAL_WALLETS.length) ? (
               <fieldset className="mt-5 grid gap-2">
-                <legend className="rotulo mb-2 text-ink-mute">{t("pagos.payDialog.whichCard")}</legend>
+                <legend className="rotulo mb-2 text-ink-mute">{t("pagos.payDialog.whichMethod")}</legend>
                 {metodos.map((method) => {
                   const elegida = metodoSeleccionado === method.id_metodo_pago;
 
@@ -717,6 +738,29 @@ const Pagos = () => {
                     </label>
                   );
                 })}
+                <p className="rotulo mt-3 text-ink-mute">{t("pagos.payDialog.walletsTitle")}</p>
+                {DIGITAL_WALLETS.map((wallet) => {
+                  const elegida = metodoSeleccionado === wallet.id;
+                  return (
+                    <label
+                      key={wallet.id}
+                      className={`flex cursor-pointer items-center gap-3.5 rounded-[16px] p-3.5 transition-[background-color,box-shadow] duration-150 ease-out ${
+                        elegida ? "bg-accent-wash ring-2 ring-accent" : "bg-sunken hover:brightness-[0.97]"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="metodo-pago"
+                        value={wallet.id}
+                        checked={elegida}
+                        onChange={() => setMetodoSeleccionado(wallet.id)}
+                        className="h-4 w-4 accent-accent"
+                      />
+                      <Wallet size={20} className="shrink-0 text-accent-deep" />
+                      <span className="text-[13px] font-semibold text-ink">{t(`pagos.payDialog.wallets.${wallet.clave}`)}</span>
+                    </label>
+                  );
+                })}
               </fieldset>
             ) : (
               <div className="mt-5 rounded-[14px] bg-warn-wash px-4 py-3.5 text-[12.5px] text-warn">
@@ -749,7 +793,7 @@ const Pagos = () => {
                 >
                   {t("pagos.payDialog.cancel")}
                 </button>
-                {metodos.length ? (
+                {metodos.length || DIGITAL_WALLETS.length ? (
                   <button
                     type="button"
                     className={btnPrimary}

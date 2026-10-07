@@ -78,6 +78,13 @@
     "commission": "Commission {{monto}}",
     "whichCard": "Which card to charge",
     "principal": "Primary",
+    "whichMethod": "Payment method",
+    "walletsTitle": "Digital wallets",
+    "wallets": {
+      "paypal": "PayPal",
+      "googlePay": "Google Pay",
+      "applePay": "Apple Pay"
+    },
     "noCards": {
       "title": "You don't have any active card",
       "hint": "Register one to be able to pay for the walk."

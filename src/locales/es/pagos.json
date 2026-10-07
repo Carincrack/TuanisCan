@@ -78,6 +78,13 @@
     "commission": "Comisión {{monto}}",
     "whichCard": "Con cuál cobramos",
     "principal": "Principal",
+    "whichMethod": "Método de pago",
+    "walletsTitle": "Billeteras digitales",
+    "wallets": {
+      "paypal": "PayPal",
+      "googlePay": "Google Pay",
+      "applePay": "Apple Pay"
+    },
     "noCards": {
       "title": "No tenés ninguna tarjeta activa",
       "hint": "Registrá una para poder abonar el paseo."

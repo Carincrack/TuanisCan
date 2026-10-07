@@ -4,6 +4,12 @@ import type { Pet } from "../types/pet.types";
 import type { LostPetInput, LostPetReport, MatchStatus, PetMatch, Sighting, SightingInput } from "../types/lost-pet.types";
 
 const PHOTO_BUCKET = "mascotas-perdidas";
+const PHOTO_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 type LostPetRow = Omit<LostPetReport, "fotoUrl" | "latitud" | "longitud" | "recompensa" | "zona" | "avistamientos"> & {
   latitud: string | number;
@@ -120,7 +126,10 @@ export const listSightings = async (reportIds: string[]): Promise<Sighting[]> =>
 };
 
 export const uploadLostPetPhoto = async (userId: string, file: File) => {
-  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const extension = PHOTO_EXTENSIONS[file.type];
+  if (!extension || file.size > MAX_PHOTO_BYTES) {
+    throw new Error("La imagen debe ser JPG, PNG o WebP y pesar menos de 5 MB.");
+  }
   const path = `${userId}/${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage
     .from(PHOTO_BUCKET)
@@ -144,19 +153,18 @@ export const reportLostPet = async (userId: string, values: LostPetInput, photo:
   }
 
   const foto = await uploadLostPetPhoto(userId, photo);
-  const { error } = await supabase.from("mascotas_perdidas").insert({
-    id_mascota: values.id_mascota || null,
-    id_usuario_reporta: userId,
-    zona_id: values.zona_id,
-    especie: values.especie,
-    nombre: values.nombre?.trim() || "Mascota encontrada",
-    raza: values.raza || "Desconocida",
-    contacto: values.contacto,
-    descripcion: values.descripcion,
-    foto,
-    latitud: values.latitud,
-    longitud: values.longitud,
-    recompensa: values.recompensa,
+  const { error } = await supabase.rpc("reportar_mascota_perdida", {
+    p_id_mascota: values.id_mascota || null,
+    p_especie: values.especie,
+    p_nombre: values.nombre?.trim() || "Mascota encontrada",
+    p_raza: values.raza || "Desconocida",
+    p_zona_id: values.zona_id,
+    p_descripcion: values.descripcion,
+    p_foto: foto,
+    p_latitud: values.latitud,
+    p_longitud: values.longitud,
+    p_contacto: values.contacto,
+    p_recompensa: values.recompensa,
   });
   if (error) {
     await supabase.storage.from(PHOTO_BUCKET).remove([foto]);
