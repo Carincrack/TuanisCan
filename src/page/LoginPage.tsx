@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
 import {
   User,
@@ -18,6 +19,7 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Globe,
 } from "../lib/iconos";
 import { inicioDeRol, MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
@@ -36,6 +38,34 @@ import { opcionesDePais } from "../lib/paises";
 const SelectorUbicacion = lazy(() =>
   import("../components/SelectorUbicacion").then((m) => ({ default: m.SelectorUbicacion }))
 );
+
+/* El globo de países: d3 y los mapas pesan casi 1 MB entre los dos y
+   solo hacen falta si alguien abre la ventana del paso 2. */
+const cargarGlobo = () => import("../components/GloboPaises");
+const GloboPaises = lazy(cargarGlobo);
+
+/** Deja el globo bajando —su código y el mapa liviano— apenas aparece
+    el paso 2, para que al tocar el campo la ventana abra ya dibujada. */
+const precargarGlobo = () => {
+  void cargarGlobo().catch(() => undefined);
+  void import("../lib/mapaMundo").then((m) => m.precargarMapa()).catch(() => undefined);
+};
+
+/** Por si el código del globo todavía no llegó al abrir la ventana.
+    Va montado en `body`, como la ventana misma: dentro del formulario
+    el `fixed` quedaba encerrado por la tarjeta y se veía como un cuadro
+    oscuro encima de los campos. Sin velo, solo la píldora, y recién a
+    los 250 ms: con la precarga casi nunca llega a verse. */
+const EsperaGlobo = ({ texto }: { texto: string }) =>
+  createPortal(
+    <div className="pointer-events-none fixed inset-0 z-[90] grid place-items-center">
+      <span className="globo-espera inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-600 shadow-[0_18px_44px_-12px_rgba(15,32,44,0.4)]">
+        <Loader size={16} className="animate-spin text-[#14A3B8]" />
+        {texto}
+      </span>
+    </div>,
+    document.body,
+  );
 
 /** Rol elegido en el login. El administrador entra por /acceso-interno. */
 interface LoginPageProps {
@@ -187,6 +217,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regPasswordConfirmation, setRegPasswordConfirmation] = useState("");
   const [regTelefono, setRegTelefono] = useState("");
   const [regPais, setRegPais] = useState<string>(PAIS_PREDETERMINADO);
+  const [globoAbierto, setGloboAbierto] = useState(false);
   const [regZonaId, setRegZonaId] = useState("");
   const [regDescripcion, setRegDescripcion] = useState("");
   const [regTarifa, setRegTarifa] = useState("");
@@ -275,6 +306,13 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setRegCanton(valor);
     setRegZonaId("");
   };
+
+  useEffect(() => {
+    if (isSignUp && registrationStep === 2) precargarGlobo();
+  }, [isSignUp, registrationStep]);
+
+  const nombrePais =
+    opcionesDePais(localeTag).find((opcion) => opcion.value === (regPais || PAIS_PREDETERMINADO))?.label ?? regPais;
 
   const elegirPais = (valor: string) => {
     setRegPais(valor);
@@ -803,16 +841,37 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
                   {registrationStep === 2 && (
                     <div className="space-y-4">
-                      <Combo
-                        tono="login"
-                        Icon={MapPin}
-                        vacio
-                        value={regPais}
-                        onChange={elegirPais}
-                        placeholder={t("auth.fields.country")}
-                        aria-label={t("auth.fields.country")}
-                        options={opcionesDePais(localeTag)}
-                      />
+                      {/* El país se elige en el globo. Por fuera se ve como un
+                          campo más del formulario, con el país puesto; al
+                          tocarlo se abre la ventana. Solo Costa Rica se
+                          puede confirmar: los demás todavía no tienen
+                          zonas catalogadas. */}
+                      <button
+                        type="button"
+                        onClick={() => setGloboAbierto(true)}
+                        aria-haspopup="dialog"
+                        aria-label={t("auth.globe.triggerAria", { pais: nombrePais })}
+                        className="group flex w-full items-center gap-3 rounded-full border border-transparent bg-slate-100 px-5 py-4 text-left text-[16px] transition-colors duration-150 hover:bg-slate-200/70 focus-visible:border-[#14A3B8]/40 focus-visible:ring-2 focus-visible:ring-[#14A3B8]/25 focus-visible:outline-none sm:text-sm"
+                      >
+                        <MapPin size={17} className="shrink-0 text-[#14A3B8]" />
+                        <span className="min-w-0 flex-1 truncate text-[#1E2A33]">{nombrePais}</span>
+                        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#14A3B8] transition-transform duration-150 ease-out group-hover:translate-x-0.5">
+                          <Globe size={15} />
+                          {t("auth.globe.trigger")}
+                        </span>
+                      </button>
+                      {globoAbierto && (
+                        <Suspense fallback={<EsperaGlobo texto={t("auth.globe.loading")} />}>
+                          <GloboPaises
+                            valor={regPais}
+                            onElegir={(codigo) => {
+                              elegirPais(codigo);
+                              setGloboAbierto(false);
+                            }}
+                            onCerrar={() => setGloboAbierto(false)}
+                          />
+                        </Suspense>
+                      )}
                       <div className="relative">
                         <User className={iconBase} size={18} />
                         <input type="text" autoComplete="name" placeholder={t("auth.fields.fullName")} value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className={inputBase} maxLength={150} required />
