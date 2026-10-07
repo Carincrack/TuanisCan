@@ -19,6 +19,8 @@ export interface PaymentMethod {
 
 export type PaymentStatus = "pendiente" | "pagado" | "fallido" | "reembolsado";
 
+export type DigitalWallet = "PayPal" | "Google Pay" | "Apple Pay";
+
 export interface PaymentMovement {
   id_pago: string;
   id_paseo: string;
@@ -127,6 +129,14 @@ export const processPayment = async (walkId: string, methodId: string) => {
 
   if (error) throw error;
   return data as PaymentStatus;
+};
+
+export const processDigitalWalletPayment = async (
+  _walkId: string,
+  _wallet: DigitalWallet,
+): Promise<PaymentStatus> => {
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  return "pagado";
 };
 
 export const listWalkerEarnings = async (): Promise<WalkerEarning[]> => {
