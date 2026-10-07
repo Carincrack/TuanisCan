@@ -52,6 +52,8 @@ import {
 } from "../components/ui";
 import { Combo } from "../components/Combo";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { PAIS_PREDETERMINADO } from "../types/auth.types";
+import { opcionesDePais } from "../lib/paises";
 
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
@@ -89,6 +91,7 @@ interface ProfileForm {
   nombre: string;
   telefono: string;
   foto_perfil: string;
+  pais: string;
   zona_id: string;
 
   descripcion: string;
@@ -114,6 +117,7 @@ const emptyForm: ProfileForm = {
   nombre: "",
   telefono: "",
   foto_perfil: "",
+  pais: PAIS_PREDETERMINADO,
   zona_id: "",
 
   descripcion: "",
@@ -131,17 +135,22 @@ const emptyForm: ProfileForm = {
   foto_negocio: "",
 };
 
-const formFromProfile = (profile: UserProfile): ProfileForm => ({
+const formFromProfile = (profile: UserProfile): ProfileForm => {
+  const pais = profile.pais || PAIS_PREDETERMINADO;
+  const tieneZonas = pais === PAIS_PREDETERMINADO;
+
+  return {
   nombre: profile.nombre,
   telefono: profile.telefono ?? "",
   foto_perfil: profile.foto_perfil ?? "",
-  zona_id: profile.zona_id ?? "",
+  pais,
+  zona_id: tieneZonas ? profile.zona_id ?? "" : "",
 
   descripcion: profile.paseador?.descripcion ?? "",
   tarifa_base: profile.paseador?.tarifa_base?.toString() ?? "",
   disponible: profile.paseador?.disponible ?? false,
 
-  negocio_zona_id: profile.negocio?.zona_id ?? "",
+  negocio_zona_id: tieneZonas ? profile.negocio?.zona_id ?? "" : "",
   nombre_negocio: profile.negocio?.nombre ?? "",
   tipo_negocio: profile.negocio?.tipo ?? "veterinaria",
   direccion: profile.negocio?.direccion ?? "",
@@ -150,7 +159,8 @@ const formFromProfile = (profile: UserProfile): ProfileForm => ({
   telefono_negocio: profile.negocio?.telefono ?? "",
   horario: profile.negocio?.horario ?? "",
   foto_negocio: profile.negocio?.foto ?? "",
-});
+  };
+};
 
 /* =========================================================
    ROLES
@@ -541,12 +551,22 @@ const ProfilePage = () => {
 
     if (
       complete &&
-      !form.zona_id
+      form.pais === PAIS_PREDETERMINADO && !form.zona_id
     ) {
       return t("profile.errors.zoneRequiredForRole");
     }
 
     return null;
+  };
+
+  const cambiarPais = (pais: string) => {
+    setForm((current) => ({
+      ...current,
+      pais,
+      ...(pais && pais !== PAIS_PREDETERMINADO
+        ? { zona_id: "", negocio_zona_id: "" }
+        : {}),
+    }));
   };
 
   /* =========================================================
@@ -604,8 +624,10 @@ const ProfilePage = () => {
 
       foto_perfil: nextPhoto,
 
+      pais: form.pais.trim() || PAIS_PREDETERMINADO,
+
       zona_id:
-        form.zona_id || null,
+        form.pais === PAIS_PREDETERMINADO ? form.zona_id || null : null,
     };
 
     if (
@@ -630,8 +652,9 @@ const ProfilePage = () => {
     ) {
       changes.negocio = {
         zona_id:
-          form.negocio_zona_id ||
-          null,
+          form.pais === PAIS_PREDETERMINADO
+            ? form.negocio_zona_id || null
+            : null,
 
         nombre:
           form.nombre_negocio.trim(),
@@ -900,7 +923,7 @@ const ProfilePage = () => {
 
       if (
         !form.nombre_negocio.trim() ||
-        !form.negocio_zona_id ||
+        (form.pais === PAIS_PREDETERMINADO && !form.negocio_zona_id) ||
         !form.telefono_negocio.trim() ||
         !form.direccion.trim() ||
         !form.horario.trim()
@@ -1739,6 +1762,26 @@ const ProfilePage = () => {
 
             <div>
               <label
+                htmlFor="perfil-pais"
+                className={labelClass}
+              >
+                {t("profile.dataTab.country")}
+              </label>
+
+              <div className="relative">
+                <Combo
+                  id="perfil-pais"
+                  Icon={Globe}
+                  placeholder={t("profile.dataTab.selectCountry")}
+                  value={form.pais}
+                  onChange={cambiarPais}
+                  options={opcionesDePais(localeTag)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
                 htmlFor="perfil-zona"
                 className={labelClass}
               >
@@ -1750,6 +1793,8 @@ const ProfilePage = () => {
                   id="perfil-zona"
                   Icon={MapPin}
                   vacio
+                  disabled={Boolean(form.pais && form.pais !== PAIS_PREDETERMINADO)}
+                  textoInactivo={form.pais && form.pais !== PAIS_PREDETERMINADO ? t("profile.dataTab.countryNoZones") : undefined}
                   placeholder={t("profile.dataTab.selectZone")}
                   value={form.zona_id}
                   onChange={(v) => setField("zona_id", v)}
@@ -2456,6 +2501,8 @@ const ProfilePage = () => {
                 <Combo
                   id="negocio-zona"
                   vacio
+                    disabled={Boolean(form.pais && form.pais !== PAIS_PREDETERMINADO)}
+                    textoInactivo={form.pais && form.pais !== PAIS_PREDETERMINADO ? t("profile.dataTab.countryNoZones") : undefined}
                   placeholder={t("profile.businessCard.selectZone")}
                   value={form.negocio_zona_id}
                   onChange={(v) => setField("negocio_zona_id", v)}
@@ -3305,8 +3352,10 @@ const ProfilePage = () => {
 
                   <Combo
                     id="activar-negocio-zona"
-                    required
+                    required={form.pais === PAIS_PREDETERMINADO}
                     vacio
+                    disabled={Boolean(form.pais && form.pais !== PAIS_PREDETERMINADO)}
+                    textoInactivo={form.pais && form.pais !== PAIS_PREDETERMINADO ? t("profile.dataTab.countryNoZones") : undefined}
                     placeholder={t("profile.roleSetup.business.selectZone")}
                     value={form.negocio_zona_id}
                     onChange={(v) => setField("negocio_zona_id", v)}
