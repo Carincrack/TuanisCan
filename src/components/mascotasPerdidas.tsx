@@ -49,9 +49,10 @@ const MapaPunto = lazy(() => import("./MapaPunto"));
 /** Mientras baja el mapa: el mismo hueco que va a ocupar, sin saltos. */
 const EsperaMapa = () => <div aria-hidden className="h-[330px] rounded-[14px] bg-sunken sm:h-[370px]" />;
 
-const filtros = ["Todas", "Perdidas", "Encontradas", "Mi zona"];
+const filtros = ["Todas", "Mías", "Perdidas", "Encontradas", "Mi zona"];
 const claveFiltroLabel: Record<string, string> = {
   Todas: "mascotasPerdidas.filters.all",
+  Mías: "mascotasPerdidas.filters.mine",
   Perdidas: "mascotasPerdidas.filters.lost",
   Encontradas: "mascotasPerdidas.filters.found",
   "Mi zona": "mascotasPerdidas.filters.myZone",
@@ -683,6 +684,7 @@ const MascotasPerdidas = () => {
         .toLocaleLowerCase("es");
       return (
         (filtro === "Todas" ||
+          (filtro === "Mías" && Boolean(user) && reporte.id_usuario_reporta === user?.id) ||
           (filtro === "Perdidas" && reporte.estado === "perdida") ||
           (filtro === "Encontradas" && reporte.estado === "encontrada") ||
           (filtro === "Mi zona" && Boolean(profileZonaId) && reporte.zona_id === profileZonaId)) &&
@@ -697,6 +699,7 @@ const MascotasPerdidas = () => {
     filtro,
     profileZonaId,
     reportes,
+    user,
     territorio.provincia,
     territorio.canton,
     territorio.distrito,

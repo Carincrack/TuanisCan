@@ -108,6 +108,7 @@
     "aria": "Lost pets filters",
     "label": "Filter reports",
     "all": "All",
+    "mine": "Mine",
     "lost": "Lost",
     "found": "Found",
     "myZone": "My zone",
