@@ -1,5 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { divIcon } from "leaflet";
+import { MapContainer, Marker, TileLayer } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import { Camera, Check, CheckCircle2, Clock, Eye, Maximize2, MapPin, Phone, Search, Siren, Sparkles, X } from "../lib/iconos";
 import { getZonas } from "../services/auth.service";
 import { listPets } from "../services/pets.service";
@@ -77,6 +80,13 @@ const parseCoords = (value: string) => {
 
 const coordsLabel = ({ latitud, longitud }: { latitud: number; longitud: number }) =>
   `${latitud.toFixed(6)}, ${longitud.toFixed(6)}`;
+
+const pinAvistamiento = divIcon({
+  className: "tsc-map-marker",
+  html: '<span class="tsc-map-marker__pin is-active"><span></span></span>',
+  iconSize: [44, 48],
+  iconAnchor: [22, 44],
+});
 
 const formatDateTime = (value: string, localeTag: string) =>
   new Intl.DateTimeFormat(localeTag, {
@@ -562,6 +572,23 @@ const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: 
               <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">{t("mascotasPerdidas.sightingDetails.zone")}</dt><dd className="mt-1">{zonaLabel(item.zona, t)}</dd></div>
               <div className="rounded-[14px] bg-surface p-3"><dt className="rotulo text-ink-mute">{t("mascotasPerdidas.sightingDetails.contact")}</dt><dd className="nums mt-1 break-all">{item.contacto || t("mascotasPerdidas.sightingDetails.notIndicated")}</dd></div>
             </dl>
+            <div className="mt-3 overflow-hidden rounded-[14px]">
+              <MapContainer
+                center={[item.latitud, item.longitud]}
+                zoom={15}
+                zoomControl={false}
+                scrollWheelZoom={false}
+                dragging={false}
+                doubleClickZoom={false}
+                className="h-[140px] w-full"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <Marker position={[item.latitud, item.longitud]} icon={pinAvistamiento} />
+              </MapContainer>
+            </div>
             <div className="mt-3 rounded-[14px] bg-surface p-3">
               <p className="rotulo text-ink-mute">{t("mascotasPerdidas.sightingDetails.comment")}</p>
               <p className="mt-1 whitespace-pre-wrap text-[13px] text-ink-soft">{item.comentario || t("mascotasPerdidas.sightingDetails.noComment")}</p>
