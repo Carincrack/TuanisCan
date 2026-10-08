@@ -173,6 +173,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
         { to: `${RUTA_ADMIN}/usuarios`, label: "nav.item.usuarios", Icon: Users },
         { to: `${RUTA_ADMIN}/zonas`, label: "nav.item.zonas", Icon: MapPin },
         { to: `${RUTA_ADMIN}/paseos`, label: "nav.item.paseos", Icon: CalendarDays },
+        { to: "/directorio", label: "nav.item.directorio", Icon: Store },
       ],
     },
   ],
