@@ -183,10 +183,19 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
            escritorio ese contenedor es `absolute` contra la banda, así
            que moverlo movería las dos esquinas a la vez. Por dentro,
            cada una llega por su lado. */
+        /* `fromTo` y no `from`: con `from` GSAP toma como destino lo
+           que lee en ese momento, y la píldora del botón tiene su propia
+           transición CSS de `transform`. En desarrollo React monta el
+           efecto dos veces; en la segunda pasada el botón venía todavía
+           volviendo de los 16 px y GSAP fijaba ESO como destino: quedaba
+           16 px corrido para siempre, encima del conmutador. Con el
+           destino escrito no hay nada que leer, y `clearProps` deja el
+           botón limpio al terminar para que su `hover` funcione. */
         q("[data-entra='pildoras']").forEach((cont: HTMLElement) => {
-          entrada.from(
+          entrada.fromTo(
             cont.children,
-            { y: 16, opacity: 0, duration: 0.7, stagger: 0.09 },
+            { y: 16, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.7, stagger: 0.09, clearProps: "transform,opacity" },
             0.5,
           );
         });
