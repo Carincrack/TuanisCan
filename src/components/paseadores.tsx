@@ -5,11 +5,17 @@ import {
   Loader,
   MapPin,
   PawPrint,
+  Phone,
   Search,
   Star,
 } from "../lib/iconos";
 import { listPets } from "../services/pets.service";
-import { listActiveWalkers, requestWalk } from "../services/walkers.service";
+import {
+  listActiveWalkers,
+  listPublicWalkerReviews,
+  requestWalk,
+  type PublicWalkerReview,
+} from "../services/walkers.service";
 import { estimarPrecioPaseo, RECARGOS_POR_DEFECTO } from "../lib/precios";
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
@@ -166,6 +172,8 @@ const Paseadores = () => {
   const [zona, setZona] = useState("Todas");
   const [busqueda, setBusqueda] = useState("");
   const [perfil, setPerfil] = useState<PublicWalker | null>(null);
+  const [resenas, setResenas] = useState<PublicWalkerReview[]>([]);
+  const [resenasCargando, setResenasCargando] = useState(false);
   const [solicitud, setSolicitud] = useState<PublicWalker | null>(null);
   const [form, setForm] = useState<RequestForm>(emptyRequest);
   const [loading, setLoading] = useState(true);
@@ -190,6 +198,28 @@ const Paseadores = () => {
       .catch((cause) => setError(messageFrom(cause, t)))
       .finally(() => setLoading(false));
   }, [getProfile, isAdmin, t]);
+
+  useEffect(() => {
+    if (!perfil) {
+      setResenas([]);
+      return;
+    }
+    let vigente = true;
+    setResenasCargando(true);
+    listPublicWalkerReviews(perfil.id_usuario)
+      .then((data) => {
+        if (vigente) setResenas(data);
+      })
+      .catch(() => {
+        if (vigente) setResenas([]);
+      })
+      .finally(() => {
+        if (vigente) setResenasCargando(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [perfil]);
 
   const zonas = useMemo(
     () => ["Todas", ...Array.from(new Set(walkers.map((w) => w.zona))).sort()],
@@ -485,6 +515,21 @@ const Paseadores = () => {
               </div>
             </div>
 
+            {/* El teléfono solo se muestra a quien ya puede operar
+                (dueño verificado): es el mismo dato que ya se muestra
+                públicamente en el directorio de negocios, pero acá
+                basta con reservarlo para quien de verdad va a
+                contactar al paseador. */}
+            {canOperate && perfil.telefono && (
+              <a
+                href={`tel:${perfil.telefono}`}
+                className="mt-3 flex items-center gap-2 text-[13px] font-medium text-accent-dark hover:underline"
+              >
+                <Phone size={14} />
+                {perfil.telefono}
+              </a>
+            )}
+
             <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
               {[
                 {
@@ -513,6 +558,62 @@ const Paseadores = () => {
               {perfil.descripcion ||
                 t("paseadores.profileDialog.noDescription")}
             </p>
+
+            <div className="mt-5">
+              <p className="rotulo text-ink-mute">{t("paseadores.profileDialog.reviewsTitle")}</p>
+
+              {resenasCargando ? (
+                <div className="mt-2.5 flex items-center gap-2 text-[12.5px] text-ink-soft">
+                  <Loader size={14} className="animate-spin" />
+                  {t("paseadores.profileDialog.reviewsLoading")}
+                </div>
+              ) : resenas.length === 0 ? (
+                <p className="mt-2.5 text-[12.5px] text-ink-soft">
+                  {t("paseadores.profileDialog.reviewsEmpty")}
+                </p>
+              ) : (
+                <ul className="mt-2.5 flex max-h-[280px] flex-col gap-2.5 overflow-y-auto">
+                  {resenas.map((resena) => (
+                    <li key={resena.id_resena} className="rounded-[14px] bg-sunken px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              size={13}
+                              className={
+                                i < resena.calificacion
+                                  ? "fill-warn text-warn"
+                                  : "text-ink-mute/40"
+                              }
+                              aria-hidden
+                            />
+                          ))}
+                        </div>
+                        <span className="shrink-0 text-[11px] text-ink-mute">
+                          {new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(
+                            new Date(resena.fecha),
+                          )}
+                        </span>
+                      </div>
+
+                      {resena.comentario && (
+                        <p className="mt-1.5 text-[12.5px] leading-snug text-ink">
+                          {resena.comentario}
+                        </p>
+                      )}
+
+                      <p className="mt-1.5 text-[11px] text-ink-mute">
+                        {t("paseadores.profileDialog.reviewBy", {
+                          nombre: resena.dueno,
+                          mascota: resena.mascota,
+                        })}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             <div className="mt-5 flex items-center justify-between gap-3 rounded-[14px] bg-sunken px-4 py-3">
               <div>

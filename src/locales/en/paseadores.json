@@ -36,6 +36,10 @@
     "weekend": "Weekend",
     "sameDay": "Same day",
     "noSurcharge": "No surcharge",
+    "reviewsTitle": "Reviews",
+    "reviewsLoading": "Loading reviews...",
+    "reviewsEmpty": "This walker doesn't have any reviews yet.",
+    "reviewBy": "{{nombre}} · walk with {{mascota}}",
     "close": "Close",
     "requestWalk": "Request walk"
   },

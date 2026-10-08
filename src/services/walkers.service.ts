@@ -52,6 +52,26 @@ export const updateWalkerPricing = async (
   if (error) throw error;
 };
 
+export interface PublicWalkerReview {
+  id_resena: string;
+  dueno: string;
+  mascota: string;
+  calificacion: number;
+  comentario: string | null;
+  fecha: string;
+}
+
+export const listPublicWalkerReviews = async (walkerId: string): Promise<PublicWalkerReview[]> => {
+  const { data, error } = await supabase.rpc("listar_resenas_publicas_paseador", {
+    p_id_paseador: walkerId,
+  });
+  if (error) throw error;
+  return (data ?? []).map((review: PublicWalkerReview) => ({
+    ...review,
+    calificacion: Number(review.calificacion),
+  }));
+};
+
 export const requestWalk = async (input: WalkRequestInput) => {
   const { data, error } = await supabase.rpc("solicitar_paseo", {
     p_id_mascota: input.id_mascota,

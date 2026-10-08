@@ -161,6 +161,7 @@ export interface PublicWalker extends RecargosPaseador {
   id_usuario: string;
   nombre: string;
   foto_perfil: string | null;
+  telefono: string | null;
   zona_id: string | null;
   zona: string;
   descripcion: string | null;

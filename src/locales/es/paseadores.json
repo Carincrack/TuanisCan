@@ -36,6 +36,10 @@
     "weekend": "Fin de semana",
     "sameDay": "Mismo día",
     "noSurcharge": "Sin recargo",
+    "reviewsTitle": "Reseñas",
+    "reviewsLoading": "Cargando reseñas...",
+    "reviewsEmpty": "Este paseador todavía no tiene reseñas.",
+    "reviewBy": "{{nombre}} · paseo con {{mascota}}",
     "close": "Cerrar",
     "requestWalk": "Solicitar paseo"
   },
