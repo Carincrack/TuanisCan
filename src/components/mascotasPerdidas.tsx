@@ -595,13 +595,11 @@ const MascotasPerdidas = () => {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [reportesData, zonasData, petsData, profile] = await Promise.all([
-        listLostPetReports(),
+      const [zonasData, petsData, profile] = await Promise.all([
         getZonas(),
         listPets().catch(() => []),
         getProfile(),
       ]);
-      setReportes(reportesData);
       setZonas(zonasData);
       setPets(petsData);
       setProfileZonaId(profile?.zona_id ?? null);
@@ -611,14 +609,49 @@ const MascotasPerdidas = () => {
       setMatches(await listMyPetMatches(petsData).catch(() => []));
     } catch (cause) {
       setError(messageFrom(cause));
-    } finally {
-      setLoading(false);
     }
   }, [getProfile]);
 
   useEffect(() => { void load(); }, [load]);
 
   const territorio = useZonasEncadenadas(zonas);
+
+  const loadReportes = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      if (filtro === "Mi zona" && !profileZonaId) {
+        setReportes([]);
+        return;
+      }
+
+      const reportesData = await listLostPetReports({
+        ...(filtro === "Mi zona" ? { zonaId: profileZonaId! } : {}),
+        ...(territorio.provincia !== "Todas" ? { provincia: territorio.provincia } : {}),
+        ...(territorio.canton !== "Todos" ? { canton: territorio.canton } : {}),
+        ...(territorio.distrito !== "Todos" ? { distrito: territorio.distrito } : {}),
+        ...(filtro === "Perdidas" ? { estado: "perdida" as const } : {}),
+        ...(filtro === "Encontradas" ? { estado: "encontrada" as const } : {}),
+      });
+      setReportes(reportesData);
+    } catch (cause) {
+      setError(messageFrom(cause));
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    filtro,
+    profileZonaId,
+    territorio.provincia,
+    territorio.canton,
+    territorio.distrito,
+  ]);
+
+  useEffect(() => { void loadReportes(); }, [loadReportes]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([load(), loadReportes()]);
+  }, [load, loadReportes]);
 
   const stats = useMemo(() => ({
     perdidas: reportes.filter((reporte) => reporte.estado === "perdida").length,
@@ -672,7 +705,7 @@ const MascotasPerdidas = () => {
     setResolviendoMatch(match.id_match);
     try {
       await resolveMatch(match.id_match, estado);
-      await load();
+      await refresh();
       aviso.ok(
         estado === "confirmado" ? `¡${match.mascotaNombre} está de vuelta!` : "Coincidencia descartada",
         {
@@ -694,7 +727,7 @@ const MascotasPerdidas = () => {
     try {
       await markLostPetFound(report.id_mascota_perdida);
       setCerrandoCaso(null);
-      await load();
+      await refresh();
       aviso.ok(`${report.nombre} apareció`, {
         detalle: "El reporte se cerró y sale del listado.",
       });
@@ -1069,17 +1102,17 @@ const MascotasPerdidas = () => {
 
       {reporting && user && (
         <Dialog ancho="max-w-[760px]" title="Reportar mascota perdida" onClose={() => setReporting(false)}>
-          <ReportForm userId={user.id} pets={pets} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReporting(false)} onSaved={load} />
+          <ReportForm userId={user.id} pets={pets} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReporting(false)} onSaved={refresh} />
         </Dialog>
       )}
       {reportingFound && user && (
         <Dialog ancho="max-w-[760px]" title="Encontré una mascota" onClose={() => setReportingFound(false)}>
-          <FoundPetForm userId={user.id} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReportingFound(false)} onSaved={load} />
+          <FoundPetForm userId={user.id} zonas={zonas} profilePhone={profilePhone} profileZonaId={profileZonaId} onClose={() => setReportingFound(false)} onSaved={refresh} />
         </Dialog>
       )}
       {sighting && (
         <Dialog ancho="max-w-[760px]" title="Registrar avistamiento" onClose={() => setSighting(null)}>
-          <SightingForm report={sighting} zonas={zonas} profilePhone={profilePhone} onClose={() => setSighting(null)} onSaved={load} />
+          <SightingForm report={sighting} zonas={zonas} profilePhone={profilePhone} onClose={() => setSighting(null)} onSaved={refresh} />
         </Dialog>
       )}
       <Visor
