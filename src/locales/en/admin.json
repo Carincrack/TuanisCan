@@ -68,7 +68,11 @@
       "title": "No payments for this filter",
       "hint": "Movements will show up once walkers accept requests."
     },
-    "filters": { "all": "All", "pending": "Pending", "paid": "Paid" },
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "paid": "Paid"
+    },
     "csv": {
       "date": "Date",
       "pet": "Pet",
@@ -84,8 +88,17 @@
     "title": "Walker directory",
     "subtitle": "All the walkers registered on the platform.",
     "filterLabel": "Filter walkers",
-    "filters": { "all": "All", "active": "Active", "inactive": "Inactive", "suspended": "Suspended" },
-    "status": { "active": "Active", "inactive": "Inactive", "suspended": "Suspended" },
+    "filters": {
+      "all": "All",
+      "active": "Active",
+      "inactive": "Inactive",
+      "suspended": "Suspended"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "suspended": "Suspended"
+    },
     "loading": "Loading walkers...",
     "caption": "Walkers filtered by {{filtro}}",
     "columns": {
@@ -94,7 +107,9 @@
       "walks": "Walks",
       "rating": "Rating",
       "generated": "Generated",
-      "status": "Status"
+      "status": "Status",
+      "rate": "Rate",
+      "actions": "Actions"
     },
     "pagination": "Walkers pagination",
     "walkerWord": "walker",
@@ -103,6 +118,44 @@
       "title": "No walkers",
       "withError": "Check the connection or your admin permissions.",
       "withoutError": "Change the filter to see the rest."
+    },
+    "rateNote": "per 45 min",
+    "noReviews": "No reviews",
+    "reviewsOne": "1 review",
+    "reviewsMany": "{{n}} reviews",
+    "noZone": "No zone",
+    "noEmail": "No email",
+    "noData": "No data",
+    "open": "View {{nombre}}'s profile",
+    "detail": {
+      "title": "Walker profile",
+      "since": "On the platform since {{fecha}}",
+      "contact": "Contact",
+      "email": "Email",
+      "phone": "Phone",
+      "zone": "Zone",
+      "profile": "Walker profile",
+      "rate": "Base rate · 45 min",
+      "surcharges": "Surcharges",
+      "surchargeNight": "Night +{{pct}}% ({{desde}}–{{hasta}})",
+      "surchargeWeekend": "Weekend +{{pct}}%",
+      "surchargeSameDay": "Same day +{{pct}}%",
+      "noSurcharges": "No surcharges",
+      "availability": "Availability",
+      "availableYes": "Accepting requests",
+      "availableNo": "Not accepting requests",
+      "verification": "Verification",
+      "verificationStates": {
+        "approved": "Approved",
+        "pending": "Pending",
+        "rejected": "Rejected"
+      },
+      "verificationPendingNote": "Their walker verification is pending review.",
+      "verificationRejectedNote": "Their walker verification was rejected.",
+      "reviewVerification": "Go to verifications",
+      "noDescription": "They haven't written a description.",
+      "close": "Close",
+      "about": "About"
     }
   },
   "verifications": {
@@ -115,7 +168,11 @@
       "hoja_delincuencia": "Background check",
       "permiso_funcionamiento": "Operating permit"
     },
-    "roleLabels": { "dueno": "Owner", "paseador": "Walker", "negocio": "Business" },
+    "roleLabels": {
+      "dueno": "Owner",
+      "paseador": "Walker",
+      "negocio": "Business"
+    },
     "walkerProfileRequested": "Walker profile requested",
     "sentOn": "sent {{fecha}}",
     "noDocuments": "No documents attached.",
@@ -208,7 +265,12 @@
     "pagination": "Users pagination",
     "userWord": "user",
     "usersWord": "users",
-    "roleLabels": { "dueno": "Owner", "paseador": "Walker", "negocio": "Business", "admin": "Administrator" },
+    "roleLabels": {
+      "dueno": "Owner",
+      "paseador": "Walker",
+      "negocio": "Business",
+      "admin": "Administrator"
+    },
     "noRole": "No role",
     "noRoleStatus": {
       "pendingLabel": "Pending",
@@ -249,7 +311,11 @@
     "subtitle": "Platform-wide activity in real time.",
     "inCourse": "{{count}} in progress",
     "filterLabel": "Filter walks",
-    "filters": { "all": "All", "inCourse": "In progress", "incidents": "Incidents" },
+    "filters": {
+      "all": "All",
+      "inCourse": "In progress",
+      "incidents": "Incidents"
+    },
     "loadError": "Could not load the walks.",
     "loading": "Loading walks…",
     "caption": "Platform walks filtered by {{filtro}}",

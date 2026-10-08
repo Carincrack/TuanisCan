@@ -68,7 +68,11 @@
       "title": "Sin pagos en este filtro",
       "hint": "Los movimientos aparecerán cuando los paseadores acepten solicitudes."
     },
-    "filters": { "all": "Todos", "pending": "Pendientes", "paid": "Pagados" },
+    "filters": {
+      "all": "Todos",
+      "pending": "Pendientes",
+      "paid": "Pagados"
+    },
     "csv": {
       "date": "Fecha",
       "pet": "Mascota",
@@ -84,17 +88,28 @@
     "title": "Directorio de paseadores",
     "subtitle": "Todos los paseadores registrados en la plataforma.",
     "filterLabel": "Filtrar paseadores",
-    "filters": { "all": "Todos", "active": "Activos", "inactive": "Inactivos", "suspended": "Suspendidos" },
-    "status": { "active": "Activo", "inactive": "Inactivo", "suspended": "Suspendido" },
+    "filters": {
+      "all": "Todos",
+      "active": "Activos",
+      "inactive": "Inactivos",
+      "suspended": "Suspendidos"
+    },
+    "status": {
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "suspended": "Suspendido"
+    },
     "loading": "Cargando paseadores...",
     "caption": "Paseadores filtrados por {{filtro}}",
     "columns": {
       "walker": "Paseador",
       "zone": "Zona",
       "walks": "Paseos",
-      "rating": "Rating",
+      "rating": "Calificación",
       "generated": "Generado",
-      "status": "Estado"
+      "status": "Estado",
+      "rate": "Tarifa",
+      "actions": "Acciones"
     },
     "pagination": "Paginación de paseadores",
     "walkerWord": "paseador",
@@ -103,6 +118,44 @@
       "title": "Sin paseadores",
       "withError": "Revisa la conexión o los permisos de administrador.",
       "withoutError": "Cambia el filtro para ver el resto."
+    },
+    "rateNote": "por 45 min",
+    "noReviews": "Sin reseñas",
+    "reviewsOne": "1 reseña",
+    "reviewsMany": "{{n}} reseñas",
+    "noZone": "Sin zona",
+    "noEmail": "Sin correo",
+    "noData": "Sin dato",
+    "open": "Ver la ficha de {{nombre}}",
+    "detail": {
+      "title": "Ficha del paseador",
+      "since": "En la plataforma desde {{fecha}}",
+      "contact": "Contacto",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "zone": "Zona",
+      "profile": "Perfil de paseador",
+      "rate": "Tarifa base · 45 min",
+      "surcharges": "Recargos",
+      "surchargeNight": "Nocturno +{{pct}} % ({{desde}}–{{hasta}})",
+      "surchargeWeekend": "Fin de semana +{{pct}} %",
+      "surchargeSameDay": "Para el mismo día +{{pct}} %",
+      "noSurcharges": "Sin recargos",
+      "availability": "Disponibilidad",
+      "availableYes": "Recibe solicitudes",
+      "availableNo": "No recibe solicitudes",
+      "verification": "Verificación",
+      "verificationStates": {
+        "approved": "Aprobada",
+        "pending": "Pendiente",
+        "rejected": "Rechazada"
+      },
+      "verificationPendingNote": "Su verificación de paseador está pendiente de revisión.",
+      "verificationRejectedNote": "Su verificación de paseador fue rechazada.",
+      "reviewVerification": "Ir a verificaciones",
+      "noDescription": "No escribió una descripción de sí mismo.",
+      "close": "Cerrar",
+      "about": "Descripción"
     }
   },
   "verifications": {
@@ -115,7 +168,11 @@
       "hoja_delincuencia": "Hoja de delincuencia",
       "permiso_funcionamiento": "Permiso de funcionamiento"
     },
-    "roleLabels": { "dueno": "Dueño", "paseador": "Paseador", "negocio": "Negocio" },
+    "roleLabels": {
+      "dueno": "Dueño",
+      "paseador": "Paseador",
+      "negocio": "Negocio"
+    },
     "walkerProfileRequested": "Perfil de paseador solicitado",
     "sentOn": "enviado {{fecha}}",
     "noDocuments": "Sin documentos adjuntos.",
@@ -208,7 +265,12 @@
     "pagination": "Paginación de usuarios",
     "userWord": "usuario",
     "usersWord": "usuarios",
-    "roleLabels": { "dueno": "Dueño", "paseador": "Paseador", "negocio": "Negocio", "admin": "Administrador" },
+    "roleLabels": {
+      "dueno": "Dueño",
+      "paseador": "Paseador",
+      "negocio": "Negocio",
+      "admin": "Administrador"
+    },
     "noRole": "Sin rol",
     "noRoleStatus": {
       "pendingLabel": "Pendiente",
@@ -249,7 +311,11 @@
     "subtitle": "Actividad de toda la plataforma en tiempo real.",
     "inCourse": "{{count}} en curso",
     "filterLabel": "Filtrar paseos",
-    "filters": { "all": "Todos", "inCourse": "En curso", "incidents": "Incidencias" },
+    "filters": {
+      "all": "Todos",
+      "inCourse": "En curso",
+      "incidents": "Incidencias"
+    },
     "loadError": "No se pudieron cargar los paseos.",
     "loading": "Cargando paseos…",
     "caption": "Paseos de la plataforma filtrados por {{filtro}}",

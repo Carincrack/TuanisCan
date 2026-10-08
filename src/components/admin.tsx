@@ -1,9 +1,11 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { createPortal } from "react-dom";
-import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, Footprints, IdCard, Loader, MapPin, RefreshCw, Search, TrendingUp, UserCheck, Users, Wallet, X } from "../lib/iconos";
+import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, Footprints, IdCard, Loader, MapPin, RefreshCw, Search, Star, TrendingUp, UserCheck, Users, Wallet, X } from "../lib/iconos";
 import type { Icono } from "../lib/iconos";
-import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
+import { useAdminPaseadores, useAdminPaseadoresConFicha } from "../hooks/useAdminPaseadores";
+import type { AdminWalkerConFicha } from "../services/admin-walkers.service";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -17,6 +19,7 @@ import {
   Avatar,
   Badge,
   Confirmar,
+  Dialog,
   EmptyState,
   FilterTabs,
   Interruptor,
@@ -39,7 +42,7 @@ import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 import { listAdminFinances, type AdminFinanceMovement } from "../services/payments.service";
 import { listAdminWalks, type AdminWalkMovement, type EstadoPaseo } from "../services/walks.service";
-import type { Rol } from "../lib/nav";
+import { RUTA_ADMIN, type Rol } from "../lib/nav";
 import { useTranslation } from "../hooks/useTranslation";
 import type { I18nContextValue } from "../context/i18n-context";
 
@@ -475,6 +478,242 @@ const claveEstadoPaseador: Record<AdminWalker["estado"], string> = {
 const tonoPaseador = (estado: AdminWalker["estado"]) =>
   estado === "activo" ? "ok" : estado === "suspendido" ? "danger" : "neutral";
 
+const claveVerificacionPaseador: Record<string, string> = {
+  aprobado: "admin.walkers.detail.verificationStates.approved",
+  pendiente: "admin.walkers.detail.verificationStates.pending",
+  rechazado: "admin.walkers.detail.verificationStates.rejected",
+};
+
+/* Los teléfonos se guardan como se escribieron. Si tienen la forma de
+   Costa Rica se separan para leerse de un vistazo; si no, se dejan. */
+const telefonoLegible = (valor: string) => {
+  const limpio = valor.replace(/[\s.-]/g, "");
+  const cr = /^(?:\+?506)?(\d{4})(\d{4})$/.exec(limpio);
+  return cr ? `+506 ${cr[1]} ${cr[2]}` : valor;
+};
+
+/** La foto, o las iniciales si no hay o si la dirección ya no sirve. */
+const FotoPaseador = ({ paseador, size }: { paseador: AdminWalker; size: number }) => {
+  const [rota, setRota] = useState(false);
+  return paseador.foto_perfil && !rota ? (
+    <img
+      src={paseador.foto_perfil}
+      alt=""
+      aria-hidden
+      onError={() => setRota(true)}
+      className="shrink-0 rounded-full bg-sunken object-cover"
+      style={{ width: size, height: size }}
+    />
+  ) : (
+    <Avatar nombre={paseador.nombre} size={size} />
+  );
+};
+
+/** La calificación con cuántas reseñas la sostienen. Un «0» suelto se
+    leía como una nota pésima cuando en realidad nadie lo calificó. */
+const Calificacion = ({ paseador, alinear = "derecha" }: { paseador: AdminWalkerConFicha; alinear?: "derecha" | "izquierda" }) => {
+  const { t, localeTag } = useTranslation();
+  const resenas = paseador.ficha.total_resenas;
+  const sinResenas = resenas === 0 || (resenas == null && paseador.rating === 0);
+  const nota = new Intl.NumberFormat(localeTag, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(paseador.rating);
+
+  return (
+    <span className={`flex flex-col ${alinear === "derecha" ? "items-end" : "items-start"}`}>
+      {sinResenas ? (
+        <span className="text-[12.5px] text-ink-mute">{t("admin.walkers.noReviews")}</span>
+      ) : (
+        <>
+          <span className="nums inline-flex items-center gap-1 text-[13px] font-semibold text-ink">
+            <Star size={12} className="text-gold" aria-hidden />
+            {nota}
+          </span>
+          {resenas != null && (
+            <span className="nums mt-0.5 text-[11px] text-ink-mute">
+              {t(resenas === 1 ? "admin.walkers.reviewsOne" : "admin.walkers.reviewsMany", { n: resenas })}
+            </span>
+          )}
+        </>
+      )}
+    </span>
+  );
+};
+
+/** «Nicoya» arriba y «Guanacaste» debajo: el lugar y dónde queda. */
+const ZonaPaseador = ({ paseador }: { paseador: AdminWalkerConFicha }) => {
+  const { t } = useTranslation();
+  const zona = paseador.ficha.zona;
+  if (!zona && paseador.zona === "Sin zona") {
+    return <span className="text-[12.5px] text-ink-mute italic">{t("admin.walkers.noZone")}</span>;
+  }
+  return (
+    <span className="block min-w-0">
+      <span className="block truncate text-[12.5px] font-medium text-ink">{zona?.nombre ?? paseador.zona}</span>
+      {zona?.provincia && <span className="mt-0.5 block truncate text-[11.5px] text-ink-mute">{zona.provincia}</span>}
+    </span>
+  );
+};
+
+/** Renglones de la ficha: etiqueta a la izquierda, dato a la derecha. */
+const Renglones = ({ filas }: { filas: [string, ReactNode][] }) => (
+  <dl className="text-[13px]">
+    {filas.map(([etiqueta, valor]) => (
+      <div key={etiqueta} className="flex items-start justify-between gap-6 border-b border-sunken py-2.5 last:border-b-0">
+        <dt className="shrink-0 text-ink-soft">{etiqueta}</dt>
+        <dd className="min-w-0 text-right font-medium break-words text-ink">{valor}</dd>
+      </div>
+    ))}
+  </dl>
+);
+
+
+/* ── La ficha del paseador ──
+   Todo lo que se sabe de él en una sola ventana: cómo contactarlo, qué
+   cobra, qué dice de sí mismo y cómo le va. Con la forma del detalle de
+   un paseo: renglones con la etiqueta a la izquierda y el dato a la
+   derecha, y los números grandes arriba. */
+const FichaPaseadorDialog = ({ paseador, onCerrar }: { paseador: AdminWalkerConFicha; onCerrar: () => void }) => {
+  const { t, localeTag } = useTranslation();
+  const { ficha } = paseador;
+  const sinDato = <span className="font-normal text-ink-mute">{t("admin.walkers.noData")}</span>;
+  const desde = ficha.fecha_registro
+    ? new Intl.DateTimeFormat(localeTag, { month: "long", year: "numeric" }).format(new Date(ficha.fecha_registro))
+    : null;
+  const recargos = ficha.recargos
+    ? [
+        ficha.recargos.recargo_nocturno > 0 &&
+          t("admin.walkers.detail.surchargeNight", {
+            pct: ficha.recargos.recargo_nocturno,
+            desde: ficha.recargos.nocturno_desde,
+            hasta: ficha.recargos.nocturno_hasta,
+          }),
+        ficha.recargos.recargo_fin_semana > 0 && t("admin.walkers.detail.surchargeWeekend", { pct: ficha.recargos.recargo_fin_semana }),
+        ficha.recargos.recargo_mismo_dia > 0 && t("admin.walkers.detail.surchargeSameDay", { pct: ficha.recargos.recargo_mismo_dia }),
+      ].filter((r): r is string => Boolean(r))
+    : null;
+  const verificacionPendiente = ficha.estado_verificacion === "pendiente" || ficha.estado_verificacion === "rechazado";
+
+  const renglones: [string, ReactNode][] = [
+    [
+      t("admin.walkers.detail.email"),
+      ficha.correo ? (
+        <a href={`mailto:${ficha.correo}`} className="break-all text-accent-deep underline-offset-[3px] hover:underline">
+          {ficha.correo}
+        </a>
+      ) : (
+        sinDato
+      ),
+    ],
+    [
+      t("admin.walkers.detail.phone"),
+      ficha.telefono ? (
+        <a href={`tel:${ficha.telefono.replace(/[^\d+]/g, "")}`} className="nums text-accent-deep underline-offset-[3px] hover:underline">
+          {telefonoLegible(ficha.telefono)}
+        </a>
+      ) : (
+        sinDato
+      ),
+    ],
+    [
+      t("admin.walkers.detail.zone"),
+      ficha.zona ? [ficha.zona.nombre, ficha.zona.canton, ficha.zona.provincia].filter((p, i, a) => p && a.indexOf(p) === i).join(", ") : paseador.zona,
+    ],
+  ];
+
+  const perfil: [string, ReactNode][] = [
+    [
+      t("admin.walkers.detail.rate"),
+      ficha.tarifa_base != null ? <span className="nums">{colones(ficha.tarifa_base)}</span> : sinDato,
+    ],
+    [
+      t("admin.walkers.detail.surcharges"),
+      recargos == null ? sinDato : recargos.length ? (
+        <span className="flex flex-col items-end gap-0.5">
+          {recargos.map((r) => (
+            <span key={r} className="nums">{r}</span>
+          ))}
+        </span>
+      ) : (
+        <span className="font-normal text-ink-soft">{t("admin.walkers.detail.noSurcharges")}</span>
+      ),
+    ],
+    [
+      t("admin.walkers.detail.availability"),
+      ficha.disponible == null ? sinDato : ficha.disponible ? t("admin.walkers.detail.availableYes") : t("admin.walkers.detail.availableNo"),
+    ],
+    [
+      t("admin.walkers.detail.verification"),
+      ficha.estado_verificacion ? t(claveVerificacionPaseador[ficha.estado_verificacion] ?? ficha.estado_verificacion) : sinDato,
+    ],
+  ];
+
+  const cifras: [string, ReactNode][] = [
+    [t("admin.walkers.columns.walks"), <span className="nums">{paseador.paseos}</span>],
+    [t("admin.walkers.columns.rating"), <Calificacion paseador={paseador} alinear="izquierda" />],
+    [t("admin.walkers.columns.generated"), <span className="nums">{colones(paseador.generado)}</span>],
+  ];
+
+  return (
+    <Dialog title={t("admin.walkers.detail.title")} onClose={onCerrar} ancho="max-w-[600px]">
+      <div className="grid gap-5 p-6">
+        <div className="flex items-start gap-4">
+          <FotoPaseador paseador={paseador} size={56} />
+          <div className="min-w-0 flex-1">
+            <h4 className="titular truncate text-[18px] text-ink">{paseador.nombre}</h4>
+            {desde && <p className="mt-0.5 text-[12.5px] text-ink-soft">{t("admin.walkers.detail.since", { fecha: desde })}</p>}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge tono={tonoPaseador(paseador.estado)}>{t(claveEstadoPaseador[paseador.estado])}</Badge>
+              {ficha.disponible === false && <Badge tono="neutral">{t("admin.walkers.detail.availableNo")}</Badge>}
+            </div>
+          </div>
+        </div>
+
+        {verificacionPendiente && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-warn-wash px-4 py-3 text-[12.5px] text-warn">
+            <span>{t(ficha.estado_verificacion === "rechazado" ? "admin.walkers.detail.verificationRejectedNote" : "admin.walkers.detail.verificationPendingNote")}</span>
+            <Link to={`${RUTA_ADMIN}/verificaciones`} className={`${btnSecondary} bg-white px-4 py-2 text-[12px]`}>
+              {t("admin.walkers.detail.reviewVerification")}
+            </Link>
+          </div>
+        )}
+
+        {/* Las tres cifras de la fila, en grande. */}
+        <div className="grid grid-cols-3 gap-2">
+          {cifras.map(([etiqueta, valor]) => (
+            <div key={etiqueta} className="min-w-0 rounded-[14px] bg-sunken px-3 py-3 sm:px-3.5">
+              {/* No es `rotulo`: con su espaciado, «CALIFICACIÓN» no
+                  entraba en un tercio del ancho de un teléfono. */}
+              <p className="font-[Archivo] text-[9.5px] font-bold tracking-[0.05em] text-ink-mute uppercase sm:text-[10px] sm:tracking-[0.12em]">{etiqueta}</p>
+              <div className="mt-1.5 text-[16px] leading-tight font-semibold text-ink">{valor}</div>
+            </div>
+          ))}
+        </div>
+
+        <section>
+          <h5 className="rotulo text-ink-mute">{t("admin.walkers.detail.contact")}</h5>
+          <Renglones filas={renglones} />
+        </section>
+
+        <section>
+          <h5 className="rotulo text-ink-mute">{t("admin.walkers.detail.profile")}</h5>
+          <Renglones filas={perfil} />
+          <div className="mt-3 rounded-[14px] bg-sunken px-4 py-3">
+            <p className="text-[11.5px] font-semibold text-ink-mute">{t("admin.walkers.detail.about")}</p>
+            <p className="mt-1 text-[13px] leading-relaxed whitespace-pre-line text-ink-soft">
+              {ficha.descripcion ?? <span className="italic">{t("admin.walkers.detail.noDescription")}</span>}
+            </p>
+          </div>
+        </section>
+
+        <div className="flex justify-end border-t border-sunken pt-4">
+          <button type="button" className={btnPrimary} onClick={onCerrar}>
+            {t("admin.walkers.detail.close")}
+          </button>
+        </div>
+      </div>
+    </Dialog>
+  );
+};
+
 export const PaseadoresAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
   const { t } = useTranslation();
@@ -484,18 +723,23 @@ export const PaseadoresAdmin = () => {
     Inactivos: "admin.walkers.filters.inactive",
     Suspendidos: "admin.walkers.filters.suspended",
   };
-  const { paseadores, loading, error } = useAdminPaseadores();
+  const { paseadores, loading, error } = useAdminPaseadoresConFicha();
   const [filtro, setFiltro] = useState("Todos");
   const [pagina, setPagina] = useState(1);
+  const [fichaId, setFichaId] = useState<string | null>(null);
 
-  const visibles = paseadores.filter((paseador) =>
-    filtro === "Todos"
+  const enFiltro = (paseador: AdminWalker, valor: string) =>
+    valor === "Todos"
       ? true
-      : filtro === "Activos"
+      : valor === "Activos"
         ? paseador.estado === "activo"
-        : filtro === "Inactivos"
+        : valor === "Inactivos"
           ? paseador.estado === "inactivo"
-          : paseador.estado === "suspendido"
+          : paseador.estado === "suspendido";
+
+  const visibles = paseadores.filter((paseador) => enFiltro(paseador, filtro));
+  const cuentas = Object.fromEntries(
+    ["Todos", "Activos", "Inactivos", "Suspendidos"].map((valor) => [valor, paseadores.filter((p) => enFiltro(p, valor)).length]),
   );
 
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
@@ -503,8 +747,21 @@ export const PaseadoresAdmin = () => {
   const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
   const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
   const paginaPaseadores = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
+  const ficha = fichaId ? paseadores.find((p) => p.id_usuario === fichaId) ?? null : null;
 
   const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+
+  /** El nombre abre la ficha, como el «Paseo con…» de Pagos. */
+  const abrirFicha = (p: AdminWalkerConFicha, className: string) => (
+    <button
+      type="button"
+      onClick={() => setFichaId(p.id_usuario)}
+      title={t("admin.walkers.open", { nombre: p.nombre })}
+      className={`block max-w-full truncate text-left font-semibold text-ink underline-offset-[3px] transition-colors duration-150 hover:text-accent-deep ${className}`}
+    >
+      {p.nombre}
+    </button>
+  );
 
   return (
     <Page wide>
@@ -520,6 +777,7 @@ export const PaseadoresAdmin = () => {
           options={["Todos", "Activos", "Inactivos", "Suspendidos"].map((o) => ({ value: o, label: t(claveFiltroPaseadores[o]) }))}
           value={filtro}
           onChange={cambiarFiltro}
+          cuentas={loading ? undefined : cuentas}
         />
       </div>
 
@@ -535,91 +793,110 @@ export const PaseadoresAdmin = () => {
             <p className="px-6 py-8 text-[13px] text-ink-soft">{t("admin.walkers.loading")}</p>
           ) : visibles.length > 0 ? (
             <>
-              {/* ── De lg para arriba: la tabla ── */}
+              {/* ── De lg para arriba: la tabla ──
+                  Antes eran seis columnas de números alrededor de un
+                  nombre: no se sabía cómo contactar al paseador ni qué
+                  cobraba. Ahora el correo va bajo el nombre, la zona dice
+                  la provincia, entra la tarifa y la calificación dice
+                  cuántas reseñas la sostienen. Lo demás, en la ficha. */}
               <div className="hidden lg:block">
                 <Table
                   caption={t("admin.walkers.caption", { filtro: t(claveFiltroPaseadores[filtro]).toLowerCase() })}
-                  min="min-w-[900px]"
+                  min="min-w-[980px]"
                   padX="px-4"
                   columnas={[
-                    { label: t("admin.walkers.columns.walker"), ancho: "w-[28%]" },
-                    { label: t("admin.walkers.columns.zone"), ancho: "w-[20%]" },
-                    { label: t("admin.walkers.columns.walks"), align: "right", ancho: "w-[13%]" },
+                    { label: t("admin.walkers.columns.walker"), ancho: "w-[27%]" },
+                    { label: t("admin.walkers.columns.zone"), ancho: "w-[15%]" },
+                    { label: t("admin.walkers.columns.rate"), align: "right", ancho: "w-[11%]" },
+                    { label: t("admin.walkers.columns.walks"), align: "right", ancho: "w-[8%]" },
                     { label: t("admin.walkers.columns.rating"), align: "right", ancho: "w-[13%]" },
-                    { label: t("admin.walkers.columns.generated"), align: "right", ancho: "w-[16%]" },
+                    { label: t("admin.walkers.columns.generated"), align: "right", ancho: "w-[11%]" },
                     { label: t("admin.walkers.columns.status"), ancho: "w-[10%]" },
+                    { label: t("admin.walkers.columns.actions"), ancho: "w-[5%]", muda: true },
                   ]}
                 >
                   {paginaPaseadores.map((p) => (
-                    <tr key={p.id_usuario} className="transition-colors duration-150 hover:bg-accent-wash/25">
+                    <tr key={p.id_usuario} className="group transition-colors duration-150 hover:bg-accent-wash/40">
                       <td className="px-4 py-3">
                         <div className="flex min-w-0 items-center gap-3">
-                          {p.foto_perfil ? (
-                            <img
-                              src={p.foto_perfil}
-                              alt=""
-                              aria-hidden
-                              className="h-9 w-9 shrink-0 rounded-full bg-sunken object-cover"
-                            />
-                          ) : (
-                            <Avatar nombre={p.nombre} size={36} />
-                          )}
-                          <span className="truncate text-[13.5px] font-semibold text-ink" title={p.nombre}>
-                            {p.nombre}
+                          <FotoPaseador paseador={p} size={36} />
+                          <span className="min-w-0">
+                            {abrirFicha(p, "text-[13.5px] group-hover:underline")}
+                            <span className="mt-0.5 block truncate text-[11.5px] text-ink-mute" title={p.ficha.correo ?? undefined}>
+                              {p.ficha.correo ?? t("admin.walkers.noEmail")}
+                            </span>
                           </span>
                         </div>
                       </td>
-                      <td className="truncate px-4 py-3 text-[12.5px] text-ink-soft" title={p.zona}>{p.zona}</td>
-                      <td className="nums px-4 py-3 text-right text-[12.5px] text-ink-soft">
-                        {p.paseos}
+                      <td className="px-4 py-3">
+                        <ZonaPaseador paseador={p} />
                       </td>
-                      <td className="nums px-4 py-3 text-right text-[12.5px] text-ink-soft">
-                        {p.rating}
+                      <td className="px-4 py-3 text-right">
+                        {p.ficha.tarifa_base != null ? (
+                          <span className="flex flex-col items-end">
+                            <span className="nums text-[13px] font-semibold text-ink">{colones(p.ficha.tarifa_base)}</span>
+                            <span className="mt-0.5 text-[11px] text-ink-mute">{t("admin.walkers.rateNote")}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[12.5px] text-ink-mute">—</span>
+                        )}
                       </td>
-                      <td className="nums px-4 py-3 text-right text-[13px] font-semibold text-ink">
-                        {colones(p.generado)}
+                      <td className="nums px-4 py-3 text-right text-[13px] text-ink">{p.paseos}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Calificacion paseador={p} />
                       </td>
+                      <td className="nums px-4 py-3 text-right text-[13px] font-semibold text-ink">{colones(p.generado)}</td>
                       <td className="px-4 py-3">
                         <Badge tono={tonoPaseador(p.estado)}>{t(claveEstadoPaseador[p.estado])}</Badge>
+                      </td>
+                      <td className="px-2 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setFichaId(p.id_usuario)}
+                          aria-label={t("admin.walkers.open", { nombre: p.nombre })}
+                          title={t("admin.walkers.open", { nombre: p.nombre })}
+                          className="ml-auto grid h-8 w-8 place-items-center rounded-full text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken hover:text-ink active:scale-[0.94]"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </Table>
               </div>
 
-              {/* ── Debajo de lg: fichas ── */}
-              <ul className="grid gap-2.5 p-4 lg:hidden">
+              {/* ── Debajo de lg: la lista de mano ── */}
+              <ul className="lg:hidden [&>li:nth-child(even)]:bg-sunken/60">
                 {paginaPaseadores.map((p) => (
-                  <li key={p.id_usuario} className="rounded-[14px] bg-sunken/60 p-4">
+                  <li key={p.id_usuario} className="px-4 py-4 sm:px-5">
                     <div className="flex items-start gap-3">
-                      {p.foto_perfil ? (
-                        <img
-                          src={p.foto_perfil}
-                          alt=""
-                          aria-hidden
-                          className="h-10 w-10 shrink-0 rounded-full bg-sunken object-cover"
-                        />
-                      ) : (
-                        <Avatar nombre={p.nombre} size={40} />
-                      )}
+                      <FotoPaseador paseador={p} size={40} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-semibold text-ink">{p.nombre}</p>
-                        <p className="truncate text-[11.5px] text-ink-mute">{p.zona}</p>
+                        {abrirFicha(p, "text-[14px]")}
+                        <p className="mt-0.5 truncate text-[11.5px] text-ink-mute">{p.ficha.correo ?? t("admin.walkers.noEmail")}</p>
                       </div>
                       <Badge tono={tonoPaseador(p.estado)}>{t(claveEstadoPaseador[p.estado])}</Badge>
                     </div>
 
-                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
-                      <div>
-                        <dt className="rotulo text-ink-mute">Paseos</dt>
-                        <dd className="nums mt-1 text-ink-soft">{p.paseos}</dd>
+                    <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2.5 pl-[52px] text-[12px]">
+                      <div className="min-w-0">
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.zone")}</dt>
+                        <dd className="mt-1"><ZonaPaseador paseador={p} /></dd>
                       </div>
                       <div>
-                        <dt className="rotulo text-ink-mute">Rating</dt>
-                        <dd className="nums mt-1 text-ink-soft">{p.rating}</dd>
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.rate")}</dt>
+                        <dd className="nums mt-1 font-semibold text-ink">{p.ficha.tarifa_base != null ? colones(p.ficha.tarifa_base) : "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.rating")}</dt>
+                        <dd className="mt-1"><Calificacion paseador={p} alinear="izquierda" /></dd>
+                      </div>
+                      <div>
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.walks")}</dt>
+                        <dd className="nums mt-1 text-ink">{p.paseos}</dd>
                       </div>
                       <div className="col-span-2">
-                        <dt className="rotulo text-ink-mute">Generado</dt>
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.generated")}</dt>
                         <dd className="nums mt-1 font-semibold text-ink">{colones(p.generado)}</dd>
                       </div>
                     </dl>
@@ -629,24 +906,29 @@ export const PaseadoresAdmin = () => {
 
               {visibles.length > PAGE_SIZE && (
                 <Paginacion
-                  etiqueta="Paginación de paseadores"
+                  etiqueta={t("admin.walkers.pagination")}
                   actual={paginaActual}
                   total={totalPaginas}
                   onCambiar={setPagina}
                   desde={inicioPagina + 1}
                   hasta={finPagina}
                   cuantos={visibles.length}
-                  nombre={["paseador", "paseadores"]}
+                  nombre={[t("admin.walkers.walkerWord"), t("admin.walkers.walkersWord")]}
                 />
               )}
             </>
           ) : (
             <div className="px-4 py-4 sm:px-6">
-              <EmptyState title="Sin paseadores" hint={error ? "Revisa la conexión o los permisos de administrador." : "Cambia el filtro para ver el resto."} />
+              <EmptyState
+                title={t("admin.walkers.empty.title")}
+                hint={error ? t("admin.walkers.empty.withError") : t("admin.walkers.empty.withoutError")}
+              />
             </div>
           )}
         </Section>
       </div>
+
+      {ficha && <FichaPaseadorDialog paseador={ficha} onCerrar={() => setFichaId(null)} />}
     </Page>
   );
 };
