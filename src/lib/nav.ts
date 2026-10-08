@@ -125,7 +125,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       titulo: "nav.group.operacion",
       items: [
         { to: "/p/panel", label: "nav.item.panel", Icon: LayoutDashboard },
-        { to: "/p/solicitudes", label: "nav.item.solicitudes", Icon: Inbox, badge: 3 },
+        { to: "/p/solicitudes", label: "nav.item.solicitudes", Icon: Inbox },
         { to: "/p/agenda", label: "nav.item.agenda", Icon: CalendarCheck },
         { to: "/p/paseo-activo", label: "nav.item.paseoActivo", Icon: MapPin },
       ],
