@@ -581,7 +581,7 @@ const PiePerfil = ({
   const { pathname } = useLocation();
   const nombre = profile?.nombre || t("common.defaultUserName");
   const activo = pathname === "/perfil";
-  const destino = t(rol === "dueno" || rol === "admin" ? "nav.item.misDatos" : "nav.item.miPerfil");
+  const destino = t("nav.item.miPerfil");
 
   return (
     <div className="shrink-0">

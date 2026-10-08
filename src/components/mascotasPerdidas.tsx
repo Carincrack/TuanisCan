@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Camera, Check, CheckCircle2, Clock, Eye, Maximize2, MapPin, Phone, Search, Siren, Sparkles, X } from "../lib/iconos";
 import { getZonas } from "../services/auth.service";
@@ -41,6 +41,13 @@ import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 
 type T = I18nContextValue["t"];
+
+/* El mapa para marcar el lugar. Leaflet pesa ~150 kB y solo hace falta
+   cuando se abre uno de los tres formularios, no para ver la lista. */
+const MapaPunto = lazy(() => import("./MapaPunto"));
+
+/** Mientras baja el mapa: el mismo hueco que va a ocupar, sin saltos. */
+const EsperaMapa = () => <div aria-hidden className="h-[330px] rounded-[14px] bg-sunken sm:h-[370px]" />;
 
 const filtros = ["Todas", "Perdidas", "Encontradas", "Mi zona"];
 const claveFiltroLabel: Record<string, string> = {
@@ -104,32 +111,6 @@ const telefonoLegible = (valor: string) => {
   return cr ? `+506 ${cr[1]} ${cr[2]}` : valor;
 };
 
-const useBrowserLocation = (t: T) => {
-  const [locating, setLocating] = useState(false);
-  const locate = (onLocation: (coords: { latitud: number; longitud: number }) => void, onError: (message: string) => void) => {
-    if (!navigator.geolocation) {
-      onError(t("mascotasPerdidas.noGeolocation"));
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        onLocation({
-          latitud: Number(coords.latitude.toFixed(6)),
-          longitud: Number(coords.longitude.toFixed(6)),
-        });
-        setLocating(false);
-      },
-      () => {
-        onError(t("mascotasPerdidas.locationFailed"));
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 9000 }
-    );
-  };
-  return { locating, locate };
-};
-
 const ReportForm = ({
   userId,
   pets,
@@ -162,15 +143,9 @@ const ReportForm = ({
   const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { locating, locate } = useBrowserLocation(t);
 
   const selectedPet = pets.find((pet) => pet.id_mascota === values.id_mascota) ?? null;
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const fillLocation = () =>
-    locate(
-      (coords) => setValues((current) => ({ ...current, ubicacion: coordsLabel(coords) })),
-      setError
-    );
 
   const selectPet = (petId: string) => {
     const pet = pets.find((item) => item.id_mascota === petId);
@@ -290,13 +265,20 @@ const ReportForm = ({
         <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.species")}<input className={input} required disabled maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
         <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.breed")}<input className={input} disabled maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
         <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.contact")}<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
-        <label className={`${fieldLabel} sm:col-span-2`}>{t("mascotasPerdidas.reportForm.location")}
-          <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
-        </label>
+        <div className="sm:col-span-2">
+          <Suspense fallback={<EsperaMapa />}>
+            <MapaPunto
+              etiqueta={t("mascotasPerdidas.reportForm.whereLost")}
+              pista={t("mascotasPerdidas.reportForm.whereLostHint")}
+              texto={values.ubicacion}
+              onTexto={(texto) => update("ubicacion", texto)}
+              requerido
+            />
+          </Suspense>
+        </div>
         <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.reward")}<input className={input} inputMode="numeric" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
         <label className={fieldLabel}><span className="flex items-center gap-2"><Camera size={15} /> {t("mascotasPerdidas.reportForm.photo")}</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
       </div>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? t("mascotasPerdidas.detecting") : t("mascotasPerdidas.useMyLocation")}</button>
       <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.descriptionLabel")}<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.reportForm.publishing") : t("mascotasPerdidas.reportForm.publish")}</button></div>
@@ -336,13 +318,7 @@ const FoundPetForm = ({
   const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { locating, locate } = useBrowserLocation(t);
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const fillLocation = () =>
-    locate(
-      (coords) => setValues((current) => ({ ...current, ubicacion: coordsLabel(coords) })),
-      setError
-    );
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -422,12 +398,19 @@ const FoundPetForm = ({
           />
         </label>
         <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.contact")}<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
-        <label className={`${fieldLabel} sm:col-span-2`}>{t("mascotasPerdidas.foundForm.location")}
-          <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
-        </label>
+        <div className="sm:col-span-2">
+          <Suspense fallback={<EsperaMapa />}>
+            <MapaPunto
+              etiqueta={t("mascotasPerdidas.foundForm.whereFound")}
+              pista={t("mascotasPerdidas.foundForm.whereFoundHint")}
+              texto={values.ubicacion}
+              onTexto={(texto) => update("ubicacion", texto)}
+              requerido
+            />
+          </Suspense>
+        </div>
         <label className={`${fieldLabel} sm:col-span-2`}><span className="flex items-center gap-2"><Camera size={15} /> {t("mascotasPerdidas.foundForm.photo")}</span><input className={input} required type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
       </div>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? t("mascotasPerdidas.detecting") : t("mascotasPerdidas.useMyLocation")}</button>
       <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.descriptionLabel")}<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.foundForm.publishing") : t("mascotasPerdidas.foundForm.publish")}</button></div>
@@ -458,13 +441,7 @@ const SightingForm = ({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { locating, locate } = useBrowserLocation(t);
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const fillLocation = () =>
-    locate(
-      (coords) => setValues((current) => ({ ...current, ubicacion: coordsLabel(coords) })),
-      setError
-    );
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -512,10 +489,20 @@ const SightingForm = ({
   return (
     <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6">
       <div className="rounded-[14px] bg-sunken p-4"><p className="text-[14px] font-semibold text-ink">{report.nombre}</p><p className="mt-1 text-[12.5px] text-ink-soft">{zonaLabel(report.zona, t)}</p></div>
-      <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.location")}
-        <input className={input} required inputMode="decimal" placeholder="10.169410, -85.541761" value={values.ubicacion} onChange={(e) => update("ubicacion", e.target.value)} />
-      </label>
-      <button type="button" className={`${btnSecondary} justify-self-start`} onClick={fillLocation} disabled={locating}><MapPin size={14} />{locating ? t("mascotasPerdidas.detecting") : t("mascotasPerdidas.useMyLocation")}</button>
+      <Suspense fallback={<EsperaMapa />}>
+        <MapaPunto
+          etiqueta={t("mascotasPerdidas.sightingForm.whereSeen")}
+          pista={t("mascotasPerdidas.sightingForm.whereSeenHint")}
+          texto={values.ubicacion}
+          onTexto={(texto) => update("ubicacion", texto)}
+          referencia={
+            Number.isFinite(report.latitud) && Number.isFinite(report.longitud)
+              ? { latitud: report.latitud, longitud: report.longitud, nombre: report.nombre }
+              : null
+          }
+          requerido
+        />
+      </Suspense>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.zone")}
           <Combo

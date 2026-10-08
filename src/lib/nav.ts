@@ -107,7 +107,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       items: [
         { to: "/pagos", label: "nav.item.pagos", Icon: CreditCard },
         { to: "/resenas", label: "nav.item.resenas", Icon: Star },
-        { to: "/perfil", label: "nav.item.misDatos", Icon: UserCircle, oculto: true },
+        { to: "/perfil", label: "nav.item.miPerfil", Icon: UserCircle, oculto: true },
       ],
     },
     {
@@ -158,7 +158,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       items: [
         { to: RUTA_ADMIN, label: "nav.item.panelGeneral", Icon: BarChart3 },
         { to: `${RUTA_ADMIN}/finanzas`, label: "nav.item.finanzas", Icon: Wallet },
-        { to: "/perfil", label: "nav.item.misDatos", Icon: UserCircle, oculto: true },
+        { to: "/perfil", label: "nav.item.miPerfil", Icon: UserCircle, oculto: true },
       ],
     },
     {
