@@ -806,6 +806,18 @@
     visibility 0s linear 160ms;
 }
 
+/* En el teléfono la foto no llega a la onda del borde: termina a media
+   banda, sobre los botones, y su canto de abajo —un corte recto a la
+   altura del pecho— quedaba a la vista como una foto pegada. Se
+   disuelve hacia el fondo, igual que los recortes de "Servicios". Desde
+   `lg` la foto sí baja hasta detrás de la onda y no hace falta. */
+@media (max-width: 1023.98px) {
+  .portada .perro-escenario {
+    -webkit-mask-image: linear-gradient(to bottom, #000 74%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 74%, transparent 100%);
+  }
+}
+
 .perro-hero[data-visible] {
   opacity: 1;
   visibility: visible;

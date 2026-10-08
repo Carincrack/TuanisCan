@@ -23,7 +23,7 @@ const Barra = ({ onEntrar, onAbrirMenu }: BarraProps) => {
   return (
     <header
       data-entra="barra"
-      className="relative flex h-20 shrink-0 items-center justify-between px-5 sm:h-24 sm:px-8"
+      className="relative flex h-16 shrink-0 items-center justify-between px-5 sm:h-24 sm:px-8"
     >
       <nav className="hidden items-center gap-7 md:flex">
         {ENLACES.map((e) => (
@@ -38,12 +38,15 @@ const Barra = ({ onEntrar, onAbrirMenu }: BarraProps) => {
         ))}
       </nav>
 
-      {/* El símbolo, centrado sobre la tarjeta. */}
+      {/* El símbolo. Centrado sobre la tarjeta desde `md`, que es
+          donde los enlaces de la izquierda le hacen contrapeso. En el
+          teléfono va a la izquierda: centrado caía encima de «Crear
+          cuenta», que en 390 px ocupa justo el medio de la barra. */}
       <img
         src={MARCA.logoSimbolo}
         alt=""
         aria-hidden
-        className="absolute left-1/2 h-11 w-11 -translate-x-1/2 object-contain sm:h-12 sm:w-12"
+        className="h-11 w-11 shrink-0 object-contain sm:h-12 sm:w-12 md:absolute md:left-1/2 md:-translate-x-1/2"
       />
 
       <div className="flex items-center gap-2.5">
@@ -51,7 +54,7 @@ const Barra = ({ onEntrar, onAbrirMenu }: BarraProps) => {
           variante="texto"
           tamano="sm"
           onClick={() => onEntrar("login")}
-          className="hidden sm:inline-flex"
+          className="max-sm:hidden"
         >
           {t("landing.barra.login")}
         </BotonAccion>

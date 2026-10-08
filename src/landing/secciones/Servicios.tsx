@@ -214,13 +214,13 @@ const Servicios = () => {
 
       <ul
         data-anim="modulos"
-        className="mt-20 grid gap-14 md:grid-cols-3 md:gap-8 lg:gap-12"
+        className="mt-12 grid gap-12 sm:mt-16 md:mt-20 md:grid-cols-3 md:gap-8 lg:gap-12"
       >
         {MODULOS.map(({ foto, etiqueta, titulo, texto }, i) => (
           <li key={titulo} data-anim="modulo" className={`group ${ESCALON[i]}`}>
             <figure
               data-cursor=""
-              className="recorte relative h-[clamp(230px,30vw,380px)] w-full"
+              className="recorte relative h-[200px] w-full sm:h-[clamp(230px,30vw,380px)]"
             >
               <div data-anim="ficha" className="h-full w-full">
                 <div data-par={PARALAJE[i]} className="h-full w-full">
@@ -235,7 +235,10 @@ const Servicios = () => {
               </div>
             </figure>
 
-            <span className="rotulo mt-10 block" style={{ color: TINTA_SUAVE }}>
+            {/* En el teléfono la foto es más baja y el rótulo se acerca:
+                apilados, los 40 px de escritorio más el alto completo de
+                cada foto dejaban cada módulo flotando en blanco. */}
+            <span className="rotulo mt-6 block sm:mt-10" style={{ color: TINTA_SUAVE }}>
               {t(etiqueta)}
             </span>
             <h3
