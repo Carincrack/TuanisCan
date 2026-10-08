@@ -300,15 +300,7 @@ const Pagos = () => {
         mal: t("pagos.payDialog.payFailed"),
       });
       setPagoSeleccionado(null);
-      if (wallet) {
-        setMovimientos((current) => current.map((movement) => (
-          movement.id_paseo === pagoSeleccionado.id_paseo
-            ? { ...movement, estado_pago: "pagado", metodo_pago: wallet.nombre, fecha_pago: new Date().toISOString() }
-            : movement
-        )));
-      } else {
-        await load();
-      }
+      await load();
     } catch (cause) {
       setDialogError(motivo(cause));
     } finally {

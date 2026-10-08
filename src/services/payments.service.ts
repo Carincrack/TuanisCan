@@ -132,11 +132,16 @@ export const processPayment = async (walkId: string, methodId: string) => {
 };
 
 export const processDigitalWalletPayment = async (
-  _walkId: string,
-  _wallet: DigitalWallet,
+  walkId: string,
+  wallet: DigitalWallet,
 ): Promise<PaymentStatus> => {
-  await new Promise((resolve) => setTimeout(resolve, 900));
-  return "pagado";
+  const { data, error } = await supabase.rpc("procesar_pago_billetera", {
+    p_id_paseo: walkId,
+    p_billetera: wallet,
+  });
+
+  if (error) throw error;
+  return data as PaymentStatus;
 };
 
 export const listWalkerEarnings = async (): Promise<WalkerEarning[]> => {
