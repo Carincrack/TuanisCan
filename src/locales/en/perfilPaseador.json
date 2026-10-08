@@ -15,7 +15,15 @@
   "history": {
     "title": "History of pets walked",
     "owner": "Owner: {{nombre}} · {{zona}}",
-    "minutes": "{{duracion}} min"
+    "minutes": "{{duracion}} min",
+    "viewRoute": "View route",
+    "routeTitle": "{{mascota}}'s walk route",
+    "routeLoading": "Loading the route...",
+    "routeLoadError": "Could not load the route.",
+    "routeEmpty": {
+      "title": "No route saved",
+      "hint": "This walk didn't record any locations during the trip."
+    }
   },
   "empty": {
     "title": "You haven't finished any walks yet",

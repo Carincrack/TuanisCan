@@ -15,7 +15,15 @@
   "history": {
     "title": "Historial de mascotas paseadas",
     "owner": "Dueño: {{nombre}} · {{zona}}",
-    "minutes": "{{duracion}} min"
+    "minutes": "{{duracion}} min",
+    "viewRoute": "Ver ruta",
+    "routeTitle": "Ruta del paseo de {{mascota}}",
+    "routeLoading": "Cargando la ruta...",
+    "routeLoadError": "No se pudo cargar la ruta.",
+    "routeEmpty": {
+      "title": "No hay ruta guardada",
+      "hint": "Este paseo no registró ubicaciones durante el recorrido."
+    }
   },
   "empty": {
     "title": "Aún no has finalizado paseos",
