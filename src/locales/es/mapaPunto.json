@@ -1,0 +1,9 @@
+{
+  "myLocation": "Mi ubicación",
+  "searching": "Buscando…",
+  "noGeolocation": "Tu navegador no permite detectar tu ubicación. Toca el mapa para marcar el punto.",
+  "locationFailed": "No se pudo obtener tu ubicación. Toca el mapa para marcar el punto.",
+  "dragHint": "Arrastra para mover el punto",
+  "markedHint": "Arrastra el pin para afinar el punto, o toca otro lugar del mapa.",
+  "reference": "{{nombre}}: donde se reportó perdida"
+}

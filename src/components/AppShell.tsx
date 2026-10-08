@@ -68,7 +68,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     pathname === "/acceso-interno/paseos" ||
     pathname === "/pagos" ||
     pathname === "/pagos/tarjetas" ||
-    pathname === "/directorio";
+    pathname === "/directorio" ||
+    pathname === "/perfil";
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { getProfile, roles, isAdmin, setActiveRole } = useAuth();

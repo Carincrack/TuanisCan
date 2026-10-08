@@ -9,10 +9,6 @@
   "noRegisteredPetsHint": "Para reportar una mascota perdida, necesitas tenerla registrada en tu cuenta.",
   "registerPet": "Registrar mascota",
   "zoneNotIndicated": "Zona no indicada",
-  "noGeolocation": "Tu navegador no permite detectar tu ubicación.",
-  "locationFailed": "No se pudo obtener tu ubicación. Puedes escribir las coordenadas.",
-  "detecting": "Detectando…",
-  "useMyLocation": "Usar la ubicación donde estoy",
   "cancel": "Cancelar",
   "errors": {
     "generic": "No se pudo completar la operacion.",
@@ -20,7 +16,7 @@
     "chooseLostZone": "Elige la zona donde se perdió.",
     "addPhoto": "Agrega una foto clara de la mascota.",
     "invalidPhoto": "La foto debe ser JPG, PNG o WebP y pesar menos de 5 MB.",
-    "invalidLocation": "Escribe la ubicación como latitud, longitud. Ejemplo: 10.169410, -85.541761",
+    "invalidLocation": "Marca en el mapa dónde fue, o escribe las coordenadas como latitud, longitud. Ejemplo: 10.169410, -85.541761",
     "selectRegisteredPet": "Selecciona una mascota registrada de tu cuenta.",
     "invalidLatitude": "La latitud debe ser un número entre -90 y 90.",
     "invalidLongitude": "La longitud debe ser un número entre -180 y 180.",
@@ -41,14 +37,15 @@
     "species": "Especie *",
     "breed": "Raza",
     "contact": "Contacto *",
-    "location": "Ubicación *",
     "reward": "Recompensa",
     "photo": "Foto *",
     "descriptionLabel": "Señas, conducta y último lugar visto *",
     "publish": "Publicar reporte",
     "publishing": "Publicando…",
     "published": "{{nombre}} quedó publicada",
-    "publishedDetail": "Ya aparece en el listado. Te avisamos de cada avistamiento."
+    "publishedDetail": "Ya aparece en el listado. Te avisamos de cada avistamiento.",
+    "whereLost": "Dónde se perdió *",
+    "whereLostHint": "Toca el mapa en el lugar donde se perdió. Si fue cerca de donde estás, usa «Mi ubicación»."
   },
   "foundForm": {
     "species": "Especie *",
@@ -57,16 +54,16 @@
     "zone": "Zona *",
     "chooseZone": "Selecciona una zona",
     "contact": "Contacto *",
-    "location": "Ubicación *",
     "photo": "Foto *",
     "descriptionLabel": "Señas, color, dónde y cómo la encontraste *",
     "publish": "Publicar reporte",
     "publishing": "Publicando…",
     "published": "Reporte publicado",
-    "publishedDetail": "Le avisamos a quien tenga una mascota registrada parecida en esa zona."
+    "publishedDetail": "Le avisamos a quien tenga una mascota registrada parecida en esa zona.",
+    "whereFound": "Dónde la encontraste *",
+    "whereFoundHint": "Toca el mapa en el lugar donde la encontraste."
   },
   "sightingForm": {
-    "location": "Ubicación *",
     "zone": "Zona",
     "noZone": "Sin zona",
     "contact": "Contacto",
@@ -75,7 +72,9 @@
     "register": "Registrar avistamiento",
     "registering": "Registrando…",
     "registered": "Avistamiento registrado",
-    "registeredDetail": "Le avisamos a quien reportó a {{nombre}}."
+    "registeredDetail": "Le avisamos a quien reportó a {{nombre}}.",
+    "whereSeen": "Dónde la viste *",
+    "whereSeenHint": "Toca el mapa en el lugar donde la viste."
   },
   "sightingDetails": {
     "empty": {

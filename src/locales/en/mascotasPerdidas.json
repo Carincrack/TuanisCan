@@ -9,10 +9,6 @@
   "noRegisteredPetsHint": "To report a lost pet, you need to have it registered in your account.",
   "registerPet": "Register pet",
   "zoneNotIndicated": "Zone not given",
-  "noGeolocation": "Your browser does not allow detecting your location.",
-  "locationFailed": "Could not get your location. You can type the coordinates.",
-  "detecting": "Detecting…",
-  "useMyLocation": "Use my current location",
   "cancel": "Cancel",
   "errors": {
     "generic": "The operation could not be completed.",
@@ -20,7 +16,7 @@
     "chooseLostZone": "Choose the zone where it got lost.",
     "addPhoto": "Add a clear photo of the pet.",
     "invalidPhoto": "The photo must be JPG, PNG or WebP and under 5 MB.",
-    "invalidLocation": "Write the location as latitude, longitude. Example: 10.169410, -85.541761",
+    "invalidLocation": "Mark on the map where it was, or type the coordinates as latitude, longitude. Example: 10.169410, -85.541761",
     "selectRegisteredPet": "Select a pet registered on your account.",
     "invalidLatitude": "Latitude must be a number between -90 and 90.",
     "invalidLongitude": "Longitude must be a number between -180 and 180.",
@@ -41,14 +37,15 @@
     "species": "Species *",
     "breed": "Breed",
     "contact": "Contact *",
-    "location": "Location *",
     "reward": "Reward",
     "photo": "Photo *",
     "descriptionLabel": "Markings, behavior and last place seen *",
     "publish": "Publish report",
     "publishing": "Publishing…",
     "published": "{{nombre}} is now published",
-    "publishedDetail": "It now shows up in the listing. We'll notify you of every sighting."
+    "publishedDetail": "It now shows up in the listing. We'll notify you of every sighting.",
+    "whereLost": "Where it got lost *",
+    "whereLostHint": "Tap the map where it got lost. If it was near you, use “My location”."
   },
   "foundForm": {
     "species": "Species *",
@@ -57,16 +54,16 @@
     "zone": "Zone *",
     "chooseZone": "Select a zone",
     "contact": "Contact *",
-    "location": "Location *",
     "photo": "Photo *",
     "descriptionLabel": "Markings, color, where and how you found it *",
     "publish": "Publish report",
     "publishing": "Publishing…",
     "published": "Report published",
-    "publishedDetail": "We've notified anyone with a similar registered pet in that zone."
+    "publishedDetail": "We've notified anyone with a similar registered pet in that zone.",
+    "whereFound": "Where you found it *",
+    "whereFoundHint": "Tap the map where you found it."
   },
   "sightingForm": {
-    "location": "Location *",
     "zone": "Zone",
     "noZone": "No zone",
     "contact": "Contact",
@@ -75,7 +72,9 @@
     "register": "Register sighting",
     "registering": "Registering…",
     "registered": "Sighting registered",
-    "registeredDetail": "We've notified whoever reported {{nombre}}."
+    "registeredDetail": "We've notified whoever reported {{nombre}}.",
+    "whereSeen": "Where you saw it *",
+    "whereSeenHint": "Tap the map where you saw it."
   },
   "sightingDetails": {
     "empty": {

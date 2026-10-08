@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useContext, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
@@ -49,6 +49,7 @@ import {
   btnQuiet,
   btnSecondary,
   input,
+  NotificationButtonContext,
 } from "../components/ui";
 import { Combo } from "../components/Combo";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
@@ -320,6 +321,7 @@ const ProfilePage = () => {
   const { t, tRaw, localeTag } = useTranslation();
 
   const navigate = useNavigate();
+  const botonNotificaciones = useContext(NotificationButtonContext);
 
   const [profile, setProfile] =
     useState<UserProfile | null>(null);
@@ -1284,20 +1286,23 @@ const ProfilePage = () => {
         title={t("profile.header.title")}
         subtitle={t("profile.header.subtitle")}
         action={
-          <button
-            type="button"
-            onClick={() =>
-              navigate({
-                to: "/actualizar-contrasena",
-              })
-            }
-            className={
-              btnSecondary
-            }
-          >
-            <Lock size={15} />
-            {t("profile.header.changePassword")}
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() =>
+                navigate({
+                  to: "/actualizar-contrasena",
+                })
+              }
+              className={
+                btnSecondary
+              }
+            >
+              <Lock size={15} />
+              {t("profile.header.changePassword")}
+            </button>
+            {botonNotificaciones}
+          </div>
         }
       />
 
