@@ -90,6 +90,15 @@
     "offerNote": "This was your offer. The walker's rate was {{tarifa}}.",
     "overdueRequested": "The date passed and the walker never answered the request.",
     "overdueConfirmed": "The date passed and the walk was never started.",
-    "close": "Close"
+    "close": "Close",
+    "viewRoute": "View route"
+  },
+  "route": {
+    "title": "{{mascota}}'s walk route",
+    "loading": "Loading the route...",
+    "empty": {
+      "title": "No route saved",
+      "hint": "This walk didn't record any locations during the trip."
+    }
   }
 }

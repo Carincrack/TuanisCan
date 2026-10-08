@@ -1,5 +1,8 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { divIcon } from "leaflet";
+import { MapContainer, Marker, Polyline, TileLayer } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import {
   AlertCircle,
   CalendarCheck,
@@ -23,6 +26,8 @@ import {
   isUpcoming,
   listWalksWithRelations,
 } from "../services/walks.service";
+import { listUbicacionesPaseo } from "../services/live-walks.service";
+import type { UbicacionPaseo } from "../services/live-walks.service";
 import { aviso } from "../lib/aviso";
 import type { WalkWithRelations } from "../services/walks.service";
 import type { Pet } from "../types/pet.types";
@@ -50,6 +55,19 @@ import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 
 type T = I18nContextValue["t"];
+
+const pinInicio = divIcon({
+  className: "tsc-map-marker",
+  html: '<span class="tsc-map-marker__pin"><span></span></span>',
+  iconSize: [44, 48],
+  iconAnchor: [22, 44],
+});
+const pinFin = divIcon({
+  className: "tsc-map-marker",
+  html: '<span class="tsc-map-marker__pin is-active"><span></span></span>',
+  iconSize: [44, 48],
+  iconAnchor: [22, 44],
+});
 
 /* ─────────────────────────────────────────────────────────────
    PASEOS DEL DUEÑO
@@ -243,7 +261,25 @@ const Paseos = () => {
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [porCancelar, setPorCancelar] = useState<WalkWithRelations | null>(null);
   const [cancelando, setCancelando] = useState(false);
+  const [rutaDe, setRutaDe] = useState<WalkWithRelations | null>(null);
+  const [ruta, setRuta] = useState<UbicacionPaseo[] | null>(null);
+  const [rutaCargando, setRutaCargando] = useState(false);
+  const [rutaError, setRutaError] = useState("");
   const botonNotificaciones = useContext(NotificationButtonContext);
+
+  const verRuta = async (paseo: WalkWithRelations) => {
+    setRutaDe(paseo);
+    setRuta(null);
+    setRutaError("");
+    setRutaCargando(true);
+    try {
+      setRuta(await listUbicacionesPaseo(paseo.id_paseo));
+    } catch (cause) {
+      setRutaError(messageFrom(cause, t));
+    } finally {
+      setRutaCargando(false);
+    }
+  };
 
   const fechaCorta = (fecha: string) =>
     new Intl.DateTimeFormat(localeTag, { weekday: "short", day: "numeric", month: "short" }).format(
@@ -796,10 +832,52 @@ const Paseos = () => {
                   {t("paseos.watchLive")}
                 </Link>
               )}
+              {detalle.estado === "finalizado" && (
+                <button type="button" className={btnSecondary} onClick={() => void verRuta(detalle)}>
+                  {t("paseos.detail.viewRoute")}
+                </button>
+              )}
               <button type="button" className={btnPrimary} onClick={() => setDetalleId(null)}>
                 {t("paseos.detail.close")}
               </button>
             </div>
+          </div>
+        </Dialog>
+      )}
+
+      {rutaDe && (
+        <Dialog title={t("paseos.route.title", { mascota: nombreMascota(rutaDe) })} onClose={() => setRutaDe(null)}>
+          <div className="p-6">
+            {rutaCargando ? (
+              <div className="grid h-[360px] place-items-center bg-sunken text-[13px] text-ink-soft">
+                {t("paseos.route.loading")}
+              </div>
+            ) : rutaError ? (
+              <p className="text-[13px] text-danger">{rutaError}</p>
+            ) : ruta && ruta.length > 1 ? (
+              <MapContainer
+                bounds={ruta.map((punto) => [punto.latitud, punto.longitud] as [number, number])}
+                boundsOptions={{ padding: [28, 28] }}
+                scrollWheelZoom
+                className="h-[360px] w-full"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <Polyline
+                  positions={ruta.map((punto) => [punto.latitud, punto.longitud] as [number, number])}
+                  pathOptions={{ color: "#12a9b9", weight: 5 }}
+                />
+                <Marker position={[ruta[0].latitud, ruta[0].longitud]} icon={pinInicio} />
+                <Marker
+                  position={[ruta[ruta.length - 1].latitud, ruta[ruta.length - 1].longitud]}
+                  icon={pinFin}
+                />
+              </MapContainer>
+            ) : (
+              <EmptyState title={t("paseos.route.empty.title")} hint={t("paseos.route.empty.hint")} />
+            )}
           </div>
         </Dialog>
       )}

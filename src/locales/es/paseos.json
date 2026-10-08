@@ -90,6 +90,15 @@
     "offerNote": "Fue tu oferta. La tarifa del paseador era {{tarifa}}.",
     "overdueRequested": "La fecha pasó y el paseador nunca respondió la solicitud.",
     "overdueConfirmed": "La fecha pasó y el paseo no se llegó a iniciar.",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "viewRoute": "Ver ruta"
+  },
+  "route": {
+    "title": "Ruta del paseo de {{mascota}}",
+    "loading": "Cargando la ruta...",
+    "empty": {
+      "title": "No hay ruta guardada",
+      "hint": "Este paseo no registró ubicaciones durante el recorrido."
+    }
   }
 }
