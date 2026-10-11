@@ -82,7 +82,8 @@
       "commission": "Comisión",
       "net": "Neto",
       "status": "Estado"
-    }
+    },
+    "statusHeld": "Reservado"
   },
   "walkers": {
     "title": "Directorio de paseadores",

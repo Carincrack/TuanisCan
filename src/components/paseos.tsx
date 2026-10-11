@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { divIcon } from "leaflet";
 import { MapContainer, Marker, Polyline, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  CreditCard,
   Footprints,
   Search,
   Wallet,
@@ -17,6 +18,7 @@ import {
 } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
+import { useAlLlegarNotificacion } from "../lib/tiempoReal";
 import type { I18nContextValue } from "../context/i18n-context";
 import { listPets } from "../services/pets.service";
 import {
@@ -29,6 +31,7 @@ import {
 import { listUbicacionesPaseo } from "../services/live-walks.service";
 import type { UbicacionPaseo } from "../services/live-walks.service";
 import { aviso } from "../lib/aviso";
+import { listOwnerPayments, type PaymentStatus } from "../services/payments.service";
 import type { WalkWithRelations } from "../services/walks.service";
 import type { Pet } from "../types/pet.types";
 import {
@@ -246,6 +249,26 @@ const Cifra = ({
   </div>
 );
 
+/** El botón de confirmar pago en la fila: el navy de la casa a tamaño
+    de fila, como «Pagar» en Gestión de pagos. Es lo que el dueño tiene
+    que hacer para que el paseo pueda empezar. */
+const btnConfirmarPago =
+  "inline-flex items-center gap-1.5 rounded-full bg-rail px-3 py-2 text-[12px] font-semibold text-white transition-[filter,transform] duration-150 ease-out hover:brightness-125 active:scale-[0.97]";
+
+/** Debajo del estado de un paseo aceptado: si falta confirmar el pago
+    —sin eso el paseador no puede empezar— o si ya está reservado. */
+const NotaPago = ({ paseo, estado }: { paseo: WalkWithRelations; estado?: PaymentStatus }) => {
+  const { t } = useTranslation();
+  if (paseo.estado !== "confirmado" || !estado) return null;
+  if (estado === "pendiente") {
+    return <span className="mt-1 block text-[11px] font-medium text-warn">{t("paseos.payment.missing")}</span>;
+  }
+  if (estado === "retenido") {
+    return <span className="mt-1 block text-[11px] font-medium text-accent-deep">{t("paseos.payment.reserved")}</span>;
+  }
+  return null;
+};
+
 const Paseos = () => {
   const { user } = useAuth();
   const { t, localeTag } = useTranslation();
@@ -304,14 +327,26 @@ const Paseos = () => {
      país para el combo y el filtro volvía a pedir los paseos al
      servidor; ahora salen de los propios paseos —son las únicas en
      las que hay algo que filtrar— y se filtra en el cliente. */
-  const load = useCallback(async () => {
+  /* El estado del pago de cada paseo, por id. Con él la fila dice si
+     falta confirmarlo —y ofrece el botón— o si ya está reservado. Si la
+     consulta de pagos falla, los paseos se muestran igual, sin esa línea. */
+  const [pagos, setPagos] = useState<Record<string, PaymentStatus>>({});
+  const navegar = useNavigate();
+  const irAConfirmarPago = (idPaseo: string) => void navegar({ href: `/pagos?pagar=${idPaseo}` });
+
+  const load = useCallback(async (silencioso = false) => {
     if (!user) return;
     setError("");
-    setLoading(true);
+    if (!silencioso) setLoading(true);
     try {
-      const [walksData, petsData] = await Promise.all([listWalksWithRelations(user.id), listPets()]);
+      const [walksData, petsData, pagosData] = await Promise.all([
+        listWalksWithRelations(user.id),
+        listPets(),
+        listOwnerPayments().catch(() => []),
+      ]);
       setWalks(walksData);
       setPets(petsData);
+      setPagos(Object.fromEntries(pagosData.map((pg) => [pg.id_paseo, pg.estado_pago])));
     } catch (cause) {
       setError(messageFrom(cause, t));
     } finally {
@@ -322,6 +357,10 @@ const Paseos = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /* Aceptado, rechazado, en curso, terminado, cobrado: el estado de la
+     fila cambia en cuanto pasa, sin recargar. */
+  useAlLlegarNotificacion(["paseo", "pago", "resena"], () => void load(true));
 
   const cancelarSolicitud = async () => {
     if (!porCancelar) return;
@@ -409,14 +448,20 @@ const Paseos = () => {
       .filter(isUpcoming)
       .sort((a, b) => `${a.fecha}${a.hora_inicio}`.localeCompare(`${b.fecha}${b.hora_inicio}`));
     const completados = base.filter((w) => w.estado === "finalizado");
+    /* Lo gastado es lo COBRADO, igual que en Gestión de pagos. Antes
+       sumaba el precio de los paseos terminados, y un paseo terminado
+       con el pago pendiente aparecía como gastado acá y como pendiente
+       allá. */
+    const cobrados = base.filter((w) => pagos[w.id_paseo] === "pagado");
     return {
       proximos: proximos.length,
       siguiente: proximos[0] ?? null,
       completados: completados.length,
-      gastado: completados.reduce((suma, w) => suma + w.precio, 0),
+      cobrados: cobrados.length,
+      gastado: cobrados.reduce((suma, w) => suma + w.precio, 0),
       total: base.length,
     };
-  }, [base]);
+  }, [base, pagos]);
 
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -444,7 +489,12 @@ const Paseos = () => {
   /** La acción que urge, si la hay: cancelar mientras el paseador no
       respondió, o seguirlo en vivo mientras camina. */
   const accionDe = (p: WalkWithRelations) =>
-    p.estado === "solicitado" ? (
+    p.estado === "confirmado" && pagos[p.id_paseo] === "pendiente" ? (
+      <button type="button" className={btnConfirmarPago} onClick={() => irAConfirmarPago(p.id_paseo)}>
+        <CreditCard size={13} strokeWidth={2.2} />
+        {t("paseos.payment.confirm")}
+      </button>
+    ) : p.estado === "solicitado" ? (
       <button type="button" className={btnDangerCompacto} onClick={() => setPorCancelar(p)}>
         <X size={13} strokeWidth={2.2} />
         {t("paseos.cancel")}
@@ -518,9 +568,9 @@ const Paseos = () => {
           valor={colones(cifras.gastado)}
           Icono={Wallet}
           nota={
-            cifras.completados === 0
-              ? t("paseos.stats.noneCompleted")
-              : t(cifras.completados === 1 ? "paseos.stats.spentInOne" : "paseos.stats.spentIn", { n: cifras.completados })
+            cifras.cobrados === 0
+              ? t("paseos.stats.noneCharged")
+              : t(cifras.cobrados === 1 ? "paseos.stats.chargedInOne" : "paseos.stats.chargedIn", { n: cifras.cobrados })
           }
         />
       </div>
@@ -688,6 +738,7 @@ const Paseos = () => {
                       </td>
                       <td className="px-4 py-3">
                         <EstadoInsignia paseo={p} />
+                        <NotaPago paseo={p} estado={pagos[p.id_paseo]} />
                       </td>
                       <td className="px-4 py-3 text-right">
                         <PrecioPaseo paseo={p} />
@@ -737,6 +788,7 @@ const Paseos = () => {
 
                     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 pl-[52px]">
                       <EstadoInsignia paseo={p} />
+                      <NotaPago paseo={p} estado={pagos[p.id_paseo]} />
                       <div className="min-w-0 max-w-full">
                         <Paseador paseo={p} />
                       </div>
@@ -803,6 +855,9 @@ const Paseos = () => {
                 ],
                 [t("paseos.detail.meetingPoint"), detalle.direccion_encuentro],
                 [t("paseos.detail.zone"), lugarDe(detalle.zona)?.completo ?? t("paseos.table.noZone")],
+                ...(pagos[detalle.id_paseo]
+                  ? [[t("paseos.detail.payment"), t(`paseos.payment.states.${pagos[detalle.id_paseo]}`)]]
+                  : []),
                 [t("paseos.detail.code"), <span className="nums text-[12px] break-all text-ink-soft">{detalle.id_paseo}</span>],
               ].map(([etiqueta, valor]) => (
                 <div key={String(etiqueta)} className="flex items-start justify-between gap-6 border-b border-sunken py-2.5">
@@ -822,6 +877,12 @@ const Paseos = () => {
             </dl>
 
             <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-sunken pt-4">
+              {detalle.estado === "confirmado" && pagos[detalle.id_paseo] === "pendiente" && (
+                <button type="button" className={btnSecondary} onClick={() => irAConfirmarPago(detalle.id_paseo)}>
+                  <CreditCard size={15} />
+                  {t("paseos.payment.confirm")}
+                </button>
+              )}
               {detalle.estado === "solicitado" && (
                 <button type="button" className={`${btnQuiet} text-danger hover:bg-danger-wash hover:text-danger`} onClick={() => setPorCancelar(detalle)}>
                   {t("paseos.cancelDialog.confirm")}

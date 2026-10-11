@@ -162,7 +162,13 @@ export const Section = ({
 
     Van dentro de una pista hundida en vez de pegados unos a otros:
     con píldoras sueltas no se lee que son un solo control con una
-    sola respuesta posible. */
+    sola respuesta posible.
+
+    En el teléfono la pista ocupa todo el ancho y las pestañas se
+    reparten el renglón; si no entran en uno, bajan a un segundo
+    renglón parejo. La pista lleva esquinas de 22 px y no
+    `rounded-full`: en un renglón se ve igual que una píldora, y en dos
+    no se deforma en un óvalo como pasaba con las cuatro de Pagos. */
 /** Cada pestaña separa lo que la IDENTIFICA (`value`, estable, lo que
     compara `onChange`/`cuentas`) de lo que se LEE (`label`, el texto
     traducido). Antes `options` era `string[]` y la pestaña activa se
@@ -195,7 +201,7 @@ export const FilterTabs = ({
   <div
     role="group"
     aria-label={label}
-    className="inline-flex flex-wrap gap-1 rounded-full bg-sunken p-1"
+    className="flex w-full flex-wrap gap-1 rounded-[22px] bg-sunken p-1 sm:inline-flex sm:w-auto"
   >
     {options.map((o) => {
       const activa = value === o.value;
@@ -207,7 +213,7 @@ export const FilterTabs = ({
           type="button"
           aria-pressed={activa}
           onClick={() => onChange(o.value)}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[13px] sm:gap-2 font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] sm:px-4 ${
+          className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[13px] whitespace-nowrap sm:flex-none sm:gap-2 font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] sm:px-4 ${
             activa
               ? "bg-rail text-white"
               : "text-ink-soft hover:bg-white/70 hover:text-ink"

@@ -17,11 +17,12 @@ import {
 } from "../lib/iconos";
 import { aviso, motivo } from "../lib/aviso";
 import { useTranslation } from "../hooks/useTranslation";
+import { useAlLlegarNotificacion } from "../lib/tiempoReal";
 import {
   listOwnerPayments,
   listPaymentMethods,
-  processDigitalWalletPayment,
-  processPayment,
+  retenerPagoConBilletera,
+  retenerPagoConTarjeta,
   type DigitalWallet,
   type PaymentMethod,
   type PaymentMovement,
@@ -75,6 +76,9 @@ const estadoConfig: Record<
 > = {
   pagado: { claveLabel: "pagos.status.paid", tono: "ok", icon: CheckCircle2 },
   pendiente: { claveLabel: "pagos.status.pending", tono: "warn", icon: Clock },
+  // Confirmado por el dueño: el monto está reservado y se cobra al
+  // terminar el paseo. Turquesa, el color de lo que ya está en marcha.
+  retenido: { claveLabel: "pagos.status.held", tono: "accent", icon: ShieldCheck },
   fallido: { claveLabel: "pagos.status.failed", tono: "danger", icon: AlertTriangle },
   // «Reembolso» y no «Reembolsado»: la insignia vive en una columna
   // de 115 px y la palabra larga no cabe sin partirse.
@@ -108,6 +112,12 @@ const fechaCorta = (fecha: string, localeTag: string) => {
     ...(dia.getFullYear() === new Date().getFullYear() ? {} : { year: "2-digit" }),
   }).format(dia);
 };
+
+/** «12 oct 2026, 14:05»: cuándo se reservó o se cobró. */
+const fechaHora = (valor: string, localeTag: string) =>
+  new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(
+    new Date(valor),
+  );
 
 /** «Visa •••• 4242» → «4242». El sello ya dice de qué marca es; la
     palabra al lado repite el dato y se come el ancho que necesitan los
@@ -190,8 +200,8 @@ const Pagos = () => {
   const [detalleMovimiento, setDetalleMovimiento] = useState<PaymentMovement | null>(null);
   const [metodoSeleccionado, setMetodoSeleccionado] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     setError("");
     try {
       const [nextMethods, nextPayments] = await Promise.all([
@@ -219,11 +229,15 @@ const Pagos = () => {
     void load();
   }, [load]);
 
+  /* El paseador aceptó (aparece el pago por confirmar) o el paseo
+     terminó (se cobró): la lista se pone al día sin recargar. */
+  useAlLlegarNotificacion(["pago", "paseo"], () => void load(true));
+
   const contadores = useMemo(
     () => ({
       Todos: movimientos.length,
       Pagados: movimientos.filter((m) => m.estado_pago === "pagado").length,
-      Pendientes: movimientos.filter((m) => m.estado_pago === "pendiente").length,
+      Pendientes: movimientos.filter((m) => m.estado_pago === "pendiente" || m.estado_pago === "retenido").length,
       Reembolsos: movimientos.filter((m) => m.estado_pago === "reembolsado").length,
     }),
     [movimientos],
@@ -234,7 +248,7 @@ const Pagos = () => {
 
     return movimientos.filter((movement) => {
       if (filtro === "Pagados" && movement.estado_pago !== "pagado") return false;
-      if (filtro === "Pendientes" && movement.estado_pago !== "pendiente") return false;
+      if (filtro === "Pendientes" && movement.estado_pago !== "pendiente" && movement.estado_pago !== "retenido") return false;
       if (filtro === "Reembolsos" && movement.estado_pago !== "reembolsado") return false;
       if (!query) return true;
 
@@ -256,6 +270,7 @@ const Pagos = () => {
     });
 
     const pendingMovements = movimientos.filter((m) => m.estado_pago === "pendiente");
+    const heldMovements = movimientos.filter((m) => m.estado_pago === "retenido");
     const refundedMovements = movimientos.filter((m) => m.estado_pago === "reembolsado");
     const nombreMes = new Intl.DateTimeFormat(localeTag, { month: "long" }).format(today);
 
@@ -263,8 +278,10 @@ const Pagos = () => {
       spent: paidThisMonth.reduce((sum, movement) => sum + movement.monto, 0),
       count: paidThisMonth.length,
       mesNombre: nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1),
-      pending: pendingMovements.reduce((sum, movement) => sum + movement.monto, 0),
+      // Lo que falta cobrar: lo que hay que confirmar y lo ya reservado.
+      pending: [...pendingMovements, ...heldMovements].reduce((sum, movement) => sum + movement.monto, 0),
       pendingCount: pendingMovements.length,
+      heldCount: heldMovements.length,
       refunded: refundedMovements.reduce((sum, movement) => sum + movement.monto, 0),
       refundedCount: refundedMovements.length,
     };
@@ -282,6 +299,25 @@ const Pagos = () => {
     );
   };
 
+  /* Llegar con el cobro ya abierto. El aviso «Tu paseo fue aceptado» y
+     el botón de Paseos traen `?pagar=<id del paseo>`: cuando la lista
+     terminó de cargar, se abre la ventana de ese paseo y el parámetro
+     se borra de la dirección, para que recargar no la vuelva a abrir. */
+  useEffect(() => {
+    if (loading) return;
+    const pagar = new URLSearchParams(window.location.search).get("pagar");
+    if (!pagar) return;
+    const movimiento = movimientos.find((m) => m.id_paseo === pagar && m.estado_pago === "pendiente");
+    if (movimiento) {
+      setDialogError("");
+      setPagoSeleccionado(movimiento);
+      setMetodoSeleccionado(
+        metodos.find((m) => m.es_principal)?.id_metodo_pago ?? metodos[0]?.id_metodo_pago ?? "",
+      );
+    }
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, [loading, movimientos, metodos]);
+
   const pay = async () => {
     if (!pagoSeleccionado || !metodoSeleccionado) return;
 
@@ -289,14 +325,15 @@ const Pagos = () => {
     setDialogError("");
     try {
       const monto = pagoSeleccionado.monto;
+      const cobraAhora = pagoSeleccionado.estado_paseo === "finalizado";
       const wallet = DIGITAL_WALLETS.find((option) => option.id === metodoSeleccionado);
       const operation = wallet
-        ? processDigitalWalletPayment(pagoSeleccionado.id_paseo, wallet.nombre)
-        : processPayment(pagoSeleccionado.id_paseo, metodoSeleccionado);
+        ? retenerPagoConBilletera(pagoSeleccionado.id_paseo, wallet.nombre)
+        : retenerPagoConTarjeta(pagoSeleccionado.id_paseo, metodoSeleccionado);
 
       await aviso.proceso(operation, {
-        esperando: t("pagos.payDialog.paying", { monto: colones(monto) }),
-        bien: t("pagos.payDialog.paid", { monto: colones(monto) }),
+        esperando: t(cobraAhora ? "pagos.payDialog.payingNow" : "pagos.payDialog.paying", { monto: colones(monto) }),
+        bien: t(cobraAhora ? "pagos.payDialog.paidNow" : "pagos.payDialog.paid", { monto: colones(monto) }),
         mal: t("pagos.payDialog.payFailed"),
       });
       setPagoSeleccionado(null);
@@ -422,7 +459,9 @@ const Pagos = () => {
           <p className="mt-1.5 text-[12px] text-ink-soft">
             {stats.pendingCount > 0
               ? `${stats.pendingCount} ${t(stats.pendingCount === 1 ? "pagos.stats.walkSingularDue" : "pagos.stats.walkPluralDue")}`
-              : t("pagos.stats.allUpToDate")}
+              : stats.heldCount > 0
+                ? t(stats.heldCount === 1 ? "pagos.stats.heldSingular" : "pagos.stats.heldPlural", { n: stats.heldCount })
+                : t("pagos.stats.allUpToDate")}
           </p>
         </div>
 
@@ -579,6 +618,9 @@ const Pagos = () => {
                             {t("pagos.table.pay")}
                           </button>
                         )}
+                        {movement.estado_pago === "retenido" && (
+                          <span className="text-[11px] whitespace-nowrap text-ink-mute">{t("pagos.table.chargedAtEnd")}</span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -634,6 +676,9 @@ const Pagos = () => {
                         {t("pagos.table.pay")}
                       </button>
                     )}
+                    {movement.estado_pago === "retenido" && (
+                      <span className="ml-auto text-[11px] text-ink-mute">{t("pagos.table.chargedAtEnd")}</span>
+                    )}
                   </div>
                 </li>
               ))}
@@ -683,6 +728,14 @@ const Pagos = () => {
                 </div>
               </div>
             </div>
+
+            {/* Lo que pasa al confirmar, dicho antes de que lo haga. */}
+            <p className="mt-4 flex items-start gap-2 rounded-[14px] bg-accent-wash/60 px-4 py-3 text-[12.5px] leading-relaxed text-accent-deep">
+              <ShieldCheck size={15} className="mt-0.5 shrink-0" />
+              {/* Un paseo que ya se hizo con el pago pendiente se cobra en
+                  el acto; los demás se reservan y se cobran al terminar. */}
+              {t(pagoSeleccionado.estado_paseo === "finalizado" ? "pagos.payDialog.chargeNowExplain" : "pagos.payDialog.holdExplain")}
+            </p>
 
             {(metodos.length || DIGITAL_WALLETS.length) ? (
               <fieldset className="mt-5 grid gap-2">
@@ -793,7 +846,7 @@ const Pagos = () => {
                     onClick={() => void pay()}
                   >
                     {saving && <Loader size={14} className="animate-spin" />}
-                    {t("pagos.payDialog.payAmount", { monto: colones(pagoSeleccionado.monto) })}
+                    {t(pagoSeleccionado.estado_paseo === "finalizado" ? "pagos.payDialog.payNow" : "pagos.payDialog.payAmount", { monto: colones(pagoSeleccionado.monto) })}
                   </button>
                 ) : (
                   <Link
@@ -832,6 +885,18 @@ const Pagos = () => {
                 [t("pagos.receipt.serviceDate"), fechaFormateada(detalleMovimiento.fecha, localeTag)],
                 [t("pagos.receipt.duration"), t("pagos.receipt.durationMinutes", { duracion: detalleMovimiento.duracion_min })],
                 [t("pagos.receipt.methodUsed"), detalleMovimiento.metodo_pago],
+                /* El rastro de la transacción, como en un comprobante de
+                   banco: con qué referencia se autorizó, cuándo se
+                   reservó y cuándo se cobró. */
+                ...(detalleMovimiento.referencia
+                  ? [[t("pagos.receipt.reference"), detalleMovimiento.referencia]]
+                  : []),
+                ...(detalleMovimiento.fecha_retencion
+                  ? [[t("pagos.receipt.reservedOn"), fechaHora(detalleMovimiento.fecha_retencion, localeTag)]]
+                  : []),
+                ...(detalleMovimiento.fecha_pago && detalleMovimiento.estado_pago === "pagado"
+                  ? [[t("pagos.receipt.chargedOn"), fechaHora(detalleMovimiento.fecha_pago, localeTag)]]
+                  : []),
                 [
                   t("pagos.receipt.walkerRate"),
                   colones(detalleMovimiento.monto - detalleMovimiento.comision_plataforma),

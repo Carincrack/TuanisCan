@@ -42,3 +42,25 @@ export const deleteAllNotifications = async () => {
   const { error } = await supabase.rpc("eliminar_notificaciones");
   if (error) throw error;
 };
+
+/** Escucha en tiempo real las notificaciones nuevas del usuario. La
+    base solo le entrega las suyas (RLS), y el filtro por `id_usuario`
+    evita que el servidor tenga que evaluar las de todos los demás.
+    Devuelve la función para dejar de escuchar. */
+export const escucharNotificaciones = (
+  idUsuario: string,
+  alLlegar: (notificacion: Notification) => void,
+) => {
+  const canal = supabase
+    .channel(`notificaciones-${idUsuario}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "notificaciones", filter: `id_usuario=eq.${idUsuario}` },
+      ({ new: fila }) => alLlegar(fila as Notification),
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(canal);
+  };
+};

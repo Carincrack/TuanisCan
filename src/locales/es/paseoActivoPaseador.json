@@ -24,8 +24,11 @@
     "sendFailed": "No se pudo enviar la ubicación.",
     "locationFailed": "No se pudo obtener tu ubicación.",
     "finishFailed": "No se pudo finalizar el paseo. Inténtalo de nuevo.",
-    "finishedMessage": "Paseo finalizado. El dueño ya puede dejar su reseña.",
+    "finishedMessage": "Paseo finalizado. Se cobró el pago y el dueño ya puede dejar su reseña.",
     "startFailed": "No se pudo iniciar el paseo. Verifica que sea para hoy.",
     "startedMessage": "Paseo iniciado. Ya puedes compartir tu ubicación."
-  }
+  },
+  "paymentWaiting": "Esperando que el dueño confirme el pago",
+  "paymentWaitingHint": "Podrás iniciar el paseo apenas lo confirme. Te avisaremos al instante, con sonido.",
+  "paymentReady": "Pago confirmado: {{monto}} reservados. Se cobran cuando finalices el paseo."
 }

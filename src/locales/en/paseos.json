@@ -31,7 +31,10 @@
     "totalSpent": "Total spent",
     "spentIn": "On {{n}} completed walks",
     "spentInOne": "On 1 completed walk",
-    "noneCompleted": "No completed walks yet"
+    "noneCompleted": "No completed walks yet",
+    "noneCharged": "No charged payments yet",
+    "chargedInOne": "On 1 charged walk",
+    "chargedIn": "On {{n}} charged walks"
   },
   "filters": {
     "label": "Walks view",
@@ -91,7 +94,8 @@
     "overdueRequested": "The date passed and the walker never answered the request.",
     "overdueConfirmed": "The date passed and the walk was never started.",
     "close": "Close",
-    "viewRoute": "View route"
+    "viewRoute": "View route",
+    "payment": "Payment"
   },
   "route": {
     "title": "{{mascota}}'s walk route",
@@ -99,6 +103,18 @@
     "empty": {
       "title": "No route saved",
       "hint": "This walk didn't record any locations during the trip."
+    }
+  },
+  "payment": {
+    "confirm": "Confirm payment",
+    "missing": "Payment not confirmed yet",
+    "reserved": "Payment reserved",
+    "states": {
+      "pendiente": "To confirm",
+      "retenido": "Reserved · charged when it ends",
+      "pagado": "Charged",
+      "reembolsado": "Refunded",
+      "fallido": "Failed"
     }
   }
 }

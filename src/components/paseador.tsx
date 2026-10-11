@@ -42,7 +42,7 @@ import {
   respondWalkRequest,
   type WalkerRequest,
 } from "../services/walk-requests.service";
-import { listarAgendaPaseador, type CitaAgendaPaseador } from "../services/walker-agenda.service";
+import { listarAgendaPaseador, listarEstadosDePago, type CitaAgendaPaseador } from "../services/walker-agenda.service";
 import { useAuth } from "../hooks/useAuth";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
@@ -51,6 +51,7 @@ import { listarResenasPaseador } from "../services/resenas-paseador.service";
 import { toggleWalkerAvailability } from "../services/walkers.service";
 import { formatDate, petAge, vaccineStatus } from "../lib/pets";
 import { useTranslation } from "../hooks/useTranslation";
+import { useAlLlegarNotificacion } from "../lib/tiempoReal";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -80,8 +81,10 @@ export const PanelPaseador = () => {
   const [error, setError] = useState("");
   const [cambiandoDisponibilidad, setCambiandoDisponibilidad] = useState(false);
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
+  /** `silencioso`: la recarga que dispara una notificación en tiempo
+      real no vuelve a mostrar el esqueleto; los números cambian solos. */
+  const cargar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     setError("");
     try {
       const [perfil, citas, solicitudes, ingresos, resenas] = await Promise.all([
@@ -107,6 +110,8 @@ export const PanelPaseador = () => {
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  useAlLlegarNotificacion(["paseo", "pago", "resena"], () => void cargar(true));
 
   const cambiarDisponibilidad = async () => {
     if (!user) return;
@@ -589,9 +594,9 @@ export const SolicitudesPaseador = () => {
      usuario lo descubra con un error rojo. */
   const [habilitado, setHabilitado] = useState(false);
 
-  useEffect(() => {
-    const cargar = async () => {
-      setLoading(true);
+  const cargar = useCallback(
+    async (silencioso = false) => {
+      if (!silencioso) setLoading(true);
       setError(null);
       try {
         const [solicitudes, perfil] = await Promise.all([
@@ -605,10 +610,17 @@ export const SolicitudesPaseador = () => {
       } finally {
         setLoading(false);
       }
-    };
+    },
+    [getProfile, isAdmin, t],
+  );
 
+  useEffect(() => {
     void cargar();
-  }, [getProfile, isAdmin, t]);
+  }, [cargar]);
+
+  /* Una solicitud nueva, o una que el dueño canceló, aparece o se va
+     de la bandeja sin recargar la página. */
+  useAlLlegarNotificacion(["paseo"], () => void cargar(true));
 
   const responder = async (solicitud: WalkerRequest, aprobada: boolean) => {
     if (!habilitado) {
@@ -730,22 +742,40 @@ export const AgendaPaseador = () => {
   }, [t, localeTag]);
 
   const [citas, setCitas] = useState<CitaAgendaPaseador[]>([]);
+  const [pagosCitas, setPagosCitas] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dia, setDia] = useState("");
 
+  const cargarAgenda = useCallback(
+    (silencioso = false) => {
+      if (!silencioso) setLoading(true);
+      setError("");
+      listarAgendaPaseador()
+        .then((data) => {
+          setCitas(data);
+          // Si falla, la agenda se muestra igual, sin la línea del pago.
+          void listarEstadosDePago(data.map((cita) => cita.id_paseo))
+            .then(setPagosCitas)
+            .catch(() => setPagosCitas({}));
+          const primerDia = data[0] ? etiquetaDia(data[0].fecha) : "";
+          // En una recarga en vivo se queda en el día que estaba mirando,
+          // si ese día todavía tiene paseos.
+          setDia((actual) =>
+            silencioso && actual && data.some((cita) => etiquetaDia(cita.fecha) === actual) ? actual : primerDia,
+          );
+        })
+        .catch((cause) => setError(cause instanceof Error ? cause.message : t("paseadorPanel.agenda.loadError")))
+        .finally(() => setLoading(false));
+    },
+    [etiquetaDia, t],
+  );
+
   useEffect(() => {
-    setLoading(true);
-    setError("");
-    listarAgendaPaseador()
-      .then((data) => {
-        setCitas(data);
-        const primerDia = data[0] ? etiquetaDia(data[0].fecha) : "";
-        setDia(primerDia);
-      })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : t("paseadorPanel.agenda.loadError")))
-      .finally(() => setLoading(false));
-  }, [etiquetaDia, t]);
+    cargarAgenda();
+  }, [cargarAgenda]);
+
+  useAlLlegarNotificacion(["paseo", "pago"], () => cargarAgenda(true));
 
   const agendaPorDia = new Map<string, CitaAgendaPaseador[]>();
   citas.forEach((cita) => {
@@ -812,6 +842,18 @@ export const AgendaPaseador = () => {
                   <td className="px-6 py-3.5 text-[12.5px] text-ink-soft">{c.zona}</td>
                   <td className="px-6 py-3.5">
                     <Badge tono={tonoCita(c.estado)}>{labelCita(c.estado)}</Badge>
+                    {/* Sin el pago confirmado el paseo no se puede iniciar:
+                        se ve acá, antes de llegar a la puerta. */}
+                    {c.estado === "confirmado" && pagosCitas[c.id_paseo] === "pendiente" && (
+                      <span className="mt-1 block text-[11px] font-medium text-warn">
+                        {t("paseadorPanel.agenda.paymentWaiting")}
+                      </span>
+                    )}
+                    {c.estado === "confirmado" && pagosCitas[c.id_paseo] === "retenido" && (
+                      <span className="mt-1 block text-[11px] font-medium text-ok">
+                        {t("paseadorPanel.agenda.paymentReady")}
+                      </span>
+                    )}
                   </td>
                   <td className="nums px-6 py-3.5 text-right text-[13px] font-semibold text-ink">
                     {colones(c.precio)}
@@ -978,18 +1020,28 @@ export const GananciasPaseador = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const cargarIngresos = useCallback(
+    (silencioso = false) => {
+      if (!silencioso) setLoading(true);
+      listWalkerEarnings()
+        .then(setIngresos)
+        .catch((cause) => setError(cause instanceof Error ? cause.message : t("paseadorPanel.earnings.loadError")))
+        .finally(() => setLoading(false));
+    },
+    [t],
+  );
+
   useEffect(() => {
-    setLoading(true);
-    listWalkerEarnings()
-      .then(setIngresos)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : t("paseadorPanel.earnings.loadError")))
-      .finally(() => setLoading(false));
-  }, [t]);
+    cargarIngresos();
+  }, [cargarIngresos]);
+
+  /* Un pago confirmado o cobrado cambia la lista sin recargar. */
+  useAlLlegarNotificacion(["pago"], () => cargarIngresos(true));
 
   const visibles = ingresos
     .filter((i) =>
       filtro === "Pendientes"
-        ? i.estado_pago === "pendiente"
+        ? i.estado_pago === "pendiente" || i.estado_pago === "retenido"
         : filtro === "Pagados"
           ? i.estado_pago === "pagado"
           : true,
@@ -997,7 +1049,11 @@ export const GananciasPaseador = () => {
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   const pagados = ingresos.filter((i) => i.estado_pago === "pagado");
-  const pendientes = ingresos.filter((i) => i.estado_pago === "pendiente");
+  /* «Por cobrar» suma lo que el dueño todavía no confirmó y lo que ya
+     está reservado: las dos cosas llegan cuando el paseo termina. Lo
+     cobrado es solo `pagado`. Bruto, comisión y neto salen tal cual de
+     la fila de `pagos`, la misma que leen el dueño y el admin. */
+  const pendientes = ingresos.filter((i) => i.estado_pago === "pendiente" || i.estado_pago === "retenido");
   const totalNeto = visibles.reduce((s, i) => s + i.neto, 0);
   const netoPagado = pagados.reduce((sum, item) => sum + item.neto, 0);
   const netoPendiente = pendientes.reduce((sum, item) => sum + item.neto, 0);
@@ -1012,11 +1068,14 @@ export const GananciasPaseador = () => {
     else meses.push({ clave, items: [item] });
   }
 
-  const estado = (i: WalkerEarning) => (
-    <Badge tono={i.estado_pago === "pagado" ? "ok" : "warn"}>
-      {i.estado_pago === "pagado" ? t("paseadorPanel.earnings.statusPaid") : t("paseadorPanel.earnings.statusPending")}
-    </Badge>
-  );
+  const estado = (i: WalkerEarning) =>
+    i.estado_pago === "pagado" ? (
+      <Badge tono="ok">{t("paseadorPanel.earnings.statusPaid")}</Badge>
+    ) : i.estado_pago === "retenido" ? (
+      <Badge tono="accent">{t("paseadorPanel.earnings.statusHeld")}</Badge>
+    ) : (
+      <Badge tono="warn">{t("paseadorPanel.earnings.statusPending")}</Badge>
+    );
 
   return (
     <Page>

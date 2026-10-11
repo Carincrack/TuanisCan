@@ -14,12 +14,18 @@ import { GooeyToaster } from "goey-toast";
 import {
   deleteAllNotifications,
   deleteNotification,
+  escucharNotificaciones,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   type Notification,
 } from "../services/notifications.service";
 import { CajonSuave, RielSuave } from "./rielSuave";
+import { aviso } from "../lib/aviso";
+import { prepararSonido, sonarAviso } from "../lib/sonido";
+import { anunciarNotificacion, useAlLlegarNotificacion } from "../lib/tiempoReal";
+import { ContadoresMenu } from "../lib/contadoresMenu";
+import { contarSolicitudesPendientes } from "../services/walk-requests.service";
 
 /* ─────────────────────────────────────────────────────────────
    EL ARMAZÓN
@@ -72,7 +78,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     pathname === "/perfil";
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
+  const { getProfile, roles, isAdmin, setActiveRole, user } = useAuth();
+  const idUsuario = user?.id ?? null;
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [contenidoAncho, setContenidoAncho] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -124,6 +131,58 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     void cargarNotificaciones();
   }, [cargarNotificaciones, pathname]);
 
+  /* ── En tiempo real ──
+     Cada notificación nueva entra arriba de la lista —la campanita
+     cuenta una más sin recargar—, suena, aparece como aviso y se
+     anuncia a la pantalla abierta para que se refresque sola (ver
+     `lib/tiempoReal.ts`). Es una sola suscripción para toda la app,
+     atada al usuario y no a la ruta: cambiar de pantalla no la corta. */
+  useEffect(() => {
+    if (!idUsuario) return;
+    const despertar = prepararSonido();
+    const dejarDeEscuchar = escucharNotificaciones(idUsuario, (nueva) => {
+      setNotificaciones((actuales) =>
+        actuales.some((n) => n.id_notificacion === nueva.id_notificacion)
+          ? actuales
+          : [nueva, ...actuales].slice(0, 10),
+      );
+      sonarAviso();
+      aviso.dato(nueva.mensaje);
+      anunciarNotificacion(nueva);
+    });
+    return () => {
+      dejarDeEscuchar();
+      window.removeEventListener("pointerdown", despertar);
+      window.removeEventListener("keydown", despertar);
+    };
+  }, [idUsuario]);
+
+  /* ── Solicitudes esperando ──
+     El número junto a «Solicitudes» en el menú del paseador. Se cuenta
+     al cambiar de pantalla —responder una baja el número— y cuando
+     llega un aviso de paseo, que es como entra una solicitud nueva o
+     se va una que el dueño canceló. */
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState(0);
+  const contarSolicitudes = useCallback(async () => {
+    if (rol !== "paseador" || !idUsuario) {
+      setSolicitudesPendientes(0);
+      return;
+    }
+    try {
+      setSolicitudesPendientes(await contarSolicitudesPendientes(idUsuario));
+    } catch {
+      setSolicitudesPendientes(0);
+    }
+  }, [rol, idUsuario]);
+
+  useEffect(() => {
+    void contarSolicitudes();
+  }, [contarSolicitudes, pathname]);
+
+  useAlLlegarNotificacion(["paseo"], () => void contarSolicitudes());
+
+  const contadoresMenu = { "/p/solicitudes": solicitudesPendientes };
+
   const pendientes = notificaciones.filter((n) => !n.leido).length;
 
   const medirPosicionPanel = useCallback(() => {
@@ -168,7 +227,18 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     }
     if (notificacion.tipo === "mascota_perdida") return "/mascotas-perdidas";
     if (notificacion.tipo === "verificacion") return "/perfil";
-    if (notificacion.tipo === "pago") return "/pagos";
+    if (notificacion.tipo === "pago") {
+      /* Al paseador le llegan dos avisos de pago: «el dueño confirmó el
+         pago, ya puedes iniciar» —va a Paseo activo— y «se acreditaron
+         ₡X» al terminar —va a Ganancias—. Los dos los escribe la base
+         (`retener_pago_paseo` y `finalizar_mi_paseo`), por eso se
+         distinguen por cómo empieza el mensaje. */
+      if (rol === "paseador") {
+        return notificacion.mensaje.startsWith("Se acreditaron") ? "/p/ganancias" : "/p/paseo-activo";
+      }
+      // Al dueño lo lleva a confirmar ESE pago, con la ventana abierta.
+      return notificacion.referencia_id ? `/pagos?pagar=${notificacion.referencia_id}` : "/pagos";
+    }
     if (notificacion.tipo === "resena") return rol === "paseador" ? "/p/resenas" : "/resenas";
     return "/";
   };
@@ -176,7 +246,8 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const abrirDesdeNotificacion = async (notificacion: Notification) => {
     await leerNotificacion(notificacion.id_notificacion);
     setNotificacionesAbiertas(false);
-    await navigate({ to: rutaNotificacion(notificacion) });
+    // `href` y no `to`: la ruta puede traer `?pagar=…`.
+    await navigate({ href: rutaNotificacion(notificacion) });
   };
 
   const leerTodas = async () => {
@@ -289,13 +360,15 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
         document.body,
       )}
 
-      <RielSuave {...navegacion} />
-      <CajonSuave
-        {...navegacion}
-        abierto={menuAbierto}
-        cerrar={cerrarMenu}
-        onNavegar={cerrarMenu}
-      />
+      <ContadoresMenu.Provider value={contadoresMenu}>
+        <RielSuave {...navegacion} />
+        <CajonSuave
+          {...navegacion}
+          abierto={menuAbierto}
+          cerrar={cerrarMenu}
+          onNavegar={cerrarMenu}
+        />
+      </ContadoresMenu.Provider>
 
       {/* ── El lienzo ── */}
       <div className="lienzo flex min-w-0 flex-1 flex-col overflow-hidden rounded-[26px] bg-canvas">

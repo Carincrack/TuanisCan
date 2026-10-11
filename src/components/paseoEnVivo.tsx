@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { MapPin, Navigation } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
+import { useAlLlegarNotificacion } from "../lib/tiempoReal";
 import { escucharUbicaciones, getPaseoActivo, listUbicacionesPaseo, type UbicacionPaseo } from "../services/live-walks.service";
 import type { WalkWithRelations } from "../services/walks.service";
 import { Avatar, Badge, EmptyState, Page, PageHeader, Section } from "./ui";
@@ -21,6 +22,8 @@ const PaseoEnVivo = () => {
   const time = (value: string) => new Intl.DateTimeFormat(localeTag, { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
   const load = useCallback(async () => { if (!user) return; try { const active = await getPaseoActivo(user.id); setWalk(active); setLocations(active ? await listUbicacionesPaseo(active.id_paseo) : []); } catch (cause) { setError(cause instanceof Error ? cause.message : t("paseoEnVivo.loadError")); } }, [user, t]);
   useEffect(() => { void load(); }, [load]);
+  // Cuando el paseador inicia o termina, el mapa aparece o se va solo.
+  useAlLlegarNotificacion(["paseo", "resena"], () => void load());
   useEffect(() => { if (!walk) return; return escucharUbicaciones(walk.id_paseo, (location) => setLocations((current) => current.some((item) => item.id_ubicacion === location.id_ubicacion) ? current : [...current, location])); }, [walk]);
   const latest = locations.at(-1);
   const point = latest ? [latest.latitud, latest.longitud] as [number, number] : null;

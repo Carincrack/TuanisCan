@@ -9,16 +9,51 @@ export const getPaseoActivo = async (userId: string) => {
   return walks[0] ?? null;
 };
 
-export const getPaseoActivoPaseador = async () => {
-  const { data, error } = await supabase.from("paseos").select("*").eq("estado", "en_curso").limit(1).maybeSingle();
+/** Hoy en Costa Rica, «AAAA-MM-DD». `toISOString()` da la fecha en UTC:
+    desde las 6 p. m. ya era mañana y el paseo de hoy no aparecía. */
+const hoyEnCostaRica = () =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Costa_Rica" }).format(new Date());
+
+/* Las dos consultas filtran por paseador. Sin eso, con una cuenta que
+   es dueño y paseador a la vez, podían traer un paseo que la misma
+   persona pidió como dueño. */
+export const getPaseoActivoPaseador = async (idPaseador: string) => {
+  const { data, error } = await supabase
+    .from("paseos")
+    .select("*")
+    .eq("id_paseador", idPaseador)
+    .eq("estado", "en_curso")
+    .limit(1)
+    .maybeSingle();
   if (error) throw error;
   return data as WalkWithRelations | null;
 };
 
-export const getPaseoConfirmadoPaseador = async () => {
-  const { data, error } = await supabase.from("paseos").select("*").eq("estado", "confirmado").eq("fecha", new Date().toISOString().slice(0, 10)).order("hora_inicio").limit(1).maybeSingle();
+export const getPaseoConfirmadoPaseador = async (idPaseador: string) => {
+  const { data, error } = await supabase
+    .from("paseos")
+    .select("*")
+    .eq("id_paseador", idPaseador)
+    .eq("estado", "confirmado")
+    .eq("fecha", hoyEnCostaRica())
+    .order("hora_inicio")
+    .limit(1)
+    .maybeSingle();
   if (error) throw error;
   return data as WalkWithRelations | null;
+};
+
+/** El pago de un paseo: si el dueño ya lo confirmó (`retenido`) el
+    paseador puede iniciar. El paseador puede leer el pago de sus
+    paseos; nada más. */
+export const getPagoDelPaseo = async (idPaseo: string) => {
+  const { data, error } = await supabase
+    .from("pagos")
+    .select("estado_pago, monto")
+    .eq("id_paseo", idPaseo)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { estado: data.estado_pago as string, monto: Number(data.monto) } : null;
 };
 
 export const listUbicacionesPaseo = async (walkId: string) => {

@@ -338,7 +338,7 @@ export const FinanzasAdmin = () => {
     filtro === "Pagados"
       ? movement.estado_pago === "pagado"
       : filtro === "Pendientes"
-        ? movement.estado_pago === "pendiente"
+        ? movement.estado_pago === "pendiente" || movement.estado_pago === "retenido"
         : true
   );
 
@@ -351,7 +351,9 @@ export const FinanzasAdmin = () => {
   const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
 
   const pagados = movimientos.filter((movement) => movement.estado_pago === "pagado");
-  const pendientes = movimientos.filter((movement) => movement.estado_pago === "pendiente");
+  // La comisión se gana al cobrar (`pagado`). Lo reservado todavía no
+  // se cobró: va con lo pendiente.
+  const pendientes = movimientos.filter((movement) => movement.estado_pago === "pendiente" || movement.estado_pago === "retenido");
   const brutoPagado = pagados.reduce((sum, movement) => sum + movement.bruto, 0);
   const exportar = () => {
     const rows = [
@@ -437,8 +439,12 @@ export const FinanzasAdmin = () => {
                     {colones(movement.neto_paseador)}
                   </td>
                   <td className="px-6 py-4 align-top">
-                    <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
-                      {movement.estado_pago === "pagado" ? t("admin.finances.statusPaid") : t("admin.finances.statusPending")}
+                    <Badge tono={movement.estado_pago === "pagado" ? "ok" : movement.estado_pago === "retenido" ? "accent" : "warn"}>
+                      {movement.estado_pago === "pagado"
+                        ? t("admin.finances.statusPaid")
+                        : movement.estado_pago === "retenido"
+                          ? t("admin.finances.statusHeld")
+                          : t("admin.finances.statusPending")}
                     </Badge>
                   </td>
                 </tr>

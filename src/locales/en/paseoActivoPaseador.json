@@ -24,8 +24,11 @@
     "sendFailed": "Could not send the location.",
     "locationFailed": "Could not get your location.",
     "finishFailed": "Could not finish the walk. Try again.",
-    "finishedMessage": "Walk finished. The owner can now leave a review.",
+    "finishedMessage": "Walk finished. The payment was charged and the owner can now leave a review.",
     "startFailed": "Could not start the walk. Check that it's for today.",
     "startedMessage": "Walk started. You can now share your location."
-  }
+  },
+  "paymentWaiting": "Waiting for the owner to confirm the payment",
+  "paymentWaitingHint": "You will be able to start the walk as soon as they confirm. We will let you know right away, with a sound.",
+  "paymentReady": "Payment confirmed: {{monto}} reserved. Charged when you finish the walk."
 }

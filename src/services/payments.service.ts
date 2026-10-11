@@ -17,7 +17,9 @@ export interface PaymentMethod {
   es_principal: boolean;
 }
 
-export type PaymentStatus = "pendiente" | "pagado" | "fallido" | "reembolsado";
+/** `retenido`: el dueño confirmó el pago y el monto quedó reservado en
+    su método; se cobra (`pagado`) cuando el paseo termina. */
+export type PaymentStatus = "pendiente" | "retenido" | "pagado" | "fallido" | "reembolsado";
 
 export type DigitalWallet = "PayPal" | "Google Pay" | "Apple Pay";
 
@@ -33,6 +35,13 @@ export interface PaymentMovement {
   metodo_pago: string;
   estado_pago: PaymentStatus;
   fecha_pago: string | null;
+  /** En qué está el paseo. Con el paseo ya terminado, confirmar el pago
+      lo cobra en el acto en vez de reservarlo. */
+  estado_paseo?: "solicitado" | "confirmado" | "en_curso" | "finalizado" | "cancelado";
+  /** La referencia simulada de la autorización, «SIM-AAMMDD-XXXXXXXX». */
+  referencia?: string | null;
+  /** Cuándo se reservó el monto. El cobro queda en `fecha_pago`. */
+  fecha_retencion?: string | null;
 }
 
 interface PaymentMovementRow extends Omit<PaymentMovement, "monto" | "comision_plataforma"> {
@@ -121,8 +130,15 @@ export const deletePaymentMethod = async (methodId: string) => {
   if (error) throw error;
 };
 
-export const processPayment = async (walkId: string, methodId: string) => {
-  const { data, error } = await supabase.rpc("procesar_pago", {
+/* ── Confirmar el pago: retener, no cobrar ──
+   El dueño elige con qué paga y el monto queda RESERVADO
+   (`retener_pago_paseo`). No se cobra todavía: se cobra cuando el
+   paseador termina el paseo. Con el pago reservado, el paseador ya puede
+   iniciarlo. Se puede volver a llamar para cambiar de método mientras el
+   paseo no empezó. */
+
+export const retenerPagoConTarjeta = async (walkId: string, methodId: string) => {
+  const { data, error } = await supabase.rpc("retener_pago_paseo", {
     p_id_paseo: walkId,
     p_id_metodo_pago: methodId,
   });
@@ -131,11 +147,8 @@ export const processPayment = async (walkId: string, methodId: string) => {
   return data as PaymentStatus;
 };
 
-export const processDigitalWalletPayment = async (
-  walkId: string,
-  wallet: DigitalWallet,
-): Promise<PaymentStatus> => {
-  const { data, error } = await supabase.rpc("procesar_pago_billetera", {
+export const retenerPagoConBilletera = async (walkId: string, wallet: DigitalWallet) => {
+  const { data, error } = await supabase.rpc("retener_pago_paseo", {
     p_id_paseo: walkId,
     p_billetera: wallet,
   });

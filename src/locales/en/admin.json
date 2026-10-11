@@ -82,7 +82,8 @@
       "commission": "Commission",
       "net": "Net",
       "status": "Status"
-    }
+    },
+    "statusHeld": "Reserved"
   },
   "walkers": {
     "title": "Walker directory",

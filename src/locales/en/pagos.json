@@ -6,7 +6,8 @@
     "paid": "Paid",
     "pending": "Pending",
     "failed": "Failed",
-    "refunded": "Refund"
+    "refunded": "Refund",
+    "held": "Reserved"
   },
   "filters": {
     "label": "Filter movements",
@@ -26,7 +27,9 @@
     "totalRefunded": "Total refunded",
     "refundSingular": "refund issued",
     "refundPlural": "refunds issued",
-    "noRefunds": "No refunds recorded"
+    "noRefunds": "No refunds recorded",
+    "heldSingular": "1 reserved · charged when it ends",
+    "heldPlural": "{{n}} reserved · charged when they end"
   },
   "cards": {
     "savedSingular": "saved card",
@@ -62,7 +65,8 @@
     "amount": "Amount",
     "walkWith": "Walk with {{mascota}}",
     "viewReceiptTitle": "View the receipt · Walk with {{mascota}}",
-    "pay": "Pay"
+    "pay": "Confirm payment",
+    "chargedAtEnd": "Charged when it ends"
   },
   "empty": {
     "title": "No movements for this filter",
@@ -73,7 +77,7 @@
     "title": "Confirm walk payment",
     "dogWalk": "Dog walk",
     "withWalker": "With {{paseador}} · {{duracion}} minutes",
-    "totalToPay": "Total to pay",
+    "totalToPay": "Walk total",
     "toWalker": "To the walker {{monto}}",
     "commission": "Commission {{monto}}",
     "whichCard": "Which card to charge",
@@ -91,11 +95,16 @@
     },
     "secureTransaction": "Secure transaction",
     "cancel": "Cancel",
-    "payAmount": "Pay {{monto}}",
+    "payAmount": "Reserve {{monto}}",
     "addCard": "Add card",
-    "paying": "Charging {{monto}}…",
-    "paid": "Payment of {{monto}} completed",
-    "payFailed": "Could not process the payment."
+    "paying": "Reserving {{monto}}…",
+    "paid": "Payment confirmed: {{monto}} reserved",
+    "payFailed": "The payment couldn't be confirmed.",
+    "holdExplain": "Nothing is charged now. The amount is reserved on the method you choose and charged when the walk ends. Once the payment is confirmed, the walker can start the walk.",
+    "payingNow": "Charging {{monto}}…",
+    "paidNow": "Payment of {{monto}} completed",
+    "chargeNowExplain": "This walk already happened and its payment was left pending: it is charged now on the method you choose.",
+    "payNow": "Pay {{monto}}"
   },
   "receipt": {
     "title": "Receipt",
@@ -107,7 +116,10 @@
     "walkerRate": "Walker's rate",
     "commission": "TuanisCan commission",
     "totalAmount": "Total amount",
-    "close": "Close"
+    "close": "Close",
+    "reference": "Reference",
+    "reservedOn": "Reserved on",
+    "chargedOn": "Charged on"
   },
   "errors": {
     "loadFailed": "Could not load your payments."

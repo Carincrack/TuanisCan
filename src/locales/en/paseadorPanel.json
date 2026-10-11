@@ -121,7 +121,9 @@
     "empty": {
       "title": "You have no scheduled walks",
       "hint": "Once you accept a request, it'll show up here sorted by day."
-    }
+    },
+    "paymentWaiting": "Waiting for the owner's payment",
+    "paymentReady": "Payment confirmed"
   },
   "earnings": {
     "title": "Earnings",
@@ -170,6 +172,7 @@
       "commissionNote": "{{pct}}% of what you collected"
     },
     "monthNet": "Month net",
-    "grossLine": "Gross {{bruto}} · fee −{{comision}}"
+    "grossLine": "Gross {{bruto}} · fee −{{comision}}",
+    "statusHeld": "Reserved"
   }
 }
