@@ -41,5 +41,6 @@
   "nextWho": "With {{dueno}} · {{zona}}",
   "nextStartHint": "The “Start walk” button shows up here on the day of the walk ({{dia}}).",
   "tomorrow": "tomorrow",
-  "onDay": "{{dia}}"
+  "onDay": "{{dia}}",
+  "chatHint": "Message them while you walk: the chat closes when you finish."
 }

@@ -98,8 +98,6 @@
     "pendingNote": "{{pendientes}} to confirm · {{reservados}} reserved",
     "walkersNet": "Net to walkers",
     "walkersNetNote": "of {{bruto}} collected",
-    "inDollars": "Collected in dollars",
-    "inDollarsNote": "{{n}} of {{total}} charges",
     "rateShort": "Rate {{tipo}}",
     "methodPending": "Not confirmed",
     "searchPlaceholder": "Search pet, person or reference",
@@ -137,7 +135,19 @@
       },
       "notYet": "Not yet",
       "close": "Close"
-    }
+    },
+    "currency": {
+      "label": "Filter by currency",
+      "all": "All",
+      "colones": "Colones",
+      "dollars": "Dollars"
+    },
+    "byCurrency": "Collected by currency",
+    "byCurrencyColonesOne": "in colones · 1 charge",
+    "byCurrencyColones": "in colones · {{count}} charges",
+    "byCurrencyDollarsOne": "in dollars · 1 charge · {{colones}}",
+    "byCurrencyDollars": "in dollars · {{count}} charges · {{colones}}",
+    "byCurrencyDollarsNone": "in dollars · no charges"
   },
   "walkers": {
     "title": "Walker directory",

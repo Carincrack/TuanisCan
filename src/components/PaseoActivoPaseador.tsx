@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, Clock, MapPin, ShieldCheck } from "../lib/iconos";
+import { useNavigate } from "@tanstack/react-router";
+import { CalendarDays, Clock, MapPin, MessageCircle, ShieldCheck } from "../lib/iconos";
+import { rutaChat } from "../services/chat.service";
 import {
   escucharUbicaciones,
   finalizarPaseo,
@@ -47,6 +49,7 @@ const agregarUbicacion = (actuales: UbicacionPaseo[], nueva: UbicacionPaseo) =>
 const PaseoActivoPaseador = () => {
   const { t, localeTag } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const idPaseador = user?.id ?? null;
   const [walkId, setWalkId] = useState<string | null>(null);
   const [confirmedId, setConfirmedId] = useState<string | null>(null);
@@ -326,6 +329,21 @@ const PaseoActivoPaseador = () => {
           {message}
         </p>
       )}
+
+      {/* El chat con el dueño: abierto mientras dure el paseo. */}
+      <button
+        type="button"
+        onClick={() => void navigate({ href: rutaChat(walkId, "paseador") })}
+        className="flex w-full items-center gap-3 rounded-[22px] bg-surface px-5 py-4 text-left transition-[transform,background-color] duration-150 hover:bg-accent-wash/50 active:scale-[0.99]"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-dark">
+          <MessageCircle size={18} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-semibold text-ink">{t("chat.openChatOwner")}</span>
+          <span className="block text-[12px] text-ink-soft">{t("paseoActivoPaseador.chatHint")}</span>
+        </span>
+      </button>
 
       {/* ── Terminar ──
           Aparte y al final: es lo único que no se deshace, y pegado a

@@ -603,6 +603,72 @@ const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: 
   );
 };
 
+/* ── Una posible coincidencia ──
+   Alguien reportó una mascota encontrada que se parece a una de las
+   mías. La foto manda —es lo primero que se mira para reconocerla—,
+   y debajo las dos respuestas, a lo ancho y nombrando a la mascota:
+   «Sí, es Luna» / «No es Luna». Antes decían «Sí, es ella» (que no
+   sirve para un macho) y, apretadas al lado de la foto, se partían en
+   tres renglones. */
+const TarjetaCoincidencia = ({
+  match,
+  ocupada,
+  onResolver,
+}: {
+  match: PetMatch;
+  ocupada: boolean;
+  onResolver: (estado: "confirmado" | "descartado") => void;
+}) => {
+  const { t, localeTag } = useTranslation();
+  const hace = (() => {
+    const minutos = Math.round((Date.now() - new Date(match.fecha_reporte).getTime()) / 60_000);
+    const relativo = new Intl.RelativeTimeFormat(localeTag, { numeric: "auto" });
+    if (minutos < 60) return relativo.format(-Math.max(1, minutos), "minute");
+    if (minutos < 48 * 60) return relativo.format(-Math.round(minutos / 60), "hour");
+    return relativo.format(-Math.round(minutos / 1440), "day");
+  })();
+
+  return (
+    <article className="flex flex-col rounded-[18px] bg-surface p-3">
+      <div className="flex gap-3">
+        <img
+          src={match.fotoUrl ?? "/mock/dog-nube.jpg"}
+          alt={t("mascotasPerdidas.matches.photoAlt", { nombre: match.mascotaNombre })}
+          className="size-24 shrink-0 rounded-[14px] bg-sunken object-cover"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold text-ink">{t("mascotasPerdidas.matches.isThis", { nombre: match.mascotaNombre })}</p>
+          <p className="mt-0.5 text-[12px] text-ink-mute">
+            {match.especie} · {zonaLabel(match.zona, t)}
+          </p>
+          <p className="mt-0.5 text-[12px] text-ink-mute">{t("mascotasPerdidas.matches.reportedAgo", { cuando: hace })}</p>
+          <p className="mt-1.5 line-clamp-3 text-[12.5px] leading-snug text-ink-soft">{match.descripcion}</p>
+        </div>
+      </div>
+      <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
+        <button
+          type="button"
+          className={`${btnPrimary} min-w-0 px-3 disabled:opacity-60`}
+          disabled={ocupada}
+          onClick={() => onResolver("confirmado")}
+        >
+          <Check size={14} className="shrink-0" />
+          <span className="truncate">{t("mascotasPerdidas.matches.yesItsHer", { nombre: match.mascotaNombre })}</span>
+        </button>
+        <button
+          type="button"
+          className={`${btnSecondary} min-w-0 px-3 disabled:opacity-60`}
+          disabled={ocupada}
+          onClick={() => onResolver("descartado")}
+        >
+          <X size={14} className="shrink-0" />
+          <span className="truncate">{t("mascotasPerdidas.matches.notHer", { nombre: match.mascotaNombre })}</span>
+        </button>
+      </div>
+    </article>
+  );
+};
+
 const MascotasPerdidas = () => {
   const { user, getProfile, isAdmin } = useAuth();
   const { t, localeTag } = useTranslation();
@@ -805,53 +871,33 @@ const MascotasPerdidas = () => {
       />
 
       {pendingMatches.length > 0 && (
-        <section aria-label={t("mascotasPerdidas.matches.aria")} className="bg-accent-wash p-4 sm:p-5">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-accent-dark" aria-hidden />
-            <h3 className="text-[14px] font-semibold text-accent-deep">
-              {pendingMatches.length === 1 ? t("mascotasPerdidas.matches.singular") : t("mascotasPerdidas.matches.plural")}
-            </h3>
+        <section aria-label={t("mascotasPerdidas.matches.aria")} className="rounded-[22px] bg-accent-wash p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface text-accent-dark">
+              <Sparkles size={18} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="flex items-center gap-2 text-[15px] font-semibold text-accent-deep">
+                {pendingMatches.length === 1 ? t("mascotasPerdidas.matches.singular") : t("mascotasPerdidas.matches.plural")}
+                {pendingMatches.length > 1 && (
+                  <span className="nums grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+                    {pendingMatches.length}
+                  </span>
+                )}
+              </h3>
+              <p className="mt-0.5 text-[13px] leading-snug text-accent-dark">{t("mascotasPerdidas.matches.hint")}</p>
+            </div>
           </div>
-          <p className="mt-1 text-[12.5px] text-accent-dark">
-            {t("mascotasPerdidas.matches.hint")}
-          </p>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {/* Dos columnas como máximo: la página es angosta, y en tres los botones no cabían. */}
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             {pendingMatches.map((match) => (
-              <article key={match.id_match} className="flex gap-3 rounded-[18px] bg-surface p-3">
-                <img
-                  src={match.fotoUrl ?? "/mock/dog-nube.jpg"}
-                  alt={t("mascotasPerdidas.matches.photoAlt", { nombre: match.mascotaNombre })}
-                  className="size-20 shrink-0 rounded-[14px] bg-sunken object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-ink">{t("mascotasPerdidas.matches.isThis", { nombre: match.mascotaNombre })}</p>
-                  <p className="mt-0.5 truncate text-[12px] text-ink-mute">
-                    {match.especie} · {zonaLabel(match.zona, t)}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-[12px] text-ink-soft">{match.descripcion}</p>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      className={`${btnSecondaryCompacto} flex-1`}
-                      disabled={resolviendoMatch === match.id_match}
-                      onClick={() => void resolveMyMatch(match, "confirmado")}
-                    >
-                      <Check size={13} />
-                      {t("mascotasPerdidas.matches.yesItsHer")}
-                    </button>
-                    <button
-                      type="button"
-                      className={`${btnQuiet} flex-1`}
-                      disabled={resolviendoMatch === match.id_match}
-                      onClick={() => void resolveMyMatch(match, "descartado")}
-                    >
-                      <X size={13} />
-                      {t("mascotasPerdidas.matches.notHer")}
-                    </button>
-                  </div>
-                </div>
-              </article>
+              <TarjetaCoincidencia
+                key={match.id_match}
+                match={match}
+                ocupada={resolviendoMatch === match.id_match}
+                onResolver={(estado) => void resolveMyMatch(match, estado)}
+              />
             ))}
           </div>
         </section>

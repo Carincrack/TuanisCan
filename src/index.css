@@ -1295,3 +1295,11 @@
     animation: none;
   }
 }
+
+/* Edge y el viejo Internet Explorer le ponen a los campos de contraseña
+   su propio ojo para mostrarla. El login ya tiene el suyo: con los dos,
+   el campo mostraba dos ojos uno al lado del otro. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

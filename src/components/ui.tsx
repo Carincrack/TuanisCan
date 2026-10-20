@@ -630,6 +630,7 @@ export const Dialog = ({
   onClose,
   children,
   ancho = "max-w-[560px]",
+  capa = "z-50",
 }: {
   title: string;
   onClose: () => void;
@@ -637,6 +638,10 @@ export const Dialog = ({
   /** Ancho máximo del panel, en clases. Un formulario de dos columnas
       pide más aire que una confirmación de una línea. */
   ancho?: string;
+  /** El `z-index`, en clases. Hace falta subirlo cuando la ventana se
+      abre encima de algo que ya tapa la app, como el chat a pantalla
+      completa del teléfono (`z-[95]`). */
+  capa?: string;
 }) => {
   const { t } = useTranslation();
   const titleId = useId();
@@ -676,7 +681,7 @@ export const Dialog = ({
      fina, las versalitas de `rotulo`. Sin esto la ventana sale
      cuadrada y con el scroll gris del sistema. */
   return createPortal(
-    <div className="suave fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+    <div className={`suave fixed inset-0 ${capa} flex items-center justify-center p-3 sm:p-6`}>
       <button
         type="button"
         aria-label={t("common.close")}
@@ -734,6 +739,7 @@ export const Confirmar = ({
   cancelar,
   tono = "normal",
   ocupado = false,
+  capa,
   onConfirmar,
   onCancelar,
 }: {
@@ -744,6 +750,8 @@ export const Confirmar = ({
   /** `peligro` para lo que borra o no se puede deshacer. */
   tono?: "normal" | "peligro";
   ocupado?: boolean;
+  /** Ver `Dialog`. */
+  capa?: string;
   onConfirmar: () => void;
   onCancelar: () => void;
 }) => {
@@ -753,6 +761,7 @@ export const Confirmar = ({
     <Dialog
       title={titulo}
       ancho="max-w-[440px]"
+      capa={capa}
       onClose={() => {
         if (!ocupado) onCancelar();
       }}

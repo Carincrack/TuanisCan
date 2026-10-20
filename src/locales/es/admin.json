@@ -98,8 +98,6 @@
     "pendingNote": "{{pendientes}} por confirmar · {{reservados}} reservados",
     "walkersNet": "Neto a paseadores",
     "walkersNetNote": "de {{bruto}} cobrados",
-    "inDollars": "Cobrado en dólares",
-    "inDollarsNote": "{{n}} de {{total}} cobros",
     "rateShort": "TC {{tipo}}",
     "methodPending": "Sin confirmar",
     "searchPlaceholder": "Buscar mascota, persona o referencia",
@@ -137,7 +135,19 @@
       },
       "notYet": "Todavía no",
       "close": "Cerrar"
-    }
+    },
+    "currency": {
+      "label": "Filtrar por moneda",
+      "all": "Todas",
+      "colones": "Colones",
+      "dollars": "Dólares"
+    },
+    "byCurrency": "Cobrado por moneda",
+    "byCurrencyColonesOne": "en colones · 1 cobro",
+    "byCurrencyColones": "en colones · {{count}} cobros",
+    "byCurrencyDollarsOne": "en dólares · 1 cobro · {{colones}}",
+    "byCurrencyDollars": "en dólares · {{count}} cobros · {{colones}}",
+    "byCurrencyDollarsNone": "en dólares · ningún cobro"
   },
   "walkers": {
     "title": "Directorio de paseadores",

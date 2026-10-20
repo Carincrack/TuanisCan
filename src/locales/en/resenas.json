@@ -31,5 +31,23 @@
   "errors": {
     "loadFailed": "Could not load the reviews.",
     "saveFailed": "Could not save the review."
+  },
+  "alTerminar": {
+    "title": "The walk is over!",
+    "endedAt": "ended at {{hora}}",
+    "question": "How was {{walker}}?",
+    "tapStar": "Tap a star",
+    "levels": {
+      "1": "Poor",
+      "2": "Fair",
+      "3": "Good",
+      "4": "Very good",
+      "5": "Excellent"
+    },
+    "commentPlaceholder": "Tell other owners how it went (optional)",
+    "send": "Send review",
+    "later": "Later",
+    "laterHint": "If you leave it for later, it stays pending in Reviews.",
+    "thanks": "Thanks! Your review is published."
   }
 }

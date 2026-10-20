@@ -363,6 +363,22 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setTimeout(() => setPhase("idle"), REVEAL_AT + ENTER_MS);
   };
 
+  /* Supabase contesta en inglés y con su jerga («Invalid login
+     credentials»), y eso es lo que se mostraba tal cual. Por el código
+     del error se dice, en el idioma de la app, qué pasó y qué hacer. Los
+     errores propios de la app (cuenta inactiva, admin sin perfil) ya
+     vienen en español y pasan como están. */
+  const mensajeDeAcceso = (causa: unknown) => {
+    const codigo =
+      typeof causa === "object" && causa && "code" in causa ? String((causa as { code?: unknown }).code ?? "") : "";
+    const texto = causa instanceof Error ? causa.message : "";
+    if (codigo === "invalid_credentials" || /invalid login credentials/i.test(texto)) return t("auth.errors.invalidCredentials");
+    if (codigo === "email_not_confirmed" || /email not confirmed/i.test(texto)) return t("auth.errors.emailNotConfirmed");
+    if (codigo.startsWith("over_") || /rate limit/i.test(texto)) return t("auth.errors.tooManyAttempts");
+    if (/failed to fetch|network/i.test(texto)) return t("auth.errors.noConnection");
+    return texto || t("auth.errors.signInFailed");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -379,7 +395,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     try {
       await login(username.trim(), password);
     } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : t("auth.errors.signInFailed"));
+      setError(mensajeDeAcceso(loginError));
       setShowError(true);
     } finally {
       setIsLoading(false);

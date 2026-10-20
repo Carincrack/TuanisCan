@@ -10,6 +10,7 @@ import {
   Inbox,
   LayoutDashboard,
   MapPin,
+  MessageCircle,
   PawPrint,
   Star,
   Store,
@@ -93,6 +94,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
         { to: "/", label: "nav.item.panelGeneral", Icon: LayoutDashboard },
         { to: "/paseos", label: "nav.item.paseos", Icon: CalendarDays },
         { to: "/paseo-en-vivo", label: "nav.item.paseoEnVivo", Icon: MapPin },
+        { to: "/mensajes", label: "nav.item.mensajes", Icon: MessageCircle },
       ],
     },
     {
@@ -128,6 +130,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
         { to: "/p/solicitudes", label: "nav.item.solicitudes", Icon: Inbox },
         { to: "/p/agenda", label: "nav.item.agenda", Icon: CalendarCheck },
         { to: "/p/paseo-activo", label: "nav.item.paseoActivo", Icon: MapPin },
+        { to: "/p/mensajes", label: "nav.item.mensajes", Icon: MessageCircle },
       ],
     },
     {

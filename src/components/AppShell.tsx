@@ -29,6 +29,8 @@ import { prepararSonido, sonarAviso } from "../lib/sonido";
 import { anunciarNotificacion, useAlLlegarNotificacion } from "../lib/tiempoReal";
 import { ContadoresMenu } from "../lib/contadoresMenu";
 import { contarSolicitudesPendientes } from "../services/walk-requests.service";
+import { contarMensajesSinLeer, escucharMensajesParaMi, rutaChat } from "../services/chat.service";
+import { ResenaAlTerminar } from "./ResenaAlTerminar";
 
 /* ─────────────────────────────────────────────────────────────
    EL ARMAZÓN
@@ -86,7 +88,7 @@ interface AppShellProps {
 }
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   /* Estas pantallas piden su propio botón de notificaciones —ver
      `NotificationButtonContext` más abajo— y con eso la franja
      superior les queda vacía: se pliega solo para ellas. */
@@ -158,28 +160,77 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const conocidas = useRef<Set<string> | null>(null);
   const abrirDesdeAviso = useRef<(n: Notification) => void>(() => undefined);
 
-  /** Anuncia lo nuevo: avisa a las pantallas abiertas, suena una vez y
-      saca un aviso. Con uno solo, el aviso trae «Ver», que lleva a la
-      pantalla del aviso; con varios juntos —volver de estar sin
-      conexión—, un resumen en vez de una ráfaga. */
-  const recibir = useCallback((nuevas: Notification[]) => {
+  /* ── Fin de un paseo ──
+     Cuando el paseador finaliza, al dueño le llegan juntas dos
+     notificaciones: «el paseo terminó, deja tu reseña» y «se
+     cobraron…». En vez de dos avisos, se abre la ventana de la reseña
+     con el cobro adentro (`ResenaAlTerminar`). `paseosTerminados`
+     recuerda esos paseos para no avisar después lo que ya está en la
+     ventana. */
+  const [resenaPorDejar, setResenaPorDejar] = useState<{ idPaseo: string; cobro: string | null } | null>(null);
+  const paseosTerminados = useRef(new Set<string>());
+
+  /* Las notificaciones de un mismo momento llegan por el canal una por
+     una, con milisegundos de diferencia. Se juntan un instante antes de
+     anunciarlas: así suena una vez, sale un solo aviso y se puede ver
+     que el «terminó» y el «se cobró» son del mismo paseo. */
+  const lote = useRef<Notification[]>([]);
+  const esperaLote = useRef<number | undefined>(undefined);
+
+  const anunciarLote = useCallback(() => {
+    const nuevas = lote.current.splice(0);
     if (!nuevas.length) return;
-    for (const n of nuevas) anunciarNotificacion(n);
     sonarAviso();
-    if (nuevas.length === 1) {
+
+    const finDePaseo = (n: Notification) => n.tipo === "resena" && n.referencia_id !== null && /finaliz/i.test(n.mensaje);
+    for (const n of nuevas) if (finDePaseo(n) && n.referencia_id) paseosTerminados.current.add(n.referencia_id);
+    const delFin = (n: Notification) =>
+      (n.tipo === "resena" || n.tipo === "pago") && n.referencia_id !== null && paseosTerminados.current.has(n.referencia_id);
+    const cobroDe = (idPaseo: string) => nuevas.find((n) => n.tipo === "pago" && n.referencia_id === idPaseo)?.mensaje ?? null;
+
+    const fin = nuevas.find(finDePaseo);
+    if (fin?.referencia_id) {
+      setResenaPorDejar({ idPaseo: fin.referencia_id, cobro: cobroDe(fin.referencia_id) });
+    } else {
+      // El cobro llegó después de abrir la ventana: se suma a ella.
+      const cobroTardio = nuevas.find((n) => n.tipo === "pago" && delFin(n));
+      if (cobroTardio) {
+        setResenaPorDejar((actual) =>
+          actual && actual.idPaseo === cobroTardio.referencia_id ? { ...actual, cobro: cobroTardio.mensaje } : actual,
+        );
+      }
+    }
+
+    /* Con uno solo, el aviso trae «Ver», que lleva a la pantalla del
+       aviso; con varios juntos —volver de estar sin conexión—, un
+       resumen en vez de una ráfaga. */
+    const resto = nuevas.filter((n) => !delFin(n));
+    if (resto.length === 1) {
       /* Título corto —de qué se trata— y el mensaje entero debajo. Con
          el mensaje como título, la pastilla del aviso es de una sola
          línea y lo cortaba a media frase contra el borde. */
-      const [nueva] = nuevas;
+      const [nueva] = resto;
       aviso.dato(t(`shell.notifications.types.${nueva.tipo}`), {
         detalle: nueva.mensaje,
         id: nueva.id_notificacion,
         accion: { label: t("shell.notifications.view"), onClick: () => abrirDesdeAviso.current(nueva) },
       });
-    } else {
-      aviso.dato(t("shell.notifications.newMany", { n: nuevas.length }));
+    } else if (resto.length > 1) {
+      aviso.dato(t("shell.notifications.newMany", { n: resto.length }));
     }
   }, [t]);
+
+  /** Anuncia lo nuevo: avisa enseguida a las pantallas abiertas (para
+      que se refresquen) y deja el sonido y el aviso para el lote. */
+  const recibir = useCallback((nuevas: Notification[]) => {
+    if (!nuevas.length) return;
+    for (const n of nuevas) anunciarNotificacion(n);
+    lote.current.push(...nuevas);
+    window.clearTimeout(esperaLote.current);
+    esperaLote.current = window.setTimeout(anunciarLote, 350);
+  }, [anunciarLote]);
+
+  useEffect(() => () => window.clearTimeout(esperaLote.current), []);
 
   /* Cargar es también ponerse al día: si la base trae avisos sin leer
      que nunca pasaron por acá —se perdieron con la conexión cortada—,
@@ -275,7 +326,61 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
   useAlLlegarNotificacion(["paseo"], () => void contarSolicitudes());
 
-  const contadoresMenu = { "/p/solicitudes": solicitudesPendientes };
+  /* ── Mensajes del chat ──
+     El número junto a «Mensajes» y el aviso cuando llega uno estando en
+     otra pantalla. Si ese chat está abierto en pantalla, no se avisa: ya
+     se está viendo. Se cuenta otra vez al cambiar de pantalla, porque
+     abrir un chat los marca como leídos. */
+  const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
+  const contarMensajes = useCallback(async () => {
+    if (!idUsuario || (rol !== "dueno" && rol !== "paseador")) {
+      setMensajesSinLeer(0);
+      return;
+    }
+    try {
+      setMensajesSinLeer(await contarMensajesSinLeer());
+    } catch {
+      setMensajesSinLeer(0);
+    }
+  }, [rol, idUsuario]);
+
+  useEffect(() => {
+    void contarMensajes();
+  }, [contarMensajes, pathname, search]);
+
+  const dondeEstoy = useRef({ pathname, search, rol });
+  useEffect(() => {
+    dondeEstoy.current = { pathname, search, rol };
+  });
+
+  useEffect(() => {
+    if (!idUsuario) return;
+    return escucharMensajesParaMi(idUsuario, (fila) => {
+      window.dispatchEvent(new CustomEvent("tuaniscan:mensaje", { detail: fila }));
+      const { pathname: ruta, search: busqueda, rol: rolActual } = dondeEstoy.current;
+      const chatAbierto = (busqueda as Record<string, unknown>).chat;
+      if (ruta.endsWith("/mensajes") && chatAbierto === fila.id_paseo) return;
+      setMensajesSinLeer((n) => n + 1);
+      sonarAviso();
+      const rolChat = rolActual === "paseador" ? "paseador" : "dueno";
+      aviso.dato(t("chat.newMessage"), {
+        id: `mensaje-${fila.id_mensaje}`,
+        detalle:
+          fila.tipo === "sticker"
+            ? t(`chat.stickers.${fila.contenido}`)
+            : fila.tipo === "foto"
+              ? t("chat.list.photo")
+              : fila.contenido.length > 90 ? `${fila.contenido.slice(0, 90)}…` : fila.contenido,
+        accion: { label: t("chat.view"), onClick: () => void navigate({ href: rutaChat(fila.id_paseo, rolChat) }) },
+      });
+    });
+  }, [idUsuario, navigate, t]);
+
+  const contadoresMenu = {
+    "/p/solicitudes": solicitudesPendientes,
+    "/mensajes": mensajesSinLeer,
+    "/p/mensajes": mensajesSinLeer,
+  };
 
   const pendientes = notificaciones.filter((n) => !n.leido).length;
 
@@ -496,6 +601,10 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           del otro y el aviso tapaba el buscador o el botón de la
           pantalla, que en el teléfono viven abajo.
 
+          Uno a la vez (`visibleToasts={1}`): apilados se tapaban entre
+          sí y no se leía ninguno. Los que llegan mientras hay uno
+          esperan su turno.
+
           Solo posición y comportamiento. El aspecto y la animación
           son los que trae la librería: no se le pasa `preset`, ni
           separación, ni margen. */}
@@ -505,9 +614,22 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           closeButton={!esTelefono}
           swipeToDismiss
           closeOnEscape
-          visibleToasts={4}
+          visibleToasts={1}
         />,
         document.body,
+      )}
+
+      {resenaPorDejar && (
+        <ResenaAlTerminar
+          key={resenaPorDejar.idPaseo}
+          idPaseo={resenaPorDejar.idPaseo}
+          cobro={resenaPorDejar.cobro}
+          onCerrar={(seMostro) => {
+            // Si la ventana no llegó a abrirse, el cobro no se pierde: va como aviso.
+            if (!seMostro && resenaPorDejar.cobro) aviso.dato(t("shell.notifications.types.pago"), { detalle: resenaPorDejar.cobro });
+            setResenaPorDejar(null);
+          }}
+        />
       )}
 
       <ContadoresMenu.Provider value={contadoresMenu}>

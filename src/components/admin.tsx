@@ -38,6 +38,7 @@ import {
   colones,
   dolares,
   input,
+  surface,
 } from "./ui";
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
@@ -324,6 +325,79 @@ const claveFiltroFinanzas: Record<FiltroFinanzas, string> = {
   Reembolsados: "admin.finances.filters.refunded",
 };
 
+/* La moneda en que pagó el dueño. Todo lo demás —comisión, neto,
+   tableros— va en colones; esto es para saber cuánto entró en cada
+   una. Un pago sin moneda es de antes de que existieran los dólares:
+   colones. */
+type FiltroMoneda = "Todas" | "CRC" | "USD";
+
+const claveFiltroMoneda: Record<FiltroMoneda, string> = {
+  Todas: "admin.finances.currency.all",
+  CRC: "admin.finances.currency.colones",
+  USD: "admin.finances.currency.dollars",
+};
+
+const monedaDe = (m: AdminFinanceMovement): Exclude<FiltroMoneda, "Todas"> => (m.moneda === "USD" ? "USD" : "CRC");
+
+/* ── Cobrado por moneda ──
+   La cuarta cifra: cuánto entró en colones y cuánto en dólares, una
+   debajo de la otra, y el filete partido en las dos proporciones
+   (medidas en colones, que es lo que vale cada parte). Navy para
+   colones, turquesa para dólares, con el nombre al lado: el color no
+   es lo único que lo dice. Con un filtro de moneda puesto, la otra se
+   apaga un poco pero sigue ahí: este dato es la comparación. */
+const StatMonedas = ({
+  colonesCobrado,
+  colonesCuantos,
+  dolaresCobrado,
+  dolaresEnColones,
+  dolaresCuantos,
+  activa,
+}: {
+  colonesCobrado: number;
+  colonesCuantos: number;
+  dolaresCobrado: number;
+  dolaresEnColones: number;
+  dolaresCuantos: number;
+  activa: FiltroMoneda;
+}) => {
+  const { t } = useTranslation();
+  const total = colonesCobrado + dolaresEnColones;
+  const parteColones = total ? colonesCobrado / total : 0;
+  const renglon = (moneda: Exclude<FiltroMoneda, "Todas">, valor: string, nota: string) => (
+    <div className={`transition-opacity duration-200 ${activa !== "Todas" && activa !== moneda ? "opacity-40" : ""}`}>
+      <dt className="sr-only">{t(claveFiltroMoneda[moneda])}</dt>
+      <dd className="nums text-[21px] leading-tight font-semibold tracking-[-0.02em] text-ink">{valor}</dd>
+      <dd className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-ink-soft">
+        <span aria-hidden className={`mt-[5px] h-2 w-2 shrink-0 rounded-full ${moneda === "CRC" ? "bg-rail" : "bg-accent"}`} />
+        <span>{nota}</span>
+      </dd>
+    </div>
+  );
+
+  return (
+    <div className={`${surface} px-6 py-5`}>
+      <p className="rotulo text-ink-mute">{t("admin.finances.byCurrency")}</p>
+      <dl className="mt-2 flex flex-col gap-2">
+        {renglon("CRC", colones(colonesCobrado), t(colonesCuantos === 1 ? "admin.finances.byCurrencyColonesOne" : "admin.finances.byCurrencyColones", { count: colonesCuantos }))}
+        {renglon(
+          "USD",
+          dolares(dolaresCobrado),
+          dolaresCuantos
+            ? t(dolaresCuantos === 1 ? "admin.finances.byCurrencyDollarsOne" : "admin.finances.byCurrencyDollars", { count: dolaresCuantos, colones: colones(dolaresEnColones) })
+            : t("admin.finances.byCurrencyDollarsNone"),
+        )}
+      </dl>
+      {total > 0 && (
+        <div className="mt-3.5 flex h-[3px] w-full gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
+          {parteColones > 0 && <span className="h-full rounded-full bg-rail" style={{ flexGrow: parteColones }} />}
+          {parteColones < 1 && <span className="h-full rounded-full bg-accent" style={{ flexGrow: 1 - parteColones }} />}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const estadoDeFiltro: Record<Exclude<FiltroFinanzas, "Todos">, AdminFinanceMovement["estado_pago"]> = {
   PorConfirmar: "pendiente",
   Reservados: "retenido",
@@ -387,6 +461,7 @@ export const FinanzasAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
   const { t, localeTag } = useTranslation();
   const [filtro, setFiltro] = useState<FiltroFinanzas>("Todos");
+  const [moneda, setMoneda] = useState<FiltroMoneda>("Todas");
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
@@ -402,26 +477,47 @@ export const FinanzasAdmin = () => {
       .finally(() => setLoading(false));
   }, [t]);
 
+  /* Los dos filtros se combinan: cada uno cuenta sobre lo que deja el
+     otro, así el número de cada pestaña es lo que se va a ver al
+     tocarla. */
+  const enMoneda = useMemo(
+    () => (moneda === "Todas" ? movimientos : movimientos.filter((m) => monedaDe(m) === moneda)),
+    [movimientos, moneda],
+  );
+  const enEstado = useMemo(
+    () => (filtro === "Todos" ? movimientos : movimientos.filter((m) => m.estado_pago === estadoDeFiltro[filtro])),
+    [movimientos, filtro],
+  );
+
   const cuentas = useMemo(() => {
-    const por = (estado: AdminFinanceMovement["estado_pago"]) => movimientos.filter((m) => m.estado_pago === estado).length;
+    const por = (estado: AdminFinanceMovement["estado_pago"]) => enMoneda.filter((m) => m.estado_pago === estado).length;
     return {
-      Todos: movimientos.length,
+      Todos: enMoneda.length,
       PorConfirmar: por("pendiente"),
       Reservados: por("retenido"),
       Cobrados: por("pagado"),
       Reembolsados: por("reembolsado"),
     };
-  }, [movimientos]);
+  }, [enMoneda]);
+
+  const cuentasMoneda = useMemo(
+    () => ({
+      Todas: enEstado.length,
+      CRC: enEstado.filter((m) => monedaDe(m) === "CRC").length,
+      USD: enEstado.filter((m) => monedaDe(m) === "USD").length,
+    }),
+    [enEstado],
+  );
 
   const visibles = useMemo(() => {
     const consulta = busqueda.trim().toLowerCase();
-    return movimientos.filter((m) => {
+    return enMoneda.filter((m) => {
       if (filtro !== "Todos" && m.estado_pago !== estadoDeFiltro[filtro]) return false;
       if (!consulta) return true;
       return [m.mascota, m.dueno, m.paseador, m.metodo_pago, m.referencia, m.zona, m.moneda]
         .some((campo) => campo?.toLowerCase().includes(consulta));
     });
-  }, [movimientos, filtro, busqueda]);
+  }, [enMoneda, filtro, busqueda]);
 
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -430,19 +526,27 @@ export const FinanzasAdmin = () => {
   const paginaMovimientos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
 
   const cambiarFiltro = (value: string) => { setFiltro(value as FiltroFinanzas); setPagina(1); };
+  const cambiarMoneda = (value: string) => { setMoneda(value as FiltroMoneda); setPagina(1); };
   const buscar = (value: string) => { setBusqueda(value); setPagina(1); };
 
   /* Las cifras. La comisión se gana al cobrar (`pagado`); lo pendiente
      y lo reservado todavía no entró. Todo suma en colones —el precio
      del paseo—, pague el dueño en la moneda que pague, que es lo que
-     hace cuadrar este panel con el del dueño y el del paseador. */
+     hace cuadrar este panel con el del dueño y el del paseador.
+
+     Las tres primeras respetan el filtro de moneda: con «Dólares»
+     puesto dicen cuánta comisión dejaron los pagos en dólares. El
+     cobrado por moneda no: es la comparación entre las dos. */
   const cifras = useMemo(() => {
-    const pagados = movimientos.filter((m) => m.estado_pago === "pagado");
-    const pendientes = movimientos.filter((m) => m.estado_pago === "pendiente");
-    const reservados = movimientos.filter((m) => m.estado_pago === "retenido");
-    const enDolares = pagados.filter((m) => m.moneda === "USD" && m.monto_moneda != null);
     const suma = (lista: AdminFinanceMovement[], campo: "bruto" | "comision" | "neto_paseador") =>
       lista.reduce((total, m) => total + m[campo], 0);
+    const pagados = enMoneda.filter((m) => m.estado_pago === "pagado");
+    const pendientes = enMoneda.filter((m) => m.estado_pago === "pendiente");
+    const reservados = enMoneda.filter((m) => m.estado_pago === "retenido");
+
+    const todosPagados = movimientos.filter((m) => m.estado_pago === "pagado");
+    const pagadosColones = todosPagados.filter((m) => monedaDe(m) === "CRC");
+    const pagadosDolares = todosPagados.filter((m) => monedaDe(m) === "USD");
 
     return {
       pagados,
@@ -452,10 +556,13 @@ export const FinanzasAdmin = () => {
       reservados: reservados.length,
       brutoCobrado: suma(pagados, "bruto"),
       netoPaseadores: suma(pagados, "neto_paseador"),
-      enDolares: enDolares.length,
-      dolaresCobrados: enDolares.reduce((total, m) => total + (m.monto_moneda ?? 0), 0),
+      colonesCobrado: suma(pagadosColones, "bruto"),
+      colonesCuantos: pagadosColones.length,
+      dolaresCobrado: pagadosDolares.reduce((total, m) => total + (m.monto_moneda ?? 0), 0),
+      dolaresEnColones: suma(pagadosDolares, "bruto"),
+      dolaresCuantos: pagadosDolares.length,
     };
-  }, [movimientos]);
+  }, [enMoneda, movimientos]);
 
   const exportar = () => {
     const rows = [
@@ -516,11 +623,13 @@ export const FinanzasAdmin = () => {
           valor={colones(cifras.netoPaseadores)}
           nota={cifras.pagados.length ? t("admin.finances.walkersNetNote", { bruto: colones(cifras.brutoCobrado) }) : t("admin.finances.noPayments")}
         />
-        <Stat
-          etiqueta={t("admin.finances.inDollars")}
-          valor={dolares(cifras.dolaresCobrados)}
-          nota={t("admin.finances.inDollarsNote", { n: cifras.enDolares, total: cifras.pagados.length })}
-          parte={cifras.pagados.length ? cifras.enDolares / cifras.pagados.length : undefined}
+        <StatMonedas
+          colonesCobrado={cifras.colonesCobrado}
+          colonesCuantos={cifras.colonesCuantos}
+          dolaresCobrado={cifras.dolaresCobrado}
+          dolaresEnColones={cifras.dolaresEnColones}
+          dolaresCuantos={cifras.dolaresCuantos}
+          activa={moneda}
         />
       </div>
 
@@ -528,19 +637,31 @@ export const FinanzasAdmin = () => {
           con la que paga un dueño que elige dólares. */}
       <TipoCambioDia />
 
-      <div className="flex flex-col gap-3 bg-surface px-3 py-3 lg:flex-row lg:items-center">
-        <div className="-mx-3 overflow-x-auto px-3 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
+      {/* Los filtros: el estado del pago y, de la par, la moneda. En la
+          computadora van en un renglón y la búsqueda en el siguiente;
+          en el teléfono cada uno en el suyo, el de estados deslizable. */}
+      <div className="flex flex-col gap-3 bg-surface px-3 py-3">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="-mx-3 overflow-x-auto px-3 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
+            <FilterTabs
+              label={t("admin.finances.filterLabel")}
+              options={(Object.keys(claveFiltroFinanzas) as FiltroFinanzas[]).map((o) => ({ value: o, label: t(claveFiltroFinanzas[o]) }))}
+              value={filtro}
+              onChange={cambiarFiltro}
+              cuentas={cuentas}
+              desplazable
+            />
+          </div>
           <FilterTabs
-            label={t("admin.finances.filterLabel")}
-            options={(Object.keys(claveFiltroFinanzas) as FiltroFinanzas[]).map((o) => ({ value: o, label: t(claveFiltroFinanzas[o]) }))}
-            value={filtro}
-            onChange={cambiarFiltro}
-            cuentas={cuentas}
-            desplazable
+            label={t("admin.finances.currency.label")}
+            options={(Object.keys(claveFiltroMoneda) as FiltroMoneda[]).map((o) => ({ value: o, label: t(claveFiltroMoneda[o]) }))}
+            value={moneda}
+            onChange={cambiarMoneda}
+            cuentas={cuentasMoneda}
           />
         </div>
 
-        <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:flex-nowrap lg:justify-end">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative min-w-[200px] flex-1">
             <Search size={14} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-mute" />
             <input
@@ -570,7 +691,9 @@ export const FinanzasAdmin = () => {
           <>
             <div className="hidden md:block">
               <Table
-                caption={t("admin.finances.caption", { filtro: t(claveFiltroFinanzas[filtro]).toLowerCase() })}
+                caption={t("admin.finances.caption", {
+                  filtro: `${t(claveFiltroFinanzas[filtro]).toLowerCase()} · ${t(claveFiltroMoneda[moneda]).toLowerCase()}`,
+                })}
                 min="min-w-[860px]"
                 padX="px-4"
                 columnas={[
@@ -666,7 +789,7 @@ export const FinanzasAdmin = () => {
         ) : (
           <EmptyState
             title={t("admin.finances.empty.title")}
-            hint={busqueda ? t("admin.finances.empty.withSearch") : t("admin.finances.empty.hint")}
+            hint={busqueda || moneda !== "Todas" ? t("admin.finances.empty.withSearch") : t("admin.finances.empty.hint")}
           />
         )}
       </Section>

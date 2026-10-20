@@ -41,5 +41,6 @@
   "nextWho": "Con {{dueno}} · {{zona}}",
   "nextStartHint": "El botón «Iniciar paseo» aparece acá el día del paseo ({{dia}}).",
   "tomorrow": "mañana",
-  "onDay": "el {{dia}}"
+  "onDay": "el {{dia}}",
+  "chatHint": "Escríbele mientras paseas: el chat se cierra cuando termines."
 }
