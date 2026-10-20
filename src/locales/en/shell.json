@@ -25,7 +25,21 @@
     "markReadError": "Could not mark as read.",
     "markAllReadError": "Could not mark all as read.",
     "deleteError": "Could not delete the notification.",
-    "deleteAllError": "Could not delete the notifications."
+    "deleteAllError": "Could not delete the notifications.",
+    "buttonUnread": "Notifications, {{n}} unread",
+    "view": "View",
+    "newMany": "You have {{n}} new notifications",
+    "emptyHint": "Requests, payments and reviews will show up here instantly.",
+    "deleteAllConfirm": "Delete all?",
+    "deleteAllYes": "Yes, delete",
+    "deleteAllNo": "No",
+    "types": {
+      "paseo": "Walk",
+      "pago": "Payment",
+      "resena": "Review",
+      "verificacion": "Verification",
+      "mascota_perdida": "Lost pet"
+    }
   },
   "verificationBanner": {
     "pending": "Your verification is under review. You can browse, but actions stay blocked.",

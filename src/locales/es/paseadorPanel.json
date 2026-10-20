@@ -121,7 +121,9 @@
     "empty": {
       "title": "No tienes paseos agendados",
       "hint": "Cuando aceptes una solicitud, aparecerá aquí ordenada por día."
-    }
+    },
+    "paymentWaiting": "Esperando el pago del dueño",
+    "paymentReady": "Pago confirmado"
   },
   "earnings": {
     "title": "Ganancias",
@@ -170,6 +172,7 @@
       "commissionNote": "{{pct}} % de lo cobrado"
     },
     "monthNet": "Neto del mes",
-    "grossLine": "Bruto {{bruto}} · comisión −{{comision}}"
+    "grossLine": "Bruto {{bruto}} · comisión −{{comision}}",
+    "statusHeld": "Reservado"
   }
 }

@@ -35,6 +35,7 @@ import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 import type { I18nContextValue } from "../context/i18n-context";
+import { hoyEnCostaRica } from "../lib/fechas";
 
 type T = I18nContextValue["t"];
 
@@ -129,7 +130,7 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
         <label className={fieldLabel}>{t("mascotas.petForm.species")}<input className={input} required list="pet-species" maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /><datalist id="pet-species"><option value="Perro" /><option value="Gato" /><option value="Conejo" /><option value="Ave" /></datalist></label>
         <label className={fieldLabel}>{t("mascotas.petForm.breed")}<input className={input} required maxLength={100} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
         <label className={fieldLabel}>{t("mascotas.petForm.sex")}<Combo required value={values.sexo} onChange={(v) => update("sexo", v)} options={[{ value: "macho", label: t("mascotas.basicData.male") }, { value: "hembra", label: t("mascotas.basicData.female") }]} /></label>
-        <label className={fieldLabel}>{t("mascotas.petForm.birthDate")}<input className={input} required type="date" max={new Date().toISOString().slice(0, 10)} value={values.fecha_nacimiento} onChange={(e) => update("fecha_nacimiento", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.petForm.birthDate")}<input className={input} required type="date" max={hoyEnCostaRica()} value={values.fecha_nacimiento} onChange={(e) => update("fecha_nacimiento", e.target.value)} /></label>
         <label className={fieldLabel}>{t("mascotas.petForm.weight")}<input className={input} required type="number" min="0.01" max="9999" step="0.01" value={values.peso} onChange={(e) => update("peso", e.target.value)} /></label>
         <label className={fieldLabel}>{t("mascotas.petForm.color")}<input className={input} required maxLength={100} value={values.color} onChange={(e) => update("color", e.target.value)} /></label>
         <label className={fieldLabel}>{t("mascotas.petForm.microchipNumber")}<input className={input} maxLength={50} value={values.microchip} onChange={(e) => update("microchip", e.target.value)} /></label>
@@ -260,7 +261,7 @@ const ConditionForm = ({ pet, condition, onClose, onSaved }: { pet: Pet; conditi
     <form onSubmit={submit} className="grid gap-4 p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
         <label className={fieldLabel}>{t("mascotas.conditionForm.nameOrCondition")}<input className={input} required maxLength={150} placeholder={t("mascotas.conditionForm.namePlaceholder")} value={values.nombre} onChange={(e) => update("nombre", e.target.value)} /></label>
-        <label className={fieldLabel}>{t("mascotas.conditionForm.diagnosisDate")}<input className={input} type="date" min={pet.fecha_nacimiento} max={new Date().toISOString().slice(0, 10)} value={values.fecha_diagnostico} onChange={(e) => update("fecha_diagnostico", e.target.value)} /></label>
+        <label className={fieldLabel}>{t("mascotas.conditionForm.diagnosisDate")}<input className={input} type="date" min={pet.fecha_nacimiento} max={hoyEnCostaRica()} value={values.fecha_diagnostico} onChange={(e) => update("fecha_diagnostico", e.target.value)} /></label>
       </div>
       <label className={fieldLabel}>
         {t("mascotas.conditionForm.careLabel")}

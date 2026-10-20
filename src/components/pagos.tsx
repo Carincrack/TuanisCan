@@ -17,12 +17,16 @@ import {
 } from "../lib/iconos";
 import { aviso, motivo } from "../lib/aviso";
 import { useTranslation } from "../hooks/useTranslation";
+import { useAlLlegarNotificacion } from "../lib/tiempoReal";
+import { useTipoCambio } from "../hooks/useTipoCambio";
+import { aDolares } from "../services/tipo-cambio.service";
 import {
   listOwnerPayments,
   listPaymentMethods,
-  processDigitalWalletPayment,
-  processPayment,
+  retenerPagoConBilletera,
+  retenerPagoConTarjeta,
   type DigitalWallet,
+  type Moneda,
   type PaymentMethod,
   type PaymentMovement,
   type PaymentStatus,
@@ -40,6 +44,8 @@ import {
   btnPrimary,
   btnSecondary,
   colones,
+  dolares,
+  montoCobrado,
 } from "./ui";
 import { SelloTarjeta } from "./tarjetaVisual";
 
@@ -75,6 +81,9 @@ const estadoConfig: Record<
 > = {
   pagado: { claveLabel: "pagos.status.paid", tono: "ok", icon: CheckCircle2 },
   pendiente: { claveLabel: "pagos.status.pending", tono: "warn", icon: Clock },
+  // Confirmado por el dueño: el monto está reservado y se cobra al
+  // terminar el paseo. Turquesa, el color de lo que ya está en marcha.
+  retenido: { claveLabel: "pagos.status.held", tono: "accent", icon: ShieldCheck },
   fallido: { claveLabel: "pagos.status.failed", tono: "danger", icon: AlertTriangle },
   // «Reembolso» y no «Reembolsado»: la insignia vive en una columna
   // de 115 px y la palabra larga no cabe sin partirse.
@@ -109,6 +118,12 @@ const fechaCorta = (fecha: string, localeTag: string) => {
   }).format(dia);
 };
 
+/** «12 oct 2026, 14:05»: cuándo se reservó o se cobró. */
+const fechaHora = (valor: string, localeTag: string) =>
+  new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(
+    new Date(valor),
+  );
+
 /** «Visa •••• 4242» → «4242». El sello ya dice de qué marca es; la
     palabra al lado repite el dato y se come el ancho que necesitan los
     cuatro dígitos, que es lo único que distingue una tarjeta de otra
@@ -134,25 +149,37 @@ const EstadoInsignia = ({ estado }: { estado: PaymentStatus }) => {
 
 /** El importe. Un reembolso ENTRA y todo lo demás SALE: el signo hace
     la mitad del trabajo y el color la otra mitad, porque el signo solo
-    es un píxel de ancho y se pierde al barrer la columna. */
+    es un píxel de ancho y se pierde al barrer la columna.
+
+    Va en la moneda en que se pagó. Un pago en dólares lleva debajo,
+    chico, cuánto es en colones: es lo que vale el paseo y lo que suman
+    las cifras de arriba. */
 const Importe = ({
-  monto,
-  estado,
+  movimiento,
   className = "text-[13.5px]",
 }: {
-  monto: number;
-  estado: PaymentStatus;
+  movimiento: PaymentMovement;
   className?: string;
-}) => (
-  <span
-    className={`nums font-semibold whitespace-nowrap ${className} ${
-      estado === "reembolsado" ? "text-ok" : estado === "pendiente" ? "text-warn" : "text-ink"
-    }`}
-  >
-    {estado === "reembolsado" ? "+" : "−"}
-    {colones(monto)}
-  </span>
-);
+}) => {
+  const estado = movimiento.estado_pago;
+  const enDolares = movimiento.moneda === "USD" && movimiento.monto_moneda != null;
+
+  return (
+    <span className="inline-flex flex-col items-end">
+      <span
+        className={`nums font-semibold whitespace-nowrap ${className} ${
+          estado === "reembolsado" ? "text-ok" : estado === "pendiente" ? "text-warn" : "text-ink"
+        }`}
+      >
+        {estado === "reembolsado" ? "+" : "−"}
+        {montoCobrado(movimiento)}
+      </span>
+      {enDolares && (
+        <span className="nums text-[11px] whitespace-nowrap text-ink-mute">{colones(movimiento.monto)}</span>
+      )}
+    </span>
+  );
+};
 
 /** El método, en pequeño: el sello de la tarjeta más los cuatro
     dígitos. Si el texto no trae dígitos —un método viejo, otra
@@ -189,9 +216,14 @@ const Pagos = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<PaymentMovement | null>(null);
   const [detalleMovimiento, setDetalleMovimiento] = useState<PaymentMovement | null>(null);
   const [metodoSeleccionado, setMetodoSeleccionado] = useState("");
+  const [moneda, setMoneda] = useState<Moneda>("CRC");
+  /* El tipo de cambio se consulta recién cuando se abre la ventana de
+     pago, no al entrar a la pantalla: la mayoría de las visitas son
+     para ver comprobantes. */
+  const tipoCambio = useTipoCambio(Boolean(pagoSeleccionado));
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     setError("");
     try {
       const [nextMethods, nextPayments] = await Promise.all([
@@ -219,11 +251,15 @@ const Pagos = () => {
     void load();
   }, [load]);
 
+  /* El paseador aceptó (aparece el pago por confirmar) o el paseo
+     terminó (se cobró): la lista se pone al día sin recargar. */
+  useAlLlegarNotificacion(["pago", "paseo"], () => void load(true));
+
   const contadores = useMemo(
     () => ({
       Todos: movimientos.length,
       Pagados: movimientos.filter((m) => m.estado_pago === "pagado").length,
-      Pendientes: movimientos.filter((m) => m.estado_pago === "pendiente").length,
+      Pendientes: movimientos.filter((m) => m.estado_pago === "pendiente" || m.estado_pago === "retenido").length,
       Reembolsos: movimientos.filter((m) => m.estado_pago === "reembolsado").length,
     }),
     [movimientos],
@@ -234,7 +270,7 @@ const Pagos = () => {
 
     return movimientos.filter((movement) => {
       if (filtro === "Pagados" && movement.estado_pago !== "pagado") return false;
-      if (filtro === "Pendientes" && movement.estado_pago !== "pendiente") return false;
+      if (filtro === "Pendientes" && movement.estado_pago !== "pendiente" && movement.estado_pago !== "retenido") return false;
       if (filtro === "Reembolsos" && movement.estado_pago !== "reembolsado") return false;
       if (!query) return true;
 
@@ -242,7 +278,8 @@ const Pagos = () => {
         movement.mascota.toLowerCase().includes(query) ||
         movement.paseador.toLowerCase().includes(query) ||
         movement.metodo_pago.toLowerCase().includes(query) ||
-        movement.id_pago.toLowerCase().includes(query)
+        movement.id_pago.toLowerCase().includes(query) ||
+        (movement.moneda ?? "CRC").toLowerCase().includes(query)
       );
     });
   }, [filtro, movimientos, busqueda]);
@@ -256,6 +293,7 @@ const Pagos = () => {
     });
 
     const pendingMovements = movimientos.filter((m) => m.estado_pago === "pendiente");
+    const heldMovements = movimientos.filter((m) => m.estado_pago === "retenido");
     const refundedMovements = movimientos.filter((m) => m.estado_pago === "reembolsado");
     const nombreMes = new Intl.DateTimeFormat(localeTag, { month: "long" }).format(today);
 
@@ -263,8 +301,10 @@ const Pagos = () => {
       spent: paidThisMonth.reduce((sum, movement) => sum + movement.monto, 0),
       count: paidThisMonth.length,
       mesNombre: nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1),
-      pending: pendingMovements.reduce((sum, movement) => sum + movement.monto, 0),
+      // Lo que falta cobrar: lo que hay que confirmar y lo ya reservado.
+      pending: [...pendingMovements, ...heldMovements].reduce((sum, movement) => sum + movement.monto, 0),
       pendingCount: pendingMovements.length,
+      heldCount: heldMovements.length,
       refunded: refundedMovements.reduce((sum, movement) => sum + movement.monto, 0),
       refundedCount: refundedMovements.length,
     };
@@ -276,27 +316,60 @@ const Pagos = () => {
       que quien paga espera encontrar puesta. */
   const abrirPago = (movimiento: PaymentMovement) => {
     setDialogError("");
+    setMoneda("CRC");
     setPagoSeleccionado(movimiento);
     setMetodoSeleccionado(
       metodos.find((m) => m.es_principal)?.id_metodo_pago ?? metodos[0]?.id_metodo_pago ?? "",
     );
   };
 
+  /* Llegar con el cobro ya abierto. El aviso «Tu paseo fue aceptado» y
+     el botón de Paseos traen `?pagar=<id del paseo>`: cuando la lista
+     terminó de cargar, se abre la ventana de ese paseo y el parámetro
+     se borra de la dirección, para que recargar no la vuelva a abrir. */
+  useEffect(() => {
+    if (loading) return;
+    const pagar = new URLSearchParams(window.location.search).get("pagar");
+    if (!pagar) return;
+    const movimiento = movimientos.find((m) => m.id_paseo === pagar && m.estado_pago === "pendiente");
+    if (movimiento) {
+      setDialogError("");
+      setMoneda("CRC");
+      setPagoSeleccionado(movimiento);
+      setMetodoSeleccionado(
+        metodos.find((m) => m.es_principal)?.id_metodo_pago ?? metodos[0]?.id_metodo_pago ?? "",
+      );
+    }
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, [loading, movimientos, metodos]);
+
+  /* Lo que se va a cobrar, en la moneda elegida. En dólares hace falta
+     el tipo de cambio: sin él no hay monto y el botón queda apagado. */
+  const enDolares = moneda === "USD";
+  const montoDolares = pagoSeleccionado && tipoCambio.tipo ? aDolares(pagoSeleccionado.monto, tipoCambio.tipo) : null;
+  const montoAPagar = pagoSeleccionado
+    ? enDolares
+      ? montoDolares != null ? dolares(montoDolares) : null
+      : colones(pagoSeleccionado.monto)
+    : null;
+
   const pay = async () => {
-    if (!pagoSeleccionado || !metodoSeleccionado) return;
+    if (!pagoSeleccionado || !metodoSeleccionado || !montoAPagar) return;
+    if (enDolares && !tipoCambio.tipo) return;
 
     setSaving(true);
     setDialogError("");
     try {
-      const monto = pagoSeleccionado.monto;
+      const cobraAhora = pagoSeleccionado.estado_paseo === "finalizado";
       const wallet = DIGITAL_WALLETS.find((option) => option.id === metodoSeleccionado);
+      const conversion = enDolares && tipoCambio.tipo ? { tipoCambio: tipoCambio.tipo.compra } : undefined;
       const operation = wallet
-        ? processDigitalWalletPayment(pagoSeleccionado.id_paseo, wallet.nombre)
-        : processPayment(pagoSeleccionado.id_paseo, metodoSeleccionado);
+        ? retenerPagoConBilletera(pagoSeleccionado.id_paseo, wallet.nombre, conversion)
+        : retenerPagoConTarjeta(pagoSeleccionado.id_paseo, metodoSeleccionado, conversion);
 
       await aviso.proceso(operation, {
-        esperando: t("pagos.payDialog.paying", { monto: colones(monto) }),
-        bien: t("pagos.payDialog.paid", { monto: colones(monto) }),
+        esperando: t(cobraAhora ? "pagos.payDialog.payingNow" : "pagos.payDialog.paying", { monto: montoAPagar }),
+        bien: t(cobraAhora ? "pagos.payDialog.paidNow" : "pagos.payDialog.paid", { monto: montoAPagar }),
         mal: t("pagos.payDialog.payFailed"),
       });
       setPagoSeleccionado(null);
@@ -319,6 +392,9 @@ const Pagos = () => {
         t("pagos.csv.method"),
         t("pagos.csv.status"),
         t("pagos.csv.amount"),
+        t("pagos.csv.currency"),
+        t("pagos.csv.amountCharged"),
+        t("pagos.csv.exchangeRate"),
       ],
       ...visibles.map((movement) => [
         movement.id_pago,
@@ -329,6 +405,9 @@ const Pagos = () => {
         movement.metodo_pago,
         t(estadoConfig[movement.estado_pago].claveLabel),
         String(movement.monto),
+        movement.moneda ?? "CRC",
+        String(movement.moneda === "USD" ? movement.monto_moneda ?? "" : movement.monto),
+        movement.tipo_cambio != null ? String(movement.tipo_cambio) : "",
       ]),
     ];
 
@@ -422,7 +501,9 @@ const Pagos = () => {
           <p className="mt-1.5 text-[12px] text-ink-soft">
             {stats.pendingCount > 0
               ? `${stats.pendingCount} ${t(stats.pendingCount === 1 ? "pagos.stats.walkSingularDue" : "pagos.stats.walkPluralDue")}`
-              : t("pagos.stats.allUpToDate")}
+              : stats.heldCount > 0
+                ? t(stats.heldCount === 1 ? "pagos.stats.heldSingular" : "pagos.stats.heldPlural", { n: stats.heldCount })
+                : t("pagos.stats.allUpToDate")}
           </p>
         </div>
 
@@ -567,7 +648,7 @@ const Pagos = () => {
 
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-end gap-3">
-                        <Importe monto={movement.monto} estado={movement.estado_pago} />
+                        <Importe movimiento={movement} />
 
                         {movement.estado_pago === "pendiente" && (
                           <button
@@ -578,6 +659,9 @@ const Pagos = () => {
                             <CreditCard size={12} />
                             {t("pagos.table.pay")}
                           </button>
+                        )}
+                        {movement.estado_pago === "retenido" && (
+                          <span className="text-[11px] whitespace-nowrap text-ink-mute">{t("pagos.table.chargedAtEnd")}</span>
                         )}
                       </div>
                     </td>
@@ -609,11 +693,7 @@ const Pagos = () => {
                     </div>
 
                     <div className="shrink-0 text-right">
-                      <Importe
-                        monto={movement.monto}
-                        estado={movement.estado_pago}
-                        className="text-[14px]"
-                      />
+                      <Importe movimiento={movement} className="text-[14px]" />
                       <p className="nums mt-0.5 text-[11px] text-ink-mute">
                         {fechaCorta(movement.fecha, localeTag)}
                       </p>
@@ -633,6 +713,9 @@ const Pagos = () => {
                         <CreditCard size={12} />
                         {t("pagos.table.pay")}
                       </button>
+                    )}
+                    {movement.estado_pago === "retenido" && (
+                      <span className="ml-auto text-[11px] text-ink-mute">{t("pagos.table.chargedAtEnd")}</span>
                     )}
                   </div>
                 </li>
@@ -669,12 +752,22 @@ const Pagos = () => {
               </p>
 
               <div className="mt-4 border-t border-ink/10 pt-4">
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-baseline justify-between gap-3">
                   <span className="rotulo text-ink-mute">{t("pagos.payDialog.totalToPay")}</span>
                   <span className="nums text-[26px] font-semibold tracking-[-0.02em] text-ink">
-                    {colones(pagoSeleccionado.monto)}
+                    {montoAPagar ?? "—"}
                   </span>
                 </div>
+                {/* En dólares, lo que vale en colones y con qué tipo se
+                    convirtió: el dueño ve la cuenta antes de confirmar. */}
+                {enDolares && tipoCambio.tipo && (
+                  <p className="nums mt-1 text-right text-[11.5px] text-ink-soft">
+                    {t("pagos.payDialog.rateLine", {
+                      colones: colones(pagoSeleccionado.monto),
+                      tipo: colones(tipoCambio.tipo.compra),
+                    })}
+                  </p>
+                )}
                 <div className="mt-2 flex justify-between text-[11.5px] text-ink-mute">
                   <span>
                     {t("pagos.payDialog.toWalker", { monto: colones(pagoSeleccionado.monto - pagoSeleccionado.comision_plataforma) })}
@@ -683,6 +776,60 @@ const Pagos = () => {
                 </div>
               </div>
             </div>
+
+            {/* ── En qué moneda ──
+                Las mismas pestañas que filtran listas: dos opciones, una
+                sola respuesta. Debajo, de dónde sale el tipo de cambio,
+                o qué pasó si no se pudo consultar. */}
+            <div className="mt-5">
+              <p className="rotulo mb-2 text-ink-mute">{t("pagos.payDialog.currencyLabel")}</p>
+              <FilterTabs
+                label={t("pagos.payDialog.currencyLabel")}
+                options={[
+                  { value: "CRC", label: t("pagos.payDialog.currency.CRC") },
+                  { value: "USD", label: t("pagos.payDialog.currency.USD") },
+                ]}
+                value={moneda}
+                onChange={(valor) => setMoneda(valor as Moneda)}
+              />
+              {enDolares && (
+                <div className="mt-2 text-[11.5px]" aria-live="polite">
+                  {tipoCambio.tipo ? (
+                    <p className="text-ink-mute">
+                      {t("pagos.payDialog.rateSource", {
+                        fecha: fechaCorta(tipoCambio.tipo.fecha, localeTag),
+                        fuente: t(`pagos.rates.sources.${tipoCambio.tipo.fuente}`),
+                      })}
+                    </p>
+                  ) : tipoCambio.fallo ? (
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-warn">
+                      <AlertTriangle size={13} className="shrink-0" />
+                      {t("pagos.payDialog.rateFailed")}
+                      <button
+                        type="button"
+                        onClick={() => void tipoCambio.reintentar()}
+                        className="font-semibold text-accent-deep underline underline-offset-2"
+                      >
+                        {t("pagos.payDialog.rateRetry")}
+                      </button>
+                    </p>
+                  ) : (
+                    <p className="flex items-center gap-1.5 text-ink-mute">
+                      <Loader size={13} className="animate-spin" />
+                      {t("pagos.payDialog.rateLoading")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Lo que pasa al confirmar, dicho antes de que lo haga. */}
+            <p className="mt-4 flex items-start gap-2 rounded-[14px] bg-accent-wash/60 px-4 py-3 text-[12.5px] leading-relaxed text-accent-deep">
+              <ShieldCheck size={15} className="mt-0.5 shrink-0" />
+              {/* Un paseo que ya se hizo con el pago pendiente se cobra en
+                  el acto; los demás se reservan y se cobran al terminar. */}
+              {t(pagoSeleccionado.estado_paseo === "finalizado" ? "pagos.payDialog.chargeNowExplain" : "pagos.payDialog.holdExplain")}
+            </p>
 
             {(metodos.length || DIGITAL_WALLETS.length) ? (
               <fieldset className="mt-5 grid gap-2">
@@ -789,11 +936,11 @@ const Pagos = () => {
                   <button
                     type="button"
                     className={btnPrimary}
-                    disabled={saving || !metodoSeleccionado}
+                    disabled={saving || !metodoSeleccionado || !montoAPagar}
                     onClick={() => void pay()}
                   >
                     {saving && <Loader size={14} className="animate-spin" />}
-                    {t("pagos.payDialog.payAmount", { monto: colones(pagoSeleccionado.monto) })}
+                    {t(pagoSeleccionado.estado_paseo === "finalizado" ? "pagos.payDialog.payNow" : "pagos.payDialog.payAmount", { monto: montoAPagar ?? "" })}
                   </button>
                 ) : (
                   <Link
@@ -832,6 +979,27 @@ const Pagos = () => {
                 [t("pagos.receipt.serviceDate"), fechaFormateada(detalleMovimiento.fecha, localeTag)],
                 [t("pagos.receipt.duration"), t("pagos.receipt.durationMinutes", { duracion: detalleMovimiento.duracion_min })],
                 [t("pagos.receipt.methodUsed"), detalleMovimiento.metodo_pago],
+                /* En dólares: con qué tipo se convirtió y cuánto es en
+                   colones, que es lo que vale el paseo. */
+                ...(detalleMovimiento.moneda === "USD" && detalleMovimiento.tipo_cambio != null
+                  ? [
+                      [t("pagos.receipt.currency"), t("pagos.receipt.currencyUSD")],
+                      [t("pagos.receipt.exchangeRate"), colones(detalleMovimiento.tipo_cambio)],
+                      [t("pagos.receipt.inColones"), colones(detalleMovimiento.monto)],
+                    ]
+                  : []),
+                /* El rastro de la transacción, como en un comprobante de
+                   banco: con qué referencia se autorizó, cuándo se
+                   reservó y cuándo se cobró. */
+                ...(detalleMovimiento.referencia
+                  ? [[t("pagos.receipt.reference"), detalleMovimiento.referencia]]
+                  : []),
+                ...(detalleMovimiento.fecha_retencion
+                  ? [[t("pagos.receipt.reservedOn"), fechaHora(detalleMovimiento.fecha_retencion, localeTag)]]
+                  : []),
+                ...(detalleMovimiento.fecha_pago && detalleMovimiento.estado_pago === "pagado"
+                  ? [[t("pagos.receipt.chargedOn"), fechaHora(detalleMovimiento.fecha_pago, localeTag)]]
+                  : []),
                 [
                   t("pagos.receipt.walkerRate"),
                   colones(detalleMovimiento.monto - detalleMovimiento.comision_plataforma),
@@ -849,7 +1017,7 @@ const Pagos = () => {
               <div className="flex items-baseline justify-between gap-4 pt-3">
                 <dt className="rotulo text-ink-mute">{t("pagos.receipt.totalAmount")}</dt>
                 <dd className="nums text-[22px] font-semibold tracking-[-0.02em] text-ink">
-                  {colones(detalleMovimiento.monto)}
+                  {montoCobrado(detalleMovimiento)}
                 </dd>
               </div>
             </dl>

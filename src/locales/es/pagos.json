@@ -6,7 +6,8 @@
     "paid": "Pagado",
     "pending": "Pendiente",
     "failed": "Fallido",
-    "refunded": "Reembolso"
+    "refunded": "Reembolso",
+    "held": "Reservado"
   },
   "filters": {
     "label": "Filtrar movimientos",
@@ -26,7 +27,9 @@
     "totalRefunded": "Total reembolsado",
     "refundSingular": "reembolso emitido",
     "refundPlural": "reembolsos emitidos",
-    "noRefunds": "Sin reembolsos registrados"
+    "noRefunds": "Sin reembolsos registrados",
+    "heldSingular": "1 reservado · se cobra al terminar",
+    "heldPlural": "{{n}} reservados · se cobran al terminar"
   },
   "cards": {
     "savedSingular": "tarjeta guardada",
@@ -51,7 +54,10 @@
     "date": "Fecha",
     "method": "Método",
     "status": "Estado",
-    "amount": "Monto CRC"
+    "amount": "Monto CRC",
+    "currency": "Moneda",
+    "amountCharged": "Monto cobrado",
+    "exchangeRate": "Tipo de cambio"
   },
   "table": {
     "caption": "Historial de movimientos de pago",
@@ -62,7 +68,8 @@
     "amount": "Monto",
     "walkWith": "Paseo con {{mascota}}",
     "viewReceiptTitle": "Ver el comprobante · Paseo con {{mascota}}",
-    "pay": "Pagar"
+    "pay": "Confirmar pago",
+    "chargedAtEnd": "Se cobra al terminar"
   },
   "empty": {
     "title": "Sin movimientos en este filtro",
@@ -73,7 +80,7 @@
     "title": "Confirmar pago del paseo",
     "dogWalk": "Paseo canino",
     "withWalker": "Con {{paseador}} · {{duracion}} minutos",
-    "totalToPay": "Total a abonar",
+    "totalToPay": "Total del paseo",
     "toWalker": "Al paseador {{monto}}",
     "commission": "Comisión {{monto}}",
     "whichCard": "Con cuál cobramos",
@@ -91,11 +98,26 @@
     },
     "secureTransaction": "Transacción segura",
     "cancel": "Cancelar",
-    "payAmount": "Pagar {{monto}}",
+    "payAmount": "Reservar {{monto}}",
     "addCard": "Agregar tarjeta",
-    "paying": "Cobrando {{monto}}…",
-    "paid": "Pago de {{monto}} completado",
-    "payFailed": "No se pudo procesar el pago."
+    "paying": "Reservando {{monto}}…",
+    "paid": "Pago confirmado: {{monto}} reservados",
+    "payFailed": "No se pudo confirmar el pago.",
+    "holdExplain": "No se cobra ahora. El monto queda reservado en el método que elijas y se cobra cuando el paseo termine. Con el pago confirmado, el paseador ya puede iniciar el paseo.",
+    "payingNow": "Cobrando {{monto}}…",
+    "paidNow": "Pago de {{monto}} completado",
+    "chargeNowExplain": "Este paseo ya se hizo y su pago quedó pendiente: se cobra ahora en el método que elijas.",
+    "payNow": "Pagar {{monto}}",
+    "currencyLabel": "Pagar en",
+    "currency": {
+      "CRC": "Colones (₡)",
+      "USD": "Dólares ($)"
+    },
+    "rateLine": "{{colones}} al tipo de cambio de {{tipo}}",
+    "rateSource": "Tipo de compra del {{fecha}} · {{fuente}}",
+    "rateLoading": "Consultando el tipo de cambio…",
+    "rateFailed": "No se pudo consultar el tipo de cambio. Paga en colones o vuelve a intentarlo.",
+    "rateRetry": "Reintentar"
   },
   "receipt": {
     "title": "Comprobante",
@@ -107,9 +129,22 @@
     "walkerRate": "Tarifa del paseador",
     "commission": "Comisión TuanisCan",
     "totalAmount": "Monto total",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "reference": "Referencia",
+    "reservedOn": "Reservado el",
+    "chargedOn": "Cobrado el",
+    "currency": "Moneda de pago",
+    "currencyUSD": "Dólares",
+    "exchangeRate": "Tipo de cambio",
+    "inColones": "Equivale a"
   },
   "errors": {
     "loadFailed": "No se pudieron cargar tus pagos."
+  },
+  "rates": {
+    "sources": {
+      "hacienda": "Ministerio de Hacienda",
+      "exchangerate": "ExchangeRate-API"
+    }
   }
 }

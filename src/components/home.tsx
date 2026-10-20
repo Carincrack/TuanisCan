@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarDays, Loader, PawPrint, Siren, Syringe } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
+import { useAlLlegarNotificacion } from "../lib/tiempoReal";
 import { listPets } from "../services/pets.service";
 import { listWalksWithRelations, isUpcoming, type WalkWithRelations } from "../services/walks.service";
 import { listOwnerPayments, type PaymentMovement } from "../services/payments.service";
@@ -62,9 +63,9 @@ const EmployeeHome = () => {
     month: "long",
   }).format(new Date());
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (silencioso = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!silencioso) setLoading(true);
     setError("");
     try {
       const [pets, walks, payments, perdidas, resenas, perfil] = await Promise.all([
@@ -93,6 +94,8 @@ const EmployeeHome = () => {
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  useAlLlegarNotificacion(["paseo", "pago", "resena"], () => void cargar(true));
 
   const ahora = new Date();
   const proximos = paseos

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import type { ElementType, KeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "@tanstack/react-router";
@@ -28,6 +28,7 @@ import { useMedia } from "../hooks/useMedia";
 import { usePreferencia } from "../hooks/usePreferencia";
 import { useCajon } from "../hooks/useCajon";
 import { useTranslation } from "../hooks/useTranslation";
+import { ContadoresMenu } from "../lib/contadoresMenu";
 import ProfileAvatar from "./ProfileAvatar";
 
 /* ─────────────────────────────────────────────────────────────
@@ -114,8 +115,10 @@ const NavLink = ({
 }) => {
   const { pathname } = useLocation();
   const { t } = useTranslation();
+  const contadores = useContext(ContadoresMenu);
   const activo = item.to === pathname;
   const { Icon } = item;
+  const insignia = contadores[item.to] || item.badge || null;
 
   return (
     <Link
@@ -139,7 +142,7 @@ const NavLink = ({
           />
           {/* Cerrado no cabe el contador, pero la señal de que hay algo
               esperando no se puede perder: queda como un punto. */}
-          {item.badge != null && !expandido && (
+          {insignia != null && !expandido && (
             <span
               aria-hidden
               className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-accent"
@@ -152,13 +155,13 @@ const NavLink = ({
         <span className="truncate transition-transform duration-300 ease-out group-hover:translate-x-0.5">
           {t(item.label)}
         </span>
-        {item.badge != null && (
+        {insignia != null && (
           <span
             className={`nums ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
               activo ? "bg-rail text-accent-wash" : "bg-accent-wash text-rail"
             }`}
           >
-            {item.badge}
+            {insignia}
           </span>
         )}
       </Texto>
@@ -832,8 +835,13 @@ export const CajonSuave = ({ abierto, cerrar, ...props }: CajonProps) => {
 
   if (hayRiel || !montado) return null;
 
+  /* `z-[90]` y no `z-50`: el cajón se monta junto al lienzo, y la
+     barra superior del lienzo va en `z-[80]` para que su panel de
+     notificaciones pase por encima del contenido. Con `z-50` el título
+     de la barra —«Panel general», «Paseos»— quedaba encima del menú
+     abierto en el teléfono. */
   return (
-    <div className="fixed inset-0 z-50 flex p-2.5">
+    <div className="fixed inset-0 z-[90] flex p-2.5">
       <div
         aria-hidden
         onClick={cerrar}

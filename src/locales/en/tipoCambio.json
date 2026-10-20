@@ -1,0 +1,12 @@
+{
+  "title": "Dollar exchange rate",
+  "refresh": "Refresh",
+  "buy": "Buy",
+  "sell": "Sell",
+  "source": "{{fuente}} · {{fecha}}",
+  "colones": "Colones (₡)",
+  "dollars": "Dollars ($)",
+  "note": "Uses the buying rate: the same one used to charge owners who pay in dollars.",
+  "loading": "Checking the exchange rate…",
+  "failed": "Couldn't get the exchange rate. Tap “Refresh” to try again."
+}

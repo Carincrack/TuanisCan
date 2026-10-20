@@ -31,7 +31,10 @@
     "totalSpent": "Total gastado",
     "spentIn": "En {{n}} paseos completados",
     "spentInOne": "En 1 paseo completado",
-    "noneCompleted": "Aún sin paseos completados"
+    "noneCompleted": "Aún sin paseos completados",
+    "noneCharged": "Aún sin pagos cobrados",
+    "chargedInOne": "En 1 paseo cobrado",
+    "chargedIn": "En {{n}} paseos cobrados"
   },
   "filters": {
     "label": "Vista de paseos",
@@ -91,7 +94,8 @@
     "overdueRequested": "La fecha pasó y el paseador nunca respondió la solicitud.",
     "overdueConfirmed": "La fecha pasó y el paseo no se llegó a iniciar.",
     "close": "Cerrar",
-    "viewRoute": "Ver ruta"
+    "viewRoute": "Ver ruta",
+    "payment": "Pago"
   },
   "route": {
     "title": "Ruta del paseo de {{mascota}}",
@@ -99,6 +103,18 @@
     "empty": {
       "title": "No hay ruta guardada",
       "hint": "Este paseo no registró ubicaciones durante el recorrido."
+    }
+  },
+  "payment": {
+    "confirm": "Confirmar pago",
+    "missing": "Falta confirmar el pago",
+    "reserved": "Pago reservado",
+    "states": {
+      "pendiente": "Por confirmar",
+      "retenido": "Reservado · se cobra al terminar",
+      "pagado": "Cobrado",
+      "reembolsado": "Reembolsado",
+      "fallido": "Falló"
     }
   }
 }

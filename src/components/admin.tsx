@@ -7,6 +7,7 @@ import type { Icono } from "../lib/iconos";
 import { useAdminPaseadores, useAdminPaseadoresConFicha } from "../hooks/useAdminPaseadores";
 import type { AdminWalkerConFicha } from "../services/admin-walkers.service";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
+import { TipoCambioDia } from "./TipoCambioDia";
 import { useAuth } from "../hooks/useAuth";
 import {
   downloadVerificationDocument,
@@ -35,6 +36,7 @@ import {
   btnQuiet,
   btnSecondary,
   colones,
+  dolares,
   input,
 } from "./ui";
 import { Combo } from "./Combo";
@@ -312,19 +314,85 @@ export const PanelAdmin = () => {
 
 /* ── Finanzas ────────────────────────────────────────────────── */
 
+type FiltroFinanzas = "Todos" | "PorConfirmar" | "Reservados" | "Cobrados" | "Reembolsados";
+
+const claveFiltroFinanzas: Record<FiltroFinanzas, string> = {
+  Todos: "admin.finances.filters.all",
+  PorConfirmar: "admin.finances.filters.toConfirm",
+  Reservados: "admin.finances.filters.held",
+  Cobrados: "admin.finances.filters.paid",
+  Reembolsados: "admin.finances.filters.refunded",
+};
+
+const estadoDeFiltro: Record<Exclude<FiltroFinanzas, "Todos">, AdminFinanceMovement["estado_pago"]> = {
+  PorConfirmar: "pendiente",
+  Reservados: "retenido",
+  Cobrados: "pagado",
+  Reembolsados: "reembolsado",
+};
+
+const claveEstadoPago: Record<AdminFinanceMovement["estado_pago"], string> = {
+  pendiente: "admin.finances.statusPending",
+  retenido: "admin.finances.statusHeld",
+  pagado: "admin.finances.statusPaid",
+  reembolsado: "admin.finances.statusRefunded",
+  fallido: "admin.finances.statusFailed",
+};
+
+const tonoEstadoPago = (estado: AdminFinanceMovement["estado_pago"]) =>
+  estado === "pagado" ? "ok" : estado === "retenido" ? "accent" : estado === "pendiente" ? "warn" : estado === "fallido" ? "danger" : "neutral";
+
+/** Mientras el dueño no confirma, la base guarda «Pendiente» como
+    método: no es un método, es que todavía no hay. */
+const sinMetodo = (metodo?: string | null) => !metodo || metodo === "Pendiente";
+
+const fechaHoraFinanzas = (valor: string, localeTag: string) =>
+  new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(valor));
+
+const fechaPaseo = (movimiento: AdminFinanceMovement, localeTag: string) => {
+  const dia = new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short", year: "numeric" }).format(
+    new Date(`${movimiento.fecha}T00:00:00`),
+  );
+  return movimiento.hora_inicio ? `${dia} · ${movimiento.hora_inicio.slice(0, 5)}` : dia;
+};
+
+/** Con qué se cobró, en una línea, y debajo la moneda si fue en dólares.
+    Sin método todavía, la tabla deja una raya —la insignia de al lado
+    ya dice «Por confirmar»— y la tarjeta del teléfono no pone nada. */
+const CobroBreve = ({ movimiento, compacta = false }: { movimiento: AdminFinanceMovement; compacta?: boolean }) => {
+  const { t } = useTranslation();
+  const enDolares = movimiento.moneda === "USD" && movimiento.monto_moneda != null;
+  if (compacta && sinMetodo(movimiento.metodo_pago) && !enDolares) return null;
+
+  return (
+    <div className="min-w-0">
+      <p className={`truncate text-[12.5px] ${sinMetodo(movimiento.metodo_pago) ? "text-ink-mute" : "text-ink-soft"}`}>
+        {sinMetodo(movimiento.metodo_pago) ? (
+          <span aria-label={t("admin.finances.methodPending")}>—</span>
+        ) : (
+          movimiento.metodo_pago
+        )}
+      </p>
+      {enDolares && (
+        <p className="nums mt-0.5 text-[11.5px] whitespace-nowrap text-ink-mute">
+          <span className="font-semibold text-accent-deep">{dolares(movimiento.monto_moneda ?? 0)}</span>
+          {movimiento.tipo_cambio != null && ` · ${t("admin.finances.rateShort", { tipo: colones(movimiento.tipo_cambio) })}`}
+        </p>
+      )}
+    </div>
+  );
+};
+
 export const FinanzasAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
-  const { t } = useTranslation();
-  const claveFiltroFinanzas: Record<string, string> = {
-    Todos: "admin.finances.filters.all",
-    Pendientes: "admin.finances.filters.pending",
-    Pagados: "admin.finances.filters.paid",
-  };
-  const [filtro, setFiltro] = useState("Todos");
+  const { t, localeTag } = useTranslation();
+  const [filtro, setFiltro] = useState<FiltroFinanzas>("Todos");
+  const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [detalle, setDetalle] = useState<AdminFinanceMovement | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -334,13 +402,26 @@ export const FinanzasAdmin = () => {
       .finally(() => setLoading(false));
   }, [t]);
 
-  const visibles = movimientos.filter((movement) =>
-    filtro === "Pagados"
-      ? movement.estado_pago === "pagado"
-      : filtro === "Pendientes"
-        ? movement.estado_pago === "pendiente"
-        : true
-  );
+  const cuentas = useMemo(() => {
+    const por = (estado: AdminFinanceMovement["estado_pago"]) => movimientos.filter((m) => m.estado_pago === estado).length;
+    return {
+      Todos: movimientos.length,
+      PorConfirmar: por("pendiente"),
+      Reservados: por("retenido"),
+      Cobrados: por("pagado"),
+      Reembolsados: por("reembolsado"),
+    };
+  }, [movimientos]);
+
+  const visibles = useMemo(() => {
+    const consulta = busqueda.trim().toLowerCase();
+    return movimientos.filter((m) => {
+      if (filtro !== "Todos" && m.estado_pago !== estadoDeFiltro[filtro]) return false;
+      if (!consulta) return true;
+      return [m.mascota, m.dueno, m.paseador, m.metodo_pago, m.referencia, m.zona, m.moneda]
+        .some((campo) => campo?.toLowerCase().includes(consulta));
+    });
+  }, [movimientos, filtro, busqueda]);
 
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -348,24 +429,66 @@ export const FinanzasAdmin = () => {
   const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
   const paginaMovimientos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
 
-  const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+  const cambiarFiltro = (value: string) => { setFiltro(value as FiltroFinanzas); setPagina(1); };
+  const buscar = (value: string) => { setBusqueda(value); setPagina(1); };
 
-  const pagados = movimientos.filter((movement) => movement.estado_pago === "pagado");
-  const pendientes = movimientos.filter((movement) => movement.estado_pago === "pendiente");
-  const brutoPagado = pagados.reduce((sum, movement) => sum + movement.bruto, 0);
+  /* Las cifras. La comisión se gana al cobrar (`pagado`); lo pendiente
+     y lo reservado todavía no entró. Todo suma en colones —el precio
+     del paseo—, pague el dueño en la moneda que pague, que es lo que
+     hace cuadrar este panel con el del dueño y el del paseador. */
+  const cifras = useMemo(() => {
+    const pagados = movimientos.filter((m) => m.estado_pago === "pagado");
+    const pendientes = movimientos.filter((m) => m.estado_pago === "pendiente");
+    const reservados = movimientos.filter((m) => m.estado_pago === "retenido");
+    const enDolares = pagados.filter((m) => m.moneda === "USD" && m.monto_moneda != null);
+    const suma = (lista: AdminFinanceMovement[], campo: "bruto" | "comision" | "neto_paseador") =>
+      lista.reduce((total, m) => total + m[campo], 0);
+
+    return {
+      pagados,
+      comisionGanada: suma(pagados, "comision"),
+      comisionPorCobrar: suma([...pendientes, ...reservados], "comision"),
+      pendientes: pendientes.length,
+      reservados: reservados.length,
+      brutoCobrado: suma(pagados, "bruto"),
+      netoPaseadores: suma(pagados, "neto_paseador"),
+      enDolares: enDolares.length,
+      dolaresCobrados: enDolares.reduce((total, m) => total + (m.monto_moneda ?? 0), 0),
+    };
+  }, [movimientos]);
+
   const exportar = () => {
     const rows = [
-      [t("admin.finances.csv.date"), t("admin.finances.csv.pet"), t("admin.finances.csv.owner"), t("admin.finances.csv.walker"), t("admin.finances.csv.gross"), t("admin.finances.csv.commission"), t("admin.finances.csv.net"), t("admin.finances.csv.status")],
-      ...visibles.map((movement) => [movement.fecha, movement.mascota, movement.dueno, movement.paseador, String(movement.bruto), String(movement.comision), String(movement.neto_paseador), movement.estado_pago]),
+      [
+        t("admin.finances.csv.date"), t("admin.finances.csv.time"), t("admin.finances.csv.pet"), t("admin.finances.csv.owner"),
+        t("admin.finances.csv.walker"), t("admin.finances.csv.zone"), t("admin.finances.csv.walkStatus"), t("admin.finances.csv.gross"),
+        t("admin.finances.csv.commission"), t("admin.finances.csv.net"), t("admin.finances.csv.status"), t("admin.finances.csv.method"),
+        t("admin.finances.csv.currency"), t("admin.finances.csv.amountCharged"), t("admin.finances.csv.exchangeRate"),
+        t("admin.finances.csv.reference"), t("admin.finances.csv.reservedOn"), t("admin.finances.csv.chargedOn"),
+      ],
+      ...visibles.map((m) => [
+        m.fecha, m.hora_inicio?.slice(0, 5) ?? "", m.mascota, m.dueno, m.paseador, m.zona ?? "", m.estado_paseo ?? "",
+        String(m.bruto), String(m.comision), String(m.neto_paseador), m.estado_pago,
+        sinMetodo(m.metodo_pago) ? "" : m.metodo_pago ?? "",
+        m.moneda ?? "CRC",
+        String(m.moneda === "USD" ? m.monto_moneda ?? "" : m.bruto),
+        m.tipo_cambio != null ? String(m.tipo_cambio) : "",
+        m.referencia ?? "", m.fecha_retencion ?? "", m.estado_pago === "pagado" ? m.fecha_pago ?? "" : "",
+      ]),
     ];
     const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    /* En el documento, para que Firefox obedezca el clic (ver Pagos). */
     const link = document.createElement("a");
     link.href = url;
-    link.download = "finanzas-tuaniscan.csv";
+    link.download = `tuaniscan-finanzas-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
     link.click();
+    link.remove();
     URL.revokeObjectURL(url);
   };
+
+  const plural = (n: number, singular: string, varios: string) => `${n} ${n === 1 ? t(singular) : t(varios)}`;
 
   return (
     <Page wide>
@@ -375,23 +498,65 @@ export const FinanzasAdmin = () => {
         action={botonNotificaciones}
       />
 
-      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta={t("admin.finances.earnedCommission")} valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? t("admin.finances.paymentCompletedSingular") : t("admin.finances.paymentCompletedPlural")}`} />
-        <Stat etiqueta={t("admin.finances.pendingCommission")} valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} ${pendientes.length === 1 ? t("admin.finances.paymentSingular") : t("admin.finances.paymentPlural")}`} />
-        <Stat etiqueta={t("admin.finances.paidVolume")} valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} ${t("admin.finances.walksSuffix")}` : t("admin.finances.noPayments")} />
+      {/* Dos por renglón ya en el teléfono: una debajo de otra, las
+          cuatro llenaban la primera pantalla entera. */}
+      <div className="grid min-w-0 grid-cols-2 gap-2.5 xl:grid-cols-4">
+        <Stat
+          etiqueta={t("admin.finances.earnedCommission")}
+          valor={colones(cifras.comisionGanada)}
+          nota={plural(cifras.pagados.length, "admin.finances.paymentCompletedSingular", "admin.finances.paymentCompletedPlural")}
+        />
+        <Stat
+          etiqueta={t("admin.finances.pendingCommission")}
+          valor={colones(cifras.comisionPorCobrar)}
+          nota={t("admin.finances.pendingNote", { pendientes: cifras.pendientes, reservados: cifras.reservados })}
+        />
+        <Stat
+          etiqueta={t("admin.finances.walkersNet")}
+          valor={colones(cifras.netoPaseadores)}
+          nota={cifras.pagados.length ? t("admin.finances.walkersNetNote", { bruto: colones(cifras.brutoCobrado) }) : t("admin.finances.noPayments")}
+        />
+        <Stat
+          etiqueta={t("admin.finances.inDollars")}
+          valor={dolares(cifras.dolaresCobrados)}
+          nota={t("admin.finances.inDollarsNote", { n: cifras.enDolares, total: cifras.pagados.length })}
+          parte={cifras.pagados.length ? cifras.enDolares / cifras.pagados.length : undefined}
+        />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-surface px-3 py-3">
-        <FilterTabs
-          label={t("admin.finances.filterLabel")}
-          options={["Todos", "Pendientes", "Pagados"].map((o) => ({ value: o, label: t(claveFiltroFinanzas[o]) }))}
-          value={filtro}
-          onChange={cambiarFiltro}
-        />
-        <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
-          <Download size={14} strokeWidth={1.9} />
-          {t("admin.finances.export")}
-        </button>
+      {/* El dólar del día y el conversor: la misma consulta a Hacienda
+          con la que paga un dueño que elige dólares. */}
+      <TipoCambioDia />
+
+      <div className="flex flex-col gap-3 bg-surface px-3 py-3 lg:flex-row lg:items-center">
+        <div className="-mx-3 overflow-x-auto px-3 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
+          <FilterTabs
+            label={t("admin.finances.filterLabel")}
+            options={(Object.keys(claveFiltroFinanzas) as FiltroFinanzas[]).map((o) => ({ value: o, label: t(claveFiltroFinanzas[o]) }))}
+            value={filtro}
+            onChange={cambiarFiltro}
+            cuentas={cuentas}
+            desplazable
+          />
+        </div>
+
+        <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:flex-nowrap lg:justify-end">
+          <div className="relative min-w-[200px] flex-1">
+            <Search size={14} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-mute" />
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => buscar(e.target.value)}
+              placeholder={t("admin.finances.searchPlaceholder")}
+              aria-label={t("admin.finances.searchPlaceholder")}
+              className="w-full rounded-full bg-sunken py-2 pr-3 pl-9 text-[12.5px] text-ink placeholder:text-ink-mute focus:bg-white focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
+            />
+          </div>
+          <button type="button" className={`${btnSecondary} shrink-0`} onClick={exportar} disabled={!visibles.length}>
+            <Download size={14} strokeWidth={1.9} />
+            {t("admin.finances.export")}
+          </button>
+        </div>
       </div>
 
       <Section bodyClass="">
@@ -403,47 +568,89 @@ export const FinanzasAdmin = () => {
           </div>
         ) : visibles.length > 0 ? (
           <>
-            <Table
-              caption={t("admin.finances.caption", { filtro: t(claveFiltroFinanzas[filtro]).toLowerCase() })}
-              columnas={[
-                { label: t("admin.finances.columns.walk") },
-                { label: t("admin.finances.columns.owner") },
-                { label: t("admin.finances.columns.walker") },
-                { label: t("admin.finances.columns.gross"), align: "right" },
-                { label: t("admin.finances.columns.commission"), align: "right" },
-                { label: t("admin.finances.columns.net"), align: "right" },
-                { label: t("admin.finances.columns.status") },
-              ]}
-            >
-              {paginaMovimientos.map((movement) => (
-                <tr key={movement.id_pago} className="transition-colors duration-150 hover:bg-sunken">
-                  <td className="px-6 py-4 align-top">
-                    <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
-                    <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{movement.fecha}</p>
-                  </td>
-                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                    {movement.dueno}
-                  </td>
-                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                    {movement.paseador}
-                  </td>
-                  <td className="nums px-6 py-4 text-right align-top text-[12.5px] text-ink-soft">
-                    {colones(movement.bruto)}
-                  </td>
-                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
-                    {colones(movement.comision)}
-                  </td>
-                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
-                    {colones(movement.neto_paseador)}
-                  </td>
-                  <td className="px-6 py-4 align-top">
-                    <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
-                      {movement.estado_pago === "pagado" ? t("admin.finances.statusPaid") : t("admin.finances.statusPending")}
-                    </Badge>
-                  </td>
-                </tr>
+            <div className="hidden md:block">
+              <Table
+                caption={t("admin.finances.caption", { filtro: t(claveFiltroFinanzas[filtro]).toLowerCase() })}
+                min="min-w-[860px]"
+                padX="px-4"
+                columnas={[
+                  { label: t("admin.finances.columns.walk"), ancho: "w-[22%]" },
+                  { label: t("admin.finances.columns.people"), ancho: "w-[18%]" },
+                  { label: t("admin.finances.columns.charge"), ancho: "w-[16%]" },
+                  { label: t("admin.finances.columns.gross"), ancho: "w-[10%]", align: "right" },
+                  { label: t("admin.finances.columns.commission"), ancho: "w-[10%]", align: "right" },
+                  { label: t("admin.finances.columns.net"), ancho: "w-[10%]", align: "right" },
+                  // 14 %: «Por confirmar» es la insignia más larga y en 12 % se partía.
+                  { label: t("admin.finances.columns.status"), ancho: "w-[14%]" },
+                ]}
+              >
+                {paginaMovimientos.map((m) => (
+                  <tr key={m.id_pago} className="group transition-colors duration-150 hover:bg-sunken">
+                    <td className="px-4 py-3.5 align-top">
+                      <button
+                        type="button"
+                        onClick={() => setDetalle(m)}
+                        className="block max-w-full truncate text-left text-[13px] font-semibold text-ink underline-offset-[3px] transition-colors duration-150 group-hover:underline hover:text-accent-deep"
+                      >
+                        {m.mascota}
+                      </button>
+                      <p className="nums mt-0.5 truncate text-[11.5px] text-ink-mute">
+                        {fechaPaseo(m, localeTag)}
+                        {m.duracion_min ? ` · ${m.duracion_min} min` : ""}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3.5 align-top">
+                      <p className="truncate text-[12.5px] text-ink-soft">{m.dueno}</p>
+                      <p className="truncate text-[11.5px] text-ink-mute">→ {m.paseador}</p>
+                    </td>
+                    <td className="px-4 py-3.5 align-top">
+                      <CobroBreve movimiento={m} />
+                    </td>
+                    <td className="nums px-4 py-3.5 text-right align-top text-[12.5px] text-ink-soft">{colones(m.bruto)}</td>
+                    <td className="nums px-4 py-3.5 text-right align-top text-[13px] font-semibold text-ink">{colones(m.comision)}</td>
+                    <td className="nums px-4 py-3.5 text-right align-top text-[12.5px] text-ink-soft">{colones(m.neto_paseador)}</td>
+                    <td className="px-4 py-3.5 align-top">
+                      <Badge tono={tonoEstadoPago(m.estado_pago)}>{t(claveEstadoPago[m.estado_pago])}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            </div>
+
+            {/* En el teléfono, una tarjeta por pago: siete columnas no
+                caben y la tabla obligaba a rodar de lado para ver el
+                estado. */}
+            <ul className="md:hidden [&>li:nth-child(even)]:bg-sunken/60">
+              {paginaMovimientos.map((m) => (
+                <li key={m.id_pago} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setDetalle(m)}
+                        className="block max-w-full truncate text-left text-[13.5px] font-semibold text-ink transition-transform duration-150 ease-out active:scale-[0.99]"
+                      >
+                        {m.mascota}
+                      </button>
+                      <p className="mt-0.5 truncate text-[11.5px] text-ink-soft">{m.dueno} → {m.paseador}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="nums text-[14px] font-semibold text-ink">{colones(m.bruto)}</p>
+                      <p className="nums mt-0.5 text-[11px] text-ink-mute">{fechaPaseo(m, localeTag)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <Badge tono={tonoEstadoPago(m.estado_pago)}>{t(claveEstadoPago[m.estado_pago])}</Badge>
+                    <span className="nums text-[11.5px] text-ink-soft">
+                      {t("admin.finances.columns.commission")} {colones(m.comision)} · {t("admin.finances.columns.net")} {colones(m.neto_paseador)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 empty:hidden">
+                    <CobroBreve movimiento={m} compacta />
+                  </div>
+                </li>
               ))}
-            </Table>
+            </ul>
 
             <Paginacion
               etiqueta={t("admin.finances.pagination")}
@@ -459,11 +666,129 @@ export const FinanzasAdmin = () => {
         ) : (
           <EmptyState
             title={t("admin.finances.empty.title")}
-            hint={t("admin.finances.empty.hint")}
+            hint={busqueda ? t("admin.finances.empty.withSearch") : t("admin.finances.empty.hint")}
           />
         )}
       </Section>
+
+      {detalle && <DetallePago movimiento={detalle} onClose={() => setDetalle(null)} />}
     </Page>
+  );
+};
+
+/* ── El detalle de un pago ──
+   Lo que el admin necesita para responder «¿qué pasó con este pago?»
+   sin abrir la base: cómo se repartió, cómo se cobró y por dónde pasó. */
+const DetallePago = ({ movimiento: m, onClose }: { movimiento: AdminFinanceMovement; onClose: () => void }) => {
+  const { t, localeTag } = useTranslation();
+  const enDolares = m.moneda === "USD" && m.monto_moneda != null;
+  const porcentaje = m.bruto > 0 ? Math.round((m.comision / m.bruto) * 100) : 0;
+  const parteComision = m.bruto > 0 ? m.comision / m.bruto : 0;
+
+  const fila = (etiqueta: string, valor: ReactNode) => (
+    <div key={etiqueta} className="flex justify-between gap-4 border-b border-sunken py-2 last:border-b-0">
+      <dt className="text-ink-soft">{etiqueta}</dt>
+      <dd className="min-w-0 text-right font-medium break-words text-ink">{valor}</dd>
+    </div>
+  );
+
+  /* Por dónde pasó el pago, en orden. Un paso sin fecha es que todavía
+     no llegó; el de liberar no guarda fecha, solo que pasó. */
+  const pasos: Array<{ clave: string; cuando: string | null; hecho: boolean }> = [
+    { clave: "admin.finances.detail.steps.created", cuando: m.creado_en ?? null, hecho: true },
+    { clave: "admin.finances.detail.steps.reserved", cuando: m.fecha_retencion ?? null, hecho: Boolean(m.fecha_retencion) },
+    m.estado_pago === "reembolsado"
+      ? { clave: "admin.finances.detail.steps.released", cuando: null, hecho: true }
+      : { clave: "admin.finances.detail.steps.charged", cuando: m.estado_pago === "pagado" ? m.fecha_pago ?? null : null, hecho: m.estado_pago === "pagado" },
+  ];
+
+  return (
+    <Dialog title={t("admin.finances.detail.title")} onClose={onClose}>
+      <div className="p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-sunken pb-4">
+          <div className="min-w-0">
+            <h4 className="titular text-[17px] text-ink">{t("admin.finances.detail.walkOf", { mascota: m.mascota })}</h4>
+            <p className="nums mt-1 truncate text-[12px] text-ink-mute">{m.referencia ?? `#${m.id_pago.slice(0, 8)}`}</p>
+          </div>
+          <Badge tono={tonoEstadoPago(m.estado_pago)}>{t(claveEstadoPago[m.estado_pago])}</Badge>
+        </div>
+
+        {/* ── El reparto ── el filete es el mismo turquesa de `Stat`;
+            la parte de la plataforma va en el navy de la casa. */}
+        <section className="mt-4">
+          <h5 className="rotulo text-ink-mute">{t("admin.finances.detail.split")}</h5>
+          <div className="mt-2.5 flex h-2.5 overflow-hidden rounded-full bg-sunken" aria-hidden="true">
+            <span className="h-full bg-accent" style={{ width: `${(1 - parteComision) * 100}%` }} />
+            <span className="h-full bg-rail" style={{ width: `${parteComision * 100}%` }} />
+          </div>
+          <dl className="mt-2 text-[13px]">
+            {fila(t("admin.finances.detail.gross"), <span className="nums">{colones(m.bruto)}</span>)}
+            {fila(
+              t("admin.finances.detail.net"),
+              <span className="nums inline-flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-full bg-accent" />
+                {colones(m.neto_paseador)}
+              </span>,
+            )}
+            {fila(
+              t("admin.finances.detail.commission", { porcentaje }),
+              <span className="nums inline-flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-full bg-rail" />
+                {colones(m.comision)}
+              </span>,
+            )}
+          </dl>
+        </section>
+
+        <section className="mt-5">
+          <h5 className="rotulo text-ink-mute">{t("admin.finances.detail.charge")}</h5>
+          <dl className="mt-1 text-[13px]">
+            {fila(t("admin.finances.detail.currency"), t(enDolares ? "admin.finances.detail.currencyUSD" : "admin.finances.detail.currencyCRC"))}
+            {fila(t("admin.finances.detail.chargedToOwner"), <span className="nums">{enDolares ? dolares(m.monto_moneda ?? 0) : colones(m.bruto)}</span>)}
+            {enDolares && m.tipo_cambio != null && fila(t("admin.finances.detail.exchangeRate"), <span className="nums">{colones(m.tipo_cambio)}</span>)}
+            {fila(t("admin.finances.detail.method"), sinMetodo(m.metodo_pago) ? t("admin.finances.methodPending") : m.metodo_pago)}
+          </dl>
+        </section>
+
+        <section className="mt-5">
+          <h5 className="rotulo text-ink-mute">{t("admin.finances.detail.walk")}</h5>
+          <dl className="mt-1 text-[13px]">
+            {fila(t("admin.finances.detail.when"), <span className="nums">{fechaPaseo(m, localeTag)}</span>)}
+            {m.duracion_min ? fila(t("admin.finances.detail.duration"), t("admin.finances.detail.durationMinutes", { n: m.duracion_min })) : null}
+            {fila(t("admin.finances.detail.zone"), m.zona ?? t("admin.finances.detail.noZone"))}
+            {m.estado_paseo && fila(t("admin.finances.detail.walkStatus"), <Badge tono={tonoPaseo(m.estado_paseo)}>{t(claveEstadoPaseo[m.estado_paseo])}</Badge>)}
+            {fila(t("admin.finances.detail.owner"), m.dueno)}
+            {fila(t("admin.finances.detail.walker"), m.paseador)}
+          </dl>
+        </section>
+
+        <section className="mt-5">
+          <h5 className="rotulo text-ink-mute">{t("admin.finances.detail.timeline")}</h5>
+          <ol className="mt-2.5 flex flex-col gap-2.5">
+            {pasos.map((paso) => (
+              <li key={paso.clave} className="flex items-center gap-3 text-[13px]">
+                <span
+                  aria-hidden
+                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-full ${paso.hecho ? "bg-accent-wash text-accent-dark" : "bg-sunken text-ink-mute"}`}
+                >
+                  {paso.hecho ? <Check size={12} strokeWidth={2.4} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                </span>
+                <span className={paso.hecho ? "text-ink" : "text-ink-mute"}>{t(paso.clave)}</span>
+                <span className="nums ml-auto text-[12px] text-ink-mute">
+                  {paso.cuando ? fechaHoraFinanzas(paso.cuando, localeTag) : paso.hecho ? "" : t("admin.finances.detail.notYet")}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <div className="mt-6 flex justify-end border-t border-sunken pt-4">
+          <button type="button" className={btnPrimary} onClick={onClose}>
+            {t("admin.finances.detail.close")}
+          </button>
+        </div>
+      </div>
+    </Dialog>
   );
 };
 

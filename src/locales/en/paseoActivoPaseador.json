@@ -11,8 +11,6 @@
     "title": "You have no walks in progress",
     "hint": "Tracking is enabled once you start a walk."
   },
-  "trackingSection": "Real-time tracking",
-  "trackingHint": "Allow location on your phone so the owner can see the updated route.",
   "stopSharing": "Stop sharing",
   "shareLocation": "Share location",
   "finishing": "Finishing…",
@@ -20,12 +18,28 @@
   "errors": {
     "loadFailed": "Could not check the active walk.",
     "noGeolocation": "This browser does not allow sharing location.",
-    "locationShared": "Location shared with the owner.",
     "sendFailed": "Could not send the location.",
     "locationFailed": "Could not get your location.",
     "finishFailed": "Could not finish the walk. Try again.",
-    "finishedMessage": "Walk finished. The owner can now leave a review.",
+    "finishedMessage": "Walk finished. The payment was charged and the owner can now leave a review.",
     "startFailed": "Could not start the walk. Check that it's for today.",
     "startedMessage": "Walk started. You can now share your location."
-  }
+  },
+  "paymentWaiting": "Waiting for the owner to confirm the payment",
+  "paymentWaitingHint": "You will be able to start the walk as soon as they confirm. We will let you know right away, with a sound.",
+  "paymentReady": "Payment confirmed: {{monto}} reserved. Charged when you finish the walk.",
+  "ownerViewSection": "What the owner sees",
+  "mapEmpty": "Once you share your location, you'll see here exactly what the owner sees: your route and your last point.",
+  "ownerSeesAt": "The owner sees your location from {{hora}}",
+  "ownerSeesNothing": "The owner can't see your location yet. Tap “Share location”.",
+  "sharingOn": "Sharing: sent every 15 seconds",
+  "sharingOff": "Not sharing",
+  "finishSection": "End the walk",
+  "finishHint": "When you're done, finish the walk: the reserved payment is charged and the owner can leave a review.",
+  "nextTitle": "Your next walk",
+  "nextWhen": "For {{dia}} at {{hora}} · {{duracion}} min",
+  "nextWho": "With {{dueno}} · {{zona}}",
+  "nextStartHint": "The “Start walk” button shows up here on the day of the walk ({{dia}}).",
+  "tomorrow": "tomorrow",
+  "onDay": "{{dia}}"
 }
