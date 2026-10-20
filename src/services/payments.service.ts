@@ -23,7 +23,32 @@ export type PaymentStatus = "pendiente" | "retenido" | "pagado" | "fallido" | "r
 
 export type DigitalWallet = "PayPal" | "Google Pay" | "Apple Pay";
 
-export interface PaymentMovement {
+/** En qué paga el dueño. El precio del paseo, la comisión y lo que
+    recibe el paseador siempre están en colones; con `USD` se guarda
+    además cuánto se le cobró en dólares y con qué tipo de cambio. */
+export type Moneda = "CRC" | "USD";
+
+/** Cómo se pagó en dólares. `null` en los pagos en colones. */
+interface Conversion {
+  moneda?: Moneda;
+  tipo_cambio?: number | null;
+  monto_moneda?: number | null;
+}
+
+/** Los numéricos de Postgres llegan como texto. Los campos de moneda
+    pueden faltar si la base todavía no tiene la migración: quedan como
+    pago en colones. */
+const conversionDe = (fila: {
+  moneda?: string | null;
+  tipo_cambio?: number | string | null;
+  monto_moneda?: number | string | null;
+}): Required<Conversion> => ({
+  moneda: fila.moneda === "USD" ? "USD" : "CRC",
+  tipo_cambio: fila.tipo_cambio == null ? null : Number(fila.tipo_cambio),
+  monto_moneda: fila.monto_moneda == null ? null : Number(fila.monto_moneda),
+});
+
+export interface PaymentMovement extends Conversion {
   id_pago: string;
   id_paseo: string;
   mascota: string;
@@ -44,9 +69,11 @@ export interface PaymentMovement {
   fecha_retencion?: string | null;
 }
 
-interface PaymentMovementRow extends Omit<PaymentMovement, "monto" | "comision_plataforma"> {
+interface PaymentMovementRow extends Omit<PaymentMovement, "monto" | "comision_plataforma" | "tipo_cambio" | "monto_moneda"> {
   monto: number | string;
   comision_plataforma: number | string;
+  tipo_cambio?: number | string | null;
+  monto_moneda?: number | string | null;
 }
 
 export interface WalkerEarning {
@@ -60,9 +87,22 @@ export interface WalkerEarning {
   estado_pago: PaymentStatus;
 }
 
-export interface AdminFinanceMovement extends Omit<WalkerEarning, "neto"> {
+/** Un pago visto por el admin, con todo su rastro. Los campos desde
+    `id_paseo` son opcionales: con la base sin la migración de monedas
+    no llegan y la pantalla los omite. */
+export interface AdminFinanceMovement extends Omit<WalkerEarning, "neto">, Conversion {
   paseador: string;
   neto_paseador: number;
+  id_paseo?: string;
+  hora_inicio?: string | null;
+  duracion_min?: number | null;
+  zona?: string | null;
+  estado_paseo?: PaymentMovement["estado_paseo"];
+  metodo_pago?: string | null;
+  referencia?: string | null;
+  creado_en?: string | null;
+  fecha_retencion?: string | null;
+  fecha_pago?: string | null;
 }
 
 export const listPaymentMethods = async (): Promise<PaymentMethod[]> => {
@@ -84,6 +124,7 @@ export const listOwnerPayments = async (): Promise<PaymentMovement[]> => {
     ...payment,
     monto: Number(payment.monto),
     comision_plataforma: Number(payment.comision_plataforma),
+    ...conversionDe(payment),
   }));
 };
 
@@ -135,22 +176,34 @@ export const deletePaymentMethod = async (methodId: string) => {
    (`retener_pago_paseo`). No se cobra todavía: se cobra cuando el
    paseador termina el paseo. Con el pago reservado, el paseador ya puede
    iniciarlo. Se puede volver a llamar para cambiar de método mientras el
-   paseo no empezó. */
+   paseo no empezó.
 
-export const retenerPagoConTarjeta = async (walkId: string, methodId: string) => {
+   `enDolares` trae el tipo de cambio que se le mostró al dueño. Sin
+   él, el pago va en colones y la llamada es la misma de siempre. */
+
+export interface PagoEnDolares {
+  tipoCambio: number;
+}
+
+const parametrosDeMoneda = (enDolares?: PagoEnDolares) =>
+  enDolares ? { p_moneda: "USD", p_tipo_cambio: enDolares.tipoCambio } : {};
+
+export const retenerPagoConTarjeta = async (walkId: string, methodId: string, enDolares?: PagoEnDolares) => {
   const { data, error } = await supabase.rpc("retener_pago_paseo", {
     p_id_paseo: walkId,
     p_id_metodo_pago: methodId,
+    ...parametrosDeMoneda(enDolares),
   });
 
   if (error) throw error;
   return data as PaymentStatus;
 };
 
-export const retenerPagoConBilletera = async (walkId: string, wallet: DigitalWallet) => {
+export const retenerPagoConBilletera = async (walkId: string, wallet: DigitalWallet, enDolares?: PagoEnDolares) => {
   const { data, error } = await supabase.rpc("retener_pago_paseo", {
     p_id_paseo: walkId,
     p_billetera: wallet,
+    ...parametrosDeMoneda(enDolares),
   });
 
   if (error) throw error;
@@ -177,14 +230,17 @@ export const listAdminFinances = async (): Promise<AdminFinanceMovement[]> => {
   const { data, error } = await supabase.rpc("listar_finanzas_admin");
   if (error) throw error;
 
-  return ((data ?? []) as Array<Omit<AdminFinanceMovement, "bruto" | "comision" | "neto_paseador"> & {
+  return ((data ?? []) as Array<Omit<AdminFinanceMovement, "bruto" | "comision" | "neto_paseador" | "tipo_cambio" | "monto_moneda"> & {
     bruto: number | string;
     comision: number | string;
     neto_paseador: number | string;
+    tipo_cambio?: number | string | null;
+    monto_moneda?: number | string | null;
   }>).map((movement) => ({
     ...movement,
     bruto: Number(movement.bruto),
     comision: Number(movement.comision),
     neto_paseador: Number(movement.neto_paseador),
+    ...conversionDe(movement),
   }));
 };

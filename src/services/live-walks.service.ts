@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { hoyEnCostaRica } from "../lib/fechas";
 import type { WalkWithRelations } from "./walks.service";
 import { listWalksWithRelations } from "./walks.service";
 
@@ -9,10 +10,6 @@ export const getPaseoActivo = async (userId: string) => {
   return walks[0] ?? null;
 };
 
-/** Hoy en Costa Rica, «AAAA-MM-DD». `toISOString()` da la fecha en UTC:
-    desde las 6 p. m. ya era mañana y el paseo de hoy no aparecía. */
-const hoyEnCostaRica = () =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Costa_Rica" }).format(new Date());
 
 /* Las dos consultas filtran por paseador. Sin eso, con una cuenta que
    es dueño y paseador a la vez, podían traer un paseo que la misma
@@ -62,9 +59,16 @@ export const listUbicacionesPaseo = async (walkId: string) => {
   return (data ?? []).map((item) => ({ ...item, latitud: Number(item.latitud), longitud: Number(item.longitud) })) as UbicacionPaseo[];
 };
 
+/** Devuelve el punto tal como quedó guardado: es el que ve el dueño, y
+    el paseador lo pinta en su mapa sin esperar al tiempo real. */
 export const guardarUbicacionPaseo = async (walkId: string, coords: GeolocationCoordinates) => {
-  const { error } = await supabase.from("ubicaciones_paseo").insert({ id_paseo: walkId, latitud: coords.latitude, longitud: coords.longitude });
+  const { data, error } = await supabase
+    .from("ubicaciones_paseo")
+    .insert({ id_paseo: walkId, latitud: coords.latitude, longitud: coords.longitude })
+    .select("id_ubicacion, id_paseo, latitud, longitud, timestamp")
+    .single();
   if (error) throw error;
+  return { ...data, latitud: Number(data.latitud), longitud: Number(data.longitud) } as UbicacionPaseo;
 };
 
 export const finalizarPaseo = async (walkId: string) => {

@@ -10,7 +10,7 @@
   "defaultPet": "Your pet",
   "defaultWalker": "their walker",
   "withWalker": "{{mascota}} is on a walk with {{paseador}}.",
-  "updatedAt": "Updated at {{hora}}.",
+  "updatedAt": "Updated at {{hora}}",
   "waitingLocation": "Waiting for the walker's location.",
   "mapPlaceholder": "The walk already started. The map will appear once the walker shares their location.",
   "noLocationYet": "No location yet",

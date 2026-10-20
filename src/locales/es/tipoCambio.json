@@ -1,0 +1,12 @@
+{
+  "title": "Tipo de cambio del dólar",
+  "refresh": "Actualizar",
+  "buy": "Compra",
+  "sell": "Venta",
+  "source": "{{fuente}} · {{fecha}}",
+  "colones": "Colones (₡)",
+  "dollars": "Dólares ($)",
+  "note": "Usa el tipo de compra: el mismo con el que se cobra a quien paga en dólares.",
+  "loading": "Consultando el tipo de cambio…",
+  "failed": "No se pudo consultar el tipo de cambio. Toca «Actualizar» para intentar de nuevo."
+}

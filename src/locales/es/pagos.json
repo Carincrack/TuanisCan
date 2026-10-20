@@ -54,7 +54,10 @@
     "date": "Fecha",
     "method": "Método",
     "status": "Estado",
-    "amount": "Monto CRC"
+    "amount": "Monto CRC",
+    "currency": "Moneda",
+    "amountCharged": "Monto cobrado",
+    "exchangeRate": "Tipo de cambio"
   },
   "table": {
     "caption": "Historial de movimientos de pago",
@@ -104,7 +107,17 @@
     "payingNow": "Cobrando {{monto}}…",
     "paidNow": "Pago de {{monto}} completado",
     "chargeNowExplain": "Este paseo ya se hizo y su pago quedó pendiente: se cobra ahora en el método que elijas.",
-    "payNow": "Pagar {{monto}}"
+    "payNow": "Pagar {{monto}}",
+    "currencyLabel": "Pagar en",
+    "currency": {
+      "CRC": "Colones (₡)",
+      "USD": "Dólares ($)"
+    },
+    "rateLine": "{{colones}} al tipo de cambio de {{tipo}}",
+    "rateSource": "Tipo de compra del {{fecha}} · {{fuente}}",
+    "rateLoading": "Consultando el tipo de cambio…",
+    "rateFailed": "No se pudo consultar el tipo de cambio. Paga en colones o vuelve a intentarlo.",
+    "rateRetry": "Reintentar"
   },
   "receipt": {
     "title": "Comprobante",
@@ -119,9 +132,19 @@
     "close": "Cerrar",
     "reference": "Referencia",
     "reservedOn": "Reservado el",
-    "chargedOn": "Cobrado el"
+    "chargedOn": "Cobrado el",
+    "currency": "Moneda de pago",
+    "currencyUSD": "Dólares",
+    "exchangeRate": "Tipo de cambio",
+    "inColones": "Equivale a"
   },
   "errors": {
     "loadFailed": "No se pudieron cargar tus pagos."
+  },
+  "rates": {
+    "sources": {
+      "hacienda": "Ministerio de Hacienda",
+      "exchangerate": "ExchangeRate-API"
+    }
   }
 }

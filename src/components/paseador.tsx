@@ -52,6 +52,7 @@ import { toggleWalkerAvailability } from "../services/walkers.service";
 import { formatDate, petAge, vaccineStatus } from "../lib/pets";
 import { useTranslation } from "../hooks/useTranslation";
 import { useAlLlegarNotificacion } from "../lib/tiempoReal";
+import { hoyEnCostaRica } from "../lib/fechas";
 
 /* ─────────────────────────────────────────────────────────────
    El lado del paseador. Es la contraparte del lado del dueño:
@@ -61,7 +62,8 @@ import { useAlLlegarNotificacion } from "../lib/tiempoReal";
 
 /* ── Panel ───────────────────────────────────────────────────── */
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+// Hoy en Costa Rica: el de UTC, desde las 6 p. m., ya era mañana.
+const hoyISO = () => hoyEnCostaRica();
 
 export const PanelPaseador = () => {
   const { user, getProfile } = useAuth();

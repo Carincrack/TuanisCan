@@ -10,7 +10,7 @@
   "defaultPet": "Tu mascota",
   "defaultWalker": "su paseador",
   "withWalker": "{{mascota}} está de paseo con {{paseador}}.",
-  "updatedAt": "Actualizado a las {{hora}}.",
+  "updatedAt": "Actualizado a las {{hora}}",
   "waitingLocation": "Esperando la ubicación del paseador.",
   "mapPlaceholder": "El paseo ya empezó. El mapa aparecerá cuando el paseador comparta su ubicación.",
   "noLocationYet": "Sin ubicación todavía",

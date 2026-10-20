@@ -17,6 +17,7 @@ import {
   type PublicWalkerReview,
 } from "../services/walkers.service";
 import { estimarPrecioPaseo, RECARGOS_POR_DEFECTO } from "../lib/precios";
+import { hoyEnCostaRica } from "../lib/fechas";
 import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
 import type { I18nContextValue } from "../context/i18n-context";
@@ -52,14 +53,18 @@ interface RequestForm {
   oferta: string;
 }
 
-const emptyRequest: RequestForm = {
+/* Una función y no una constante: la fecha de hoy se calcula al abrir
+   el formulario, no al cargar la app (que puede quedar abierta de un día
+   para otro). Y es la de Costa Rica: la de UTC, desde las 6 p. m., ya
+   era mañana, y el mínimo del calendario no dejaba elegir hoy. */
+const emptyRequest = (): RequestForm => ({
   id_mascota: "",
-  fecha: new Date().toISOString().slice(0, 10),
+  fecha: hoyEnCostaRica(),
   hora_inicio: "08:00",
   duracion_min: "45",
   direccion_encuentro: "",
   oferta: "",
-};
+});
 
 const messageFrom = (error: unknown, t: T) => {
   if (error instanceof Error) return error.message;
@@ -256,7 +261,7 @@ const Paseadores = () => {
     setError(null);
     setMessage(null);
     setForm((current) => ({
-      ...emptyRequest,
+      ...emptyRequest(),
       id_mascota: current.id_mascota || pets[0]?.id_mascota || "",
     }));
   };
@@ -712,7 +717,7 @@ const Paseadores = () => {
                 </span>
                 <input
                   type="date"
-                  min={emptyRequest.fecha}
+                  min={hoyEnCostaRica()}
                   value={form.fecha}
                   onChange={(e) => setForm({ ...form, fecha: e.target.value })}
                   className={`${input} mt-2`}

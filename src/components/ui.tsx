@@ -79,6 +79,15 @@ export const fieldLabel = "campo";
 
 export const colones = (n: number) => `₡${n.toLocaleString("es-CR")}`;
 
+/** «$22,31»: siempre con dos decimales, igual que los avisos de la base. */
+export const dolares = (n: number) =>
+  `$${n.toLocaleString("es-CR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Lo que se le cobra al dueño, en la moneda en que paga. Un pago en
+    dólares sin conversión guardada —no debería existir— cae a colones. */
+export const montoCobrado = (pago: { monto: number; moneda?: string; monto_moneda?: number | null }) =>
+  pago.moneda === "USD" && pago.monto_moneda != null ? dolares(pago.monto_moneda) : colones(pago.monto);
+
 /* ── Estructura de página ────────────────────────────────────── */
 
 /** `AppShell` centra el contenido en un carril angosto —cómodo para
@@ -187,6 +196,7 @@ export const FilterTabs = ({
   onChange,
   label,
   cuentas,
+  desplazable = false,
 }: {
   options: OpcionFiltro[];
   value: string;
@@ -197,11 +207,18 @@ export const FilterTabs = ({
       vistazo si vale la pena entrar a una —una pestaña en cero no se
       pulsa—. */
   cuentas?: Record<string, number>;
+  /** En el teléfono, un solo renglón que se desliza de lado en vez de
+      partirse en varios. Para cinco o más pestañas: partidas en tres
+      renglones ocupaban media pantalla antes de mostrar un solo dato.
+      Quien lo usa lo pone dentro de una caja con `overflow-x-auto`. */
+  desplazable?: boolean;
 }) => (
   <div
     role="group"
     aria-label={label}
-    className="flex w-full flex-wrap gap-1 rounded-[22px] bg-sunken p-1 sm:inline-flex sm:w-auto"
+    className={`gap-1 rounded-[22px] bg-sunken p-1 ${
+      desplazable ? "inline-flex w-max flex-nowrap" : "flex w-full flex-wrap sm:inline-flex sm:w-auto"
+    }`}
   >
     {options.map((o) => {
       const activa = value === o.value;
@@ -213,7 +230,7 @@ export const FilterTabs = ({
           type="button"
           aria-pressed={activa}
           onClick={() => onChange(o.value)}
-          className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[13px] whitespace-nowrap sm:flex-none sm:gap-2 font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] sm:px-4 ${
+          className={`inline-flex ${desplazable ? "flex-none" : "flex-1"} items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[13px] whitespace-nowrap sm:flex-none sm:gap-2 font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] sm:px-4 ${
             activa
               ? "bg-rail text-white"
               : "text-ink-soft hover:bg-white/70 hover:text-ink"
