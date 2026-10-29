@@ -90,6 +90,8 @@
     "linea2": "buscando a su",
     "subrayada": "mejor amigo.",
     "noZone": "Zona no indicada",
+    "someoneFound": "Alguien encontró esta mascota",
+    "viewPhotoAria": "Ver la foto de {{nombre}} en tamaño completo",
     "cta": "Ver mascotas perdidas"
   },
   "cierre": {

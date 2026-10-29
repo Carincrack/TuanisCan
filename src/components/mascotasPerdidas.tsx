@@ -114,6 +114,13 @@ const zonaLabel = (zona: Zona | null | undefined, t: T) => {
     .join(", ");
 };
 
+/** `id_mascota` nulo es un reporte de "encontré esta mascota, no sé
+    de quién es": `nombre` ahí no es un nombre real, es el valor por
+    defecto de `reportar_mascota_perdida`. Mostrarlo tal cual sonaba a
+    que la mascota se llamaba "Mascota encontrada". */
+const tituloReporte = (reporte: LostPetReport, t: T) =>
+  reporte.id_mascota ? reporte.nombre : t("mascotasPerdidas.card.someoneFound");
+
 /* Los teléfonos se guardan tal como se escriban. Cuando la forma es
    la de Costa Rica se separa para poder leerla de un vistazo —un
    "+50688888888" seguido no se lee, se descifra—; cualquier otra cosa
@@ -1031,7 +1038,7 @@ const MascotasPerdidas = () => {
                   </div>
 
                   <div className="pointer-events-none absolute inset-x-0 right-12 bottom-0 p-4">
-                    <h3 className="truncate text-[17px] font-semibold text-white">{reporte.nombre}</h3>
+                    <h3 className="truncate text-[17px] font-semibold text-white">{tituloReporte(reporte, t)}</h3>
                     <p className="mt-0.5 truncate text-[12.5px] text-white/85">
                       {reporte.especie}
                       {reporte.raza ? ` · ${reporte.raza}` : ""}

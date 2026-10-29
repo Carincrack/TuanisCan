@@ -118,6 +118,7 @@ export const listPublicLostPets = async (): Promise<PublicLostPet[]> => {
   if (error) throw error;
   const rows = (data ?? []) as Array<{
     id_mascota_perdida: string;
+    id_mascota: string | null;
     nombre: string;
     especie: string;
     raza: string | null;
@@ -132,6 +133,7 @@ export const listPublicLostPets = async (): Promise<PublicLostPet[]> => {
   return Promise.all(
     rows.map(async (row) => ({
       id_mascota_perdida: row.id_mascota_perdida,
+      id_mascota: row.id_mascota,
       nombre: row.nombre,
       especie: row.especie,
       raza: row.raza,

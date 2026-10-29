@@ -29,6 +29,7 @@
   "card": {
     "photoAlt": "Photo of {{nombre}}",
     "viewPhotoAria": "View {{nombre}}'s photo in full size",
+    "someoneFound": "Someone found this pet",
     "postLabel": "Lost pet report",
     "lost": "Lost",
     "noZone": "Zone not indicated",

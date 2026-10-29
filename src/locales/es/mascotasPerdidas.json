@@ -138,6 +138,7 @@
     "photoAlt": "Foto de {{nombre}}",
     "statusLost": "Perdida",
     "statusFound": "Encontrada",
+    "someoneFound": "Alguien encontró esta mascota",
     "reward": "Recompensa {{monto}}",
     "zoneLabel": "Zona",
     "seenIn": "Visto en {{zona}}",

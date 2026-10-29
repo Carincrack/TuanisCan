@@ -52,8 +52,8 @@ const Landing = ({ onEntrar }: LandingProps) => {
 
       <main>
         <Servicios />
-        <Pasos />
         <MascotasRecientes />
+        <Pasos />
         <Cierre onEntrar={onEntrar} />
       </main>
 

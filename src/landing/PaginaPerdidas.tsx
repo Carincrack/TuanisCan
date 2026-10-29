@@ -75,6 +75,13 @@ const haceTiempo = (valor: string, localeTag: string) => {
   return relativo.format(-Math.round(minutos / 1440), "day");
 };
 
+/** `id_mascota` nulo es un reporte de "encontré esta mascota, no sé
+    de quién es": `nombre` ahí no es un nombre real, es el valor por
+    defecto de `reportar_mascota_perdida`. Mostrarlo tal cual sonaba a
+    que la mascota se llamaba "Mascota encontrada". */
+const tituloMascota = (mascota: PublicLostPet, t: ReturnType<typeof useTranslation>["t"]) =>
+  mascota.id_mascota ? mascota.nombre : t("landingPerdidas.card.someoneFound");
+
 /** Una ficha, usada tanto en el carrusel de "recién reportadas" como
     en la rejilla completa de abajo. Misma tarjeta, dos contenedores:
     el carrusel la fuerza a un ancho fijo con `className`, la rejilla
@@ -120,12 +127,12 @@ const TarjetaMascota = ({
     <button
       type="button"
       onClick={onVerFoto}
-      aria-label={t("landingPerdidas.card.viewPhotoAria", { nombre: mascota.nombre })}
+      aria-label={t("landingPerdidas.card.viewPhotoAria", { nombre: tituloMascota(mascota, t) })}
       className="group relative block w-full cursor-zoom-in overflow-hidden text-left focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
     >
       <img
         src={mascota.fotoUrl ?? "/mock/dog-nube.jpg"}
-        alt={t("landingPerdidas.card.photoAlt", { nombre: mascota.nombre })}
+        alt={t("landingPerdidas.card.photoAlt", { nombre: tituloMascota(mascota, t) })}
         loading="lazy"
         className="aspect-[16/10] w-full bg-sunken object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
       />
@@ -143,7 +150,7 @@ const TarjetaMascota = ({
         <Maximize2 size={14} strokeWidth={2.2} />
       </span>
       <span className="absolute inset-x-0 bottom-0 right-12 p-4">
-        <h3 className="truncate text-[16px] font-semibold text-white">{mascota.nombre}</h3>
+        <h3 className="truncate text-[16px] font-semibold text-white">{tituloMascota(mascota, t)}</h3>
         <p className="mt-0.5 truncate text-[12.5px] text-white/85">
           {mascota.especie}
           {mascota.raza ? ` · ${mascota.raza}` : ""}
@@ -442,7 +449,7 @@ const PaginaPerdidas = () => {
       <Visor
         abierto={fotoAbierta !== null}
         src={fotoAbierta?.fotoUrl ?? "/mock/dog-nube.jpg"}
-        alt={fotoAbierta ? t("landingPerdidas.card.photoAlt", { nombre: fotoAbierta.nombre }) : ""}
+        alt={fotoAbierta ? t("landingPerdidas.card.photoAlt", { nombre: tituloMascota(fotoAbierta, t) }) : ""}
         cerrar={() => setFotoAbierta(null)}
       />
     </div>
