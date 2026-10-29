@@ -2,13 +2,15 @@
   "backHome": "Inicio",
   "backToHomeAria": "{{marca}}, volver al inicio",
   "antetitulo": "Comunidad",
+  "titulo": {
+    "linea1": "Mascotas",
+    "linea2": "perdidas"
+  },
   "subtitle": "Las que se perdieron cerca de vos. Si viste alguna, podés avisarle a su dueño desde su ficha.",
   "loading": "Cargando mascotas perdidas...",
   "loadError": "No se pudieron cargar las mascotas perdidas.",
   "resultsCount": "{{n}} reportes activos",
-  "recent": {
-    "title": "Recién reportadas"
-  },
+  "miCuenta": "Ir a mi cuenta",
   "empty": {
     "title": "No hay mascotas perdidas reportadas",
     "hint": "Cuando alguien reporte una, va a aparecer acá.",
@@ -24,16 +26,20 @@
     "allProvinces": "Todas las provincias",
     "allCantons": "Todos los cantones",
     "allDistricts": "Todos los distritos",
+    "estadoAria": "Mostrar",
+    "todas": "Todas",
+    "perdidas": "Perdidas",
+    "encontradas": "Encontradas",
+    "showing": "{{n}} de {{total}} fichas",
     "clear": "Limpiar filtros"
   },
   "card": {
     "photoAlt": "Foto de {{nombre}}",
     "viewPhotoAria": "Ver la foto de {{nombre}} en tamaño completo",
-    "someoneFound": "Alguien encontró esta mascota",
-    "postLabel": "Reporte de mascota perdida",
+    "someoneFound": "Alguien la encontró",
     "lost": "Perdida",
+    "found": "Encontrada",
     "noZone": "Zona no indicada",
-    "lostOn": "Perdida el {{fecha}}",
     "report": "Avisá que la viste",
     "loginToReport": "Iniciá sesión para avisar"
   }

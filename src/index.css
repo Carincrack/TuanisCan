@@ -848,6 +848,42 @@
   display: inline-block;
 }
 
+/* ── Las fichas del tablero de /perdidas ──────────────────────
+   Polaroids, las mismas de la banda de la portada: borde blanco
+   grueso y un giro propio cada una. Acá el giro es la mitad —son una
+   rejilla que se recorre buscando, no un puñado tirado sobre la mesa—
+   y se endereza al pasar el mouse o el foco: la ficha que se mira es
+   la que se pone derecha.
+
+   El giro llega por `--giro` y no en `style`: en línea le ganaría al
+   `:hover` y la ficha no se enderezaría nunca. */
+.portada .ficha-perdida {
+  rotate: var(--giro, 0deg);
+  box-shadow: 0 16px 28px -10px rgb(20 36 46 / 25%);
+  transition:
+    rotate 320ms cubic-bezier(0.23, 1, 0.32, 1),
+    translate 320ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 320ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.portada .ficha-perdida:hover,
+.portada .ficha-perdida:focus-within {
+  rotate: 0deg;
+  translate: 0 -4px;
+  box-shadow: 0 26px 40px -14px rgb(20 36 46 / 32%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portada .ficha-perdida {
+    transition: none;
+  }
+
+  .portada .ficha-perdida:hover,
+  .portada .ficha-perdida:focus-within {
+    translate: none;
+  }
+}
+
 /* ── El perro que cambia con el conmutador ────────────────────
    Los dos recortes viven apilados y el conmutador solo decide cuál
    se ve. Es la única transición del hero que dispara el usuario, y
