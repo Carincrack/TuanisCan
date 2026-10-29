@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Clock, Eye, Maximize2, MapPin, Search, User } from "../lib/iconos";
+import { ArrowLeft, Clock, Eye, Maximize2, MapPin, PawPrint, Search, User } from "../lib/iconos";
 import { MARCA } from "../lib/nav";
 import { usePortadaAnimacion } from "./animacion";
 import { AZUL, CANVAS, NAVY, TINTA } from "./tokens";
+import Onda from "./componentes/Onda";
+import Boronas from "./componentes/Boronas";
 import { useTranslation } from "../hooks/useTranslation";
 import { useAuth } from "../hooks/useAuth";
 import { getZonas } from "../services/auth.service";
@@ -59,6 +61,18 @@ const zonaLabel = (zona: PublicLostPet["zona"], t: ReturnType<typeof useTranslat
 
 const fechaCorta = (valor: string, localeTag: string) =>
   new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(new Date(valor));
+
+/* La misma cuenta que ya usa `mascotasPerdidas.tsx` para sus
+   coincidencias: "hace 3 horas" en vez de una fecha pelada es lo que
+   hace que una ficha se lea como un reporte reciente y no como un
+   registro de catálogo. */
+const haceTiempo = (valor: string, localeTag: string) => {
+  const minutos = Math.round((Date.now() - new Date(valor).getTime()) / 60_000);
+  const relativo = new Intl.RelativeTimeFormat(localeTag, { numeric: "auto" });
+  if (minutos < 60) return relativo.format(-Math.max(1, minutos), "minute");
+  if (minutos < 48 * 60) return relativo.format(-Math.round(minutos / 60), "hour");
+  return relativo.format(-Math.round(minutos / 1440), "day");
+};
 
 const PaginaPerdidas = () => {
   const { t, localeTag } = useTranslation();
@@ -195,7 +209,22 @@ const PaginaPerdidas = () => {
         </div>
       </section>
 
-      <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
+      <main className="relative overflow-hidden">
+        <Onda color={AZUL} />
+        {/* Las mismas piezas sueltas de perro que flotan en los márgenes
+            de la portada — acá con otro recorte (`desde`) para que no
+            se vea la copia exacta de "Pasos" o "Cierre" si quien llega
+            venía bajando por esas bandas. */}
+        <Boronas desde={4} />
+
+        <div className="relative z-10 mx-auto max-w-5xl px-5 py-12 sm:px-8">
+        {!cargando && !error && mascotas.length > 0 && (
+          <p className="rotulo mb-4 flex items-center gap-1.5" style={{ color: NAVY }}>
+            <PawPrint size={13} strokeWidth={2} aria-hidden />
+            {t("landingPerdidas.resultsCount", { n: mascotas.length })}
+          </p>
+        )}
+
         {!cargando && !error && mascotas.length > 0 && (
           <div className="mb-5 grid gap-3 rounded-[18px] bg-surface p-4 sm:p-5">
             <label className={fieldLabel}>
@@ -300,6 +329,21 @@ const PaginaPerdidas = () => {
                 style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
                 className="anim-rise flex flex-col overflow-hidden rounded-[18px] bg-surface outline outline-black/[0.05]"
               >
+                {/* La cabecera de "publicación": lo que distingue esta
+                    ficha de una tarjeta de catálogo es que alguien la
+                    reportó hace poco, no que exista un registro. */}
+                <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                    <PawPrint size={13} strokeWidth={2} aria-hidden />
+                  </span>
+                  <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">
+                    {t("landingPerdidas.card.postLabel")}
+                  </p>
+                  <span className="shrink-0 text-[11px] text-ink-mute">
+                    {haceTiempo(mascota.fecha_reporte, localeTag)}
+                  </span>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setFotoAbierta(mascota)}
@@ -359,6 +403,7 @@ const PaginaPerdidas = () => {
             ))}
           </div>
         )}
+        </div>
       </main>
 
       <Visor
