@@ -98,11 +98,12 @@
     "hint": "Alguien reportó haber encontrado una mascota que podría ser tuya.",
     "photoAlt": "Foto de la mascota encontrada, posible {{nombre}}",
     "isThis": "¿Es {{nombre}}?",
-    "yesItsHer": "Sí, es ella",
-    "notHer": "No es",
+    "yesItsHer": "Sí, es {{nombre}}",
+    "notHer": "No es {{nombre}}",
     "confirmed": "¡{{nombre}} está de vuelta!",
     "confirmedDetail": "Vinculamos el reporte con tu mascota. Coordina la entrega con quien la encontró.",
-    "discarded": "Coincidencia descartada"
+    "discarded": "Coincidencia descartada",
+    "reportedAgo": "Reportada {{cuando}}"
   },
   "filters": {
     "aria": "Filtros de mascotas perdidas",

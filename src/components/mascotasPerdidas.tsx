@@ -24,6 +24,7 @@ import type { Pet } from "../types/pet.types";
 import type { LostPetInput, LostPetReport, PetMatch } from "../types/lost-pet.types";
 import {
   Badge,
+  BotonCerrarVentana,
   Confirmar,
   Dialog,
   EmptyState,
@@ -37,6 +38,7 @@ import {
   colones,
   fieldLabel,
   input,
+  useAvisarSiCambio,
 } from "./ui";
 import { Combo } from "./Combo";
 import Visor from "./Visor";
@@ -152,6 +154,7 @@ const ReportForm = ({
     recompensa: "",
   });
   const [photo, setPhoto] = useState<File | null>(null);
+  useAvisarSiCambio(values, Boolean(photo));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -292,7 +295,7 @@ const ReportForm = ({
       </div>
       <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.descriptionLabel")}<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.reportForm.publishing") : t("mascotasPerdidas.reportForm.publish")}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><BotonCerrarVentana className={btnSecondary}>{t("mascotasPerdidas.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.reportForm.publishing") : t("mascotasPerdidas.reportForm.publish")}</button></div>
     </form>
   );
 };
@@ -327,6 +330,7 @@ const FoundPetForm = ({
     ubicacion: "",
   });
   const [photo, setPhoto] = useState<File | null>(null);
+  useAvisarSiCambio(values, Boolean(photo));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
@@ -424,7 +428,7 @@ const FoundPetForm = ({
       </div>
       <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.descriptionLabel")}<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.foundForm.publishing") : t("mascotasPerdidas.foundForm.publish")}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><BotonCerrarVentana className={btnSecondary}>{t("mascotasPerdidas.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.foundForm.publishing") : t("mascotasPerdidas.foundForm.publish")}</button></div>
     </form>
   );
 };
@@ -450,6 +454,7 @@ const SightingForm = ({
     contacto: profilePhone ?? "",
     comentario: "",
   });
+  useAvisarSiCambio(values);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
@@ -536,12 +541,12 @@ const SightingForm = ({
       </label>
       <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.comment")}<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.sightingForm.registering") : t("mascotasPerdidas.sightingForm.register")}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><BotonCerrarVentana className={btnSecondary}>{t("mascotasPerdidas.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.sightingForm.registering") : t("mascotasPerdidas.sightingForm.register")}</button></div>
     </form>
   );
 };
 
-const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: () => void }) => {
+const SightingDetails = ({ report }: { report: LostPetReport }) => {
   const { t, localeTag } = useTranslation();
   return (
     <div className="grid gap-3 p-5 sm:p-6">
@@ -597,9 +602,75 @@ const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: 
         ))
       )}
       <div className="flex justify-end">
-        <button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.sightingDetails.close")}</button>
+        <BotonCerrarVentana className={btnSecondary}>{t("mascotasPerdidas.sightingDetails.close")}</BotonCerrarVentana>
       </div>
     </div>
+  );
+};
+
+/* ── Una posible coincidencia ──
+   Alguien reportó una mascota encontrada que se parece a una de las
+   mías. La foto manda —es lo primero que se mira para reconocerla—,
+   y debajo las dos respuestas, a lo ancho y nombrando a la mascota:
+   «Sí, es Luna» / «No es Luna». Antes decían «Sí, es ella» (que no
+   sirve para un macho) y, apretadas al lado de la foto, se partían en
+   tres renglones. */
+const TarjetaCoincidencia = ({
+  match,
+  ocupada,
+  onResolver,
+}: {
+  match: PetMatch;
+  ocupada: boolean;
+  onResolver: (estado: "confirmado" | "descartado") => void;
+}) => {
+  const { t, localeTag } = useTranslation();
+  const hace = (() => {
+    const minutos = Math.round((Date.now() - new Date(match.fecha_reporte).getTime()) / 60_000);
+    const relativo = new Intl.RelativeTimeFormat(localeTag, { numeric: "auto" });
+    if (minutos < 60) return relativo.format(-Math.max(1, minutos), "minute");
+    if (minutos < 48 * 60) return relativo.format(-Math.round(minutos / 60), "hour");
+    return relativo.format(-Math.round(minutos / 1440), "day");
+  })();
+
+  return (
+    <article className="flex flex-col rounded-[18px] bg-surface p-3">
+      <div className="flex gap-3">
+        <img
+          src={match.fotoUrl ?? "/mock/dog-nube.jpg"}
+          alt={t("mascotasPerdidas.matches.photoAlt", { nombre: match.mascotaNombre })}
+          className="size-24 shrink-0 rounded-[14px] bg-sunken object-cover"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold text-ink">{t("mascotasPerdidas.matches.isThis", { nombre: match.mascotaNombre })}</p>
+          <p className="mt-0.5 text-[12px] text-ink-mute">
+            {match.especie} · {zonaLabel(match.zona, t)}
+          </p>
+          <p className="mt-0.5 text-[12px] text-ink-mute">{t("mascotasPerdidas.matches.reportedAgo", { cuando: hace })}</p>
+          <p className="mt-1.5 line-clamp-3 text-[12.5px] leading-snug text-ink-soft">{match.descripcion}</p>
+        </div>
+      </div>
+      <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
+        <button
+          type="button"
+          className={`${btnPrimary} min-w-0 px-3 disabled:opacity-60`}
+          disabled={ocupada}
+          onClick={() => onResolver("confirmado")}
+        >
+          <Check size={14} className="shrink-0" />
+          <span className="truncate">{t("mascotasPerdidas.matches.yesItsHer", { nombre: match.mascotaNombre })}</span>
+        </button>
+        <button
+          type="button"
+          className={`${btnSecondary} min-w-0 px-3 disabled:opacity-60`}
+          disabled={ocupada}
+          onClick={() => onResolver("descartado")}
+        >
+          <X size={14} className="shrink-0" />
+          <span className="truncate">{t("mascotasPerdidas.matches.notHer", { nombre: match.mascotaNombre })}</span>
+        </button>
+      </div>
+    </article>
   );
 };
 
@@ -805,53 +876,33 @@ const MascotasPerdidas = () => {
       />
 
       {pendingMatches.length > 0 && (
-        <section aria-label={t("mascotasPerdidas.matches.aria")} className="bg-accent-wash p-4 sm:p-5">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-accent-dark" aria-hidden />
-            <h3 className="text-[14px] font-semibold text-accent-deep">
-              {pendingMatches.length === 1 ? t("mascotasPerdidas.matches.singular") : t("mascotasPerdidas.matches.plural")}
-            </h3>
+        <section aria-label={t("mascotasPerdidas.matches.aria")} className="rounded-[22px] bg-accent-wash p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface text-accent-dark">
+              <Sparkles size={18} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="flex items-center gap-2 text-[15px] font-semibold text-accent-deep">
+                {pendingMatches.length === 1 ? t("mascotasPerdidas.matches.singular") : t("mascotasPerdidas.matches.plural")}
+                {pendingMatches.length > 1 && (
+                  <span className="nums grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+                    {pendingMatches.length}
+                  </span>
+                )}
+              </h3>
+              <p className="mt-0.5 text-[13px] leading-snug text-accent-dark">{t("mascotasPerdidas.matches.hint")}</p>
+            </div>
           </div>
-          <p className="mt-1 text-[12.5px] text-accent-dark">
-            {t("mascotasPerdidas.matches.hint")}
-          </p>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {/* Dos columnas como máximo: la página es angosta, y en tres los botones no cabían. */}
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             {pendingMatches.map((match) => (
-              <article key={match.id_match} className="flex gap-3 rounded-[18px] bg-surface p-3">
-                <img
-                  src={match.fotoUrl ?? "/mock/dog-nube.jpg"}
-                  alt={t("mascotasPerdidas.matches.photoAlt", { nombre: match.mascotaNombre })}
-                  className="size-20 shrink-0 rounded-[14px] bg-sunken object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-ink">{t("mascotasPerdidas.matches.isThis", { nombre: match.mascotaNombre })}</p>
-                  <p className="mt-0.5 truncate text-[12px] text-ink-mute">
-                    {match.especie} · {zonaLabel(match.zona, t)}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-[12px] text-ink-soft">{match.descripcion}</p>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      className={`${btnSecondaryCompacto} flex-1`}
-                      disabled={resolviendoMatch === match.id_match}
-                      onClick={() => void resolveMyMatch(match, "confirmado")}
-                    >
-                      <Check size={13} />
-                      {t("mascotasPerdidas.matches.yesItsHer")}
-                    </button>
-                    <button
-                      type="button"
-                      className={`${btnQuiet} flex-1`}
-                      disabled={resolviendoMatch === match.id_match}
-                      onClick={() => void resolveMyMatch(match, "descartado")}
-                    >
-                      <X size={13} />
-                      {t("mascotasPerdidas.matches.notHer")}
-                    </button>
-                  </div>
-                </div>
-              </article>
+              <TarjetaCoincidencia
+                key={match.id_match}
+                match={match}
+                ocupada={resolviendoMatch === match.id_match}
+                onResolver={(estado) => void resolveMyMatch(match, estado)}
+              />
             ))}
           </div>
         </section>
@@ -1103,7 +1154,7 @@ const MascotasPerdidas = () => {
       )}
       {sightingDetails && (
         <Dialog ancho="max-w-[760px]" title={t("mascotasPerdidas.sightingDetails.title", { nombre: sightingDetails.nombre })} onClose={() => setSightingDetails(null)}>
-          <SightingDetails report={sightingDetails} onClose={() => setSightingDetails(null)} />
+          <SightingDetails report={sightingDetails} />
         </Dialog>
       )}
     </Page>

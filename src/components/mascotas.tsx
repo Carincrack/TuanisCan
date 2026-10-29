@@ -17,6 +17,7 @@ import {
 import type { Condition, ConditionInput, Pet, PetInput, Vaccine, VaccineInput } from "../types/pet.types";
 import {
   Badge,
+  BotonCerrarVentana,
   Confirmar,
   Dialog,
   EmptyState,
@@ -30,6 +31,7 @@ import {
   fieldLabel,
   btnSecondary,
   input,
+  useAvisarSiCambio,
 } from "./ui";
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
@@ -66,6 +68,7 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
   });
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  useAvisarSiCambio(values, Boolean(photo));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const update = (name: string, value: string | boolean) => setValues((current) => ({ ...current, [name]: value }));
@@ -155,7 +158,7 @@ const PetForm = ({ pet, userId, onClose, onSaved }: { pet: Pet | null; userId: s
         </div>
       </div>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>{t("common.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.petForm.saving") : t("mascotas.petForm.save")}</button></div>
+      <div className="flex justify-end gap-2"><BotonCerrarVentana className={btnSecondary}>{t("common.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.petForm.saving") : t("mascotas.petForm.save")}</button></div>
     </form>
   );
 };
@@ -170,6 +173,7 @@ const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Va
     lote: vaccine?.lote ?? "",
     notas: vaccine?.notas ?? "",
   });
+  useAvisarSiCambio(values);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
@@ -215,7 +219,7 @@ const VaccineForm = ({ pet, vaccine, onClose, onSaved }: { pet: Pet; vaccine: Va
       </div>
       <label className={fieldLabel}>{t("mascotas.vaccineForm.notes")}<textarea className={`${input} min-h-20 resize-y`} maxLength={1000} value={values.notas} onChange={(e) => update("notas", e.target.value)} /></label>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>{t("common.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.vaccineForm.saving") : t("mascotas.vaccineForm.save")}</button></div>
+      <div className="flex justify-end gap-2"><BotonCerrarVentana className={btnSecondary}>{t("common.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.vaccineForm.saving") : t("mascotas.vaccineForm.save")}</button></div>
     </form>
   );
 };
@@ -230,6 +234,7 @@ const ConditionForm = ({ pet, condition, onClose, onSaved }: { pet: Pet; conditi
     cuidados: condition?.cuidados ?? "",
     fecha_diagnostico: condition?.fecha_diagnostico ?? "",
   });
+  useAvisarSiCambio(values);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
@@ -269,7 +274,7 @@ const ConditionForm = ({ pet, condition, onClose, onSaved }: { pet: Pet; conditi
         <span className="font-normal text-ink-mute">{t("mascotas.conditionForm.careHint")}</span>
       </label>
       {error && <p role="alert" className="bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button type="button" className={btnSecondary} onClick={onClose}>{t("common.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.conditionForm.saving") : t("mascotas.conditionForm.save")}</button></div>
+      <div className="flex justify-end gap-2"><BotonCerrarVentana className={btnSecondary}>{t("common.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotas.conditionForm.saving") : t("mascotas.conditionForm.save")}</button></div>
     </form>
   );
 };

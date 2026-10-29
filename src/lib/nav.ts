@@ -10,6 +10,7 @@ import {
   Inbox,
   LayoutDashboard,
   MapPin,
+  MessageCircle,
   PawPrint,
   Star,
   Store,
@@ -49,7 +50,9 @@ export const MARCA = {
                     en barras, cabeceras y el carnet. */
   logoLogin: "/logo-login.png",
   logoSistema: "/logo-sistema.png",
-  logoSimbolo: "/logo-simbolo.png",
+  /* WebP de 384 px (30 KB): alcanza para todos sus usos, que van de
+     24 a 48 px. El PNG original pesaba 276 KB. */
+  logoSimbolo: "/logo-simbolo.webp",
 };
 
 export type Rol = "dueno" | "paseador" | "negocio" | "admin";
@@ -93,6 +96,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
         { to: "/", label: "nav.item.panelGeneral", Icon: LayoutDashboard },
         { to: "/paseos", label: "nav.item.paseos", Icon: CalendarDays },
         { to: "/paseo-en-vivo", label: "nav.item.paseoEnVivo", Icon: MapPin },
+        { to: "/mensajes", label: "nav.item.mensajes", Icon: MessageCircle },
       ],
     },
     {
@@ -128,6 +132,7 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
         { to: "/p/solicitudes", label: "nav.item.solicitudes", Icon: Inbox },
         { to: "/p/agenda", label: "nav.item.agenda", Icon: CalendarCheck },
         { to: "/p/paseo-activo", label: "nav.item.paseoActivo", Icon: MapPin },
+        { to: "/p/mensajes", label: "nav.item.mensajes", Icon: MessageCircle },
       ],
     },
     {

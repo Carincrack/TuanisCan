@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate, useRouterState } from "@tanstack/react-router";
 import { BadgeCheck, Bell, Check, Footprints, Menu, PawPrint, ShieldAlert, Star, Trash2, Wallet } from "../lib/iconos";
 import type { Icono } from "../lib/iconos";
 
@@ -29,6 +29,8 @@ import { prepararSonido, sonarAviso } from "../lib/sonido";
 import { anunciarNotificacion, useAlLlegarNotificacion } from "../lib/tiempoReal";
 import { ContadoresMenu } from "../lib/contadoresMenu";
 import { contarSolicitudesPendientes } from "../services/walk-requests.service";
+import { contarMensajesSinLeer, escucharMensajesParaMi, rutaChat } from "../services/chat.service";
+import { ResenaAlTerminar } from "./ResenaAlTerminar";
 
 /* ─────────────────────────────────────────────────────────────
    EL ARMAZÓN
@@ -86,7 +88,32 @@ interface AppShellProps {
 }
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const { matches } = useRouterState();
+  const rutaMostrada = String(matches[matches.length - 1]?.routeId ?? "");
+
+  /* ── El desplazamiento del contenido ──
+     El contenido se desplaza dentro de su propio contenedor, que no
+     cambia al navegar: sin volverlo arriba, la pantalla nueva aparecía
+     a la altura en que se había dejado la anterior.
+
+     Y en el teléfono el título de la barra de arriba aparece recién
+     cuando el encabezado de la página quedó atrás: con los dos a la
+     vista el título se leía dos veces seguidas. */
+  const contenido = useRef<HTMLDivElement>(null);
+  const [desplazado, setDesplazado] = useState(false);
+  const desplazadoRef = useRef(false);
+  useLayoutEffect(() => {
+    contenido.current?.scrollTo({ top: 0 });
+    desplazadoRef.current = false;
+    setDesplazado(false);
+  }, [rutaMostrada]);
+  const alDesplazar = () => {
+    const abajo = (contenido.current?.scrollTop ?? 0) > 72;
+    if (abajo === desplazadoRef.current) return;
+    desplazadoRef.current = abajo;
+    setDesplazado(abajo);
+  };
   /* Estas pantallas piden su propio botón de notificaciones —ver
      `NotificationButtonContext` más abajo— y con eso la franja
      superior les queda vacía: se pliega solo para ellas. */
@@ -106,7 +133,10 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { getProfile, roles, isAdmin, setActiveRole, user } = useAuth();
   const idUsuario = user?.id ?? null;
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [contenidoAncho, setContenidoAncho] = useState(false);
+  /* Todas las pantallas usan el carril ancho (ver más abajo); el aviso
+     de `Page wide` se sigue recibiendo para no romper las páginas que lo
+     mandan, pero ya no cambia nada. */
+  const [, setContenidoAncho] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   /* Solo con el perfil cargado. Ver la nota junto al aviso. */
   const avisoVerificacion =
@@ -158,28 +188,77 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const conocidas = useRef<Set<string> | null>(null);
   const abrirDesdeAviso = useRef<(n: Notification) => void>(() => undefined);
 
-  /** Anuncia lo nuevo: avisa a las pantallas abiertas, suena una vez y
-      saca un aviso. Con uno solo, el aviso trae «Ver», que lleva a la
-      pantalla del aviso; con varios juntos —volver de estar sin
-      conexión—, un resumen en vez de una ráfaga. */
-  const recibir = useCallback((nuevas: Notification[]) => {
+  /* ── Fin de un paseo ──
+     Cuando el paseador finaliza, al dueño le llegan juntas dos
+     notificaciones: «el paseo terminó, deja tu reseña» y «se
+     cobraron…». En vez de dos avisos, se abre la ventana de la reseña
+     con el cobro adentro (`ResenaAlTerminar`). `paseosTerminados`
+     recuerda esos paseos para no avisar después lo que ya está en la
+     ventana. */
+  const [resenaPorDejar, setResenaPorDejar] = useState<{ idPaseo: string; cobro: string | null } | null>(null);
+  const paseosTerminados = useRef(new Set<string>());
+
+  /* Las notificaciones de un mismo momento llegan por el canal una por
+     una, con milisegundos de diferencia. Se juntan un instante antes de
+     anunciarlas: así suena una vez, sale un solo aviso y se puede ver
+     que el «terminó» y el «se cobró» son del mismo paseo. */
+  const lote = useRef<Notification[]>([]);
+  const esperaLote = useRef<number | undefined>(undefined);
+
+  const anunciarLote = useCallback(() => {
+    const nuevas = lote.current.splice(0);
     if (!nuevas.length) return;
-    for (const n of nuevas) anunciarNotificacion(n);
     sonarAviso();
-    if (nuevas.length === 1) {
+
+    const finDePaseo = (n: Notification) => n.tipo === "resena" && n.referencia_id !== null && /finaliz/i.test(n.mensaje);
+    for (const n of nuevas) if (finDePaseo(n) && n.referencia_id) paseosTerminados.current.add(n.referencia_id);
+    const delFin = (n: Notification) =>
+      (n.tipo === "resena" || n.tipo === "pago") && n.referencia_id !== null && paseosTerminados.current.has(n.referencia_id);
+    const cobroDe = (idPaseo: string) => nuevas.find((n) => n.tipo === "pago" && n.referencia_id === idPaseo)?.mensaje ?? null;
+
+    const fin = nuevas.find(finDePaseo);
+    if (fin?.referencia_id) {
+      setResenaPorDejar({ idPaseo: fin.referencia_id, cobro: cobroDe(fin.referencia_id) });
+    } else {
+      // El cobro llegó después de abrir la ventana: se suma a ella.
+      const cobroTardio = nuevas.find((n) => n.tipo === "pago" && delFin(n));
+      if (cobroTardio) {
+        setResenaPorDejar((actual) =>
+          actual && actual.idPaseo === cobroTardio.referencia_id ? { ...actual, cobro: cobroTardio.mensaje } : actual,
+        );
+      }
+    }
+
+    /* Con uno solo, el aviso trae «Ver», que lleva a la pantalla del
+       aviso; con varios juntos —volver de estar sin conexión—, un
+       resumen en vez de una ráfaga. */
+    const resto = nuevas.filter((n) => !delFin(n));
+    if (resto.length === 1) {
       /* Título corto —de qué se trata— y el mensaje entero debajo. Con
          el mensaje como título, la pastilla del aviso es de una sola
          línea y lo cortaba a media frase contra el borde. */
-      const [nueva] = nuevas;
+      const [nueva] = resto;
       aviso.dato(t(`shell.notifications.types.${nueva.tipo}`), {
         detalle: nueva.mensaje,
         id: nueva.id_notificacion,
         accion: { label: t("shell.notifications.view"), onClick: () => abrirDesdeAviso.current(nueva) },
       });
-    } else {
-      aviso.dato(t("shell.notifications.newMany", { n: nuevas.length }));
+    } else if (resto.length > 1) {
+      aviso.dato(t("shell.notifications.newMany", { n: resto.length }));
     }
   }, [t]);
+
+  /** Anuncia lo nuevo: avisa enseguida a las pantallas abiertas (para
+      que se refresquen) y deja el sonido y el aviso para el lote. */
+  const recibir = useCallback((nuevas: Notification[]) => {
+    if (!nuevas.length) return;
+    for (const n of nuevas) anunciarNotificacion(n);
+    lote.current.push(...nuevas);
+    window.clearTimeout(esperaLote.current);
+    esperaLote.current = window.setTimeout(anunciarLote, 350);
+  }, [anunciarLote]);
+
+  useEffect(() => () => window.clearTimeout(esperaLote.current), []);
 
   /* Cargar es también ponerse al día: si la base trae avisos sin leer
      que nunca pasaron por acá —se perdieron con la conexión cortada—,
@@ -198,9 +277,12 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     }
   }, [t, recibir]);
 
+  /* Una vez al entrar. Antes se volvían a pedir en cada cambio de
+     pantalla, pero no hace falta: lo nuevo llega por el canal en tiempo
+     real, y lo que se pierda sin conexión se recupera más abajo. */
   useEffect(() => {
     void cargarNotificaciones();
-  }, [cargarNotificaciones, pathname]);
+  }, [cargarNotificaciones]);
 
   const cargarRef = useRef(cargarNotificaciones);
   const recibirRef = useRef(recibir);
@@ -275,7 +357,63 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
 
   useAlLlegarNotificacion(["paseo"], () => void contarSolicitudes());
 
-  const contadoresMenu = { "/p/solicitudes": solicitudesPendientes };
+  /* ── Mensajes del chat ──
+     El número junto a «Mensajes» y el aviso cuando llega uno estando en
+     otra pantalla. Si ese chat está abierto en pantalla, no se avisa: ya
+     se está viendo. Se cuenta otra vez al entrar, salir o cambiar de
+     chat, que es lo único que los marca como leídos; en las demás
+     pantallas el número lo lleva el aviso en tiempo real. */
+  const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
+  const contarMensajes = useCallback(async () => {
+    if (!idUsuario || (rol !== "dueno" && rol !== "paseador")) {
+      setMensajesSinLeer(0);
+      return;
+    }
+    try {
+      setMensajesSinLeer(await contarMensajesSinLeer());
+    } catch {
+      setMensajesSinLeer(0);
+    }
+  }, [rol, idUsuario]);
+
+  const chatAbierto = pathname.endsWith("/mensajes") ? `${pathname}?${String((search as Record<string, unknown>).chat ?? "")}` : "";
+  useEffect(() => {
+    void contarMensajes();
+  }, [contarMensajes, chatAbierto]);
+
+  const dondeEstoy = useRef({ pathname, search, rol });
+  useEffect(() => {
+    dondeEstoy.current = { pathname, search, rol };
+  });
+
+  useEffect(() => {
+    if (!idUsuario) return;
+    return escucharMensajesParaMi(idUsuario, (fila) => {
+      window.dispatchEvent(new CustomEvent("tuaniscan:mensaje", { detail: fila }));
+      const { pathname: ruta, search: busqueda, rol: rolActual } = dondeEstoy.current;
+      const chatAbierto = (busqueda as Record<string, unknown>).chat;
+      if (ruta.endsWith("/mensajes") && chatAbierto === fila.id_paseo) return;
+      setMensajesSinLeer((n) => n + 1);
+      sonarAviso();
+      const rolChat = rolActual === "paseador" ? "paseador" : "dueno";
+      aviso.dato(t("chat.newMessage"), {
+        id: `mensaje-${fila.id_mensaje}`,
+        detalle:
+          fila.tipo === "sticker"
+            ? t(`chat.stickers.${fila.contenido}`)
+            : fila.tipo === "foto"
+              ? t("chat.list.photo")
+              : fila.contenido.length > 90 ? `${fila.contenido.slice(0, 90)}…` : fila.contenido,
+        accion: { label: t("chat.view"), onClick: () => void navigate({ href: rutaChat(fila.id_paseo, rolChat) }) },
+      });
+    });
+  }, [idUsuario, navigate, t]);
+
+  const contadoresMenu = {
+    "/p/solicitudes": solicitudesPendientes,
+    "/mensajes": mensajesSinLeer,
+    "/p/mensajes": mensajesSinLeer,
+  };
 
   const pendientes = notificaciones.filter((n) => !n.leido).length;
 
@@ -496,6 +634,10 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           del otro y el aviso tapaba el buscador o el botón de la
           pantalla, que en el teléfono viven abajo.
 
+          Uno a la vez (`visibleToasts={1}`): apilados se tapaban entre
+          sí y no se leía ninguno. Los que llegan mientras hay uno
+          esperan su turno.
+
           Solo posición y comportamiento. El aspecto y la animación
           son los que trae la librería: no se le pasa `preset`, ni
           separación, ni margen. */}
@@ -505,9 +647,22 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           closeButton={!esTelefono}
           swipeToDismiss
           closeOnEscape
-          visibleToasts={4}
+          visibleToasts={1}
         />,
         document.body,
+      )}
+
+      {resenaPorDejar && (
+        <ResenaAlTerminar
+          key={resenaPorDejar.idPaseo}
+          idPaseo={resenaPorDejar.idPaseo}
+          cobro={resenaPorDejar.cobro}
+          onCerrar={(seMostro) => {
+            // Si la ventana no llegó a abrirse, el cobro no se pierde: va como aviso.
+            if (!seMostro && resenaPorDejar.cobro) aviso.dato(t("shell.notifications.types.pago"), { detalle: resenaPorDejar.cobro });
+            setResenaPorDejar(null);
+          }}
+        />
       )}
 
       <ContadoresMenu.Provider value={contadoresMenu}>
@@ -541,15 +696,16 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             <Menu size={19} />
           </button>
 
-          {!conEncabezadoPropio && (
-            <h1 className="titular min-w-0 flex-1 truncate text-[20px] text-ink">
-              {(() => {
-                const clave = tituloDeRuta(rol, pathname);
-                return clave ? t(clave) : MARCA.completo;
-              })()}
-            </h1>
-          )}
-          {conEncabezadoPropio && <div className="min-w-0 flex-1" />}
+          <h1
+            className={`titular min-w-0 flex-1 truncate text-[20px] text-ink transition-[opacity,transform] duration-200 ease-out ${
+              desplazado ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0"
+            } md:pointer-events-auto md:translate-y-0 ${conEncabezadoPropio ? "md:opacity-0" : "md:opacity-100"}`}
+          >
+            {(() => {
+              const clave = tituloDeRuta(rol, pathname);
+              return clave ? t(clave) : MARCA.completo;
+            })()}
+          </h1>
 
           <QuickLanguageSwitcher className="flota flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]" />
 
@@ -788,13 +944,26 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 overflow-y-auto">
-          <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-4">
+        <div ref={contenido} onScroll={alDesplazar} className="flex min-h-0 flex-1 overflow-y-auto">
+          <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-6">
             {/* La clave remonta el contenido en cada ruta: así la entrada
-                se reproduce al navegar, no solo al cargar la página. */}
+                se reproduce al navegar, no solo al cargar la página.
+
+                Ancho completo para todas: con el carril angosto de 900 px
+                la pantalla quedaba vacía a los lados en la computadora.
+                El margen lo dan el lienzo y el relleno de `main`, así el
+                contenido llena el ancho sin pegarse a los bordes.
+
+                Es la ruta que se está MOSTRANDO, no la de la barra de
+                direcciones. Con `pathname` la clave cambiaba un instante
+                antes que la pantalla —el router actualiza la dirección y
+                después la página—, así que la pantalla que se dejaba se
+                volvía a montar dentro del contenedor nuevo y pedía todos
+                sus datos otra vez justo al irse: cada navegación cargaba
+                dos pantallas. */}
             <div
-              key={pathname}
-              className={`anim-rise mx-auto w-full ${contenidoAncho ? "max-w-[1600px]" : "max-w-[900px]"}`}
+              key={rutaMostrada}
+              className="anim-rise mx-auto w-full max-w-[1600px]"
             >
               <PageWidthContext.Provider value={setContenidoAncho}>
                 {/* La copia del encabezado de la página: solo desde `md`.

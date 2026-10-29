@@ -8,6 +8,8 @@ import { useAdminPaseadores, useAdminPaseadoresConFicha } from "../hooks/useAdmi
 import type { AdminWalkerConFicha } from "../services/admin-walkers.service";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
 import { TipoCambioDia } from "./TipoCambioDia";
+import { CobradoEnElTiempo, CobradoPorZona, FiltrosFinanzas } from "./AnalisisFinanzas";
+import { anteriorDe, dentroDe, limitesDe, periodoInicial, type Limites, type Periodo } from "../lib/periodos";
 import { useAuth } from "../hooks/useAuth";
 import {
   downloadVerificationDocument,
@@ -19,6 +21,7 @@ import type { AdminUser, AdminVerificationRequest, AdminWalker, RolPublico, Veri
 import {
   Avatar,
   Badge,
+  BotonCerrarVentana,
   Confirmar,
   Dialog,
   EmptyState,
@@ -38,6 +41,7 @@ import {
   colones,
   dolares,
   input,
+  surface,
 } from "./ui";
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
@@ -74,8 +78,8 @@ const StatIcono = ({
   nota?: string;
   parte?: number;
 }) => (
-  <div className="bg-surface px-6 py-5">
-    <div className="flex items-center gap-3">
+  <div className="bg-surface px-4 py-5 sm:px-6">
+    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-dark">
         <Icono size={17} strokeWidth={2} aria-hidden />
       </span>
@@ -150,7 +154,9 @@ export const PanelAdmin = () => {
         action={botonNotificaciones}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Dos por renglón ya en el teléfono, como en Finanzas: una debajo
+          de otra, las cuatro llenaban la primera pantalla entera. */}
+      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
         <StatIcono
           icono={Wallet}
           etiqueta={t("admin.panel.monthCommission")}
@@ -217,10 +223,14 @@ export const PanelAdmin = () => {
                       <div className="relative min-h-0 flex-1 border-b border-sunken px-2 pt-6 sm:px-3">
                         <div className="relative h-full">
                           {item.bruto > 0 && (
+                            /* Barra de 24 px como mucho, centrada en su mes —el
+                               resto de la columna es aire—, y punta de 4 px. Los
+                               meses pasados en el tono apagado y el mes en curso
+                               en el turquesa: es el que se viene a mirar. */
                             <span
                               style={{ height: `${alto}%` }}
-                              className={`absolute inset-x-0 bottom-0 rounded-t-[8px] transition-[filter] duration-150 ease-out group-hover:brightness-110 ${
-                                item.actual ? "bg-rail" : "bg-accent"
+                              className={`absolute bottom-0 left-1/2 w-full max-w-[24px] -translate-x-1/2 rounded-t-[4px] transition-[filter] duration-150 ease-out group-hover:brightness-110 ${
+                                item.actual ? "bg-accent-dark" : "bg-rail-mute"
                               }`}
                             />
                           )}
@@ -324,6 +334,79 @@ const claveFiltroFinanzas: Record<FiltroFinanzas, string> = {
   Reembolsados: "admin.finances.filters.refunded",
 };
 
+/* La moneda en que pagó el dueño. Todo lo demás —comisión, neto,
+   tableros— va en colones; esto es para saber cuánto entró en cada
+   una. Un pago sin moneda es de antes de que existieran los dólares:
+   colones. */
+type FiltroMoneda = "Todas" | "CRC" | "USD";
+
+const claveFiltroMoneda: Record<FiltroMoneda, string> = {
+  Todas: "admin.finances.currency.all",
+  CRC: "admin.finances.currency.colones",
+  USD: "admin.finances.currency.dollars",
+};
+
+const monedaDe = (m: AdminFinanceMovement): Exclude<FiltroMoneda, "Todas"> => (m.moneda === "USD" ? "USD" : "CRC");
+
+/* ── Cobrado por moneda ──
+   La cuarta cifra: cuánto entró en colones y cuánto en dólares, una
+   debajo de la otra, y el filete partido en las dos proporciones
+   (medidas en colones, que es lo que vale cada parte). Navy para
+   colones, turquesa para dólares, con el nombre al lado: el color no
+   es lo único que lo dice. Con un filtro de moneda puesto, la otra se
+   apaga un poco pero sigue ahí: este dato es la comparación. */
+const StatMonedas = ({
+  colonesCobrado,
+  colonesCuantos,
+  dolaresCobrado,
+  dolaresEnColones,
+  dolaresCuantos,
+  activa,
+}: {
+  colonesCobrado: number;
+  colonesCuantos: number;
+  dolaresCobrado: number;
+  dolaresEnColones: number;
+  dolaresCuantos: number;
+  activa: FiltroMoneda;
+}) => {
+  const { t } = useTranslation();
+  const total = colonesCobrado + dolaresEnColones;
+  const parteColones = total ? colonesCobrado / total : 0;
+  const renglon = (moneda: Exclude<FiltroMoneda, "Todas">, valor: string, nota: string) => (
+    <div className={`transition-opacity duration-200 ${activa !== "Todas" && activa !== moneda ? "opacity-40" : ""}`}>
+      <dt className="sr-only">{t(claveFiltroMoneda[moneda])}</dt>
+      <dd className="nums text-[21px] leading-tight font-semibold tracking-[-0.02em] text-ink">{valor}</dd>
+      <dd className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-ink-soft">
+        <span aria-hidden className={`mt-[5px] h-2 w-2 shrink-0 rounded-full ${moneda === "CRC" ? "bg-rail" : "bg-accent"}`} />
+        <span>{nota}</span>
+      </dd>
+    </div>
+  );
+
+  return (
+    <div className={`${surface} px-6 py-5`}>
+      <p className="rotulo text-ink-mute">{t("admin.finances.byCurrency")}</p>
+      <dl className="mt-2 flex flex-col gap-2">
+        {renglon("CRC", colones(colonesCobrado), t(colonesCuantos === 1 ? "admin.finances.byCurrencyColonesOne" : "admin.finances.byCurrencyColones", { count: colonesCuantos }))}
+        {renglon(
+          "USD",
+          dolares(dolaresCobrado),
+          dolaresCuantos
+            ? t(dolaresCuantos === 1 ? "admin.finances.byCurrencyDollarsOne" : "admin.finances.byCurrencyDollars", { count: dolaresCuantos, colones: colones(dolaresEnColones) })
+            : t("admin.finances.byCurrencyDollarsNone"),
+        )}
+      </dl>
+      {total > 0 && (
+        <div className="mt-3.5 flex h-[3px] w-full gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
+          {parteColones > 0 && <span className="h-full rounded-full bg-rail" style={{ flexGrow: parteColones }} />}
+          {parteColones < 1 && <span className="h-full rounded-full bg-accent" style={{ flexGrow: 1 - parteColones }} />}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const estadoDeFiltro: Record<Exclude<FiltroFinanzas, "Todos">, AdminFinanceMovement["estado_pago"]> = {
   PorConfirmar: "pendiente",
   Reservados: "retenido",
@@ -387,6 +470,10 @@ export const FinanzasAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
   const { t, localeTag } = useTranslation();
   const [filtro, setFiltro] = useState<FiltroFinanzas>("Todos");
+  const [moneda, setMoneda] = useState<FiltroMoneda>("Todas");
+  const [periodo, setPeriodo] = useState<Periodo>(periodoInicial);
+  const [zona, setZona] = useState("");
+  const [paseador, setPaseador] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
@@ -402,26 +489,69 @@ export const FinanzasAdmin = () => {
       .finally(() => setLoading(false));
   }, [t]);
 
+  /* ── El alcance ──
+     Periodo, zona y paseador valen para toda la pantalla: cifras,
+     gráficos y tabla miran el mismo recorte, así los números siempre
+     coinciden. La fecha es la del paseo. Todo se filtra acá, en el
+     navegador, sobre la lista que ya llegó: cambiar un filtro no le pide
+     nada nuevo a la base. */
+  const limites = useMemo(() => limitesDe(periodo), [periodo]);
+  const limitesAnteriores = useMemo(() => anteriorDe(periodo), [periodo]);
+  const alcance = useCallback(
+    (lista: AdminFinanceMovement[], dias: Limites | null) =>
+      lista.filter(
+        (m) =>
+          dentroDe(m.fecha, dias) &&
+          (zona === "" || (m.zona ?? "") === zona) &&
+          (paseador === "" || m.paseador === paseador),
+      ),
+    [zona, paseador],
+  );
+  const enAlcance = useMemo(() => alcance(movimientos, limites), [alcance, movimientos, limites]);
+  const zonas = useMemo(() => [...new Set(movimientos.map((m) => m.zona).filter((z): z is string => Boolean(z)))].sort((a, b) => a.localeCompare(b, "es")), [movimientos]);
+  const paseadores = useMemo(() => [...new Set(movimientos.map((m) => m.paseador))].sort((a, b) => a.localeCompare(b, "es")), [movimientos]);
+
+  /* Estado y moneda se combinan: cada uno cuenta sobre lo que deja el
+     otro, así el número de cada pestaña es lo que se va a ver al
+     tocarla. */
+  const enMoneda = useMemo(
+    () => (moneda === "Todas" ? enAlcance : enAlcance.filter((m) => monedaDe(m) === moneda)),
+    [enAlcance, moneda],
+  );
+  const enEstado = useMemo(
+    () => (filtro === "Todos" ? enAlcance : enAlcance.filter((m) => m.estado_pago === estadoDeFiltro[filtro])),
+    [enAlcance, filtro],
+  );
+
   const cuentas = useMemo(() => {
-    const por = (estado: AdminFinanceMovement["estado_pago"]) => movimientos.filter((m) => m.estado_pago === estado).length;
+    const por = (estado: AdminFinanceMovement["estado_pago"]) => enMoneda.filter((m) => m.estado_pago === estado).length;
     return {
-      Todos: movimientos.length,
+      Todos: enMoneda.length,
       PorConfirmar: por("pendiente"),
       Reservados: por("retenido"),
       Cobrados: por("pagado"),
       Reembolsados: por("reembolsado"),
     };
-  }, [movimientos]);
+  }, [enMoneda]);
+
+  const cuentasMoneda = useMemo(
+    () => ({
+      Todas: enEstado.length,
+      CRC: enEstado.filter((m) => monedaDe(m) === "CRC").length,
+      USD: enEstado.filter((m) => monedaDe(m) === "USD").length,
+    }),
+    [enEstado],
+  );
 
   const visibles = useMemo(() => {
     const consulta = busqueda.trim().toLowerCase();
-    return movimientos.filter((m) => {
+    return enMoneda.filter((m) => {
       if (filtro !== "Todos" && m.estado_pago !== estadoDeFiltro[filtro]) return false;
       if (!consulta) return true;
       return [m.mascota, m.dueno, m.paseador, m.metodo_pago, m.referencia, m.zona, m.moneda]
         .some((campo) => campo?.toLowerCase().includes(consulta));
     });
-  }, [movimientos, filtro, busqueda]);
+  }, [enMoneda, filtro, busqueda]);
 
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -430,19 +560,30 @@ export const FinanzasAdmin = () => {
   const paginaMovimientos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
 
   const cambiarFiltro = (value: string) => { setFiltro(value as FiltroFinanzas); setPagina(1); };
+  const cambiarMoneda = (value: string) => { setMoneda(value as FiltroMoneda); setPagina(1); };
+  const cambiarPeriodo = (nuevo: Periodo) => { setPeriodo(nuevo); setPagina(1); };
+  const cambiarZona = (nueva: string) => { setZona(nueva); setPagina(1); };
+  const cambiarPaseador = (nuevo: string) => { setPaseador(nuevo); setPagina(1); };
   const buscar = (value: string) => { setBusqueda(value); setPagina(1); };
 
   /* Las cifras. La comisión se gana al cobrar (`pagado`); lo pendiente
      y lo reservado todavía no entró. Todo suma en colones —el precio
      del paseo—, pague el dueño en la moneda que pague, que es lo que
-     hace cuadrar este panel con el del dueño y el del paseador. */
+     hace cuadrar este panel con el del dueño y el del paseador.
+
+     Las tres primeras respetan el filtro de moneda: con «Dólares»
+     puesto dicen cuánta comisión dejaron los pagos en dólares. El
+     cobrado por moneda no: es la comparación entre las dos. */
   const cifras = useMemo(() => {
-    const pagados = movimientos.filter((m) => m.estado_pago === "pagado");
-    const pendientes = movimientos.filter((m) => m.estado_pago === "pendiente");
-    const reservados = movimientos.filter((m) => m.estado_pago === "retenido");
-    const enDolares = pagados.filter((m) => m.moneda === "USD" && m.monto_moneda != null);
     const suma = (lista: AdminFinanceMovement[], campo: "bruto" | "comision" | "neto_paseador") =>
       lista.reduce((total, m) => total + m[campo], 0);
+    const pagados = enMoneda.filter((m) => m.estado_pago === "pagado");
+    const pendientes = enMoneda.filter((m) => m.estado_pago === "pendiente");
+    const reservados = enMoneda.filter((m) => m.estado_pago === "retenido");
+
+    const todosPagados = enAlcance.filter((m) => m.estado_pago === "pagado");
+    const pagadosColones = todosPagados.filter((m) => monedaDe(m) === "CRC");
+    const pagadosDolares = todosPagados.filter((m) => monedaDe(m) === "USD");
 
     return {
       pagados,
@@ -452,10 +593,43 @@ export const FinanzasAdmin = () => {
       reservados: reservados.length,
       brutoCobrado: suma(pagados, "bruto"),
       netoPaseadores: suma(pagados, "neto_paseador"),
-      enDolares: enDolares.length,
-      dolaresCobrados: enDolares.reduce((total, m) => total + (m.monto_moneda ?? 0), 0),
+      colonesCobrado: suma(pagadosColones, "bruto"),
+      colonesCuantos: pagadosColones.length,
+      dolaresCobrado: pagadosDolares.reduce((total, m) => total + (m.monto_moneda ?? 0), 0),
+      dolaresEnColones: suma(pagadosDolares, "bruto"),
+      dolaresCuantos: pagadosDolares.length,
     };
-  }, [movimientos]);
+  }, [enMoneda, enAlcance]);
+
+  /* El mismo cálculo para el periodo anterior equivalente, con los
+     mismos filtros: de ahí sale el «+12 % vs la semana anterior». Con
+     «Todo» no hay con qué comparar. */
+  const anterior = useMemo(() => {
+    if (!limitesAnteriores) return null;
+    const pagados = alcance(movimientos, limitesAnteriores).filter(
+      (m) => m.estado_pago === "pagado" && (moneda === "Todas" || monedaDe(m) === moneda),
+    );
+    return {
+      comisionGanada: pagados.reduce((total, m) => total + m.comision, 0),
+      netoPaseadores: pagados.reduce((total, m) => total + m.neto_paseador, 0),
+    };
+  }, [alcance, movimientos, limitesAnteriores, moneda]);
+
+  const contraQue = t(`admin.finances.compare.against.${periodo.tipo}`);
+  const cambio = (actual: number, antes: number | undefined) => {
+    if (antes === undefined) return undefined;
+    if (antes === 0) {
+      return actual === 0
+        ? { tono: "igual" as const, texto: t("admin.finances.compare.same", { contra: contraQue }) }
+        : { tono: "sube" as const, texto: t("admin.finances.compare.fromZero", { contra: contraQue }) };
+    }
+    const porcentaje = Math.round(((actual - antes) / antes) * 100);
+    if (porcentaje === 0) return { tono: "igual" as const, texto: t("admin.finances.compare.same", { contra: contraQue }) };
+    return {
+      tono: porcentaje > 0 ? ("sube" as const) : ("baja" as const),
+      texto: t(porcentaje > 0 ? "admin.finances.compare.up" : "admin.finances.compare.down", { pct: Math.abs(porcentaje), contra: contraQue }),
+    };
+  };
 
   const exportar = () => {
     const rows = [
@@ -498,6 +672,17 @@ export const FinanzasAdmin = () => {
         action={botonNotificaciones}
       />
 
+      <FiltrosFinanzas
+        periodo={periodo}
+        onPeriodo={cambiarPeriodo}
+        zona={zona}
+        zonas={zonas}
+        onZona={cambiarZona}
+        paseador={paseador}
+        paseadores={paseadores}
+        onPaseador={cambiarPaseador}
+      />
+
       {/* Dos por renglón ya en el teléfono: una debajo de otra, las
           cuatro llenaban la primera pantalla entera. */}
       <div className="grid min-w-0 grid-cols-2 gap-2.5 xl:grid-cols-4">
@@ -505,6 +690,7 @@ export const FinanzasAdmin = () => {
           etiqueta={t("admin.finances.earnedCommission")}
           valor={colones(cifras.comisionGanada)}
           nota={plural(cifras.pagados.length, "admin.finances.paymentCompletedSingular", "admin.finances.paymentCompletedPlural")}
+          cambio={cambio(cifras.comisionGanada, anterior?.comisionGanada)}
         />
         <Stat
           etiqueta={t("admin.finances.pendingCommission")}
@@ -515,32 +701,56 @@ export const FinanzasAdmin = () => {
           etiqueta={t("admin.finances.walkersNet")}
           valor={colones(cifras.netoPaseadores)}
           nota={cifras.pagados.length ? t("admin.finances.walkersNetNote", { bruto: colones(cifras.brutoCobrado) }) : t("admin.finances.noPayments")}
+          cambio={cambio(cifras.netoPaseadores, anterior?.netoPaseadores)}
         />
-        <Stat
-          etiqueta={t("admin.finances.inDollars")}
-          valor={dolares(cifras.dolaresCobrados)}
-          nota={t("admin.finances.inDollarsNote", { n: cifras.enDolares, total: cifras.pagados.length })}
-          parte={cifras.pagados.length ? cifras.enDolares / cifras.pagados.length : undefined}
+        <StatMonedas
+          colonesCobrado={cifras.colonesCobrado}
+          colonesCuantos={cifras.colonesCuantos}
+          dolaresCobrado={cifras.dolaresCobrado}
+          dolaresEnColones={cifras.dolaresEnColones}
+          dolaresCuantos={cifras.dolaresCuantos}
+          activa={moneda}
         />
       </div>
+
+      {/* Cómo se movió lo cobrado y dónde. Con el filtro de moneda puesto,
+          solo esa moneda; los montos siempre en colones. */}
+      {!loading && !error && (
+        <div className="grid min-w-0 gap-2.5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+          <CobradoEnElTiempo movimientos={enMoneda} limites={limites} />
+          <CobradoPorZona movimientos={enMoneda} />
+        </div>
+      )}
 
       {/* El dólar del día y el conversor: la misma consulta a Hacienda
           con la que paga un dueño que elige dólares. */}
       <TipoCambioDia />
 
-      <div className="flex flex-col gap-3 bg-surface px-3 py-3 lg:flex-row lg:items-center">
-        <div className="-mx-3 overflow-x-auto px-3 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
+      {/* Los filtros: el estado del pago y, de la par, la moneda. En la
+          computadora van en un renglón y la búsqueda en el siguiente;
+          en el teléfono cada uno en el suyo, el de estados deslizable. */}
+      <div className="flex flex-col gap-3 bg-surface px-3 py-3">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="-mx-3 overflow-x-auto px-3 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
+            <FilterTabs
+              label={t("admin.finances.filterLabel")}
+              options={(Object.keys(claveFiltroFinanzas) as FiltroFinanzas[]).map((o) => ({ value: o, label: t(claveFiltroFinanzas[o]) }))}
+              value={filtro}
+              onChange={cambiarFiltro}
+              cuentas={cuentas}
+              desplazable
+            />
+          </div>
           <FilterTabs
-            label={t("admin.finances.filterLabel")}
-            options={(Object.keys(claveFiltroFinanzas) as FiltroFinanzas[]).map((o) => ({ value: o, label: t(claveFiltroFinanzas[o]) }))}
-            value={filtro}
-            onChange={cambiarFiltro}
-            cuentas={cuentas}
-            desplazable
+            label={t("admin.finances.currency.label")}
+            options={(Object.keys(claveFiltroMoneda) as FiltroMoneda[]).map((o) => ({ value: o, label: t(claveFiltroMoneda[o]) }))}
+            value={moneda}
+            onChange={cambiarMoneda}
+            cuentas={cuentasMoneda}
           />
         </div>
 
-        <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:flex-nowrap lg:justify-end">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative min-w-[200px] flex-1">
             <Search size={14} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-mute" />
             <input
@@ -570,7 +780,9 @@ export const FinanzasAdmin = () => {
           <>
             <div className="hidden md:block">
               <Table
-                caption={t("admin.finances.caption", { filtro: t(claveFiltroFinanzas[filtro]).toLowerCase() })}
+                caption={t("admin.finances.caption", {
+                  filtro: `${t(claveFiltroFinanzas[filtro]).toLowerCase()} · ${t(claveFiltroMoneda[moneda]).toLowerCase()}`,
+                })}
                 min="min-w-[860px]"
                 padX="px-4"
                 columnas={[
@@ -590,7 +802,7 @@ export const FinanzasAdmin = () => {
                       <button
                         type="button"
                         onClick={() => setDetalle(m)}
-                        className="block max-w-full truncate text-left text-[13px] font-semibold text-ink underline-offset-[3px] transition-colors duration-150 group-hover:underline hover:text-accent-deep"
+                        className="-my-2 block max-w-full truncate py-2 text-left text-[13px] font-semibold text-ink underline-offset-[3px] transition-colors duration-150 group-hover:underline hover:text-accent-deep"
                       >
                         {m.mascota}
                       </button>
@@ -628,7 +840,7 @@ export const FinanzasAdmin = () => {
                       <button
                         type="button"
                         onClick={() => setDetalle(m)}
-                        className="block max-w-full truncate text-left text-[13.5px] font-semibold text-ink transition-transform duration-150 ease-out active:scale-[0.99]"
+                        className="-my-2 block max-w-full truncate py-2 text-left text-[13.5px] font-semibold text-ink transition-transform duration-150 ease-out active:scale-[0.99]"
                       >
                         {m.mascota}
                       </button>
@@ -666,7 +878,7 @@ export const FinanzasAdmin = () => {
         ) : (
           <EmptyState
             title={t("admin.finances.empty.title")}
-            hint={busqueda ? t("admin.finances.empty.withSearch") : t("admin.finances.empty.hint")}
+            hint={busqueda || moneda !== "Todas" ? t("admin.finances.empty.withSearch") : t("admin.finances.empty.hint")}
           />
         )}
       </Section>
@@ -678,15 +890,34 @@ export const FinanzasAdmin = () => {
 
 /* ── El detalle de un pago ──
    Lo que el admin necesita para responder «¿qué pasó con este pago?»
-   sin abrir la base: cómo se repartió, cómo se cobró y por dónde pasó. */
+   sin abrir la base. En el orden en que se pregunta:
+
+     1. cuánto se le cobró al dueño y en qué está el pago (arriba,
+        grande: es lo primero que se busca),
+     2. cómo se repartió y cómo se cobró (lado a lado en la
+        computadora),
+     3. de qué paseo es y por dónde pasó el pago.
+
+   La referencia se copia con un toque: es lo que se pega en el banco o
+   en un mensaje cuando alguien pregunta por un cobro. */
 const DetallePago = ({ movimiento: m, onClose }: { movimiento: AdminFinanceMovement; onClose: () => void }) => {
   const { t, localeTag } = useTranslation();
   const enDolares = m.moneda === "USD" && m.monto_moneda != null;
   const porcentaje = m.bruto > 0 ? Math.round((m.comision / m.bruto) * 100) : 0;
   const parteComision = m.bruto > 0 ? m.comision / m.bruto : 0;
+  const referencia = m.referencia ?? `#${m.id_pago.slice(0, 8)}`;
+
+  const copiarReferencia = async () => {
+    try {
+      await navigator.clipboard.writeText(referencia);
+      aviso.ok(t("admin.finances.detail.referenceCopied"));
+    } catch {
+      aviso.error(null, { respaldo: t("admin.finances.detail.referenceNotCopied") });
+    }
+  };
 
   const fila = (etiqueta: string, valor: ReactNode) => (
-    <div key={etiqueta} className="flex justify-between gap-4 border-b border-sunken py-2 last:border-b-0">
+    <div key={etiqueta} className="flex items-baseline justify-between gap-4 py-2">
       <dt className="text-ink-soft">{etiqueta}</dt>
       <dd className="min-w-0 text-right font-medium break-words text-ink">{valor}</dd>
     </div>
@@ -703,25 +934,51 @@ const DetallePago = ({ movimiento: m, onClose }: { movimiento: AdminFinanceMovem
   ];
 
   return (
-    <Dialog title={t("admin.finances.detail.title")} onClose={onClose}>
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-4 border-b border-sunken pb-4">
-          <div className="min-w-0">
-            <h4 className="titular text-[17px] text-ink">{t("admin.finances.detail.walkOf", { mascota: m.mascota })}</h4>
-            <p className="nums mt-1 truncate text-[12px] text-ink-mute">{m.referencia ?? `#${m.id_pago.slice(0, 8)}`}</p>
-          </div>
-          <Badge tono={tonoEstadoPago(m.estado_pago)}>{t(claveEstadoPago[m.estado_pago])}</Badge>
+    <Dialog
+      title={t("admin.finances.detail.title")}
+      contexto={`${t("admin.finances.detail.walkOf", { mascota: m.mascota })} · ${fechaPaseo(m, localeTag)}`}
+      onClose={onClose}
+      ancho="max-w-[680px]"
+    >
+      {/* ── Lo que se cobró y en qué está ── */}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-sunken px-5 py-5 sm:px-6">
+        <div className="min-w-0">
+          <p className="rotulo text-ink-mute">{t("admin.finances.detail.chargedToOwner")}</p>
+          <p className="nums mt-1.5 text-[30px] leading-none font-semibold tracking-[-0.02em] text-ink">
+            {enDolares ? dolares(m.monto_moneda ?? 0) : colones(m.bruto)}
+          </p>
+          {enDolares && (
+            <p className="nums mt-1.5 text-[12.5px] text-ink-soft">
+              {t("admin.finances.detail.inColones", { colones: colones(m.bruto) })}
+              {m.tipo_cambio != null && ` · ${t("admin.finances.rateShort", { tipo: colones(m.tipo_cambio) })}`}
+            </p>
+          )}
         </div>
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end">
+          <Badge tono={tonoEstadoPago(m.estado_pago)}>{t(claveEstadoPago[m.estado_pago])}</Badge>
+          <button
+            type="button"
+            onClick={() => void copiarReferencia()}
+            title={t("admin.finances.detail.copyReference")}
+            className="nums inline-flex max-w-full items-center gap-1.5 rounded-full bg-sunken px-3 py-1.5 text-[12px] text-ink-soft transition-[background-color,color] duration-150 hover:bg-neutral-wash hover:text-ink"
+          >
+            <span className="truncate">{referencia}</span>
+            <FileText size={13} className="shrink-0" />
+            <span className="sr-only">{t("admin.finances.detail.copyReference")}</span>
+          </button>
+        </div>
+      </div>
 
+      <div className="grid gap-x-8 gap-y-5 px-5 py-5 sm:grid-cols-2 sm:px-6">
         {/* ── El reparto ── el filete es el mismo turquesa de `Stat`;
             la parte de la plataforma va en el navy de la casa. */}
-        <section className="mt-4">
-          <h5 className="rotulo text-ink-mute">{t("admin.finances.detail.split")}</h5>
-          <div className="mt-2.5 flex h-2.5 overflow-hidden rounded-full bg-sunken" aria-hidden="true">
-            <span className="h-full bg-accent" style={{ width: `${(1 - parteComision) * 100}%` }} />
-            <span className="h-full bg-rail" style={{ width: `${parteComision * 100}%` }} />
+        <section>
+          <h3 className="rotulo text-ink-mute">{t("admin.finances.detail.split")}</h3>
+          <div className="mt-3 flex h-2 gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
+            <span className="h-full rounded-full bg-accent" style={{ flexGrow: 1 - parteComision }} />
+            <span className="h-full rounded-full bg-rail" style={{ flexGrow: parteComision }} />
           </div>
-          <dl className="mt-2 text-[13px]">
+          <dl className="mt-1.5 divide-y divide-sunken text-[13px]">
             {fila(t("admin.finances.detail.gross"), <span className="nums">{colones(m.bruto)}</span>)}
             {fila(
               t("admin.finances.detail.net"),
@@ -740,53 +997,59 @@ const DetallePago = ({ movimiento: m, onClose }: { movimiento: AdminFinanceMovem
           </dl>
         </section>
 
-        <section className="mt-5">
-          <h5 className="rotulo text-ink-mute">{t("admin.finances.detail.charge")}</h5>
-          <dl className="mt-1 text-[13px]">
+        <section>
+          <h3 className="rotulo text-ink-mute">{t("admin.finances.detail.charge")}</h3>
+          <dl className="mt-1.5 divide-y divide-sunken text-[13px]">
             {fila(t("admin.finances.detail.currency"), t(enDolares ? "admin.finances.detail.currencyUSD" : "admin.finances.detail.currencyCRC"))}
-            {fila(t("admin.finances.detail.chargedToOwner"), <span className="nums">{enDolares ? dolares(m.monto_moneda ?? 0) : colones(m.bruto)}</span>)}
             {enDolares && m.tipo_cambio != null && fila(t("admin.finances.detail.exchangeRate"), <span className="nums">{colones(m.tipo_cambio)}</span>)}
             {fila(t("admin.finances.detail.method"), sinMetodo(m.metodo_pago) ? t("admin.finances.methodPending") : m.metodo_pago)}
           </dl>
         </section>
 
-        <section className="mt-5">
-          <h5 className="rotulo text-ink-mute">{t("admin.finances.detail.walk")}</h5>
-          <dl className="mt-1 text-[13px]">
-            {fila(t("admin.finances.detail.when"), <span className="nums">{fechaPaseo(m, localeTag)}</span>)}
-            {m.duracion_min ? fila(t("admin.finances.detail.duration"), t("admin.finances.detail.durationMinutes", { n: m.duracion_min })) : null}
-            {fila(t("admin.finances.detail.zone"), m.zona ?? t("admin.finances.detail.noZone"))}
-            {m.estado_paseo && fila(t("admin.finances.detail.walkStatus"), <Badge tono={tonoPaseo(m.estado_paseo)}>{t(claveEstadoPaseo[m.estado_paseo])}</Badge>)}
+        <section className="sm:col-span-2">
+          <h3 className="rotulo text-ink-mute">{t("admin.finances.detail.walk")}</h3>
+          <dl className="mt-1.5 grid text-[13px] sm:grid-cols-2 sm:gap-x-8 [&>div]:border-b [&>div]:border-sunken">
             {fila(t("admin.finances.detail.owner"), m.dueno)}
             {fila(t("admin.finances.detail.walker"), m.paseador)}
+            {fila(t("admin.finances.detail.zone"), m.zona ?? t("admin.finances.detail.noZone"))}
+            {m.duracion_min ? fila(t("admin.finances.detail.duration"), t("admin.finances.detail.durationMinutes", { n: m.duracion_min })) : null}
+            {m.estado_paseo && fila(t("admin.finances.detail.walkStatus"), <Badge tono={tonoPaseo(m.estado_paseo)}>{t(claveEstadoPaseo[m.estado_paseo])}</Badge>)}
           </dl>
         </section>
 
-        <section className="mt-5">
-          <h5 className="rotulo text-ink-mute">{t("admin.finances.detail.timeline")}</h5>
-          <ol className="mt-2.5 flex flex-col gap-2.5">
+        {/* ── Por dónde pasó ── en fila en la computadora, en columna en
+            el teléfono. La línea entre pasos se pinta hasta el último
+            que ya pasó. */}
+        <section className="sm:col-span-2">
+          <h3 className="rotulo text-ink-mute">{t("admin.finances.detail.timeline")}</h3>
+          <ol className="mt-3 grid gap-3 sm:grid-cols-3 sm:gap-2">
             {pasos.map((paso) => (
-              <li key={paso.clave} className="flex items-center gap-3 text-[13px]">
-                <span
-                  aria-hidden
-                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-full ${paso.hecho ? "bg-accent-wash text-accent-dark" : "bg-sunken text-ink-mute"}`}
-                >
-                  {paso.hecho ? <Check size={12} strokeWidth={2.4} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+              <li key={paso.clave} className="flex items-start gap-3 sm:flex-col sm:gap-2">
+                <span className="flex w-full items-center gap-2 sm:w-auto sm:self-stretch">
+                  <span
+                    aria-hidden
+                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${paso.hecho ? "bg-accent text-white" : "bg-sunken text-ink-mute"}`}
+                  >
+                    {paso.hecho ? <Check size={13} strokeWidth={2.4} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                  </span>
+                  <span aria-hidden className={`hidden h-[2px] flex-1 rounded-full sm:block ${paso.hecho ? "bg-accent/40" : "bg-sunken"}`} />
                 </span>
-                <span className={paso.hecho ? "text-ink" : "text-ink-mute"}>{t(paso.clave)}</span>
-                <span className="nums ml-auto text-[12px] text-ink-mute">
-                  {paso.cuando ? fechaHoraFinanzas(paso.cuando, localeTag) : paso.hecho ? "" : t("admin.finances.detail.notYet")}
+                <span className="min-w-0 sm:pr-3">
+                  <span className={`block text-[12.5px] leading-snug ${paso.hecho ? "text-ink" : "text-ink-mute"}`}>{t(paso.clave)}</span>
+                  <span className="nums mt-0.5 block text-[11.5px] text-ink-mute">
+                    {paso.cuando ? fechaHoraFinanzas(paso.cuando, localeTag) : paso.hecho ? "" : t("admin.finances.detail.notYet")}
+                  </span>
                 </span>
               </li>
             ))}
           </ol>
         </section>
+      </div>
 
-        <div className="mt-6 flex justify-end border-t border-sunken pt-4">
-          <button type="button" className={btnPrimary} onClick={onClose}>
-            {t("admin.finances.detail.close")}
-          </button>
-        </div>
+      {/* `rounded-none`: en el mundo `suave` todo fondo blanco lleva radio, y
+          el pie fijo salía con las esquinas de arriba curvas. */}
+      <div className="sticky bottom-0 flex justify-end rounded-none border-t border-sunken bg-surface px-5 py-3.5 sm:px-6">
+        <BotonCerrarVentana className={btnSecondary}>{t("admin.finances.detail.close")}</BotonCerrarVentana>
       </div>
     </Dialog>
   );
@@ -1030,9 +1293,9 @@ const FichaPaseadorDialog = ({ paseador, onCerrar }: { paseador: AdminWalkerConF
         </section>
 
         <div className="flex justify-end border-t border-sunken pt-4">
-          <button type="button" className={btnPrimary} onClick={onCerrar}>
+          <BotonCerrarVentana className={btnSecondary}>
             {t("admin.walkers.detail.close")}
-          </button>
+          </BotonCerrarVentana>
         </div>
       </div>
     </Dialog>
@@ -1082,7 +1345,7 @@ export const PaseadoresAdmin = () => {
       type="button"
       onClick={() => setFichaId(p.id_usuario)}
       title={t("admin.walkers.open", { nombre: p.nombre })}
-      className={`block max-w-full truncate text-left font-semibold text-ink underline-offset-[3px] transition-colors duration-150 hover:text-accent-deep ${className}`}
+      className={`-my-2 block max-w-full truncate py-2 text-left font-semibold text-ink underline-offset-[3px] transition-colors duration-150 hover:text-accent-deep ${className}`}
     >
       {p.nombre}
     </button>
@@ -1096,13 +1359,14 @@ export const PaseadoresAdmin = () => {
         action={botonNotificaciones}
       />
 
-      <div className="bg-surface px-3 py-3">
+      <div className="overflow-x-auto bg-surface px-3 py-3">
         <FilterTabs
           label={t("admin.walkers.filterLabel")}
           options={["Todos", "Activos", "Inactivos", "Suspendidos"].map((o) => ({ value: o, label: t(claveFiltroPaseadores[o]) }))}
           value={filtro}
           onChange={cambiarFiltro}
           cuentas={loading ? undefined : cuentas}
+          desplazable
         />
       </div>
 

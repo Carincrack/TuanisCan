@@ -31,5 +31,8 @@
   "initialsOf": "Iniciales de {{nombre}}",
   "closePhoto": "Cerrar la foto",
   "loadingPlatform": "Cargando la plataforma",
-  "select": "Seleccionar"
+  "select": "Seleccionar",
+  "unsavedChanges": "Tienes cambios sin guardar. ¿Los descartas?",
+  "keepEditing": "Seguir editando",
+  "discardChanges": "Descartar"
 }

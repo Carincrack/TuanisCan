@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Loader, X } from "../lib/iconos";
@@ -283,11 +283,17 @@ export const Stat = ({
   valor,
   nota,
   parte,
+  cambio,
 }: {
   etiqueta: string;
   valor: string;
   nota?: string;
   parte?: number;
+  /** Contra el periodo anterior: «+12 % vs semana anterior». `sube` en
+      verde y `baja` en rojo valen para cifras donde subir es bueno
+      (ingresos); el color siempre va con la flecha y el signo, nunca
+      solo. */
+  cambio?: { texto: string; tono: "sube" | "baja" | "igual" };
 }) => (
   <div className={`${surface} px-6 py-5`}>
     <p className="rotulo text-ink-mute">{etiqueta}</p>
@@ -295,6 +301,20 @@ export const Stat = ({
       {valor}
     </p>
     {nota && <p className="mt-1.5 text-[12px] text-ink-soft">{nota}</p>}
+    {cambio && (
+      <p
+        className={`mt-1.5 flex items-start gap-1 text-[12px] leading-snug font-semibold ${
+          cambio.tono === "sube" ? "text-ok" : cambio.tono === "baja" ? "text-danger" : "text-ink-mute"
+        }`}
+      >
+        {cambio.tono !== "igual" && (
+          <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden className="mt-[3px] shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d={cambio.tono === "sube" ? "M6 10V2M2.5 5.5 6 2l3.5 3.5" : "M6 2v8M2.5 6.5 6 10l3.5-3.5"} />
+          </svg>
+        )}
+        {cambio.texto}
+      </p>
+    )}
     {parte !== undefined && (
       <div className="mt-3.5 h-[3px] w-full overflow-hidden rounded-full bg-sunken" aria-hidden="true">
         <div
@@ -304,6 +324,27 @@ export const Stat = ({
       </div>
     )}
   </div>
+);
+
+/* ── Estrellas ─────────────────────────────────────────────── */
+
+/** Una estrella de calificación. Es la de Lucide pero dibujada acá: la
+    del módulo de íconos es de trazo animado y no se deja rellenar, y
+    una estrella elegida tiene que verse llena. */
+export const Estrella = ({ llena, tamano = 30 }: { llena: boolean; tamano?: number }) => (
+  <svg
+    viewBox="0 0 24 24"
+    width={tamano}
+    height={tamano}
+    aria-hidden
+    fill={llena ? "currentColor" : "none"}
+    stroke="currentColor"
+    strokeWidth={1.6}
+    strokeLinejoin="round"
+    className={`shrink-0 transition-colors duration-150 ${llena ? "text-warn" : "text-ink-mute/50"}`}
+  >
+    <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
+  </svg>
 );
 
 /* ── Interruptor ─────────────────────────────────────────────── */
@@ -345,7 +386,7 @@ export const Interruptor = ({
     title={etiqueta}
     disabled={deshabilitado || ocupado}
     onClick={onCambio}
-    className={`relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-[3px] transition-[background-color,transform] duration-200 ease-out active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:active:scale-100 ${
+    className={`relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-[3px] before:absolute before:-inset-x-[3px] before:-inset-y-[11px] before:content-[''] transition-[background-color,transform] duration-200 ease-out active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:active:scale-100 ${
       activo ? "bg-rail" : "bg-neutral-wash"
     } ${deshabilitado ? "opacity-45" : ""} ${ocupado ? "animate-pulse cursor-wait" : ""}`}
   >
@@ -625,49 +666,157 @@ export const Paginacion = ({
    que es la que se está mirando. */
 const pilaDeVentanas: symbol[] = [];
 
+/* Lo que dura la salida. La entrada es más larga (320 ms): se mira
+   cómo llega lo que se pidió; lo que se descarta tiene que irse ya. */
+const SALIDA_MS = 170;
+
+const reducirMovimiento = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* Para los botones de adentro —«Cancelar», «Cerrar»— que quieren
+   cerrar con la misma salida suave y, si hay cambios sin guardar, con
+   la misma pregunta. Fuera de una ventana no hace nada. */
+const CerrarVentanaContext = createContext<() => void>(() => undefined);
+
+/** Cierra la ventana en la que está el componente, con su salida. */
+export const useCerrarVentana = () => useContext(CerrarVentanaContext);
+
+const CambiosContext = createContext<(hay: boolean) => void>(() => undefined);
+
+/** Para el formulario de adentro de una ventana: le avisa si tiene algo
+    escrito sin guardar, y entonces cerrar con el fondo, la X o Escape
+    pregunta antes de descartarlo. El formulario es el único que sabe
+    si cambió algo; por eso avisa él y no quien abre la ventana. */
+export const useCambiosSinGuardar = (hay: boolean) => {
+  const avisar = useContext(CambiosContext);
+  /* De diseño (layout) y no un efecto común: así el aviso llega en el
+     mismo momento en que se escribe, y un Escape inmediato ya lo ve. */
+  useLayoutEffect(() => {
+    avisar(hay);
+    return () => avisar(false);
+  }, [avisar, hay]);
+};
+
+/** Lo de arriba, para el caso de siempre: compara lo escrito con cómo
+    empezó el formulario. `ademas` es para lo que no está en los
+    valores, como una foto elegida. */
+export const useAvisarSiCambio = (valores: unknown, ademas = false) => {
+  const [inicio] = useState(() => JSON.stringify(valores));
+  useCambiosSinGuardar(ademas || JSON.stringify(valores) !== inicio);
+};
+
+const ENFOCABLES =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export const Dialog = ({
   title,
+  contexto,
   onClose,
   children,
   ancho = "max-w-[560px]",
+  capa = "z-50",
+  cambiosSinGuardar = false,
 }: {
   title: string;
+  /** Una línea debajo del título: de qué registro se trata («Paseo
+      de Toby · 20 oct»). Opcional. */
+  contexto?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   /** Ancho máximo del panel, en clases. Un formulario de dos columnas
       pide más aire que una confirmación de una línea. */
   ancho?: string;
+  /** El `z-index`, en clases. Hace falta subirlo cuando la ventana se
+      abre encima de algo que ya tapa la app, como el chat a pantalla
+      completa del teléfono (`z-[95]`). */
+  capa?: string;
+  /** Un formulario con algo escrito. Cerrar tocando el fondo, la X o
+      Escape no lo descarta de una: primero pregunta. */
+  cambiosSinGuardar?: boolean;
 }) => {
   const { t } = useTranslation();
   const titleId = useId();
+  const panel = useRef<HTMLElement>(null);
+  const [saliendo, setSaliendo] = useState(false);
+  const [preguntando, setPreguntando] = useState(false);
+  const [cambiosDeAdentro, setCambiosDeAdentro] = useState(false);
   const cerrar = useRef(onClose);
+  const sinGuardar = useRef(cambiosSinGuardar);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     cerrar.current = onClose;
+    sinGuardar.current = cambiosSinGuardar || cambiosDeAdentro;
   });
+
+  /* Cerrar de verdad: primero la salida y después, al terminar, el
+     aviso a quien abrió. Sin la espera el `onClose` la desmontaba en
+     el acto y la ventana desaparecía de golpe. */
+  const salir = useCallback(() => {
+    setPreguntando(false);
+    if (reducirMovimiento()) {
+      cerrar.current();
+      return;
+    }
+    setSaliendo(true);
+    window.setTimeout(() => cerrar.current(), SALIDA_MS);
+  }, []);
+
+  /* Lo que piden el fondo, la X, Escape y los botones de adentro. Con
+     cambios sin guardar, antes pregunta. */
+  const pedirCierre = useCallback(() => {
+    if (sinGuardar.current) {
+      setPreguntando(true);
+      return;
+    }
+    salir();
+  }, [salir]);
 
   useEffect(() => {
     const yo = Symbol("ventana");
     const devolver = document.activeElement as HTMLElement | null;
     const previo = document.body.style.overflow;
+
     const alTeclear = (evento: KeyboardEvent) => {
-      if (evento.key !== "Escape") return;
       if (pilaDeVentanas[pilaDeVentanas.length - 1] !== yo) return;
-      cerrar.current();
+      if (evento.key === "Escape") {
+        pedirCierre();
+        return;
+      }
+      /* El Tab da la vuelta adentro: con la ventana abierta, lo de
+         atrás no se puede tocar, así que tampoco se le llega con el
+         teclado. */
+      if (evento.key === "Tab" && panel.current) {
+        const enfocables = [...panel.current.querySelectorAll<HTMLElement>(ENFOCABLES)].filter(
+          (el) => el.offsetParent !== null,
+        );
+        if (!enfocables.length) return;
+        const primero = enfocables[0];
+        const ultimo = enfocables[enfocables.length - 1];
+        if (evento.shiftKey && (document.activeElement === primero || document.activeElement === panel.current)) {
+          evento.preventDefault();
+          ultimo.focus();
+        } else if (!evento.shiftKey && document.activeElement === ultimo) {
+          evento.preventDefault();
+          primero.focus();
+        }
+      }
     };
 
     pilaDeVentanas.push(yo);
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", alTeclear);
+    /* El foco entra a la ventana —al panel, no al primer campo: en el
+       teléfono eso abriría el teclado sin que nadie lo pidiera—. */
+    panel.current?.focus({ preventScroll: true });
 
     return () => {
       const i = pilaDeVentanas.indexOf(yo);
       if (i >= 0) pilaDeVentanas.splice(i, 1);
       document.body.style.overflow = previo;
       document.removeEventListener("keydown", alTeclear);
-      devolver?.focus?.();
+      devolver?.focus?.({ preventScroll: true });
     };
-  }, []);
+  }, [pedirCierre]);
 
   /* La clase `suave` en la envoltura no es decorativa. El portal
      cuelga de `document.body`, o sea FUERA del `<div class="suave">`
@@ -676,38 +825,86 @@ export const Dialog = ({
      fina, las versalitas de `rotulo`. Sin esto la ventana sale
      cuadrada y con el scroll gris del sistema. */
   return createPortal(
-    <div className="suave fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+    <div className={`suave fixed inset-0 ${capa} flex items-center justify-center p-3 sm:p-6`}>
       <button
         type="button"
+        tabIndex={-1}
         aria-label={t("common.close")}
-        onClick={() => cerrar.current()}
-        className="anim-fade absolute inset-0 bg-rail/70 backdrop-blur-[2px]"
+        onClick={pedirCierre}
+        className={`absolute inset-0 bg-rail/70 backdrop-blur-[2px] ${saliendo ? "anim-fondo-out" : "anim-fondo-in"}`}
       />
 
       <section
+        ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`anim-rise relative max-h-[92dvh] w-full ${ancho} overflow-hidden overflow-y-auto rounded-[18px] bg-surface`}
+        tabIndex={-1}
+        className={`relative flex max-h-[92dvh] w-full ${ancho} flex-col overflow-hidden rounded-[18px] bg-surface shadow-[0_24px_60px_-20px_rgb(20_36_46/45%)] outline-none ${
+          saliendo ? "anim-ventana-out" : "anim-ventana-in"
+        }`}
       >
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-rail px-5 py-4">
-          <h2 id={titleId} className="titular text-[16px] text-white">
-            {title}
-          </h2>
+        <header className="flex shrink-0 items-start justify-between gap-4 bg-rail px-5 py-4">
+          <div className="min-w-0">
+            <h2 id={titleId} className="titular text-[16px] text-white">
+              {title}
+            </h2>
+            {contexto && <p className="mt-0.5 truncate text-[12.5px] text-rail-text">{contexto}</p>}
+          </div>
           <button
             type="button"
-            onClick={() => cerrar.current()}
+            onClick={pedirCierre}
             aria-label={t("common.close")}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-150 ease-out hover:bg-rail-hover hover:text-white active:scale-[0.94]"
+            className="-mt-0.5 -mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-150 ease-out hover:bg-rail-hover hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.94]"
           >
             <X size={17} />
           </button>
         </header>
 
-        {children}
+        {preguntando && (
+          <div role="alertdialog" aria-live="assertive" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 bg-gold-wash px-5 py-3">
+            <p className="min-w-0 flex-1 text-[13px] font-medium text-ink">{t("common.unsavedChanges")}</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setPreguntando(false)} className={btnSecondaryCompacto}>
+                {t("common.keepEditing")}
+              </button>
+              <button type="button" onClick={salir} className={btnDangerCompacto}>
+                {t("common.discardChanges")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* El scroll va adentro y solo si hace falta: el encabezado
+            queda fijo arriba y la página de atrás no se mueve. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <CerrarVentanaContext.Provider value={pedirCierre}>
+            <CambiosContext.Provider value={setCambiosDeAdentro}>{children}</CambiosContext.Provider>
+          </CerrarVentanaContext.Provider>
+        </div>
       </section>
     </div>,
     document.body,
+  );
+};
+
+/** Un botón que cierra la ventana en la que está, con su salida suave
+    (y la pregunta, si hay cambios sin guardar). Para los «Cancelar» y
+    «Cerrar» de adentro. */
+export const BotonCerrarVentana = ({
+  children,
+  className,
+  disabled,
+}: {
+  children: ReactNode;
+  className: string;
+  disabled?: boolean;
+}) => {
+  const cerrarVentana = useCerrarVentana();
+  return (
+    <button type="button" disabled={disabled} onClick={cerrarVentana} className={className}>
+      {children}
+    </button>
   );
 };
 
@@ -734,6 +931,7 @@ export const Confirmar = ({
   cancelar,
   tono = "normal",
   ocupado = false,
+  capa,
   onConfirmar,
   onCancelar,
 }: {
@@ -744,6 +942,8 @@ export const Confirmar = ({
   /** `peligro` para lo que borra o no se puede deshacer. */
   tono?: "normal" | "peligro";
   ocupado?: boolean;
+  /** Ver `Dialog`. */
+  capa?: string;
   onConfirmar: () => void;
   onCancelar: () => void;
 }) => {
@@ -753,6 +953,7 @@ export const Confirmar = ({
     <Dialog
       title={titulo}
       ancho="max-w-[440px]"
+      capa={capa}
       onClose={() => {
         if (!ocupado) onCancelar();
       }}
@@ -761,14 +962,12 @@ export const Confirmar = ({
         <p className="text-[13.5px] leading-relaxed text-ink-soft">{cuerpo}</p>
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
+          <BotonCerrarVentana
             disabled={ocupado}
-            onClick={onCancelar}
             className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}
           >
             {cancelar ?? t("common.cancel")}
-          </button>
+          </BotonCerrarVentana>
           <button
             type="button"
             disabled={ocupado}

@@ -198,7 +198,7 @@ const EmployeeHome = () => {
             aside={
               <Link
                 to="/paseos"
-                className="flex items-center gap-1 text-[12.5px] font-semibold text-accent-dark hover:underline"
+                className="-my-2 flex items-center gap-1 py-2 text-[12.5px] font-semibold text-accent-dark hover:underline"
               >
                 {t("home.upcomingWalks.viewAll")}
                 <ArrowRight size={13} strokeWidth={2.2} aria-hidden />
@@ -254,7 +254,7 @@ const EmployeeHome = () => {
                 aside={
                   <Link
                     to="/mascotas"
-                    className="flex items-center gap-1 text-[12.5px] font-semibold text-accent-dark hover:underline"
+                    className="-my-2 flex items-center gap-1 py-2 text-[12.5px] font-semibold text-accent-dark hover:underline"
                   >
                     {t("home.myPets.manage")}
                     <ArrowRight size={13} strokeWidth={2.2} aria-hidden />

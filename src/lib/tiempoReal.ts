@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Notification } from "../services/notifications.service";
+import { olvidarDatos } from "./memoria";
 
 /* ─────────────────────────────────────────────────────────────
    CUANDO LLEGA ALGO NUEVO
@@ -22,8 +23,12 @@ const EVENTO = "tuaniscan:notificacion";
 
 export type TipoNotificacion = Notification["tipo"];
 
-/** Lo llama `AppShell` por cada notificación que llega. */
+/** Lo llama `AppShell` por cada notificación que llega. Antes de
+    avisar se olvida lo recordado (lib/memoria.ts): la notificación dice
+    que algo cambió, y la pantalla que se recarga tiene que ver el dato
+    nuevo, no el de hace un rato. */
 export const anunciarNotificacion = (notificacion: Notification) => {
+  olvidarDatos();
   window.dispatchEvent(new CustomEvent<Notification>(EVENTO, { detail: notificacion }));
 };
 

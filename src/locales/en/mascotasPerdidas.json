@@ -98,11 +98,12 @@
     "hint": "Someone reported finding a pet that could be yours.",
     "photoAlt": "Photo of the found pet, possibly {{nombre}}",
     "isThis": "Is this {{nombre}}?",
-    "yesItsHer": "Yes, that's them",
-    "notHer": "Not them",
+    "yesItsHer": "Yes, it's {{nombre}}",
+    "notHer": "Not {{nombre}}",
     "confirmed": "{{nombre}} is back!",
     "confirmedDetail": "We linked the report to your pet. Coordinate the handoff with whoever found them.",
-    "discarded": "Match discarded"
+    "discarded": "Match discarded",
+    "reportedAgo": "Reported {{cuando}}"
   },
   "filters": {
     "aria": "Lost pets filters",

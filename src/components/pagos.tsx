@@ -32,6 +32,7 @@ import {
   type PaymentStatus,
 } from "../services/payments.service";
 import {
+  BotonCerrarVentana,
   Badge,
   Dialog,
   EmptyState,
@@ -622,7 +623,7 @@ const Pagos = () => {
                             type="button"
                             onClick={() => setDetalleMovimiento(movement)}
                             title={t("pagos.table.viewReceiptTitle", { mascota: movement.mascota })}
-                            className="block max-w-full truncate text-left text-[13.5px] font-semibold text-ink underline-offset-[3px] transition-colors duration-150 group-hover:underline hover:text-accent-deep"
+                            className="-my-2 block max-w-full truncate py-2 text-left text-[13.5px] font-semibold text-ink underline-offset-[3px] transition-colors duration-150 group-hover:underline hover:text-accent-deep"
                           >
                             {t("pagos.table.walkWith", { mascota: movement.mascota })}
                           </button>
@@ -682,7 +683,7 @@ const Pagos = () => {
                       <button
                         type="button"
                         onClick={() => setDetalleMovimiento(movement)}
-                        className="block max-w-full truncate text-left text-[13.5px] font-semibold text-ink transition-transform duration-150 ease-out active:scale-[0.99]"
+                        className="-my-2 block max-w-full truncate py-2 text-left text-[13.5px] font-semibold text-ink transition-transform duration-150 ease-out active:scale-[0.99]"
                       >
                         {t("pagos.table.walkWith", { mascota: movement.mascota })}
                       </button>
@@ -707,7 +708,7 @@ const Pagos = () => {
                     {movement.estado_pago === "pendiente" && (
                       <button
                         type="button"
-                        className={`${btnPagar} ml-auto`}
+                        className={`${btnPagar} ml-auto min-h-9 px-3.5`}
                         onClick={() => abrirPago(movement)}
                       >
                         <CreditCard size={12} />
@@ -802,7 +803,7 @@ const Pagos = () => {
                       })}
                     </p>
                   ) : tipoCambio.fallo ? (
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-warn">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-warn">
                       <AlertTriangle size={13} className="shrink-0" />
                       {t("pagos.payDialog.rateFailed")}
                       <button
@@ -812,24 +813,24 @@ const Pagos = () => {
                       >
                         {t("pagos.payDialog.rateRetry")}
                       </button>
-                    </p>
+                    </div>
                   ) : (
-                    <p className="flex items-center gap-1.5 text-ink-mute">
+                    <div className="flex items-center gap-1.5 text-ink-mute">
                       <Loader size={13} className="animate-spin" />
                       {t("pagos.payDialog.rateLoading")}
-                    </p>
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
             {/* Lo que pasa al confirmar, dicho antes de que lo haga. */}
-            <p className="mt-4 flex items-start gap-2 rounded-[14px] bg-accent-wash/60 px-4 py-3 text-[12.5px] leading-relaxed text-accent-deep">
+            <div className="mt-4 flex items-start gap-2 rounded-[14px] bg-accent-wash/60 px-4 py-3 text-[12.5px] leading-relaxed text-accent-deep">
               <ShieldCheck size={15} className="mt-0.5 shrink-0" />
               {/* Un paseo que ya se hizo con el pago pendiente se cobra en
                   el acto; los demás se reservan y se cobran al terminar. */}
               {t(pagoSeleccionado.estado_paseo === "finalizado" ? "pagos.payDialog.chargeNowExplain" : "pagos.payDialog.holdExplain")}
-            </p>
+            </div>
 
             {(metodos.length || DIGITAL_WALLETS.length) ? (
               <fieldset className="mt-5 grid gap-2">
@@ -925,13 +926,9 @@ const Pagos = () => {
               </span>
 
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  className={btnSecondary}
-                  onClick={() => setPagoSeleccionado(null)}
-                >
+                <BotonCerrarVentana className={btnSecondary}>
                   {t("pagos.payDialog.cancel")}
-                </button>
+                </BotonCerrarVentana>
                 {metodos.length || DIGITAL_WALLETS.length ? (
                   <button
                     type="button"
@@ -1023,13 +1020,9 @@ const Pagos = () => {
             </dl>
 
             <div className="mt-6 flex justify-end border-t border-sunken pt-4">
-              <button
-                type="button"
-                className={btnPrimary}
-                onClick={() => setDetalleMovimiento(null)}
-              >
+              <BotonCerrarVentana className={btnSecondary}>
                 {t("pagos.receipt.close")}
-              </button>
+              </BotonCerrarVentana>
             </div>
           </div>
         </Dialog>

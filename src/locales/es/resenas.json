@@ -31,5 +31,23 @@
   "errors": {
     "loadFailed": "No se pudieron cargar las reseñas.",
     "saveFailed": "No se pudo guardar la reseña."
+  },
+  "alTerminar": {
+    "title": "¡El paseo terminó!",
+    "endedAt": "terminó a las {{hora}}",
+    "question": "¿Qué tal estuvo {{walker}}?",
+    "tapStar": "Toca una estrella",
+    "levels": {
+      "1": "Malo",
+      "2": "Regular",
+      "3": "Bien",
+      "4": "Muy bien",
+      "5": "Excelente"
+    },
+    "commentPlaceholder": "Cuéntales a otros dueños cómo le fue (opcional)",
+    "send": "Enviar reseña",
+    "later": "Más tarde",
+    "laterHint": "Si la dejas para después, queda pendiente en Reseñas.",
+    "thanks": "¡Gracias! Tu reseña quedó publicada."
   }
 }

@@ -72,7 +72,25 @@
       "paid": "Cobrados",
       "toConfirm": "Por confirmar",
       "held": "Reservados",
-      "refunded": "Liberados"
+      "refunded": "Liberados",
+      "aria": "Filtros de finanzas",
+      "period": "Periodo",
+      "types": {
+        "todo": "Todo",
+        "dia": "Día",
+        "semana": "Semana",
+        "mes": "Mes",
+        "rango": "Rango"
+      },
+      "previous": "Periodo anterior",
+      "next": "Periodo siguiente",
+      "from": "Desde",
+      "to": "Hasta",
+      "zone": "Zona",
+      "allZones": "Todas las zonas",
+      "walker": "Paseador",
+      "allWalkers": "Todos los paseadores",
+      "clear": "Quitar filtros"
     },
     "csv": {
       "date": "Fecha",
@@ -98,8 +116,6 @@
     "pendingNote": "{{pendientes}} por confirmar · {{reservados}} reservados",
     "walkersNet": "Neto a paseadores",
     "walkersNetNote": "de {{bruto}} cobrados",
-    "inDollars": "Cobrado en dólares",
-    "inDollarsNote": "{{n}} de {{total}} cobros",
     "rateShort": "TC {{tipo}}",
     "methodPending": "Sin confirmar",
     "searchPlaceholder": "Buscar mascota, persona o referencia",
@@ -136,7 +152,52 @@
         "released": "Paseo cancelado: reserva liberada"
       },
       "notYet": "Todavía no",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "inColones": "Equivale a {{colones}}",
+      "copyReference": "Copiar referencia",
+      "referenceCopied": "Referencia copiada",
+      "referenceNotCopied": "No se pudo copiar la referencia."
+    },
+    "currency": {
+      "label": "Filtrar por moneda",
+      "all": "Todas",
+      "colones": "Colones",
+      "dollars": "Dólares"
+    },
+    "byCurrency": "Cobrado por moneda",
+    "byCurrencyColonesOne": "en colones · 1 cobro",
+    "byCurrencyColones": "en colones · {{count}} cobros",
+    "byCurrencyDollarsOne": "en dólares · 1 cobro · {{colones}}",
+    "byCurrencyDollars": "en dólares · {{count}} cobros · {{colones}}",
+    "byCurrencyDollarsNone": "en dólares · ningún cobro",
+    "analysis": {
+      "overTime": "Cobrado en el periodo",
+      "charges": "{{n}} cobros",
+      "chargesOne": "1 cobro",
+      "showTable": "Ver tabla",
+      "showChart": "Ver gráfico",
+      "empty": "No hay cobros en este periodo.",
+      "when": "Cuándo",
+      "count": "Cobros",
+      "charged": "Cobrado",
+      "commission": "Comisión",
+      "commissionShort": "comisión {{monto}}",
+      "weekOf": "Semana del {{dia}}",
+      "byZone": "Cobrado por zona",
+      "otherZones": "Otras zonas"
+    },
+    "compare": {
+      "against": {
+        "todo": "",
+        "dia": "el día anterior",
+        "semana": "la semana anterior",
+        "mes": "el mes anterior",
+        "rango": "el periodo anterior"
+      },
+      "up": "+{{pct}} % vs {{contra}}",
+      "down": "−{{pct}} % vs {{contra}}",
+      "same": "Igual que {{contra}}",
+      "fromZero": "Sin cobros en {{contra}}"
     }
   },
   "walkers": {

@@ -78,7 +78,11 @@ const montarScrollSuave = () => {
   /* `anchors`: los enlaces del menú apuntan a `#servicios` y
      `#pasos`. Sin esto el salto por hash lo hace el navegador de
      golpe, en medio de un scroll que por lo demás se desliza. */
-  const lenis = new Lenis({ duration: 1.05, smoothWheel: true, anchors: true });
+  /* 0.8 s y no 1.05: con más de un segundo de arrastre la página seguía
+     deslizándose bastante después de soltar la rueda y el scroll se
+     sentía pesado, como pegado. 0.8 conserva el deslizamiento y responde
+     al dedo. */
+  const lenis = new Lenis({ duration: 0.8, smoothWheel: true, anchors: true });
 
   const avanzar = (tiempo: number) => lenis.raf(tiempo * 1000);
 
@@ -250,54 +254,6 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
           });
         });
 
-        /* ── Parallax ─────────────────────────────────────────
-           `data-par` es el recorrido vertical en píxeles: positivo
-           baja al entrar y sube al salir, negativo al revés.
-           Encontrados, dos elementos de la misma escena se separan
-           y aparece la profundidad; con el mismo signo se mueven
-           en bloque y no se nota nada.
-
-           `data-par-x` y `data-par-rot` agregan deriva lateral y
-           un giro mínimo. Sin ellos el parallax es un ascensor:
-           todo sube en la misma línea recta. Con ellos las piezas
-           se acomodan, que es lo que hace la referencia.
-
-           El recorrido es corto a propósito (30–70 px). El
-           parallax largo se ve bien en una captura y marea en uso
-           real, sobre todo con texto al lado.
-
-           Va simétrico —de `-x` a `+x`— para que el punto medio
-           del recorrido sea el sitio donde el navegador ya pintó
-           el elemento. */
-        q("[data-par]").forEach((el: Element) => {
-          const caja = el as HTMLElement;
-          const recorrido = Number(caja.dataset.par);
-          if (!recorrido) return;
-
-          const deriva = Number(caja.dataset.parX) || 0;
-          const giro = Number(caja.dataset.parRot) || 0;
-
-          const escena = el.closest(BANDA);
-          if (!escena) return;
-
-          gsap.fromTo(
-            el,
-            { y: recorrido, x: -deriva, rotate: -giro },
-            {
-              y: -recorrido,
-              x: deriva,
-              rotate: giro,
-              ease: "none",
-              scrollTrigger: {
-                trigger: escena,
-                start: "top bottom",
-                end: "bottom top",
-                scrub: 0.6,
-              },
-            },
-          );
-        });
-
         /* ── Titulares ────────────────────────────────────────
            Cada línea es una ventana y las palabras suben desde
            debajo de su borde. No hay fundido: el ojo lee un
@@ -454,6 +410,79 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
           if (correa) {
             tl.from(correa, { drawSVG: "0% 0%", duration: 1.5, ease: MANO }, 0);
           }
+        });
+      },
+    );
+
+    /* El parallax va en su propio `add` y no con el resto: depende de
+       qué piezas se ven, y eso cambia al cruzar `lg` y `xl` (las de
+       los márgenes aparecen recién ahí). Con esos anchos como
+       condición, GSAP lo desarma y lo vuelve a armar al cruzarlos. Si
+       fueran condiciones del bloque de arriba, achicar la ventana
+       repetiría la entrada del hero entera. */
+    mm.add(
+      {
+        anima: "(prefers-reduced-motion: no-preference)",
+        lg: "(min-width: 64rem)",
+        xl: "(min-width: 80rem)",
+      },
+      (ctx) => {
+        if (!ctx.conditions?.anima) return;
+        const q = ctx.selector;
+        if (!q) return;
+
+        /* ── Parallax ─────────────────────────────────────────
+           `data-par` es el recorrido vertical en píxeles: positivo
+           baja al entrar y sube al salir, negativo al revés.
+           Encontrados, dos elementos de la misma escena se separan
+           y aparece la profundidad; con el mismo signo se mueven
+           en bloque y no se nota nada.
+
+           `data-par-x` y `data-par-rot` agregan deriva lateral y
+           un giro mínimo. Sin ellos el parallax es un ascensor:
+           todo sube en la misma línea recta. Con ellos las piezas
+           se acomodan, que es lo que hace la referencia.
+
+           El recorrido es corto a propósito (30–70 px). El
+           parallax largo se ve bien en una captura y marea en uso
+           real, sobre todo con texto al lado.
+
+           Va simétrico —de `-x` a `+x`— para que el punto medio
+           del recorrido sea el sitio donde el navegador ya pintó
+           el elemento. */
+        q("[data-par]").forEach((el: Element) => {
+          const caja = el as HTMLElement;
+          const recorrido = Number(caja.dataset.par);
+          if (!recorrido) return;
+
+          const deriva = Number(caja.dataset.parX) || 0;
+          const giro = Number(caja.dataset.parRot) || 0;
+
+          const escena = el.closest(BANDA);
+          if (!escena) return;
+
+          /* Lo que no se ve en este ancho no se anima: sin esto, en un
+             teléfono GSAP movía 21 piezas ocultas (`hidden xl:block`)
+             en cada cuadro del scroll, y ese trabajo competía con lo
+             que sí está en pantalla. */
+          if (caja.getClientRects().length === 0) return;
+
+          gsap.fromTo(
+            el,
+            { y: recorrido, x: -deriva, rotate: -giro },
+            {
+              y: -recorrido,
+              x: deriva,
+              rotate: giro,
+              ease: "none",
+              scrollTrigger: {
+                trigger: escena,
+                start: "top bottom",
+                end: "bottom top",
+                scrub: 0.6,
+              },
+            },
+          );
         });
       },
     );

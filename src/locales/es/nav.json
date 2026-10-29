@@ -32,7 +32,8 @@
     "paseadores": "Paseadores",
     "verificaciones": "Verificaciones",
     "usuarios": "Usuarios",
-    "zonas": "Zonas"
+    "zonas": "Zonas",
+    "mensajes": "Mensajes"
   },
   "role": {
     "dueno": {
