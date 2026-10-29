@@ -741,6 +741,112 @@
     0 0 0 6px rgb(20 163 184 / 20%);
 }
 
+/* ── El puck del paseo en vivo ────────────────────────────────
+   La posición que se mueve, no un lugar fijo —ver la nota en
+   `MapaRecorrido.tsx`—. Tres capas apiladas en el mismo cuadrado:
+
+     halo     se expande y se apaga, en bucle: "esto está vivo"
+     núcleo   el disco turquesa con borde blanco, siempre quieto
+     flecha   solo aparece con rumbo; gira hacia donde se camina
+
+   El halo va DETRÁS del núcleo y no alrededor por fuera: con
+   `position: absolute; inset: 0` en los dos, el halo crece desde el
+   mismo centro que el núcleo en vez de nacer ya separado de él. */
+.tsc-map-puck {
+  position: relative;
+
+  width: 34px;
+  height: 34px;
+}
+
+.tsc-map-puck__halo {
+  position: absolute;
+  inset: 0;
+
+  border-radius: 999px;
+
+  background: var(--color-accent);
+
+  animation: tsc-puck-pulso 2.2s ease-out infinite;
+}
+
+.tsc-map-puck__nucleo {
+  position: absolute;
+  inset: 7px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 3px solid var(--color-surface, #ffffff);
+  border-radius: 999px;
+
+  background: linear-gradient(160deg, #1dbdd3 0%, var(--color-accent) 55%, var(--color-accent-dark) 100%);
+
+  box-shadow:
+    0 2px 6px rgb(15 23 42 / 25%),
+    0 6px 16px rgb(15 23 42 / 18%);
+}
+
+.tsc-map-puck__flecha {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  width: 0;
+  height: 0;
+
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid var(--color-surface, #ffffff);
+  border-left: 4px solid transparent;
+
+  /* El `rotate` del rumbo ya va en el `style` inline del propio
+     elemento —`transform: translate(-50%,-50%) rotate(Ndeg)`—; acá
+     solo el desplazamiento base, para que la punta del triángulo
+     quede sobre el centro del núcleo y no sobre su esquina. */
+  transform-origin: center;
+  margin-top: -7px;
+}
+
+@keyframes tsc-puck-pulso {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tsc-map-puck__halo {
+    animation: none !important;
+    opacity: 0.25;
+  }
+}
+
+/* ── La ruta resaltada ────────────────────────────────────────
+   Leaflet dibuja cada `Polyline` como un `<path>` de SVG, y un
+   `<path>` sí entiende `filter: drop-shadow` —`box-shadow` no
+   existe para SVG—. Antes la "sombra" era otra línea plana del
+   mismo trazo, más ancha y más tenue, debajo: dos colores lisos
+   apilados, pero ninguno de los dos es una sombra de verdad.
+
+   Esta clase va en la línea de ARRIBA (la turquesa, la que se ve)
+   y le pone dos sombras reales encima de la capa ancha que sigue
+   abajo haciendo de halo:
+
+     la primera   corta y oscura, como un trazo con cuerpo
+     la segunda   larga y del color de la marca, como un brillo
+
+   Juntas levantan la línea del mapa en vez de dejarla plana. */
+.tsc-ruta-resalte {
+  filter:
+    drop-shadow(0 2px 3px rgb(14 39 51 / 55%))
+    drop-shadow(0 0 7px rgb(20 163 184 / 55%));
+}
+
 /* ─────────────────────────────────────────────────────────────
    Portada pública (`.portada`)
 
