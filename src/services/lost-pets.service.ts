@@ -1,7 +1,7 @@
 import { supabase } from "../lib/supabase";
 import type { Zona } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
-import type { LostPetInput, LostPetReport, MatchStatus, PetMatch, Sighting, SightingInput } from "../types/lost-pet.types";
+import type { LostPetInput, LostPetReport, MatchStatus, PetMatch, PublicLostPet, Sighting, SightingInput } from "../types/lost-pet.types";
 
 const PHOTO_BUCKET = "mascotas-perdidas";
 const PHOTO_EXTENSIONS: Record<string, string> = {
@@ -108,6 +108,46 @@ export const listLostPetReports = async (filters: {
     ...report,
     avistamientos: sightingsByReport.get(report.id_mascota_perdida) ?? [],
   }));
+};
+
+/** La vitrina de /perdidas: no pide sesión (el RPC es `security
+    definer` y está concedido a `anon`), y solo trae mascotas con
+    estado "perdida". Nada de contacto ni de quién reportó. */
+export const listPublicLostPets = async (): Promise<PublicLostPet[]> => {
+  const { data, error } = await supabase.rpc("listar_mascotas_perdidas_publicas");
+  if (error) throw error;
+  const rows = (data ?? []) as Array<{
+    id_mascota_perdida: string;
+    nombre: string;
+    especie: string;
+    raza: string | null;
+    foto: string | null;
+    fecha_reporte: string;
+    zona_id: string | null;
+    zona_nombre: string | null;
+    zona_canton: string | null;
+    zona_provincia: string | null;
+    zona_distrito: string | null;
+  }>;
+  return Promise.all(
+    rows.map(async (row) => ({
+      id_mascota_perdida: row.id_mascota_perdida,
+      nombre: row.nombre,
+      especie: row.especie,
+      raza: row.raza,
+      fecha_reporte: row.fecha_reporte,
+      fotoUrl: await photoUrl(row.foto),
+      zona: row.zona_id
+        ? {
+            id_zona: row.zona_id,
+            nombre: row.zona_nombre ?? "",
+            canton: row.zona_canton ?? "",
+            provincia: row.zona_provincia ?? "",
+            distrito: row.zona_distrito ?? "",
+          }
+        : null,
+    })),
+  );
 };
 
 export const listSightings = async (reportIds: string[]): Promise<Sighting[]> => {

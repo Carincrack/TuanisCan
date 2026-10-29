@@ -1,10 +1,15 @@
-import { useRef } from "react";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "../lib/iconos";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, Clock, Eye, MapPin, User } from "../lib/iconos";
 import { MARCA } from "../lib/nav";
 import { usePortadaAnimacion } from "./animacion";
 import { AZUL, CANVAS, NAVY, TINTA } from "./tokens";
 import { useTranslation } from "../hooks/useTranslation";
+import { useAuth } from "../hooks/useAuth";
+import { listPublicLostPets } from "../services/lost-pets.service";
+import type { PublicLostPet } from "../types/lost-pet.types";
+import { distritoDe, normalizar } from "../lib/zonas";
+import { Badge, EmptyState, btnPrimary, btnSecondary } from "../components/ui";
 
 /* ─────────────────────────────────────────────────────────────
    Mascotas perdidas, del lado público.
@@ -33,10 +38,63 @@ import { useTranslation } from "../hooks/useTranslation";
 
 const RENGLONES = ["MASCOTAS", "PERDIDAS"];
 
+/* La misma fórmula que ya usa la pantalla interna
+   (`mascotasPerdidas.tsx`), copiada acá sin pasar por import: esa
+   función vive dentro de la app autenticada, y esta vitrina es la
+   única pantalla que se sirve sin sesión, con su propio paquete. */
+const zonaLabel = (zona: PublicLostPet["zona"], t: ReturnType<typeof useTranslation>["t"]) => {
+  if (!zona) return t("landingPerdidas.card.noZone");
+  const partes = [distritoDe(zona), zona.canton, zona.provincia]
+    .map((parte) => parte?.trim())
+    .filter((parte): parte is string => Boolean(parte));
+  return partes
+    .filter((parte, i) => i === 0 || normalizar(parte) !== normalizar(partes[i - 1]))
+    .join(", ");
+};
+
+const fechaCorta = (valor: string, localeTag: string) =>
+  new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(new Date(valor));
+
 const PaginaPerdidas = () => {
-  const { t } = useTranslation();
+  const { t, localeTag } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const raiz = useRef<HTMLDivElement>(null);
   usePortadaAnimacion(raiz);
+
+  const [mascotas, setMascotas] = useState<PublicLostPet[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let vigente = true;
+    listPublicLostPets()
+      .then((data) => {
+        if (vigente) setMascotas(data);
+      })
+      .catch(() => {
+        if (vigente) setError(t("landingPerdidas.loadError"));
+      })
+      .finally(() => {
+        if (vigente) setCargando(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [t]);
+
+  /* Quien no tiene sesión no puede reportar un avistamiento ni ver
+     el contacto del dueño: eso vive en /mascotas-perdidas, detrás del
+     guardia de `RootLayout`. Acá solo se manda a loguearse — no hay
+     forma de abrir el formulario de login desde esta pantalla, que
+     vive fuera de ese armazón a propósito (ver la nota de arriba).
+     El hash `#iniciar-sesion` es lo que `RootLayout` lee para abrir
+     el formulario directamente, en vez de dejar a quien hizo clic
+     otra vez frente al botón "Entrar" de la portada. */
+  const gestionar = () =>
+    user
+      ? navigate({ to: "/mascotas-perdidas" })
+      : navigate({ to: "/", hash: "iniciar-sesion" });
 
   return (
     <div
@@ -105,8 +163,74 @@ const PaginaPerdidas = () => {
         </div>
       </section>
 
-      <main className="px-5 py-12 sm:px-8">
-        <h1>{t("landingPerdidas.comingSoon")}</h1>
+      <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
+        {cargando ? (
+          <p className="text-center text-[14px] font-medium text-ink-soft">
+            {t("landingPerdidas.loading")}
+          </p>
+        ) : error ? (
+          <p className="text-center text-[14px] font-semibold text-danger">{error}</p>
+        ) : mascotas.length === 0 ? (
+          <EmptyState
+            title={t("landingPerdidas.empty.title")}
+            hint={t("landingPerdidas.empty.hint")}
+          />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {mascotas.map((mascota, i) => (
+              <article
+                key={mascota.id_mascota_perdida}
+                style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
+                className="anim-rise flex flex-col overflow-hidden rounded-[18px] bg-surface outline outline-black/[0.05]"
+              >
+                <div className="relative">
+                  <img
+                    src={mascota.fotoUrl ?? "/mock/dog-nube.jpg"}
+                    alt={t("landingPerdidas.card.photoAlt", { nombre: mascota.nombre })}
+                    loading="lazy"
+                    className="aspect-[16/10] w-full bg-sunken object-cover"
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[rgb(20_36_46/88%)] via-[rgb(20_36_46/38%)] to-transparent"
+                  />
+                  <span className="absolute top-3 left-3">
+                    <Badge tono="danger">{t("landingPerdidas.card.lost")}</Badge>
+                  </span>
+                  <div className="absolute inset-x-0 bottom-0 p-4">
+                    <h3 className="truncate text-[16px] font-semibold text-white">{mascota.nombre}</h3>
+                    <p className="mt-0.5 truncate text-[12.5px] text-white/85">
+                      {mascota.especie}
+                      {mascota.raza ? ` · ${mascota.raza}` : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-1 flex-col gap-1.5 px-4 py-3.5 text-[12.5px] text-ink-soft">
+                  <p className="flex items-center gap-1.5">
+                    <MapPin size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
+                    <span className="truncate">{zonaLabel(mascota.zona, t)}</span>
+                  </p>
+                  <p className="flex items-center gap-1.5">
+                    <Clock size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
+                    {t("landingPerdidas.card.lostOn", { fecha: fechaCorta(mascota.fecha_reporte, localeTag) })}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={gestionar}
+                    className={`${user ? btnPrimary : btnSecondary} mt-3 w-full justify-center`}
+                  >
+                    {user ? <Eye size={14} /> : <User size={14} />}
+                    {user
+                      ? t("landingPerdidas.card.report")
+                      : t("landingPerdidas.card.loginToReport")}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

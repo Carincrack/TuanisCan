@@ -247,6 +247,20 @@ const RootLayout = () => {
     loading: cargandoSesion,
   } = useAuth();
 
+  /* La vitrina pública de mascotas perdidas (`/perdidas`) vive fuera
+     de este armazón y no tiene forma de abrir el formulario de login
+     directamente —`accesoPublico` es estado local de este
+     componente—, así que su botón "Iniciá sesión" manda acá con
+     `#iniciar-sesion` en el hash. Sin esto, ese botón solo traía de
+     vuelta a la portada pública a secas, con el mismo "Entrar" que
+     ya había esquivado: dos clics para lo que debería ser uno. */
+  useEffect(() => {
+    if (pathname === "/" && window.location.hash === "#iniciar-sesion" && !role) {
+      setAccesoPublico("signin");
+      window.history.replaceState(null, "", "/");
+    }
+  }, [pathname, role]);
+
   /* ============================================================
      DETECTAR TIPO DE RUTA
      ============================================================ */

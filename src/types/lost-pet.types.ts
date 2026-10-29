@@ -73,6 +73,20 @@ export interface PetMatch {
   zona?: Zona | null;
 }
 
+/** La ficha pública de /perdidas: solo lo que ya es público en un
+    cartel de "se perdió esta mascota" (foto, nombre, zona, fecha).
+    Nunca el contacto, la descripción completa ni quién reportó —
+    eso vive detrás de sesión, en /mascotas-perdidas. */
+export interface PublicLostPet {
+  id_mascota_perdida: string;
+  nombre: string;
+  especie: string;
+  raza: string | null;
+  fotoUrl: string | null;
+  fecha_reporte: string;
+  zona: Zona | null;
+}
+
 export interface Sighting {
   id_avistamiento: string;
   id_reporte: string;

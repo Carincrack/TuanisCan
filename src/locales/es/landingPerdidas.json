@@ -3,5 +3,18 @@
   "backToHomeAria": "{{marca}}, volver al inicio",
   "antetitulo": "Comunidad",
   "subtitle": "Las que se perdieron cerca de vos. Si viste alguna, podés avisarle a su dueño desde su ficha.",
-  "comingSoon": "Aquí van a estar las mascotas perdidas"
+  "loading": "Cargando mascotas perdidas...",
+  "loadError": "No se pudieron cargar las mascotas perdidas.",
+  "empty": {
+    "title": "No hay mascotas perdidas reportadas",
+    "hint": "Cuando alguien reporte una, va a aparecer acá."
+  },
+  "card": {
+    "photoAlt": "Foto de {{nombre}}",
+    "lost": "Perdida",
+    "noZone": "Zona no indicada",
+    "lostOn": "Perdida el {{fecha}}",
+    "report": "Avisá que la viste",
+    "loginToReport": "Iniciá sesión para avisar"
+  }
 }

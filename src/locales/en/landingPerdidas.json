@@ -3,5 +3,18 @@
   "backToHomeAria": "{{marca}}, back to home",
   "antetitulo": "Community",
   "subtitle": "The ones that got lost near you. If you saw one, you can let their owner know from their profile.",
-  "comingSoon": "The lost pets will be here"
+  "loading": "Loading lost pets...",
+  "loadError": "Could not load the lost pets.",
+  "empty": {
+    "title": "No lost pets reported",
+    "hint": "Once someone reports one, it'll show up here."
+  },
+  "card": {
+    "photoAlt": "Photo of {{nombre}}",
+    "lost": "Lost",
+    "noZone": "Zone not indicated",
+    "lostOn": "Lost on {{fecha}}",
+    "report": "Report a sighting",
+    "loginToReport": "Log in to report"
+  }
 }
