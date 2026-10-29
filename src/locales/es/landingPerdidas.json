@@ -7,10 +7,24 @@
   "loadError": "No se pudieron cargar las mascotas perdidas.",
   "empty": {
     "title": "No hay mascotas perdidas reportadas",
-    "hint": "Cuando alguien reporte una, va a aparecer acá."
+    "hint": "Cuando alguien reporte una, va a aparecer acá.",
+    "filteredTitle": "No hay mascotas con esos filtros",
+    "filteredHint": "Probá con otra búsqueda o limpiá los filtros."
+  },
+  "filters": {
+    "search": "Buscar",
+    "searchPlaceholder": "Nombre, especie o zona",
+    "province": "Provincia",
+    "canton": "Cantón",
+    "district": "Distrito",
+    "allProvinces": "Todas las provincias",
+    "allCantons": "Todos los cantones",
+    "allDistricts": "Todos los distritos",
+    "clear": "Limpiar filtros"
   },
   "card": {
     "photoAlt": "Foto de {{nombre}}",
+    "viewPhotoAria": "Ver la foto de {{nombre}} en tamaño completo",
     "lost": "Perdida",
     "noZone": "Zona no indicada",
     "lostOn": "Perdida el {{fecha}}",

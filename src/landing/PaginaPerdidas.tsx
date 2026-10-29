@@ -1,15 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Clock, Eye, MapPin, User } from "../lib/iconos";
+import { ArrowLeft, Clock, Eye, Maximize2, MapPin, Search, User } from "../lib/iconos";
 import { MARCA } from "../lib/nav";
 import { usePortadaAnimacion } from "./animacion";
 import { AZUL, CANVAS, NAVY, TINTA } from "./tokens";
 import { useTranslation } from "../hooks/useTranslation";
 import { useAuth } from "../hooks/useAuth";
+import { getZonas } from "../services/auth.service";
 import { listPublicLostPets } from "../services/lost-pets.service";
 import type { PublicLostPet } from "../types/lost-pet.types";
+import type { Zona } from "../types/auth.types";
 import { distritoDe, normalizar } from "../lib/zonas";
-import { Badge, EmptyState, btnPrimary, btnSecondary } from "../components/ui";
+import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
+import { Badge, EmptyState, btnPrimary, btnSecondary, fieldLabel, input } from "../components/ui";
+import { Combo } from "../components/Combo";
+import Visor from "../components/Visor";
 
 /* ─────────────────────────────────────────────────────────────
    Mascotas perdidas, del lado público.
@@ -63,14 +68,19 @@ const PaginaPerdidas = () => {
   usePortadaAnimacion(raiz);
 
   const [mascotas, setMascotas] = useState<PublicLostPet[]>([]);
+  const [zonas, setZonas] = useState<Zona[]>([]);
+  const [busqueda, setBusqueda] = useState("");
+  const [fotoAbierta, setFotoAbierta] = useState<PublicLostPet | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let vigente = true;
-    listPublicLostPets()
-      .then((data) => {
-        if (vigente) setMascotas(data);
+    Promise.all([listPublicLostPets(), getZonas().catch(() => [])])
+      .then(([pets, zonasData]) => {
+        if (!vigente) return;
+        setMascotas(pets);
+        setZonas(zonasData);
       })
       .catch(() => {
         if (vigente) setError(t("landingPerdidas.loadError"));
@@ -82,6 +92,28 @@ const PaginaPerdidas = () => {
       vigente = false;
     };
   }, [t]);
+
+  const territorio = useZonasEncadenadas(zonas);
+
+  const visibles = useMemo(() => {
+    const consulta = busqueda.trim().toLocaleLowerCase("es");
+    return mascotas.filter((mascota) => {
+      const texto = [
+        mascota.nombre,
+        mascota.especie,
+        mascota.raza,
+        mascota.zona?.nombre,
+        mascota.zona?.canton,
+        mascota.zona?.provincia,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("es");
+      return territorio.cubre(mascota.zona) && (!consulta || texto.includes(consulta));
+    });
+    // `territorio` se rehace en cada render; sus escalones son la dependencia real.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda, mascotas, territorio.provincia, territorio.canton, territorio.distrito]);
 
   /* Quien no tiene sesión no puede reportar un avistamiento ni ver
      el contacto del dueño: eso vive en /mascotas-perdidas, detrás del
@@ -164,31 +196,121 @@ const PaginaPerdidas = () => {
       </section>
 
       <main className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
+        {!cargando && !error && mascotas.length > 0 && (
+          <div className="mb-5 grid gap-3 rounded-[18px] bg-surface p-4 sm:p-5">
+            <label className={fieldLabel}>
+              {t("landingPerdidas.filters.search")}
+              <span className="relative mt-2 block">
+                <input
+                  type="search"
+                  className={`${input} pl-10`}
+                  placeholder={t("landingPerdidas.filters.searchPlaceholder")}
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                />
+                <Search
+                  size={15}
+                  aria-hidden
+                  className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-mute"
+                />
+              </span>
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className={fieldLabel}>
+                {t("landingPerdidas.filters.province")}
+                <Combo
+                  className="mt-2"
+                  value={territorio.provincia}
+                  onChange={territorio.elegirProvincia}
+                  options={territorio.provincias.map((item) => ({
+                    value: item,
+                    label: item === "Todas" ? t("landingPerdidas.filters.allProvinces") : item,
+                  }))}
+                />
+              </label>
+              <label className={fieldLabel}>
+                {t("landingPerdidas.filters.canton")}
+                <Combo
+                  className="mt-2"
+                  value={territorio.canton}
+                  onChange={territorio.elegirCanton}
+                  disabled={!territorio.filtrando}
+                  options={territorio.cantones.map((item) => ({
+                    value: item,
+                    label: item === "Todos" ? t("landingPerdidas.filters.allCantons") : item,
+                  }))}
+                />
+              </label>
+              <label className={fieldLabel}>
+                {t("landingPerdidas.filters.district")}
+                <Combo
+                  className="mt-2"
+                  value={territorio.distrito}
+                  onChange={territorio.elegirDistrito}
+                  disabled={territorio.canton === "Todos"}
+                  options={territorio.distritos.map((item) => ({
+                    value: item,
+                    label: item === "Todos" ? t("landingPerdidas.filters.allDistricts") : item,
+                  }))}
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
         {cargando ? (
           <p className="text-center text-[14px] font-medium text-ink-soft">
             {t("landingPerdidas.loading")}
           </p>
         ) : error ? (
           <p className="text-center text-[14px] font-semibold text-danger">{error}</p>
-        ) : mascotas.length === 0 ? (
+        ) : visibles.length === 0 ? (
           <EmptyState
-            title={t("landingPerdidas.empty.title")}
-            hint={t("landingPerdidas.empty.hint")}
+            title={
+              mascotas.length === 0
+                ? t("landingPerdidas.empty.title")
+                : t("landingPerdidas.empty.filteredTitle")
+            }
+            hint={
+              mascotas.length === 0
+                ? t("landingPerdidas.empty.hint")
+                : t("landingPerdidas.empty.filteredHint")
+            }
+            action={
+              mascotas.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBusqueda("");
+                    territorio.limpiar();
+                  }}
+                  className={btnSecondary}
+                >
+                  {t("landingPerdidas.filters.clear")}
+                </button>
+              ) : undefined
+            }
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {mascotas.map((mascota, i) => (
+            {visibles.map((mascota, i) => (
               <article
                 key={mascota.id_mascota_perdida}
                 style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
                 className="anim-rise flex flex-col overflow-hidden rounded-[18px] bg-surface outline outline-black/[0.05]"
               >
-                <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setFotoAbierta(mascota)}
+                  aria-label={t("landingPerdidas.card.viewPhotoAria", { nombre: mascota.nombre })}
+                  className="group relative block w-full cursor-zoom-in overflow-hidden text-left focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
+                >
                   <img
                     src={mascota.fotoUrl ?? "/mock/dog-nube.jpg"}
                     alt={t("landingPerdidas.card.photoAlt", { nombre: mascota.nombre })}
                     loading="lazy"
-                    className="aspect-[16/10] w-full bg-sunken object-cover"
+                    className="aspect-[16/10] w-full bg-sunken object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                   />
                   <span
                     aria-hidden
@@ -197,14 +319,20 @@ const PaginaPerdidas = () => {
                   <span className="absolute top-3 left-3">
                     <Badge tono="danger">{t("landingPerdidas.card.lost")}</Badge>
                   </span>
-                  <div className="absolute inset-x-0 bottom-0 p-4">
+                  <span
+                    aria-hidden
+                    className="absolute right-3 bottom-3 grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white opacity-70 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100"
+                  >
+                    <Maximize2 size={14} strokeWidth={2.2} />
+                  </span>
+                  <span className="absolute inset-x-0 bottom-0 right-12 p-4">
                     <h3 className="truncate text-[16px] font-semibold text-white">{mascota.nombre}</h3>
                     <p className="mt-0.5 truncate text-[12.5px] text-white/85">
                       {mascota.especie}
                       {mascota.raza ? ` · ${mascota.raza}` : ""}
                     </p>
-                  </div>
-                </div>
+                  </span>
+                </button>
 
                 <div className="flex flex-1 flex-col gap-1.5 px-4 py-3.5 text-[12.5px] text-ink-soft">
                   <p className="flex items-center gap-1.5">
@@ -232,6 +360,13 @@ const PaginaPerdidas = () => {
           </div>
         )}
       </main>
+
+      <Visor
+        abierto={fotoAbierta !== null}
+        src={fotoAbierta?.fotoUrl ?? "/mock/dog-nube.jpg"}
+        alt={fotoAbierta ? t("landingPerdidas.card.photoAlt", { nombre: fotoAbierta.nombre }) : ""}
+        cerrar={() => setFotoAbierta(null)}
+      />
     </div>
   );
 };
