@@ -132,6 +132,15 @@
   }
 }
 
+@keyframes tsc-carrusel {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @keyframes tsc-nav-in {
   from {
     opacity: 0;
@@ -287,6 +296,20 @@
 
   .anim-rise {
     animation: tsc-rise 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  /* El carrusel de /perdidas: la fila va duplicada en el JSX (dos
+     copias idénticas, una al lado de la otra) y se desliza hasta la
+     mitad de su propio ancho, que es exactamente donde empieza la
+     segunda copia. Ahí no hay salto que notar porque lo que se ve es
+     igual a lo que había al principio, así que el bucle no tiene
+     costura. Se pausa con el mouse encima o el foco adentro, para
+     poder leer o hacer clic sin que la fila siga corriendo debajo. */
+  .anim-carrusel {
+    animation: tsc-carrusel 32s linear infinite;
+  }
+  .anim-carrusel:hover,
+  .anim-carrusel:focus-within {
+    animation-play-state: paused;
   }
   .anim-fade {
     animation: tsc-fade 0.35s ease-out both;
@@ -627,6 +650,14 @@
 
   .riel {
     transition-duration: 1ms !important;
+  }
+
+  /* Este no es un estreno con estado final que proteger: es un
+     carrusel que se repite para siempre. Apagarlo del todo deja la
+     primera tanda quieta en su sitio, que es exactamente lo que la
+     preferencia pide. */
+  .anim-carrusel {
+    animation: none !important;
   }
 }
 

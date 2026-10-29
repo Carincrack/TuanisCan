@@ -6,6 +6,9 @@
   "loading": "Cargando mascotas perdidas...",
   "loadError": "No se pudieron cargar las mascotas perdidas.",
   "resultsCount": "{{n}} reportes activos",
+  "recent": {
+    "title": "Recién reportadas"
+  },
   "empty": {
     "title": "No hay mascotas perdidas reportadas",
     "hint": "Cuando alguien reporte una, va a aparecer acá.",

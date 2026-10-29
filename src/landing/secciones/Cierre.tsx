@@ -4,7 +4,7 @@ import PildoraCTA from "../componentes/PildoraCTA";
 import Subrayado from "../componentes/Subrayado";
 import TitularPartido from "../componentes/TitularPartido";
 import { Correa } from "../componentes/Garabatos";
-import { CIELO, HUESO, NAVY, TINTA_SUAVE } from "../tokens";
+import { HUESO, NAVY, TINTA_SUAVE } from "../tokens";
 import type { ConAcceso } from "../tipos";
 import { useTranslation } from "../../hooks/useTranslation";
 
@@ -32,7 +32,7 @@ const Cierre = ({ onEntrar }: ConAcceso) => {
     className="relative overflow-hidden px-6 pt-32 pb-28 sm:px-10 lg:pt-44 lg:pb-36"
     style={{ background: HUESO }}
   >
-    <Onda color={CIELO} />
+    <Onda color={HUESO} />
 
     {/* `desde` corre el sembrado dos recortes: las dos bandas van
         pegadas y con las mismas piezas en las mismas alturas se

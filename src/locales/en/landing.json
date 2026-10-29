@@ -84,6 +84,14 @@
     "linea2": "one small step.",
     "subrayada": "And from there, enjoy it."
   },
+  "mascotasPerdidas": {
+    "antetitulo": "Happening now",
+    "linea1": "Someone is already",
+    "linea2": "looking for their",
+    "subrayada": "best friend.",
+    "noZone": "Zone not indicated",
+    "cta": "See lost pets"
+  },
   "cierre": {
     "antetitulo": "Start today",
     "linea1": "Your pet deserves",

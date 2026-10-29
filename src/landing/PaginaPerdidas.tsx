@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Clock, Eye, Maximize2, MapPin, PawPrint, Search, User } from "../lib/iconos";
 import { MARCA } from "../lib/nav";
@@ -73,6 +74,104 @@ const haceTiempo = (valor: string, localeTag: string) => {
   if (minutos < 48 * 60) return relativo.format(-Math.round(minutos / 60), "hour");
   return relativo.format(-Math.round(minutos / 1440), "day");
 };
+
+/** Una ficha, usada tanto en el carrusel de "recién reportadas" como
+    en la rejilla completa de abajo. Misma tarjeta, dos contenedores:
+    el carrusel la fuerza a un ancho fijo con `className`, la rejilla
+    la deja ocupar su celda. */
+const TarjetaMascota = ({
+  mascota,
+  t,
+  localeTag,
+  user,
+  onVerFoto,
+  onGestionar,
+  className = "",
+  style,
+}: {
+  mascota: PublicLostPet;
+  t: ReturnType<typeof useTranslation>["t"];
+  localeTag: string;
+  user: unknown;
+  onVerFoto: () => void;
+  onGestionar: () => void;
+  className?: string;
+  style?: CSSProperties;
+}) => (
+  <article
+    style={style}
+    className={`anim-rise flex flex-col overflow-hidden rounded-[18px] bg-surface outline outline-black/[0.05] ${className}`}
+  >
+    {/* La cabecera de "publicación": lo que distingue esta ficha de
+        una tarjeta de catálogo es que alguien la reportó hace poco,
+        no que exista un registro. */}
+    <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+        <PawPrint size={13} strokeWidth={2} aria-hidden />
+      </span>
+      <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">
+        {t("landingPerdidas.card.postLabel")}
+      </p>
+      <span className="shrink-0 text-[11px] text-ink-mute">
+        {haceTiempo(mascota.fecha_reporte, localeTag)}
+      </span>
+    </div>
+
+    <button
+      type="button"
+      onClick={onVerFoto}
+      aria-label={t("landingPerdidas.card.viewPhotoAria", { nombre: mascota.nombre })}
+      className="group relative block w-full cursor-zoom-in overflow-hidden text-left focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
+    >
+      <img
+        src={mascota.fotoUrl ?? "/mock/dog-nube.jpg"}
+        alt={t("landingPerdidas.card.photoAlt", { nombre: mascota.nombre })}
+        loading="lazy"
+        className="aspect-[16/10] w-full bg-sunken object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+      />
+      <span
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[rgb(20_36_46/88%)] via-[rgb(20_36_46/38%)] to-transparent"
+      />
+      <span className="absolute top-3 left-3">
+        <Badge tono="danger">{t("landingPerdidas.card.lost")}</Badge>
+      </span>
+      <span
+        aria-hidden
+        className="absolute right-3 bottom-3 grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white opacity-70 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100"
+      >
+        <Maximize2 size={14} strokeWidth={2.2} />
+      </span>
+      <span className="absolute inset-x-0 bottom-0 right-12 p-4">
+        <h3 className="truncate text-[16px] font-semibold text-white">{mascota.nombre}</h3>
+        <p className="mt-0.5 truncate text-[12.5px] text-white/85">
+          {mascota.especie}
+          {mascota.raza ? ` · ${mascota.raza}` : ""}
+        </p>
+      </span>
+    </button>
+
+    <div className="flex flex-1 flex-col gap-1.5 px-4 py-3.5 text-[12.5px] text-ink-soft">
+      <p className="flex items-center gap-1.5">
+        <MapPin size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
+        <span className="truncate">{zonaLabel(mascota.zona, t)}</span>
+      </p>
+      <p className="flex items-center gap-1.5">
+        <Clock size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
+        {t("landingPerdidas.card.lostOn", { fecha: fechaCorta(mascota.fecha_reporte, localeTag) })}
+      </p>
+
+      <button
+        type="button"
+        onClick={onGestionar}
+        className={`${user ? btnPrimary : btnSecondary} mt-3 w-full justify-center`}
+      >
+        {user ? <Eye size={14} /> : <User size={14} />}
+        {user ? t("landingPerdidas.card.report") : t("landingPerdidas.card.loginToReport")}
+      </button>
+    </div>
+  </article>
+);
 
 const PaginaPerdidas = () => {
   const { t, localeTag } = useTranslation();
@@ -324,82 +423,16 @@ const PaginaPerdidas = () => {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visibles.map((mascota, i) => (
-              <article
+              <TarjetaMascota
                 key={mascota.id_mascota_perdida}
+                mascota={mascota}
+                t={t}
+                localeTag={localeTag}
+                user={user}
+                onVerFoto={() => setFotoAbierta(mascota)}
+                onGestionar={gestionar}
                 style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
-                className="anim-rise flex flex-col overflow-hidden rounded-[18px] bg-surface outline outline-black/[0.05]"
-              >
-                {/* La cabecera de "publicación": lo que distingue esta
-                    ficha de una tarjeta de catálogo es que alguien la
-                    reportó hace poco, no que exista un registro. */}
-                <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
-                    <PawPrint size={13} strokeWidth={2} aria-hidden />
-                  </span>
-                  <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">
-                    {t("landingPerdidas.card.postLabel")}
-                  </p>
-                  <span className="shrink-0 text-[11px] text-ink-mute">
-                    {haceTiempo(mascota.fecha_reporte, localeTag)}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setFotoAbierta(mascota)}
-                  aria-label={t("landingPerdidas.card.viewPhotoAria", { nombre: mascota.nombre })}
-                  className="group relative block w-full cursor-zoom-in overflow-hidden text-left focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
-                >
-                  <img
-                    src={mascota.fotoUrl ?? "/mock/dog-nube.jpg"}
-                    alt={t("landingPerdidas.card.photoAlt", { nombre: mascota.nombre })}
-                    loading="lazy"
-                    className="aspect-[16/10] w-full bg-sunken object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-                  />
-                  <span
-                    aria-hidden
-                    className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[rgb(20_36_46/88%)] via-[rgb(20_36_46/38%)] to-transparent"
-                  />
-                  <span className="absolute top-3 left-3">
-                    <Badge tono="danger">{t("landingPerdidas.card.lost")}</Badge>
-                  </span>
-                  <span
-                    aria-hidden
-                    className="absolute right-3 bottom-3 grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white opacity-70 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100"
-                  >
-                    <Maximize2 size={14} strokeWidth={2.2} />
-                  </span>
-                  <span className="absolute inset-x-0 bottom-0 right-12 p-4">
-                    <h3 className="truncate text-[16px] font-semibold text-white">{mascota.nombre}</h3>
-                    <p className="mt-0.5 truncate text-[12.5px] text-white/85">
-                      {mascota.especie}
-                      {mascota.raza ? ` · ${mascota.raza}` : ""}
-                    </p>
-                  </span>
-                </button>
-
-                <div className="flex flex-1 flex-col gap-1.5 px-4 py-3.5 text-[12.5px] text-ink-soft">
-                  <p className="flex items-center gap-1.5">
-                    <MapPin size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
-                    <span className="truncate">{zonaLabel(mascota.zona, t)}</span>
-                  </p>
-                  <p className="flex items-center gap-1.5">
-                    <Clock size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
-                    {t("landingPerdidas.card.lostOn", { fecha: fechaCorta(mascota.fecha_reporte, localeTag) })}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={gestionar}
-                    className={`${user ? btnPrimary : btnSecondary} mt-3 w-full justify-center`}
-                  >
-                    {user ? <Eye size={14} /> : <User size={14} />}
-                    {user
-                      ? t("landingPerdidas.card.report")
-                      : t("landingPerdidas.card.loginToReport")}
-                  </button>
-                </div>
-              </article>
+              />
             ))}
           </div>
         )}

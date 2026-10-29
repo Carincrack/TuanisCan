@@ -6,6 +6,9 @@
   "loading": "Loading lost pets...",
   "loadError": "Could not load the lost pets.",
   "resultsCount": "{{n}} active reports",
+  "recent": {
+    "title": "Recently reported"
+  },
   "empty": {
     "title": "No lost pets reported",
     "hint": "Once someone reports one, it'll show up here.",
