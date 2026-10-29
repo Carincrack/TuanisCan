@@ -32,7 +32,7 @@
   "mapEmpty": "Once you share your location, you'll see here exactly what the owner sees: your route and your last point.",
   "ownerSeesAt": "The owner sees your location from {{hora}}",
   "ownerSeesNothing": "The owner can't see your location yet. Tap “Share location”.",
-  "sharingOn": "Sharing: sent every 15 seconds",
+  "sharingOn": "Sharing: sent every 3 seconds",
   "sharingOff": "Not sharing",
   "finishSection": "End the walk",
   "finishHint": "When you're done, finish the walk: the reserved payment is charged and the owner can leave a review.",

@@ -32,7 +32,7 @@
   "mapEmpty": "Cuando compartas tu ubicación, acá vas a ver lo mismo que ve el dueño: tu recorrido y el último punto.",
   "ownerSeesAt": "El dueño ve tu ubicación de las {{hora}}",
   "ownerSeesNothing": "El dueño todavía no ve tu ubicación. Toca «Compartir ubicación».",
-  "sharingOn": "Compartiendo: se envía cada 15 segundos",
+  "sharingOn": "Compartiendo: se envía cada 3 segundos",
   "sharingOff": "Sin compartir",
   "finishSection": "Terminar el paseo",
   "finishHint": "Cuando termines, finaliza el paseo: se cobra el pago reservado y el dueño puede dejar su reseña.",
