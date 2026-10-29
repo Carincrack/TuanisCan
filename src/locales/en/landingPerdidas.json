@@ -5,12 +5,32 @@
   "subtitle": "The ones that got lost near you. If you saw one, you can let their owner know from their profile.",
   "loading": "Loading lost pets...",
   "loadError": "Could not load the lost pets.",
+  "resultsCount": "{{n}} active reports",
+  "recent": {
+    "title": "Recently reported"
+  },
   "empty": {
     "title": "No lost pets reported",
-    "hint": "Once someone reports one, it'll show up here."
+    "hint": "Once someone reports one, it'll show up here.",
+    "filteredTitle": "No pets match those filters",
+    "filteredHint": "Try another search or clear the filters."
+  },
+  "filters": {
+    "search": "Search",
+    "searchPlaceholder": "Name, species or zone",
+    "province": "Province",
+    "canton": "Canton",
+    "district": "District",
+    "allProvinces": "All provinces",
+    "allCantons": "All cantons",
+    "allDistricts": "All districts",
+    "clear": "Clear filters"
   },
   "card": {
     "photoAlt": "Photo of {{nombre}}",
+    "viewPhotoAria": "View {{nombre}}'s photo in full size",
+    "someoneFound": "Someone found this pet",
+    "postLabel": "Lost pet report",
     "lost": "Lost",
     "noZone": "Zone not indicated",
     "lostOn": "Lost on {{fecha}}",

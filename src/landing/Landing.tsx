@@ -2,6 +2,7 @@ import { useRef } from "react";
 
 import Cierre from "./secciones/Cierre";
 import Hero from "./secciones/Hero";
+import MascotasRecientes from "./secciones/MascotasRecientes";
 import MenuMovil from "./secciones/MenuMovil";
 import Pasos from "./secciones/Pasos";
 import Pie from "./secciones/Pie";
@@ -51,6 +52,7 @@ const Landing = ({ onEntrar }: LandingProps) => {
 
       <main>
         <Servicios />
+        <MascotasRecientes />
         <Pasos />
         <Cierre onEntrar={onEntrar} />
       </main>

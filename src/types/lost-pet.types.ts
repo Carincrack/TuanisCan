@@ -79,6 +79,10 @@ export interface PetMatch {
     eso vive detrás de sesión, en /mascotas-perdidas. */
 export interface PublicLostPet {
   id_mascota_perdida: string;
+  /** Null cuando el reporte es de una mascota encontrada sin dueño
+      identificado: ahí `nombre` no es un nombre real, es el texto
+      por defecto que pone `reportar_mascota_perdida`. */
+  id_mascota: string | null;
   nombre: string;
   especie: string;
   raza: string | null;

@@ -138,6 +138,7 @@
     "photoAlt": "Photo of {{nombre}}",
     "statusLost": "Lost",
     "statusFound": "Found",
+    "someoneFound": "Someone found this pet",
     "reward": "Reward {{monto}}",
     "zoneLabel": "Zone",
     "seenIn": "Seen in {{zona}}",

@@ -84,6 +84,16 @@
     "linea2": "un pequeño paso.",
     "subrayada": "Y de ahí, a disfrutar."
   },
+  "mascotasPerdidas": {
+    "antetitulo": "Pasando ahora",
+    "linea1": "Alguien ya está",
+    "linea2": "buscando a su",
+    "subrayada": "mejor amigo.",
+    "noZone": "Zona no indicada",
+    "someoneFound": "Alguien encontró esta mascota",
+    "viewPhotoAria": "Ver la foto de {{nombre}} en tamaño completo",
+    "cta": "Ver mascotas perdidas"
+  },
   "cierre": {
     "antetitulo": "Empezá hoy",
     "linea1": "Tu mascota merece",
