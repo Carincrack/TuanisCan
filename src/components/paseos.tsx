@@ -927,9 +927,24 @@ const Paseos = () => {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
+                {/* El mismo halo-más-sombra-de-verdad que ya usa el
+                    mapa del paseo en vivo (`MapaRecorrido.tsx`,
+                    `.tsc-ruta-resalte`), para que una ruta terminada
+                    se vea con el mismo cuerpo que una en curso. */}
                 <Polyline
                   positions={ruta.map((punto) => [punto.latitud, punto.longitud] as [number, number])}
-                  pathOptions={{ color: "#12a9b9", weight: 5 }}
+                  pathOptions={{ color: "#14a3b8", weight: 11, opacity: 0.18, lineCap: "round", lineJoin: "round" }}
+                />
+                <Polyline
+                  positions={ruta.map((punto) => [punto.latitud, punto.longitud] as [number, number])}
+                  pathOptions={{
+                    color: "#14a3b8",
+                    weight: 5,
+                    opacity: 1,
+                    lineCap: "round",
+                    lineJoin: "round",
+                    className: "tsc-ruta-resalte",
+                  }}
                 />
                 <Marker position={[ruta[0].latitud, ruta[0].longitud]} icon={pinInicio} />
                 <Marker

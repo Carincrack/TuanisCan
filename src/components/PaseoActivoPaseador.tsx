@@ -135,7 +135,7 @@ const PaseoActivoPaseador = () => {
     setSharing(true);
     watch.current = navigator.geolocation.watchPosition(
       (position) => {
-        if (Date.now() - lastSent.current < 15000) return;
+        if (Date.now() - lastSent.current < 3000) return;
         lastSent.current = Date.now();
         void guardarUbicacionPaseo(walkId, position.coords)
           // Sin mensaje de «listo»: el punto en el mapa y la hora de
