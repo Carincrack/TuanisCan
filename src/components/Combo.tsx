@@ -83,8 +83,12 @@ interface ComboProps {
       conserva su diseño propio —píldoras, gris pizarra, cuerpo de
       16 px para que iOS no haga zoom al enfocar— y un combo con los
       tokens de la aplicación ahí adentro se ve pegado con cinta.
-      El comportamiento es el mismo en las dos; solo cambian clases. */
-  tono?: "sistema" | "login";
+      El comportamiento es el mismo en las dos; solo cambian clases.
+
+      La tercera, `portada`, es para la vitrina pública de mascotas
+      perdidas: píldora blanca con la tinta navy de la portada, que es
+      donde vive esa pantalla. */
+  tono?: "sistema" | "login" | "portada";
   "aria-label"?: string;
 }
 
@@ -118,6 +122,21 @@ const PIELES = {
     filaElegida: "bg-[#14A3B8]/10 font-semibold text-[#1E2A33]",
     filaActiva: "bg-slate-50 text-[#1E2A33]",
     filaQuieta: "text-slate-600",
+  },
+  portada: {
+    boton:
+      "rounded-full bg-white px-5 py-3.5 text-[14px] font-semibold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#14A3B8]",
+    botonAbierto: "shadow-[0_10px_24px_-14px_rgba(20,36,46,0.45)]",
+    botonCerrado: "hover:shadow-[0_8px_20px_-14px_rgba(20,36,46,0.4)]",
+    conValor: "text-[#1A4257]",
+    sinValor: "text-[#526670]",
+    icono: "text-[#14A3B8]",
+    flecha: "text-[#1A4257]",
+    lista: "rounded-[20px] bg-white p-1.5 shadow-[0_22px_44px_-18px_rgba(20,36,46,0.45)]",
+    fila: "px-4 py-2.5 text-[14px] rounded-[14px]",
+    filaElegida: "bg-[#DDF0F3] font-semibold text-[#1A4257]",
+    filaActiva: "bg-[#EEF2F4] text-[#1A4257]",
+    filaQuieta: "text-[#526670]",
   },
 } as const;
 

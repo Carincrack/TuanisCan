@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Onda from "../componentes/Onda";
 import { MARCA } from "../../lib/nav";
 import { ENLACES } from "../datos";
@@ -13,9 +14,13 @@ import { useTranslation } from "../../hooks/useTranslation";
 
    Lleva el aviso de derechos completo. "Costa Rica · 2026" no
    reserva nada; la línea de abajo sí dice de quién es la marca y
-   qué se reserva. */
+   qué se reserva.
 
-const Pie = () => {
+   `enlaces` reemplaza la navegación: los de la portada son anclas a
+   sus propias secciones (`#servicios`, `#pasos`), y en otra página
+   que use este pie no llevarían a ninguna parte. */
+
+const Pie = ({ enlaces }: { enlaces?: ReactNode }) => {
   const { t } = useTranslation();
   return (
   <footer className="relative overflow-hidden px-6 pt-32 pb-10 sm:px-10">
@@ -35,7 +40,7 @@ const Pie = () => {
       </span>
 
       <nav className="flex flex-wrap items-center gap-6">
-        {ENLACES.map((e) => (
+        {enlaces ?? ENLACES.map((e) => (
           <a
             key={e.href}
             href={e.href}

@@ -253,10 +253,19 @@ const RootLayout = () => {
      componente—, así que su botón "Iniciá sesión" manda acá con
      `#iniciar-sesion` en el hash. Sin esto, ese botón solo traía de
      vuelta a la portada pública a secas, con el mismo "Entrar" que
-     ya había esquivado: dos clics para lo que debería ser uno. */
+     ya había esquivado: dos clics para lo que debería ser uno.
+     `#crear-cuenta` hace lo mismo con el registro: es el "Crear
+     cuenta" de la barra de esa vitrina. */
   useEffect(() => {
-    if (pathname === "/" && window.location.hash === "#iniciar-sesion" && !role) {
-      setAccesoPublico("signin");
+    if (pathname !== "/" || role) return;
+    const modo =
+      window.location.hash === "#iniciar-sesion"
+        ? "signin"
+        : window.location.hash === "#crear-cuenta"
+          ? "signup"
+          : null;
+    if (modo) {
+      setAccesoPublico(modo);
       window.history.replaceState(null, "", "/");
     }
   }, [pathname, role]);

@@ -2,13 +2,15 @@
   "backHome": "Home",
   "backToHomeAria": "{{marca}}, back to home",
   "antetitulo": "Community",
+  "titulo": {
+    "linea1": "Lost",
+    "linea2": "pets"
+  },
   "subtitle": "The ones that got lost near you. If you saw one, you can let their owner know from their profile.",
   "loading": "Loading lost pets...",
   "loadError": "Could not load the lost pets.",
   "resultsCount": "{{n}} active reports",
-  "recent": {
-    "title": "Recently reported"
-  },
+  "miCuenta": "Go to my account",
   "empty": {
     "title": "No lost pets reported",
     "hint": "Once someone reports one, it'll show up here.",
@@ -24,16 +26,20 @@
     "allProvinces": "All provinces",
     "allCantons": "All cantons",
     "allDistricts": "All districts",
+    "estadoAria": "Show",
+    "todas": "All",
+    "perdidas": "Lost",
+    "encontradas": "Found",
+    "showing": "{{n}} of {{total}} profiles",
     "clear": "Clear filters"
   },
   "card": {
     "photoAlt": "Photo of {{nombre}}",
     "viewPhotoAria": "View {{nombre}}'s photo in full size",
-    "someoneFound": "Someone found this pet",
-    "postLabel": "Lost pet report",
+    "someoneFound": "Someone found it",
     "lost": "Lost",
+    "found": "Found",
     "noZone": "Zone not indicated",
-    "lostOn": "Lost on {{fecha}}",
     "report": "Report a sighting",
     "loginToReport": "Log in to report"
   }
