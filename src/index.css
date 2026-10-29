@@ -956,6 +956,31 @@
   mask-repeat: no-repeat;
 }
 
+/* El mismo recurso que `.recorte`, pero a los lados: el carrusel de
+   mascotas recién reportadas corta su fila en seco contra el
+   `overflow-x-hidden` que esconde la segunda copia, y una tarjeta de
+   golpe contra el borde se leía como un error de recorte y no como
+   una decisión. El degradado la desvanece antes de llegar al borde,
+   así la fila se pierde en el fondo en vez de cortarse contra él. */
+.portada .carrusel-desvanece {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
 /* ── Titulares partidos ───────────────────────────────────────
    Cada línea es una ventana con `overflow: hidden` y cada palabra
    sube desde debajo del borde. Es lo que separa un titular que

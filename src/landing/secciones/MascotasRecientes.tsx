@@ -98,7 +98,7 @@ const MascotasRecientes = () => {
           literalmente partida. Dejando el alto libre, la sombra sale
           entera sin que haga falta adivinar cuánto espacio de más
           darle arriba y abajo. */}
-      <div className="relative z-10 mt-14 overflow-x-hidden sm:mt-16">
+      <div className="carrusel-desvanece relative z-10 mt-14 overflow-x-hidden sm:mt-16">
         <div className="anim-carrusel flex w-max gap-9 py-6">
           {fila.map((mascota, i) => (
             <figure
