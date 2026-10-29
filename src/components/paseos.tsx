@@ -35,6 +35,7 @@ import { listOwnerPayments, type PaymentStatus } from "../services/payments.serv
 import type { WalkWithRelations } from "../services/walks.service";
 import type { Pet } from "../types/pet.types";
 import {
+  BotonCerrarVentana,
   Avatar,
   Badge,
   Confirmar,
@@ -515,7 +516,7 @@ const Paseos = () => {
       type="button"
       onClick={() => setDetalleId(paseo.id_paseo)}
       title={t("paseos.detail.open", { mascota: nombreMascota(paseo) })}
-      className={`block max-w-full truncate text-left font-semibold text-ink underline-offset-[3px] transition-colors duration-150 hover:text-accent-deep ${className}`}
+      className={`-my-2 block max-w-full truncate py-2 text-left font-semibold text-ink underline-offset-[3px] transition-colors duration-150 hover:text-accent-deep ${className}`}
     >
       {nombreMascota(paseo)}
     </button>
@@ -898,9 +899,9 @@ const Paseos = () => {
                   {t("paseos.detail.viewRoute")}
                 </button>
               )}
-              <button type="button" className={btnPrimary} onClick={() => setDetalleId(null)}>
+              <BotonCerrarVentana className={btnSecondary}>
                 {t("paseos.detail.close")}
-              </button>
+              </BotonCerrarVentana>
             </div>
           </div>
         </Dialog>

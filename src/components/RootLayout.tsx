@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, startTransition, useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
   Footprints,
@@ -9,11 +9,9 @@ import {
   Store,
 } from "../lib/iconos";
 
-import LoginPage from "../page/LoginPage";
-import AppShell from "./AppShell";
-import Landing from "../landing";
 import Splash from "./Splash";
 import { levantarCortina } from "../lib/cortina";
+import { AppShell, Landing, LoginPage } from "../precarga";
 
 import {
   MARCA,
@@ -32,6 +30,7 @@ import RoleGuard from "../guards/RoleGuard";
  * Un único login monta el shell correspondiente al rol recibido
  * desde Supabase Auth.
  */
+
 
 /* ============================================================
    INFORMACIÓN VISUAL DE LOS ROLES
@@ -426,27 +425,35 @@ const RootLayout = () => {
    *   ↓
    * LoginPage
    */
-  const puertaPublica =
-    zonaAdmin || accesoPublico !== null ? (
-      <LoginPage
-        initialMode={accesoPublico ?? "signin"}
-        onBack={
-          zonaAdmin
-            ? undefined
-            : () => setAccesoPublico(null)
-        }
-      />
-    ) : (
-      <Landing
-        onEntrar={(modo) => {
-          setAccesoPublico(
-            modo === "registro"
-              ? "signup"
-              : "signin",
-          );
-        }}
-      />
-    );
+  /* Los cambios de puerta van en una transición: si el trozo del login
+     todavía no llegó, la portada se queda a la vista hasta que esté
+     listo, en vez de dejar la pantalla vacía en medio. */
+  const puertaPublica = (
+    <Suspense fallback={null}>
+      {zonaAdmin || accesoPublico !== null ? (
+        <LoginPage
+          initialMode={accesoPublico ?? "signin"}
+          onBack={
+            zonaAdmin
+              ? undefined
+              : () => startTransition(() => setAccesoPublico(null))
+          }
+        />
+      ) : (
+        <Landing
+          onEntrar={(modo) => {
+            startTransition(() =>
+              setAccesoPublico(
+                modo === "registro"
+                  ? "signup"
+                  : "signin",
+              ),
+            );
+          }}
+        />
+      )}
+    </Suspense>
+  );
 
   /* ============================================================
      RENDER PRINCIPAL
@@ -478,16 +485,21 @@ const RootLayout = () => {
               pidiendo sus datos dos veces—. Ese era el parpadeo. Ahora
               la aplicación se arma UNA vez debajo de la cortina y la
               cortina se va sobre algo que ya está quieto. */}
-          <div className="anim-app-in">
-            {rolActual && (
-              <AppShell
-                rol={rolActual}
-                onLogout={salir}
-              >
-                <Outlet />
-              </AppShell>
-            )}
-          </div>
+          {/* El `Suspense` envuelve también la caja: mientras llega el
+              trozo del armazón no queda ni una caja vacía en `#root`, y
+              la cortina sigue arriba. */}
+          <Suspense fallback={null}>
+            <div className="anim-app-in">
+              {rolActual && (
+                <AppShell
+                  rol={rolActual}
+                  onLogout={salir}
+                >
+                  <Outlet />
+                </AppShell>
+              )}
+            </div>
+          </Suspense>
         </RoleGuard>
       )}
     </AuthGuard>

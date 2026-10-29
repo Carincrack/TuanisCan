@@ -18,14 +18,10 @@ const modulosEs = import.meta.glob("../locales/es/*.json", { eager: true }) as R
   string,
   { default: JsonObject }
 >;
-const modulosEn = import.meta.glob("../locales/en/*.json", { eager: true }) as Record<
-  string,
-  { default: JsonObject }
->;
 
 const dominioDe = (ruta: string) => ruta.split("/").pop()!.replace(/\.json$/, "");
 
-const construirDiccionario = (modulos: Record<string, { default: JsonObject }>) => {
+export const construirDiccionario = (modulos: Record<string, { default: JsonObject }>) => {
   const diccionario: Record<string, JsonObject> = {};
   for (const [ruta, modulo] of Object.entries(modulos)) {
     diccionario[dominioDe(ruta)] = modulo.default;
@@ -33,9 +29,27 @@ const construirDiccionario = (modulos: Record<string, { default: JsonObject }>) 
   return diccionario;
 };
 
-const dictionaries: Record<Language, Record<string, JsonObject>> = {
+/* ── El inglés llega aparte ──
+   El español viaja con la aplicación porque es el idioma por defecto
+   y el respaldo de toda clave que falte. El inglés vive en su propio
+   archivo (`ingles.ts`) y se baja solo si alguien lo usa: antes iban
+   los dos idiomas enteros en el paquete principal, y quien entraba en
+   español se bajaba también todo el inglés. */
+const dictionaries: Partial<Record<Language, Record<string, JsonObject>>> = {
   es: construirDiccionario(modulosEs),
-  en: construirDiccionario(modulosEn),
+};
+
+const cargadores: Partial<Record<Language, () => Promise<Record<string, JsonObject>>>> = {
+  en: () => import("./ingles").then((m) => m.default),
+};
+
+/* Deja listo el diccionario de `language`. Con el español —o con uno
+   que ya se bajó— no hace nada. Si la descarga falla, `translate` cae
+   al español, que siempre está. */
+export const cargarIdioma = async (language: Language): Promise<void> => {
+  const cargar = cargadores[language];
+  if (dictionaries[language] || !cargar) return;
+  dictionaries[language] = await cargar();
 };
 
 const digRaw = (object: JsonValue | undefined, path: string[]): JsonValue | undefined => {
@@ -100,4 +114,4 @@ export const translateRaw = (language: Language, key: string): JsonValue | undef
   return digRaw(dictionaries.es?.[domain], path);
 };
 
-export type { JsonValue };
+export type { JsonObject, JsonValue };

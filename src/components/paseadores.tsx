@@ -24,6 +24,7 @@ import type { I18nContextValue } from "../context/i18n-context";
 import type { PublicWalker, WalkRequestInput } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import {
+  BotonCerrarVentana,
   Avatar,
   Dialog,
   EmptyState,
@@ -265,6 +266,11 @@ const Paseadores = () => {
       id_mascota: current.id_mascota || pets[0]?.id_mascota || "",
     }));
   };
+
+  /* Algo escrito en la solicitud, aparte de la mascota elegida: cerrar
+     sin enviar pregunta antes de perderlo. */
+  const solicitudCambiada =
+    JSON.stringify({ ...form, id_mascota: "" }) !== JSON.stringify({ ...emptyRequest(), id_mascota: "" });
 
   const estimado = useMemo(
     () =>
@@ -649,13 +655,9 @@ const Paseadores = () => {
             </dl>
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setPerfil(null)}
-                className={btnSecondary}
-              >
+              <BotonCerrarVentana className={btnSecondary}>
                 {t("paseadores.profileDialog.close")}
-              </button>
+              </BotonCerrarVentana>
               <button
                 type="button"
                 onClick={() => {
@@ -675,7 +677,12 @@ const Paseadores = () => {
       )}
 
       {solicitud && (
-        <Dialog title={t("paseadores.requestDialog.title")} onClose={() => setSolicitud(null)}>
+        <Dialog
+          title={t("paseadores.requestDialog.title")}
+          contexto={solicitud.nombre}
+          onClose={() => setSolicitud(null)}
+          cambiosSinGuardar={solicitudCambiada}
+        >
           <div className="px-6 py-5">
             {/* Con quién es el paseo va acá arriba y no en un subtítulo
                 de la cabecera: es un dato, no el nombre de la ventana,
@@ -848,14 +855,9 @@ const Paseadores = () => {
               )}
 
               <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setSolicitud(null)}
-                  className={btnSecondary}
-                >
+                <BotonCerrarVentana disabled={saving} className={btnSecondary}>
                   {t("paseadores.requestDialog.cancel")}
-                </button>
+                </BotonCerrarVentana>
                 <button
                   type="button"
                   disabled={saving || !pets.length}

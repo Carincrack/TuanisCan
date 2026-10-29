@@ -50,7 +50,9 @@ export const MARCA = {
                     en barras, cabeceras y el carnet. */
   logoLogin: "/logo-login.png",
   logoSistema: "/logo-sistema.png",
-  logoSimbolo: "/logo-simbolo.png",
+  /* WebP de 384 px (30 KB): alcanza para todos sus usos, que van de
+     24 a 48 px. El PNG original pesaba 276 KB. */
+  logoSimbolo: "/logo-simbolo.webp",
 };
 
 export type Rol = "dueno" | "paseador" | "negocio" | "admin";

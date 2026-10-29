@@ -5,7 +5,7 @@ import { useTranslation } from "../hooks/useTranslation";
 import { aviso, motivo } from "../lib/aviso";
 import { guardarResena, paseoPorResenar } from "../services/resenas.service";
 import type { WalkWithRelations } from "../services/walks.service";
-import { Avatar, Dialog, btnPrimary, btnSecondary } from "./ui";
+import { Avatar, BotonCerrarVentana, Dialog, Estrella, btnPrimary, btnSecondary } from "./ui";
 
 /* ─────────────────────────────────────────────────────────────
    LA RESEÑA AL TERMINAR EL PASEO
@@ -25,25 +25,6 @@ import { Avatar, Dialog, btnPrimary, btnSecondary } from "./ui";
    Va en `z-[110]`: el dueño puede estar chateando a pantalla completa
    (`z-[95]`) justo cuando el paseo termina.
    ───────────────────────────────────────────────────────────── */
-
-/* La estrella de Lucide, dibujada acá: la del módulo de íconos es de
-   trazo animado y no se deja rellenar, y una estrella elegida tiene que
-   verse llena. */
-const Estrella = ({ llena }: { llena: boolean }) => (
-  <svg
-    viewBox="0 0 24 24"
-    width="30"
-    height="30"
-    aria-hidden
-    fill={llena ? "currentColor" : "none"}
-    stroke="currentColor"
-    strokeWidth={1.6}
-    strokeLinejoin="round"
-    className={`transition-colors duration-150 ${llena ? "text-warn" : "text-ink-mute/50"}`}
-  >
-    <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
-  </svg>
-);
 
 export const ResenaAlTerminar = ({
   idPaseo,
@@ -137,10 +118,10 @@ export const ResenaAlTerminar = ({
 
         {/* El cobro, que antes era otro aviso */}
         {cobro && (
-          <p className="mt-4 flex items-start gap-2 rounded-[14px] bg-ok-wash px-3.5 py-2.5 text-[12.5px] text-ok">
+          <div className="mt-4 flex items-start gap-2 rounded-[14px] bg-ok-wash px-3.5 py-2.5 text-[12.5px] text-ok">
             <CheckCircle2 size={16} className="mt-px shrink-0" />
             <span>{cobro}</span>
-          </p>
+          </div>
         )}
 
         {/* Las estrellas */}
@@ -184,9 +165,9 @@ export const ResenaAlTerminar = ({
         )}
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" disabled={guardando} onClick={() => cerrar.current(true)} className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}>
+          <BotonCerrarVentana disabled={guardando} className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}>
             {t("resenas.alTerminar.later")}
-          </button>
+          </BotonCerrarVentana>
           <button
             type="button"
             disabled={guardando || !estrellas}

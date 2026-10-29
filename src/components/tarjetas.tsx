@@ -20,6 +20,7 @@ import {
   type PaymentMethod,
 } from "../services/payments.service";
 import {
+  BotonCerrarVentana,
   Badge,
   Confirmar,
   Dialog,
@@ -363,7 +364,12 @@ const Tarjetas = () => {
 
       {/* ── Registrar tarjeta ── */}
       {mostrarTarjeta && (
-        <Dialog title={t("tarjetas.form.dialogTitle")} ancho="max-w-[780px]" onClose={cerrarFormulario}>
+        <Dialog
+          title={t("tarjetas.form.dialogTitle")}
+          ancho="max-w-[780px]"
+          onClose={cerrarFormulario}
+          cambiosSinGuardar={Object.values(form).some((valor) => valor.trim() !== "")}
+        >
           <div className="grid gap-6 p-6 md:grid-cols-[1fr_1.1fr] md:items-start">
             {/* La vista previa se arma sola mientras se escribe: es la
                 forma más rápida de ver que el número quedó bien. */}
@@ -513,9 +519,9 @@ const Tarjetas = () => {
               )}
 
               <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
-                <button type="button" className={btnSecondary} onClick={cerrarFormulario}>
+                <BotonCerrarVentana className={btnSecondary}>
                   {t("common.cancel")}
-                </button>
+                </BotonCerrarVentana>
                 <button
                   type="button"
                   className={btnPrimary}

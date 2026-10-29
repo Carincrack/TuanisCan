@@ -213,10 +213,10 @@ const PaseoActivoPaseador = () => {
             <p className="text-[13px] text-ink-soft">{t("paseoActivoPaseador.confirmedTodayHint")}</p>
 
             {pagoListo ? (
-              <p className="mt-4 flex items-start gap-2 rounded-[14px] bg-ok-wash px-4 py-3 text-[13px] text-ok">
+              <div className="mt-4 flex items-start gap-2 rounded-[14px] bg-ok-wash px-4 py-3 text-[13px] text-ok">
                 <ShieldCheck size={16} className="mt-0.5 shrink-0" />
                 {t("paseoActivoPaseador.paymentReady", { monto: colones(pago?.monto ?? 0) })}
-              </p>
+              </div>
             ) : (
               <div className="mt-4 flex items-start gap-2 rounded-[14px] bg-warn-wash px-4 py-3 text-[13px] text-warn">
                 <Clock size={16} className="mt-0.5 shrink-0" />
@@ -255,21 +255,21 @@ const PaseoActivoPaseador = () => {
             </p>
 
             {pagoProximo?.estado === "retenido" || pagoProximo?.estado === "pagado" ? (
-              <p className="mt-4 flex items-start gap-2 rounded-[14px] bg-ok-wash px-4 py-3 text-[13px] text-ok">
+              <div className="mt-4 flex items-start gap-2 rounded-[14px] bg-ok-wash px-4 py-3 text-[13px] text-ok">
                 <ShieldCheck size={16} className="mt-0.5 shrink-0" />
                 {t("paseoActivoPaseador.paymentReady", { monto: colones(pagoProximo?.monto ?? proximo.precio) })}
-              </p>
+              </div>
             ) : (
-              <p className="mt-4 flex items-start gap-2 rounded-[14px] bg-warn-wash px-4 py-3 text-[13px] text-warn">
+              <div className="mt-4 flex items-start gap-2 rounded-[14px] bg-warn-wash px-4 py-3 text-[13px] text-warn">
                 <Clock size={16} className="mt-0.5 shrink-0" />
                 {t("paseoActivoPaseador.paymentWaiting")}
-              </p>
+              </div>
             )}
 
-            <p className="mt-4 flex items-start gap-2 text-[12.5px] text-ink-soft">
+            <div className="mt-4 flex items-start gap-2 text-[12.5px] text-ink-soft">
               <CalendarDays size={15} className="mt-0.5 shrink-0" />
               {t("paseoActivoPaseador.nextStartHint", { dia: diaDe(proximo.fecha) })}
-            </p>
+            </div>
           </Section>
         ) : (
           <EmptyState title={t("paseoActivoPaseador.empty.title")} hint={t("paseoActivoPaseador.empty.hint")} />
@@ -299,12 +299,12 @@ const PaseoActivoPaseador = () => {
         <MapaRecorrido ubicaciones={ubicaciones} vacio={t("paseoActivoPaseador.mapEmpty")} />
         <div className="flex flex-col gap-3 bg-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 text-[12.5px]">
-            <p className="flex items-start gap-2 text-ink-soft">
+            <div className="flex items-start gap-2 text-ink-soft">
               <MapPin size={14} className="mt-0.5 shrink-0" />
               {ultima
                 ? t("paseoActivoPaseador.ownerSeesAt", { hora: hora(ultima.timestamp) })
                 : t("paseoActivoPaseador.ownerSeesNothing")}
-            </p>
+            </div>
             <p className={`mt-1.5 inline-flex items-center gap-1.5 font-semibold ${sharing ? "text-accent-dark" : "text-ink-mute"}`}>
               <span
                 aria-hidden

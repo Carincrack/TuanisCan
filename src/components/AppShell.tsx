@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate, useRouterState } from "@tanstack/react-router";
 import { BadgeCheck, Bell, Check, Footprints, Menu, PawPrint, ShieldAlert, Star, Trash2, Wallet } from "../lib/iconos";
 import type { Icono } from "../lib/iconos";
 
@@ -89,6 +89,31 @@ interface AppShellProps {
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { pathname, search } = useLocation();
+  const { matches } = useRouterState();
+  const rutaMostrada = String(matches[matches.length - 1]?.routeId ?? "");
+
+  /* ── El desplazamiento del contenido ──
+     El contenido se desplaza dentro de su propio contenedor, que no
+     cambia al navegar: sin volverlo arriba, la pantalla nueva aparecía
+     a la altura en que se había dejado la anterior.
+
+     Y en el teléfono el título de la barra de arriba aparece recién
+     cuando el encabezado de la página quedó atrás: con los dos a la
+     vista el título se leía dos veces seguidas. */
+  const contenido = useRef<HTMLDivElement>(null);
+  const [desplazado, setDesplazado] = useState(false);
+  const desplazadoRef = useRef(false);
+  useLayoutEffect(() => {
+    contenido.current?.scrollTo({ top: 0 });
+    desplazadoRef.current = false;
+    setDesplazado(false);
+  }, [rutaMostrada]);
+  const alDesplazar = () => {
+    const abajo = (contenido.current?.scrollTop ?? 0) > 72;
+    if (abajo === desplazadoRef.current) return;
+    desplazadoRef.current = abajo;
+    setDesplazado(abajo);
+  };
   /* Estas pantallas piden su propio botón de notificaciones —ver
      `NotificationButtonContext` más abajo— y con eso la franja
      superior les queda vacía: se pliega solo para ellas. */
@@ -108,7 +133,10 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const { getProfile, roles, isAdmin, setActiveRole, user } = useAuth();
   const idUsuario = user?.id ?? null;
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [contenidoAncho, setContenidoAncho] = useState(false);
+  /* Todas las pantallas usan el carril ancho (ver más abajo); el aviso
+     de `Page wide` se sigue recibiendo para no romper las páginas que lo
+     mandan, pero ya no cambia nada. */
+  const [, setContenidoAncho] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   /* Solo con el perfil cargado. Ver la nota junto al aviso. */
   const avisoVerificacion =
@@ -249,9 +277,12 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     }
   }, [t, recibir]);
 
+  /* Una vez al entrar. Antes se volvían a pedir en cada cambio de
+     pantalla, pero no hace falta: lo nuevo llega por el canal en tiempo
+     real, y lo que se pierda sin conexión se recupera más abajo. */
   useEffect(() => {
     void cargarNotificaciones();
-  }, [cargarNotificaciones, pathname]);
+  }, [cargarNotificaciones]);
 
   const cargarRef = useRef(cargarNotificaciones);
   const recibirRef = useRef(recibir);
@@ -329,8 +360,9 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   /* ── Mensajes del chat ──
      El número junto a «Mensajes» y el aviso cuando llega uno estando en
      otra pantalla. Si ese chat está abierto en pantalla, no se avisa: ya
-     se está viendo. Se cuenta otra vez al cambiar de pantalla, porque
-     abrir un chat los marca como leídos. */
+     se está viendo. Se cuenta otra vez al entrar, salir o cambiar de
+     chat, que es lo único que los marca como leídos; en las demás
+     pantallas el número lo lleva el aviso en tiempo real. */
   const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
   const contarMensajes = useCallback(async () => {
     if (!idUsuario || (rol !== "dueno" && rol !== "paseador")) {
@@ -344,9 +376,10 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     }
   }, [rol, idUsuario]);
 
+  const chatAbierto = pathname.endsWith("/mensajes") ? `${pathname}?${String((search as Record<string, unknown>).chat ?? "")}` : "";
   useEffect(() => {
     void contarMensajes();
-  }, [contarMensajes, pathname, search]);
+  }, [contarMensajes, chatAbierto]);
 
   const dondeEstoy = useRef({ pathname, search, rol });
   useEffect(() => {
@@ -663,15 +696,16 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
             <Menu size={19} />
           </button>
 
-          {!conEncabezadoPropio && (
-            <h1 className="titular min-w-0 flex-1 truncate text-[20px] text-ink">
-              {(() => {
-                const clave = tituloDeRuta(rol, pathname);
-                return clave ? t(clave) : MARCA.completo;
-              })()}
-            </h1>
-          )}
-          {conEncabezadoPropio && <div className="min-w-0 flex-1" />}
+          <h1
+            className={`titular min-w-0 flex-1 truncate text-[20px] text-ink transition-[opacity,transform] duration-200 ease-out ${
+              desplazado ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0"
+            } md:pointer-events-auto md:translate-y-0 ${conEncabezadoPropio ? "md:opacity-0" : "md:opacity-100"}`}
+          >
+            {(() => {
+              const clave = tituloDeRuta(rol, pathname);
+              return clave ? t(clave) : MARCA.completo;
+            })()}
+          </h1>
 
           <QuickLanguageSwitcher className="flota flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]" />
 
@@ -910,13 +944,26 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 overflow-y-auto">
-          <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-4">
+        <div ref={contenido} onScroll={alDesplazar} className="flex min-h-0 flex-1 overflow-y-auto">
+          <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-6">
             {/* La clave remonta el contenido en cada ruta: así la entrada
-                se reproduce al navegar, no solo al cargar la página. */}
+                se reproduce al navegar, no solo al cargar la página.
+
+                Ancho completo para todas: con el carril angosto de 900 px
+                la pantalla quedaba vacía a los lados en la computadora.
+                El margen lo dan el lienzo y el relleno de `main`, así el
+                contenido llena el ancho sin pegarse a los bordes.
+
+                Es la ruta que se está MOSTRANDO, no la de la barra de
+                direcciones. Con `pathname` la clave cambiaba un instante
+                antes que la pantalla —el router actualiza la dirección y
+                después la página—, así que la pantalla que se dejaba se
+                volvía a montar dentro del contenedor nuevo y pedía todos
+                sus datos otra vez justo al irse: cada navegación cargaba
+                dos pantallas. */}
             <div
-              key={pathname}
-              className={`anim-rise mx-auto w-full ${contenidoAncho ? "max-w-[1600px]" : "max-w-[900px]"}`}
+              key={rutaMostrada}
+              className="anim-rise mx-auto w-full max-w-[1600px]"
             >
               <PageWidthContext.Provider value={setContenidoAncho}>
                 {/* La copia del encabezado de la página: solo desde `md`.

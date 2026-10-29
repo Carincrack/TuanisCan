@@ -24,6 +24,7 @@ import type { Pet } from "../types/pet.types";
 import type { LostPetInput, LostPetReport, PetMatch } from "../types/lost-pet.types";
 import {
   Badge,
+  BotonCerrarVentana,
   Confirmar,
   Dialog,
   EmptyState,
@@ -37,6 +38,7 @@ import {
   colones,
   fieldLabel,
   input,
+  useAvisarSiCambio,
 } from "./ui";
 import { Combo } from "./Combo";
 import Visor from "./Visor";
@@ -152,6 +154,7 @@ const ReportForm = ({
     recompensa: "",
   });
   const [photo, setPhoto] = useState<File | null>(null);
+  useAvisarSiCambio(values, Boolean(photo));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -292,7 +295,7 @@ const ReportForm = ({
       </div>
       <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.descriptionLabel")}<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.reportForm.publishing") : t("mascotasPerdidas.reportForm.publish")}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><BotonCerrarVentana className={btnSecondary}>{t("mascotasPerdidas.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.reportForm.publishing") : t("mascotasPerdidas.reportForm.publish")}</button></div>
     </form>
   );
 };
@@ -327,6 +330,7 @@ const FoundPetForm = ({
     ubicacion: "",
   });
   const [photo, setPhoto] = useState<File | null>(null);
+  useAvisarSiCambio(values, Boolean(photo));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
@@ -424,7 +428,7 @@ const FoundPetForm = ({
       </div>
       <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.descriptionLabel")}<textarea className={`${input} min-h-24 resize-y`} required maxLength={2000} value={values.descripcion} onChange={(e) => update("descripcion", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.foundForm.publishing") : t("mascotasPerdidas.foundForm.publish")}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><BotonCerrarVentana className={btnSecondary}>{t("mascotasPerdidas.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.foundForm.publishing") : t("mascotasPerdidas.foundForm.publish")}</button></div>
     </form>
   );
 };
@@ -450,6 +454,7 @@ const SightingForm = ({
     contacto: profilePhone ?? "",
     comentario: "",
   });
+  useAvisarSiCambio(values);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
@@ -536,12 +541,12 @@ const SightingForm = ({
       </label>
       <label className={fieldLabel}>{t("mascotasPerdidas.sightingForm.comment")}<textarea className={`${input} min-h-24 resize-y`} maxLength={1000} value={values.comentario} onChange={(e) => update("comentario", e.target.value)} /></label>
       {error && <p role="alert" className="rounded-[14px] bg-danger-wash px-4 py-3 text-[13px] text-danger">{error}</p>}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.cancel")}</button><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.sightingForm.registering") : t("mascotasPerdidas.sightingForm.register")}</button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><BotonCerrarVentana className={btnSecondary}>{t("mascotasPerdidas.cancel")}</BotonCerrarVentana><button type="submit" className={btnPrimary} disabled={busy}>{busy ? t("mascotasPerdidas.sightingForm.registering") : t("mascotasPerdidas.sightingForm.register")}</button></div>
     </form>
   );
 };
 
-const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: () => void }) => {
+const SightingDetails = ({ report }: { report: LostPetReport }) => {
   const { t, localeTag } = useTranslation();
   return (
     <div className="grid gap-3 p-5 sm:p-6">
@@ -597,7 +602,7 @@ const SightingDetails = ({ report, onClose }: { report: LostPetReport; onClose: 
         ))
       )}
       <div className="flex justify-end">
-        <button type="button" className={btnSecondary} onClick={onClose}>{t("mascotasPerdidas.sightingDetails.close")}</button>
+        <BotonCerrarVentana className={btnSecondary}>{t("mascotasPerdidas.sightingDetails.close")}</BotonCerrarVentana>
       </div>
     </div>
   );
@@ -1149,7 +1154,7 @@ const MascotasPerdidas = () => {
       )}
       {sightingDetails && (
         <Dialog ancho="max-w-[760px]" title={t("mascotasPerdidas.sightingDetails.title", { nombre: sightingDetails.nombre })} onClose={() => setSightingDetails(null)}>
-          <SightingDetails report={sightingDetails} onClose={() => setSightingDetails(null)} />
+          <SightingDetails report={sightingDetails} />
         </Dialog>
       )}
     </Page>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   localeTag,
@@ -6,7 +6,7 @@ import {
   writeStoredLanguage,
   type Language,
 } from "../i18n/languages";
-import { translate, translateRaw } from "../i18n/translations";
+import { cargarIdioma, translate, translateRaw } from "../i18n/translations";
 import { I18nContext } from "./i18n-context";
 
 /* ─────────────────────────────────────────────────────────────
@@ -31,10 +31,21 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     return inicial;
   });
 
+  /* El inglés se baja la primera vez que se elige (ver
+     `translations.ts`), y el cambio se aplica cuando ya llegó: así la
+     pantalla pasa de un idioma al otro de una vez, sin quedar a medias.
+     `pedido` guarda la última elección, por si alguien cambia dos veces
+     seguidas y la primera descarga termina después de la segunda. */
+  const pedido = useRef(language);
+
   const setLanguage = useCallback((next: Language) => {
-    setLanguageState(next);
-    writeStoredLanguage(next);
-    document.documentElement.lang = next;
+    pedido.current = next;
+    void cargarIdioma(next).finally(() => {
+      if (pedido.current !== next) return;
+      setLanguageState(next);
+      writeStoredLanguage(next);
+      document.documentElement.lang = next;
+    });
   }, []);
 
   const t = useCallback(

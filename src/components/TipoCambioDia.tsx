@@ -59,7 +59,7 @@ export const TipoCambioDia = () => {
           type="button"
           onClick={() => void reintentar()}
           disabled={cargando}
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold text-accent-dark transition-colors duration-150 hover:bg-accent-wash disabled:opacity-50"
+          className="-my-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-2 text-[12px] font-semibold text-accent-dark transition-colors duration-150 hover:bg-accent-wash disabled:opacity-50"
         >
           {cargando ? <Loader size={13} className="animate-spin" /> : <RefreshCw size={13} />}
           {t("tipoCambio.refresh")}
@@ -117,9 +117,9 @@ export const TipoCambioDia = () => {
           </div>
         </div>
       ) : cargando ? (
-        <p className="flex items-center gap-2 py-2 text-[13px] text-ink-soft">
+        <div className="flex items-center gap-2 py-2 text-[13px] text-ink-soft">
           <Loader size={14} className="animate-spin" /> {t("tipoCambio.loading")}
-        </p>
+        </div>
       ) : fallo ? (
         <p className="py-2 text-[13px] text-warn">{t("tipoCambio.failed")}</p>
       ) : null}

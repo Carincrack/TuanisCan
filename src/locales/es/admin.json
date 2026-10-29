@@ -72,7 +72,25 @@
       "paid": "Cobrados",
       "toConfirm": "Por confirmar",
       "held": "Reservados",
-      "refunded": "Liberados"
+      "refunded": "Liberados",
+      "aria": "Filtros de finanzas",
+      "period": "Periodo",
+      "types": {
+        "todo": "Todo",
+        "dia": "Día",
+        "semana": "Semana",
+        "mes": "Mes",
+        "rango": "Rango"
+      },
+      "previous": "Periodo anterior",
+      "next": "Periodo siguiente",
+      "from": "Desde",
+      "to": "Hasta",
+      "zone": "Zona",
+      "allZones": "Todas las zonas",
+      "walker": "Paseador",
+      "allWalkers": "Todos los paseadores",
+      "clear": "Quitar filtros"
     },
     "csv": {
       "date": "Fecha",
@@ -134,7 +152,11 @@
         "released": "Paseo cancelado: reserva liberada"
       },
       "notYet": "Todavía no",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "inColones": "Equivale a {{colones}}",
+      "copyReference": "Copiar referencia",
+      "referenceCopied": "Referencia copiada",
+      "referenceNotCopied": "No se pudo copiar la referencia."
     },
     "currency": {
       "label": "Filtrar por moneda",
@@ -147,7 +169,36 @@
     "byCurrencyColones": "en colones · {{count}} cobros",
     "byCurrencyDollarsOne": "en dólares · 1 cobro · {{colones}}",
     "byCurrencyDollars": "en dólares · {{count}} cobros · {{colones}}",
-    "byCurrencyDollarsNone": "en dólares · ningún cobro"
+    "byCurrencyDollarsNone": "en dólares · ningún cobro",
+    "analysis": {
+      "overTime": "Cobrado en el periodo",
+      "charges": "{{n}} cobros",
+      "chargesOne": "1 cobro",
+      "showTable": "Ver tabla",
+      "showChart": "Ver gráfico",
+      "empty": "No hay cobros en este periodo.",
+      "when": "Cuándo",
+      "count": "Cobros",
+      "charged": "Cobrado",
+      "commission": "Comisión",
+      "commissionShort": "comisión {{monto}}",
+      "weekOf": "Semana del {{dia}}",
+      "byZone": "Cobrado por zona",
+      "otherZones": "Otras zonas"
+    },
+    "compare": {
+      "against": {
+        "todo": "",
+        "dia": "el día anterior",
+        "semana": "la semana anterior",
+        "mes": "el mes anterior",
+        "rango": "el periodo anterior"
+      },
+      "up": "+{{pct}} % vs {{contra}}",
+      "down": "−{{pct}} % vs {{contra}}",
+      "same": "Igual que {{contra}}",
+      "fromZero": "Sin cobros en {{contra}}"
+    }
   },
   "walkers": {
     "title": "Directorio de paseadores",

@@ -240,6 +240,31 @@
   }
 }
 
+/* Las ventanas (`Dialog`). Entran subiendo apenas y con un 98,5 % de
+   tamaño: llegan con cuerpo, no de la nada. Salen igual pero al revés
+   y en la mitad del tiempo: lo que se descarta tiene que irse ya. */
+@keyframes tsc-ventana-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tsc-ventana-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
 /* La lista del combo box. No arranca en `scale(0)`: nada en el mundo
    real aparece de la nada, y un menú que sale de un punto se ve como
    un truco. Desde 0.97 ya tiene cuerpo antes de moverse. */
@@ -307,6 +332,19 @@
   }
   .anim-fade-out {
     animation: tsc-fade-out 0.22s ease-in both;
+  }
+
+  .anim-ventana-in {
+    animation: tsc-ventana-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .anim-ventana-out {
+    animation: tsc-ventana-out 0.17s cubic-bezier(0.4, 0, 1, 1) both;
+  }
+  .anim-fondo-in {
+    animation: tsc-fade 0.24s ease-out both;
+  }
+  .anim-fondo-out {
+    animation: tsc-fade-out 0.17s ease-in both;
   }
 
   /* Escalonado de listas y rejillas. */
@@ -518,9 +556,17 @@
    valdría dos clases contra la sola de `rounded-2xl`, y le ganaría a
    cualquier bloque que ya hubiera elegido su propio radio —las
    tarjetas de `ProfilePage`, por ejemplo—. Con `:where()` esto es
-   solo el valor por defecto: el que diga lo suyo, manda. */
-:where(.suave) :where(.bg-surface) {
-  border-radius: 18px;
+   solo el valor por defecto: el que diga lo suyo, manda.
+
+   Y va en la capa `base`. Suelta, fuera de toda capa, le ganaba igual
+   a las utilidades de Tailwind —que viven en la capa `utilities`—,
+   porque en CSS lo que no está en ninguna capa pesa más que cualquier
+   capa, se escriba como se escriba. Un `rounded-none` o un
+   `rounded-[22px]` sobre un fondo blanco no hacía nada. */
+@layer base {
+  :where(.suave) :where(.bg-surface) {
+    border-radius: 18px;
+  }
 }
 
 /* El lienzo: todo lo que no es el riel —barra superior, contenido y
@@ -560,6 +606,10 @@
   .anim-rise,
   .anim-fade,
   .anim-fade-out,
+  .anim-ventana-in,
+  .anim-ventana-out,
+  .anim-fondo-in,
+  .anim-fondo-out,
   .anim-slide-left,
   .anim-cajon-out,
   .anim-nav-in,

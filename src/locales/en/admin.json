@@ -72,7 +72,25 @@
       "paid": "Collected",
       "toConfirm": "To confirm",
       "held": "Reserved",
-      "refunded": "Released"
+      "refunded": "Released",
+      "aria": "Finance filters",
+      "period": "Period",
+      "types": {
+        "todo": "All",
+        "dia": "Day",
+        "semana": "Week",
+        "mes": "Month",
+        "rango": "Range"
+      },
+      "previous": "Previous period",
+      "next": "Next period",
+      "from": "From",
+      "to": "To",
+      "zone": "Zone",
+      "allZones": "All zones",
+      "walker": "Walker",
+      "allWalkers": "All walkers",
+      "clear": "Clear filters"
     },
     "csv": {
       "date": "Date",
@@ -134,7 +152,11 @@
         "released": "Walk cancelled: reservation released"
       },
       "notYet": "Not yet",
-      "close": "Close"
+      "close": "Close",
+      "inColones": "Equals {{colones}}",
+      "copyReference": "Copy reference",
+      "referenceCopied": "Reference copied",
+      "referenceNotCopied": "The reference couldn't be copied."
     },
     "currency": {
       "label": "Filter by currency",
@@ -147,7 +169,36 @@
     "byCurrencyColones": "in colones · {{count}} charges",
     "byCurrencyDollarsOne": "in dollars · 1 charge · {{colones}}",
     "byCurrencyDollars": "in dollars · {{count}} charges · {{colones}}",
-    "byCurrencyDollarsNone": "in dollars · no charges"
+    "byCurrencyDollarsNone": "in dollars · no charges",
+    "analysis": {
+      "overTime": "Collected in the period",
+      "charges": "{{n}} charges",
+      "chargesOne": "1 charge",
+      "showTable": "Show table",
+      "showChart": "Show chart",
+      "empty": "No charges in this period.",
+      "when": "When",
+      "count": "Charges",
+      "charged": "Collected",
+      "commission": "Commission",
+      "commissionShort": "commission {{monto}}",
+      "weekOf": "Week of {{dia}}",
+      "byZone": "Collected by zone",
+      "otherZones": "Other zones"
+    },
+    "compare": {
+      "against": {
+        "todo": "",
+        "dia": "the previous day",
+        "semana": "the previous week",
+        "mes": "the previous month",
+        "rango": "the previous period"
+      },
+      "up": "+{{pct}}% vs {{contra}}",
+      "down": "−{{pct}}% vs {{contra}}",
+      "same": "Same as {{contra}}",
+      "fromZero": "No charges in {{contra}}"
+    }
   },
   "walkers": {
     "title": "Walker directory",
