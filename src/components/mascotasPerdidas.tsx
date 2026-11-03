@@ -23,7 +23,6 @@ import type { Zona } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import type { LostPetInput, LostPetReport, PetMatch } from "../types/lost-pet.types";
 import {
-  Badge,
   BotonCerrarVentana,
   Confirmar,
   Dialog,
@@ -640,14 +639,32 @@ const TarjetaCoincidencia = ({
     return relativo.format(-Math.round(minutos / 1440), "day");
   })();
 
+  const puntaje = Math.round(match.puntaje_coincidencia);
+  /* El dato que la base ya calculaba y que nunca llegaba a la
+     pantalla: cuántos de los rasgos que escribió quien encontró la
+     mascota (raza, color, sexo) coinciden con la mascota registrada.
+     Es lo que distingue a esta tarjeta de la del volante —no es "se
+     perdió algo", es "esto coincide tanto por ciento"— así que el
+     gesto audaz acá es ESE número, no otro sello. */
   return (
-    <article className="flex flex-col rounded-[18px] bg-surface p-3">
+    <article className="flex flex-col rounded-[18px] bg-surface p-3 outline outline-black/[0.05]">
       <div className="flex gap-3">
-        <img
-          src={match.fotoUrl ?? "/mock/dog-nube.jpg"}
-          alt={t("mascotasPerdidas.matches.photoAlt", { nombre: match.mascotaNombre })}
-          className="size-24 shrink-0 rounded-[14px] bg-sunken object-cover"
-        />
+        <div className="relative shrink-0">
+          <img
+            src={match.fotoUrl ?? "/mock/dog-nube.jpg"}
+            alt={t("mascotasPerdidas.matches.photoAlt", { nombre: match.mascotaNombre })}
+            className="size-24 rounded-[14px] bg-sunken object-cover"
+          />
+          <span
+            aria-hidden
+            className={`absolute -top-2 -right-2 grid size-9 place-items-center rounded-full border-[3px] border-surface text-[11px] font-bold text-white ${
+              puntaje >= 70 ? "bg-ok" : puntaje >= 40 ? "bg-warn" : "bg-ink-mute"
+            }`}
+            title={t("mascotasPerdidas.matches.scoreTitle", { puntaje })}
+          >
+            {puntaje}%
+          </span>
+        </div>
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-semibold text-ink">{t("mascotasPerdidas.matches.isThis", { nombre: match.mascotaNombre })}</p>
           <p className="mt-0.5 text-[12px] text-ink-mute">
@@ -994,13 +1011,22 @@ const MascotasPerdidas = () => {
           action={hasFilters ? <button type="button" className={btnSecondary} onClick={clearFilters}>{t("mascotasPerdidas.empty.clearFilters")}</button> : undefined}
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibles.map((reporte) => {
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {visibles.map((reporte, i) => {
             const canClose = reporte.id_usuario_reporta === user?.id || isAdmin;
             const puedeCerrar = canClose && reporte.estado === "perdida";
             const ultimoAvistamiento = reporte.avistamientos[0];
             return (
-              <article key={reporte.id_mascota_perdida} className="flex flex-col overflow-hidden bg-surface">
+              <div
+                key={reporte.id_mascota_perdida}
+                className="anim-rise flex h-full"
+                style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
+              >
+              <article
+                className={`relative flex h-full w-full flex-col overflow-hidden rounded-[10px] border-2 border-dashed bg-surface transition-[transform,box-shadow] duration-[420ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:shadow-[0_12px_24px_-14px_rgba(20,36,46,0.28)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+                  reporte.estado === "perdida" ? "border-danger/30" : "border-ok/30"
+                }`}
+              >
                 <div className="group relative">
                   <button
                     type="button"
@@ -1028,8 +1054,7 @@ const MascotasPerdidas = () => {
                     </span>
                   </button>
 
-                  <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
-                    <Badge tono={reporte.estado === "perdida" ? "danger" : "ok"}>{reporte.estado === "perdida" ? t("mascotasPerdidas.card.statusLost") : t("mascotasPerdidas.card.statusFound")}</Badge>
+                  <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-end gap-2 p-3">
                     {reporte.recompensa != null && (
                       <span className="nums shrink-0 rounded-full bg-warn-wash px-2.5 py-1 text-[11.5px] font-semibold text-warn">
                         {t("mascotasPerdidas.card.reward", { monto: colones(reporte.recompensa) })}
@@ -1046,8 +1071,24 @@ const MascotasPerdidas = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-1 flex-col px-5 py-4">
-                  <dl className="flex flex-col gap-1 text-[12.5px] text-ink-soft">
+                <div className="relative flex flex-1 flex-col px-5 py-4">
+                  {/* El sello: tinta de verdad, no una píldora plana.
+                      Clavado en la esquina y ladeado, como si alguien
+                      lo hubiera estampado a mano sobre el papel — por
+                      eso pisa el borde de la foto en vez de vivir
+                      prolijamente adentro de la tarjeta. */}
+                  <span
+                    aria-hidden
+                    className={`absolute -top-3.5 left-4 rotate-[-7deg] rounded-[6px] border-2 px-2.5 py-1 text-[11px] font-bold tracking-wide ${
+                      reporte.estado === "perdida"
+                        ? "border-danger text-danger"
+                        : "border-ok text-ok"
+                    } bg-surface`}
+                  >
+                    {reporte.estado === "perdida" ? t("mascotasPerdidas.card.statusLost") : t("mascotasPerdidas.card.statusFound")}
+                  </span>
+
+                  <dl className="mt-4 flex flex-col gap-1 text-[12.5px] text-ink-soft">
                     <div className="flex items-center gap-2"><MapPin size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">{t("mascotasPerdidas.card.zoneLabel")}</dt><dd className="truncate">{t("mascotasPerdidas.card.seenIn", { zona: zonaLabel(reporte.zona, t) })}</dd></div>
                     <div className="flex items-center gap-2"><Clock size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">{t("mascotasPerdidas.card.reportedLabel")}</dt><dd className="nums">{formatDateTime(reporte.fecha_reporte, localeTag)}</dd></div>
                     {reporte.contacto && (
@@ -1108,6 +1149,7 @@ const MascotasPerdidas = () => {
                   </div>
                 </div>
               </article>
+              </div>
             );
           })}
         </div>

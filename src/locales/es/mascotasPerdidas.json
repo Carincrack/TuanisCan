@@ -103,7 +103,8 @@
     "confirmed": "¡{{nombre}} está de vuelta!",
     "confirmedDetail": "Vinculamos el reporte con tu mascota. Coordina la entrega con quien la encontró.",
     "discarded": "Coincidencia descartada",
-    "reportedAgo": "Reportada {{cuando}}"
+    "reportedAgo": "Reportada {{cuando}}",
+    "scoreTitle": "{{puntaje}}% de coincidencia"
   },
   "filters": {
     "aria": "Filtros de mascotas perdidas",

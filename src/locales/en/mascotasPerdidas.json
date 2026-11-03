@@ -103,7 +103,8 @@
     "confirmed": "{{nombre}} is back!",
     "confirmedDetail": "We linked the report to your pet. Coordinate the handoff with whoever found them.",
     "discarded": "Match discarded",
-    "reportedAgo": "Reported {{cuando}}"
+    "reportedAgo": "Reported {{cuando}}",
+    "scoreTitle": "{{puntaje}}% match"
   },
   "filters": {
     "aria": "Lost pets filters",
