@@ -114,6 +114,20 @@
   }
 }
 
+/* Entrada propia de las tarjetas de mascota perdida: además de
+   subir y aparecer, hace un leve "pop" de escala — se siente más
+   particular que el `tsc-rise` genérico que usa el resto de la app. */
+@keyframes tsc-pop-mascota {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes tsc-fade {
   from {
     opacity: 0;
@@ -292,6 +306,10 @@
   /* Cifras de ancho fijo para dinero, horas y contadores. */
   .nums {
     font-variant-numeric: tabular-nums;
+  }
+
+  .anim-pop-mascota {
+    animation: tsc-pop-mascota 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .anim-rise {
@@ -627,6 +645,7 @@
    `opacity: 0` se quedarían invisibles para siempre. */
 @media (prefers-reduced-motion: reduce) {
   .anim-rise,
+  .anim-pop-mascota,
   .anim-fade,
   .anim-fade-out,
   .anim-ventana-in,
@@ -986,6 +1005,39 @@
 
   .portada .ficha-perdida:hover,
   .portada .ficha-perdida:focus-within {
+    translate: none;
+  }
+}
+
+/* ── Las tarjetas de /mascotas-perdidas (ya autenticado) ──────
+   El mismo polaroid de las fichas de /perdidas, pero con los
+   tokens de la app (`bg-surface`, etc.) en vez de los colores fijos
+   de la landing, porque acá sí hay modo oscuro. Sin el `.portada`
+   por delante: esta pantalla vive dentro de la app, no de la
+   landing pública. */
+.ficha-mascota {
+  rotate: var(--giro, 0deg);
+  box-shadow: 0 14px 26px -12px rgb(20 36 46 / 20%);
+  transition:
+    rotate 320ms cubic-bezier(0.23, 1, 0.32, 1),
+    translate 320ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 320ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.ficha-mascota:hover,
+.ficha-mascota:focus-within {
+  rotate: 0deg;
+  translate: 0 -4px;
+  box-shadow: 0 22px 36px -14px rgb(20 36 46 / 28%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha-mascota {
+    transition: none;
+  }
+
+  .ficha-mascota:hover,
+  .ficha-mascota:focus-within {
     translate: none;
   }
 }

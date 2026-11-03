@@ -1,9 +1,9 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import { divIcon } from "leaflet";
 import { MapContainer, Marker, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { Camera, Check, CheckCircle2, Clock, Eye, Maximize2, MapPin, Phone, Search, Siren, Sparkles, X } from "../lib/iconos";
+import { Camera, Check, CheckCircle2, Clock, Eye, Maximize2, MapPin, PawPrint, Phone, Search, Siren, Sparkles, X } from "../lib/iconos";
 import { getZonas } from "../services/auth.service";
 import { listPets } from "../services/pets.service";
 import {
@@ -129,6 +129,13 @@ const telefonoLegible = (valor: string) => {
   const cr = /^(?:\+?506)?(\d{4})(\d{4})$/.exec(limpio);
   return cr ? `+506 ${cr[1]} ${cr[2]}` : valor;
 };
+
+/* El mismo giro de las fichas de /perdidas (la vitrina pública),
+   adaptado acá: la tarjeta se endereza al pasar el mouse o el foco
+   (ver `.ficha-mascota` en index.css). Sin repetir signo dos veces
+   seguidas para que la rejilla no se incline entera hacia un lado. */
+const GIROS = [-1.4, 1.1, -0.8, 1.3, -1.2, 0.9, -1.1, 1.4];
+const giro = (indice: number) => ({ "--giro": `${GIROS[indice % GIROS.length]}deg` }) as CSSProperties;
 
 const ReportForm = ({
   userId,
@@ -1011,7 +1018,7 @@ const MascotasPerdidas = () => {
           action={hasFilters ? <button type="button" className={btnSecondary} onClick={clearFilters}>{t("mascotasPerdidas.empty.clearFilters")}</button> : undefined}
         />
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {visibles.map((reporte, i) => {
             const canClose = reporte.id_usuario_reporta === user?.id || isAdmin;
             const puedeCerrar = canClose && reporte.estado === "perdida";
@@ -1019,81 +1026,73 @@ const MascotasPerdidas = () => {
             return (
               <div
                 key={reporte.id_mascota_perdida}
-                className="anim-rise flex h-full"
+                className="anim-pop-mascota flex h-full"
                 style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
               >
               <article
-                className={`relative flex h-full w-full flex-col overflow-hidden rounded-[10px] border-2 border-dashed bg-surface transition-[transform,box-shadow] duration-[420ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:shadow-[0_12px_24px_-14px_rgba(20,36,46,0.28)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
-                  reporte.estado === "perdida" ? "border-danger/30" : "border-ok/30"
-                }`}
+                className="ficha-mascota relative flex h-full w-full flex-col rounded-[12px] bg-surface p-3 pb-3"
+                style={giro(i)}
               >
                 <div className="group relative">
                   <button
                     type="button"
                     onClick={() => setFotoAbierta(reporte)}
                     aria-label={t("mascotasPerdidas.card.viewPhotoAria", { nombre: reporte.nombre })}
-                    className="relative block w-full cursor-zoom-in overflow-hidden focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
+                    className="relative block w-full cursor-zoom-in overflow-hidden rounded-[8px] text-left focus:outline-2 focus:outline-offset-2 focus:outline-accent"
                   >
                     <img
                       src={reporte.fotoUrl ?? "/mock/dog-nube.jpg"}
                       alt={t("mascotasPerdidas.card.photoAlt", { nombre: reporte.nombre })}
                       loading="lazy"
-                      className="aspect-[16/10] w-full bg-sunken object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                      className="aspect-square w-full bg-sunken object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                     />
 
                     <span
                       aria-hidden
-                      className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[rgb(20_36_46/88%)] via-[rgb(20_36_46/38%)] to-transparent"
-                    />
-
-                    <span
-                      aria-hidden
-                      className="absolute right-3 bottom-3 grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white opacity-70 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100"
+                      className="absolute inset-0 grid place-items-center rounded-[8px] bg-[rgb(20_36_46/0%)] opacity-0 transition-[background-color,opacity] duration-200 ease-out group-hover:bg-[rgb(20_36_46/25%)] group-hover:opacity-100"
                     >
-                      <Maximize2 size={14} strokeWidth={2.2} />
+                      <Maximize2 size={17} strokeWidth={2.2} className="text-white" />
                     </span>
-                  </button>
 
-                  <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-end gap-2 p-3">
+                    <span
+                      className={`absolute top-2 left-2 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide text-white ${
+                        reporte.estado === "perdida" ? "bg-danger" : "bg-ok"
+                      }`}
+                    >
+                      {reporte.estado === "perdida" ? t("mascotasPerdidas.card.statusLost") : t("mascotasPerdidas.card.statusFound")}
+                    </span>
+
                     {reporte.recompensa != null && (
-                      <span className="nums shrink-0 rounded-full bg-warn-wash px-2.5 py-1 text-[11.5px] font-semibold text-warn">
+                      <span className="nums absolute top-2 right-2 rounded-full bg-warn-wash px-2.5 py-1 text-[10px] font-semibold text-warn">
                         {t("mascotasPerdidas.card.reward", { monto: colones(reporte.recompensa) })}
                       </span>
                     )}
-                  </div>
+                  </button>
 
-                  <div className="pointer-events-none absolute inset-x-0 right-12 bottom-0 p-4">
-                    <h3 className="truncate text-[17px] font-semibold text-white">{tituloReporte(reporte, t)}</h3>
-                    <p className="mt-0.5 truncate text-[12.5px] text-white/85">
-                      {reporte.especie}
-                      {reporte.raza ? ` · ${reporte.raza}` : ""}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="relative flex flex-1 flex-col px-5 py-4">
-                  {/* El sello: tinta de verdad, no una píldora plana.
-                      Clavado en la esquina y ladeado, como si alguien
-                      lo hubiera estampado a mano sobre el papel — por
-                      eso pisa el borde de la foto en vez de vivir
-                      prolijamente adentro de la tarjeta. */}
+                  {/* La huella de la esquina, el mismo gesto de las
+                      fichas de /perdidas: cuelga del marco entero (no
+                      de la foto), así que gira con la tarjeta. */}
                   <span
                     aria-hidden
-                    className={`absolute -top-3.5 left-4 rotate-[-7deg] rounded-[6px] border-2 px-2.5 py-1 text-[11px] font-bold tracking-wide ${
-                      reporte.estado === "perdida"
-                        ? "border-danger text-danger"
-                        : "border-ok text-ok"
-                    } bg-surface`}
+                    className="absolute -top-3 -right-3 grid h-8 w-8 place-items-center rounded-full bg-accent text-white shadow-[0_4px_10px_rgba(20,36,46,0.3)]"
                   >
-                    {reporte.estado === "perdida" ? t("mascotasPerdidas.card.statusLost") : t("mascotasPerdidas.card.statusFound")}
+                    <PawPrint size={13} strokeWidth={2.2} />
                   </span>
+                </div>
 
-                  <dl className="mt-4 flex flex-col gap-1 text-[12.5px] text-ink-soft">
-                    <div className="flex items-center gap-2"><MapPin size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">{t("mascotasPerdidas.card.zoneLabel")}</dt><dd className="truncate">{t("mascotasPerdidas.card.seenIn", { zona: zonaLabel(reporte.zona, t) })}</dd></div>
-                    <div className="flex items-center gap-2"><Clock size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">{t("mascotasPerdidas.card.reportedLabel")}</dt><dd className="nums">{formatDateTime(reporte.fecha_reporte, localeTag)}</dd></div>
+                <div className="relative flex flex-1 flex-col px-1 pt-2.5">
+                  <h3 className="truncate text-[15px] font-semibold text-ink">{tituloReporte(reporte, t)}</h3>
+                  <p className="mt-0.5 truncate text-[11.5px] text-ink-soft">
+                    {reporte.especie}
+                    {reporte.raza ? ` · ${reporte.raza}` : ""}
+                  </p>
+
+                  <dl className="mt-2 flex flex-col gap-0.5 text-[11px] text-ink-soft">
+                    <div className="flex items-center gap-1.5"><MapPin size={11} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">{t("mascotasPerdidas.card.zoneLabel")}</dt><dd className="truncate">{t("mascotasPerdidas.card.seenIn", { zona: zonaLabel(reporte.zona, t) })}</dd></div>
+                    <div className="flex items-center gap-1.5"><Clock size={11} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" /><dt className="sr-only">{t("mascotasPerdidas.card.reportedLabel")}</dt><dd className="nums">{formatDateTime(reporte.fecha_reporte, localeTag)}</dd></div>
                     {reporte.contacto && (
-                      <div className="flex items-center gap-2">
-                        <Phone size={13} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
+                      <div className="flex items-center gap-1.5">
+                        <Phone size={11} strokeWidth={1.8} aria-hidden className="shrink-0 text-ink-mute" />
                         <dt className="sr-only">{t("mascotasPerdidas.card.contactLabel")}</dt>
                         <dd className="min-w-0"><a href={`tel:${reporte.contacto.replace(/[^+\d]/g, "")}`} className="nums truncate hover:text-ink hover:underline">{telefonoLegible(reporte.contacto)}</a></dd>
                       </div>
@@ -1101,34 +1100,34 @@ const MascotasPerdidas = () => {
                   </dl>
 
                   {reporte.descripcion && (
-                    <p className="mt-3 line-clamp-2 text-[12.5px] leading-relaxed text-ink">
+                    <p className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-ink">
                       {reporte.descripcion}
                     </p>
                   )}
 
-                  <div className="mt-3 rounded-[14px] bg-sunken px-3 py-2.5 text-[12px] text-ink-soft">
+                  <div className="mt-1.5 rounded-[12px] bg-sunken px-2.5 py-1.5 text-[10.5px] text-ink-soft">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-semibold text-ink">
                           {reporte.avistamientos.length} {reporte.avistamientos.length === 1 ? t("mascotasPerdidas.card.sightingSingular") : t("mascotasPerdidas.card.sightingPlural")}
                         </p>
                         {ultimoAvistamiento ? (
-                          <p className="mt-1 line-clamp-2">
+                          <p className="mt-0.5 line-clamp-2">
                             {t("mascotasPerdidas.card.lastSighting", { lugar: ultimoAvistamiento.direccion || zonaLabel(ultimoAvistamiento.zona, t), fecha: formatDateTime(ultimoAvistamiento.fecha, localeTag) })}
                           </p>
                         ) : (
-                          <p className="mt-1 text-ink-mute">{t("mascotasPerdidas.card.noSightings")}</p>
+                          <p className="mt-0.5 text-ink-mute">{t("mascotasPerdidas.card.noSightings")}</p>
                         )}
                       </div>
                       {canClose && ultimoAvistamiento && (
-                        <button type="button" className="shrink-0 text-[12px] font-semibold text-accent-dark hover:underline" onClick={() => setSightingDetails(reporte)}>
+                        <button type="button" className="shrink-0 text-[11px] font-semibold text-accent-dark hover:underline" onClick={() => setSightingDetails(reporte)}>
                           {t("mascotasPerdidas.card.details")}
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-auto grid gap-2 pt-3.5">
+                  <div className="mt-auto grid gap-1.5 border-t border-dashed border-ink-mute/20 pt-2.5">
                     <button type="button" disabled={reporte.estado === "encontrada"} className={`${reporte.estado === "encontrada" ? btnSecondary : btnPrimary} w-full disabled:cursor-default disabled:opacity-45 disabled:hover:bg-neutral-wash disabled:hover:brightness-100`} onClick={() => setSighting(reporte)}>
                       <Eye size={14} strokeWidth={1.9} />
                       {reporte.estado === "encontrada" ? t("mascotasPerdidas.card.caseClosed") : t("mascotasPerdidas.card.iSawThisPet")}
