@@ -1018,7 +1018,7 @@ const MascotasPerdidas = () => {
           action={hasFilters ? <button type="button" className={btnSecondary} onClick={clearFilters}>{t("mascotasPerdidas.empty.clearFilters")}</button> : undefined}
         />
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visibles.map((reporte, i) => {
             const canClose = reporte.id_usuario_reporta === user?.id || isAdmin;
             const puedeCerrar = canClose && reporte.estado === "perdida";
