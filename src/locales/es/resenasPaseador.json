@@ -1,0 +1,13 @@
+{
+  "title": "Reseñas recibidas",
+  "subtitle": "Lo que dicen los dueños después de cada paseo.",
+  "ratingSection": "Calificación",
+  "countLabel": "{{count}} reseñas",
+  "walkOf": "Paseo de {{mascota}}",
+  "empty": {
+    "title": "Aún no tienes reseñas",
+    "hint": "Aparecerán cuando los dueños califiquen paseos finalizados."
+  },
+  "loadError": "No se pudieron cargar las reseñas.",
+  "starsAria": "{{valor}} de 5 estrellas"
+}

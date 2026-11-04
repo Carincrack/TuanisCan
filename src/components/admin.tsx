@@ -1,10 +1,15 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { createPortal } from "react-dom";
-import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, Footprints, IdCard, Loader, MapPin, RefreshCw, Search, TrendingUp, UserCheck, Users, Wallet, X } from "../lib/iconos";
+import { AlertCircle, Building2, Check, ChevronLeft, ChevronRight, Download, Eye, FileText, Footprints, IdCard, Loader, MapPin, RefreshCw, Search, Star, TrendingUp, UserCheck, Users, Wallet, X } from "../lib/iconos";
 import type { Icono } from "../lib/iconos";
-import { useAdminPaseadores } from "../hooks/useAdminPaseadores";
+import { useAdminPaseadores, useAdminPaseadoresConFicha } from "../hooks/useAdminPaseadores";
+import type { AdminWalkerConFicha } from "../services/admin-walkers.service";
 import { useAdminUsuarios } from "../hooks/useAdminUsuarios";
+import { TipoCambioDia } from "./TipoCambioDia";
+import { CobradoEnElTiempo, CobradoPorZona, FiltrosFinanzas } from "./AnalisisFinanzas";
+import { anteriorDe, dentroDe, limitesDe, periodoInicial, type Limites, type Periodo } from "../lib/periodos";
 import { useAuth } from "../hooks/useAuth";
 import {
   downloadVerificationDocument,
@@ -16,7 +21,9 @@ import type { AdminUser, AdminVerificationRequest, AdminWalker, RolPublico, Veri
 import {
   Avatar,
   Badge,
+  BotonCerrarVentana,
   Confirmar,
+  Dialog,
   EmptyState,
   FilterTabs,
   Interruptor,
@@ -32,14 +39,20 @@ import {
   btnQuiet,
   btnSecondary,
   colones,
+  dolares,
   input,
+  surface,
 } from "./ui";
 import { Combo } from "./Combo";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 import { listAdminFinances, type AdminFinanceMovement } from "../services/payments.service";
 import { listAdminWalks, type AdminWalkMovement, type EstadoPaseo } from "../services/walks.service";
-import type { Rol } from "../lib/nav";
+import { RUTA_ADMIN, type Rol } from "../lib/nav";
+import { useTranslation } from "../hooks/useTranslation";
+import type { I18nContextValue } from "../context/i18n-context";
+
+type T = I18nContextValue["t"];
 
 /* ─────────────────────────────────────────────────────────────
    Panel de la plataforma. Solo para el equipo de TuanisCan:
@@ -65,8 +78,8 @@ const StatIcono = ({
   nota?: string;
   parte?: number;
 }) => (
-  <div className="bg-surface px-6 py-5">
-    <div className="flex items-center gap-3">
+  <div className="bg-surface px-4 py-5 sm:px-6">
+    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-dark">
         <Icono size={17} strokeWidth={2} aria-hidden />
       </span>
@@ -89,6 +102,7 @@ const StatIcono = ({
 
 export const PanelAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
+  const { t, localeTag } = useTranslation();
   const { usuarios } = useAdminUsuarios();
   const { paseadores } = useAdminPaseadores();
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
@@ -101,7 +115,7 @@ export const PanelAdmin = () => {
   const mesesIngreso = Array.from({ length: 6 }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
     return {
-      mes: new Intl.DateTimeFormat("es-CR", { month: "short" }).format(date).replace(".", ""),
+      mes: new Intl.DateTimeFormat(localeTag, { month: "short" }).format(date).replace(".", ""),
       bruto: pagados.filter((item) => key(new Date(`${item.fecha}T00:00:00`)) === key(date)).reduce((sum, item) => sum + item.bruto, 0),
       actual: key(date) === key(now),
     };
@@ -135,75 +149,125 @@ export const PanelAdmin = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Resumen de actividad"
-        subtitle="Ingresos, paseadores y cobertura de la plataforma en un vistazo."
+        title={t("admin.panel.title")}
+        subtitle={t("admin.panel.subtitle")}
         action={botonNotificaciones}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Dos por renglón ya en el teléfono, como en Finanzas: una debajo
+          de otra, las cuatro llenaban la primera pantalla entera. */}
+      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
         <StatIcono
           icono={Wallet}
-          etiqueta="Comisión del mes"
+          etiqueta={t("admin.panel.monthCommission")}
           valor={colones(actuales.reduce((sum, item) => sum + item.comision, 0))}
-          nota={`${actuales.length} ${actuales.length === 1 ? "pago confirmado" : "pagos confirmados"}`}
+          nota={`${actuales.length} ${actuales.length === 1 ? t("admin.panel.paymentConfirmedSingular") : t("admin.panel.paymentConfirmedPlural")}`}
         />
-        <StatIcono icono={Footprints} etiqueta="Paseos del mes" valor={String(actuales.length)} nota="Pagos confirmados" />
+        <StatIcono icono={Footprints} etiqueta={t("admin.panel.monthWalks")} valor={String(actuales.length)} nota={t("admin.panel.confirmedPayments")} />
         <StatIcono
           icono={UserCheck}
-          etiqueta="Paseadores activos"
+          etiqueta={t("admin.panel.activeWalkers")}
           valor={String(paseadoresActivos.length)}
-          nota={`de ${paseadores.length} registrados`}
+          nota={t("admin.panel.ofRegistered", { total: paseadores.length })}
           parte={paseadores.length ? paseadoresActivos.length / paseadores.length : undefined}
         />
         <StatIcono
           icono={Users}
-          etiqueta="Dueños activos"
+          etiqueta={t("admin.panel.activeOwners")}
           valor={String(new Set(actuales.map((item) => item.dueno)).size)}
-          nota={`${usuarios.filter((item) => item.activo).length} cuentas activas`}
+          nota={t("admin.panel.activeAccounts", { count: usuarios.filter((item) => item.activo).length })}
         />
       </div>
 
       <div className="grid gap-3 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <Section
-            title="Volumen bruto por mes"
+            title={t("admin.panel.grossVolume")}
             aside={
               <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
-                <TrendingUp size={13} className="text-accent" aria-hidden /> Últimos 6 meses
+                <TrendingUp size={13} className="text-accent" aria-hidden /> {t("admin.panel.last6Months")}
               </span>
             }
             bodyClass="px-6 pt-6 pb-7"
           >
+            {/* Las barras no se veían. Cada una medía `height: N%`, pero
+                el `<li>` que la contenía no tenía altura propia —crecía
+                con su contenido—, y un porcentaje de una altura que
+                depende del contenido vale cero. Quedaban solo el monto
+                arriba y el mes abajo.
+
+                Ahora cada columna tiene un área de dibujo con altura
+                real (la del `<ul>` menos el renglón del mes) y la barra
+                va pegada a su piso con posición absoluta: el porcentaje
+                ya tiene contra qué medirse. El monto viaja encima de su
+                barra en vez de quedarse arriba del todo.
+
+                Un mes en cero no inventa una barra de 3 % —parecía que
+                había algo—: queda solo el piso. Su monto no se escribe,
+                salvo el del mes en curso, que en cero también es dato. */}
             {maxIngreso > 1 ? (
-              <ul className="flex h-[240px] items-end gap-4">
-                {mesesIngreso.map((item) => (
-                  <li key={item.mes} className="group flex flex-1 flex-col items-center gap-2">
-                    <span className={`nums text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-soft"}`}>
-                      {colones(item.bruto)}
-                    </span>
-                    <span
-                      style={{ height: `${Math.max(3, (item.bruto / maxIngreso) * 100)}%` }}
-                      className={`w-full rounded-t-[8px] transition-[filter] duration-150 ease-out group-hover:brightness-110 ${
-                        item.actual ? "bg-rail" : "bg-accent"
-                      }`}
-                    />
-                    <span className={`text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-mute"}`}>
-                      {item.mes}
-                    </span>
-                  </li>
-                ))}
+              <ul className="grid h-[240px] grid-cols-6" aria-label={t("admin.panel.grossVolume")}>
+                {mesesIngreso.map((item) => {
+                  const alto = (item.bruto / maxIngreso) * 100;
+                  const conMonto = item.bruto > 0 || item.actual;
+                  return (
+                    <li
+                      key={item.mes}
+                      aria-label={`${item.mes}: ${colones(item.bruto)}`}
+                      className="group flex h-full min-w-0 flex-col"
+                    >
+                      {/* El área de dibujo. `pt-6` deja lugar al monto de la
+                          barra más alta; el filete de abajo es el piso
+                          común, continuo de punta a punta porque las
+                          columnas no tienen separación entre sí. */}
+                      <div className="relative min-h-0 flex-1 border-b border-sunken px-2 pt-6 sm:px-3">
+                        <div className="relative h-full">
+                          {item.bruto > 0 && (
+                            /* Barra de 24 px como mucho, centrada en su mes —el
+                               resto de la columna es aire—, y punta de 4 px. Los
+                               meses pasados en el tono apagado y el mes en curso
+                               en el turquesa: es el que se viene a mirar. */
+                            <span
+                              style={{ height: `${alto}%` }}
+                              className={`absolute bottom-0 left-1/2 w-full max-w-[24px] -translate-x-1/2 rounded-t-[4px] transition-[filter] duration-150 ease-out group-hover:brightness-110 ${
+                                item.actual ? "bg-accent-dark" : "bg-rail-mute"
+                              }`}
+                            />
+                          )}
+                          {conMonto && (
+                            <span
+                              aria-hidden
+                              style={{ bottom: `calc(${alto}% + 6px)` }}
+                              className={`nums absolute inset-x-0 text-center text-[11.5px] whitespace-nowrap ${
+                                item.actual ? "font-semibold text-ink" : "text-ink-soft"
+                              }`}
+                            >
+                              {colones(item.bruto)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        aria-hidden
+                        className={`pt-2 text-center text-[11.5px] ${item.actual ? "font-semibold text-ink" : "text-ink-mute"}`}
+                      >
+                        {item.mes}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
-              <EmptyState title="Sin volumen todavía" hint="El gráfico se llena en cuanto haya pagos confirmados." />
+              <EmptyState title={t("admin.panel.noVolume.title")} hint={t("admin.panel.noVolume.hint")} />
             )}
           </Section>
         </div>
 
         <Section
-          title="Cobertura por zona"
+          title={t("admin.panel.coverageByZone")}
           aside={
             <span className="flex items-center gap-1.5 text-[11.5px] text-ink-mute">
-              <MapPin size={13} className="text-accent" aria-hidden /> Paseadores activos
+              <MapPin size={13} className="text-accent" aria-hidden /> {t("admin.panel.activeWalkersShort")}
             </span>
           }
           bodyClass="px-6 pt-4 pb-6"
@@ -224,16 +288,16 @@ export const PanelAdmin = () => {
               ))}
             </ul>
           ) : (
-            <EmptyState title="Sin cobertura" hint="Aparecerá cuando haya paseadores activos por zona." />
+            <EmptyState title={t("admin.panel.noCoverage.title")} hint={t("admin.panel.noCoverage.hint")} />
           )}
         </Section>
       </div>
 
-      <Section title="Top paseadores del mes">
+      <Section title={t("admin.panel.topWalkers")}>
         {top.length ? (
           <Table
-            caption="Paseadores con pagos confirmados"
-            columnas={[{ label: "Paseador" }, { label: "Paseos", align: "right" }, { label: "Generado", align: "right" }]}
+            caption={t("admin.panel.topWalkersCaption")}
+            columnas={[{ label: t("admin.panel.walker") }, { label: t("admin.panel.walks"), align: "right" }, { label: t("admin.panel.generated"), align: "right" }]}
           >
             {top.map((item, index) => (
               <tr key={item.n} className="transition-colors duration-150 hover:bg-sunken">
@@ -251,7 +315,7 @@ export const PanelAdmin = () => {
             ))}
           </Table>
         ) : (
-          <EmptyState title="Sin pagos este mes" hint="Los resultados aparecerán cuando haya pagos confirmados." />
+          <EmptyState title={t("admin.panel.noPaymentsMonth.title")} hint={t("admin.panel.noPaymentsMonth.hint")} />
         )}
       </Section>
     </Page>
@@ -260,29 +324,234 @@ export const PanelAdmin = () => {
 
 /* ── Finanzas ────────────────────────────────────────────────── */
 
+type FiltroFinanzas = "Todos" | "PorConfirmar" | "Reservados" | "Cobrados" | "Reembolsados";
+
+const claveFiltroFinanzas: Record<FiltroFinanzas, string> = {
+  Todos: "admin.finances.filters.all",
+  PorConfirmar: "admin.finances.filters.toConfirm",
+  Reservados: "admin.finances.filters.held",
+  Cobrados: "admin.finances.filters.paid",
+  Reembolsados: "admin.finances.filters.refunded",
+};
+
+/* La moneda en que pagó el dueño. Todo lo demás —comisión, neto,
+   tableros— va en colones; esto es para saber cuánto entró en cada
+   una. Un pago sin moneda es de antes de que existieran los dólares:
+   colones. */
+type FiltroMoneda = "Todas" | "CRC" | "USD";
+
+const claveFiltroMoneda: Record<FiltroMoneda, string> = {
+  Todas: "admin.finances.currency.all",
+  CRC: "admin.finances.currency.colones",
+  USD: "admin.finances.currency.dollars",
+};
+
+const monedaDe = (m: AdminFinanceMovement): Exclude<FiltroMoneda, "Todas"> => (m.moneda === "USD" ? "USD" : "CRC");
+
+/* ── Cobrado por moneda ──
+   La cuarta cifra: cuánto entró en colones y cuánto en dólares, una
+   debajo de la otra, y el filete partido en las dos proporciones
+   (medidas en colones, que es lo que vale cada parte). Navy para
+   colones, turquesa para dólares, con el nombre al lado: el color no
+   es lo único que lo dice. Con un filtro de moneda puesto, la otra se
+   apaga un poco pero sigue ahí: este dato es la comparación. */
+const StatMonedas = ({
+  colonesCobrado,
+  colonesCuantos,
+  dolaresCobrado,
+  dolaresEnColones,
+  dolaresCuantos,
+  activa,
+}: {
+  colonesCobrado: number;
+  colonesCuantos: number;
+  dolaresCobrado: number;
+  dolaresEnColones: number;
+  dolaresCuantos: number;
+  activa: FiltroMoneda;
+}) => {
+  const { t } = useTranslation();
+  const total = colonesCobrado + dolaresEnColones;
+  const parteColones = total ? colonesCobrado / total : 0;
+  const renglon = (moneda: Exclude<FiltroMoneda, "Todas">, valor: string, nota: string) => (
+    <div className={`transition-opacity duration-200 ${activa !== "Todas" && activa !== moneda ? "opacity-40" : ""}`}>
+      <dt className="sr-only">{t(claveFiltroMoneda[moneda])}</dt>
+      <dd className="nums text-[21px] leading-tight font-semibold tracking-[-0.02em] text-ink">{valor}</dd>
+      <dd className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-ink-soft">
+        <span aria-hidden className={`mt-[5px] h-2 w-2 shrink-0 rounded-full ${moneda === "CRC" ? "bg-rail" : "bg-accent"}`} />
+        <span>{nota}</span>
+      </dd>
+    </div>
+  );
+
+  return (
+    <div className={`${surface} px-6 py-5`}>
+      <p className="rotulo text-ink-mute">{t("admin.finances.byCurrency")}</p>
+      <dl className="mt-2 flex flex-col gap-2">
+        {renglon("CRC", colones(colonesCobrado), t(colonesCuantos === 1 ? "admin.finances.byCurrencyColonesOne" : "admin.finances.byCurrencyColones", { count: colonesCuantos }))}
+        {renglon(
+          "USD",
+          dolares(dolaresCobrado),
+          dolaresCuantos
+            ? t(dolaresCuantos === 1 ? "admin.finances.byCurrencyDollarsOne" : "admin.finances.byCurrencyDollars", { count: dolaresCuantos, colones: colones(dolaresEnColones) })
+            : t("admin.finances.byCurrencyDollarsNone"),
+        )}
+      </dl>
+      {total > 0 && (
+        <div className="mt-3.5 flex h-[3px] w-full gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
+          {parteColones > 0 && <span className="h-full rounded-full bg-rail" style={{ flexGrow: parteColones }} />}
+          {parteColones < 1 && <span className="h-full rounded-full bg-accent" style={{ flexGrow: 1 - parteColones }} />}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const estadoDeFiltro: Record<Exclude<FiltroFinanzas, "Todos">, AdminFinanceMovement["estado_pago"]> = {
+  PorConfirmar: "pendiente",
+  Reservados: "retenido",
+  Cobrados: "pagado",
+  Reembolsados: "reembolsado",
+};
+
+const claveEstadoPago: Record<AdminFinanceMovement["estado_pago"], string> = {
+  pendiente: "admin.finances.statusPending",
+  retenido: "admin.finances.statusHeld",
+  pagado: "admin.finances.statusPaid",
+  reembolsado: "admin.finances.statusRefunded",
+  fallido: "admin.finances.statusFailed",
+};
+
+const tonoEstadoPago = (estado: AdminFinanceMovement["estado_pago"]) =>
+  estado === "pagado" ? "ok" : estado === "retenido" ? "accent" : estado === "pendiente" ? "warn" : estado === "fallido" ? "danger" : "neutral";
+
+/** Mientras el dueño no confirma, la base guarda «Pendiente» como
+    método: no es un método, es que todavía no hay. */
+const sinMetodo = (metodo?: string | null) => !metodo || metodo === "Pendiente";
+
+const fechaHoraFinanzas = (valor: string, localeTag: string) =>
+  new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(valor));
+
+const fechaPaseo = (movimiento: AdminFinanceMovement, localeTag: string) => {
+  const dia = new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short", year: "numeric" }).format(
+    new Date(`${movimiento.fecha}T00:00:00`),
+  );
+  return movimiento.hora_inicio ? `${dia} · ${movimiento.hora_inicio.slice(0, 5)}` : dia;
+};
+
+/** Con qué se cobró, en una línea, y debajo la moneda si fue en dólares.
+    Sin método todavía, la tabla deja una raya —la insignia de al lado
+    ya dice «Por confirmar»— y la tarjeta del teléfono no pone nada. */
+const CobroBreve = ({ movimiento, compacta = false }: { movimiento: AdminFinanceMovement; compacta?: boolean }) => {
+  const { t } = useTranslation();
+  const enDolares = movimiento.moneda === "USD" && movimiento.monto_moneda != null;
+  if (compacta && sinMetodo(movimiento.metodo_pago) && !enDolares) return null;
+
+  return (
+    <div className="min-w-0">
+      <p className={`truncate text-[12.5px] ${sinMetodo(movimiento.metodo_pago) ? "text-ink-mute" : "text-ink-soft"}`}>
+        {sinMetodo(movimiento.metodo_pago) ? (
+          <span aria-label={t("admin.finances.methodPending")}>—</span>
+        ) : (
+          movimiento.metodo_pago
+        )}
+      </p>
+      {enDolares && (
+        <p className="nums mt-0.5 text-[11.5px] whitespace-nowrap text-ink-mute">
+          <span className="font-semibold text-accent-deep">{dolares(movimiento.monto_moneda ?? 0)}</span>
+          {movimiento.tipo_cambio != null && ` · ${t("admin.finances.rateShort", { tipo: colones(movimiento.tipo_cambio) })}`}
+        </p>
+      )}
+    </div>
+  );
+};
+
 export const FinanzasAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
-  const [filtro, setFiltro] = useState("Todos");
+  const { t, localeTag } = useTranslation();
+  const [filtro, setFiltro] = useState<FiltroFinanzas>("Todos");
+  const [moneda, setMoneda] = useState<FiltroMoneda>("Todas");
+  const [periodo, setPeriodo] = useState<Periodo>(periodoInicial);
+  const [zona, setZona] = useState("");
+  const [paseador, setPaseador] = useState("");
+  const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
   const [movimientos, setMovimientos] = useState<AdminFinanceMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [detalle, setDetalle] = useState<AdminFinanceMovement | null>(null);
 
   useEffect(() => {
     setLoading(true);
     listAdminFinances()
       .then(setMovimientos)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar las finanzas."))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("admin.finances.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
-  const visibles = movimientos.filter((movement) =>
-    filtro === "Pagados"
-      ? movement.estado_pago === "pagado"
-      : filtro === "Pendientes"
-        ? movement.estado_pago === "pendiente"
-        : true
+  /* ── El alcance ──
+     Periodo, zona y paseador valen para toda la pantalla: cifras,
+     gráficos y tabla miran el mismo recorte, así los números siempre
+     coinciden. La fecha es la del paseo. Todo se filtra acá, en el
+     navegador, sobre la lista que ya llegó: cambiar un filtro no le pide
+     nada nuevo a la base. */
+  const limites = useMemo(() => limitesDe(periodo), [periodo]);
+  const limitesAnteriores = useMemo(() => anteriorDe(periodo), [periodo]);
+  const alcance = useCallback(
+    (lista: AdminFinanceMovement[], dias: Limites | null) =>
+      lista.filter(
+        (m) =>
+          dentroDe(m.fecha, dias) &&
+          (zona === "" || (m.zona ?? "") === zona) &&
+          (paseador === "" || m.paseador === paseador),
+      ),
+    [zona, paseador],
   );
+  const enAlcance = useMemo(() => alcance(movimientos, limites), [alcance, movimientos, limites]);
+  const zonas = useMemo(() => [...new Set(movimientos.map((m) => m.zona).filter((z): z is string => Boolean(z)))].sort((a, b) => a.localeCompare(b, "es")), [movimientos]);
+  const paseadores = useMemo(() => [...new Set(movimientos.map((m) => m.paseador))].sort((a, b) => a.localeCompare(b, "es")), [movimientos]);
+
+  /* Estado y moneda se combinan: cada uno cuenta sobre lo que deja el
+     otro, así el número de cada pestaña es lo que se va a ver al
+     tocarla. */
+  const enMoneda = useMemo(
+    () => (moneda === "Todas" ? enAlcance : enAlcance.filter((m) => monedaDe(m) === moneda)),
+    [enAlcance, moneda],
+  );
+  const enEstado = useMemo(
+    () => (filtro === "Todos" ? enAlcance : enAlcance.filter((m) => m.estado_pago === estadoDeFiltro[filtro])),
+    [enAlcance, filtro],
+  );
+
+  const cuentas = useMemo(() => {
+    const por = (estado: AdminFinanceMovement["estado_pago"]) => enMoneda.filter((m) => m.estado_pago === estado).length;
+    return {
+      Todos: enMoneda.length,
+      PorConfirmar: por("pendiente"),
+      Reservados: por("retenido"),
+      Cobrados: por("pagado"),
+      Reembolsados: por("reembolsado"),
+    };
+  }, [enMoneda]);
+
+  const cuentasMoneda = useMemo(
+    () => ({
+      Todas: enEstado.length,
+      CRC: enEstado.filter((m) => monedaDe(m) === "CRC").length,
+      USD: enEstado.filter((m) => monedaDe(m) === "USD").length,
+    }),
+    [enEstado],
+  );
+
+  const visibles = useMemo(() => {
+    const consulta = busqueda.trim().toLowerCase();
+    return enMoneda.filter((m) => {
+      if (filtro !== "Todos" && m.estado_pago !== estadoDeFiltro[filtro]) return false;
+      if (!consulta) return true;
+      return [m.mascota, m.dueno, m.paseador, m.metodo_pago, m.referencia, m.zona, m.moneda]
+        .some((campo) => campo?.toLowerCase().includes(consulta));
+    });
+  }, [enMoneda, filtro, busqueda]);
 
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -290,50 +559,214 @@ export const FinanzasAdmin = () => {
   const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
   const paginaMovimientos = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
 
-  const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+  const cambiarFiltro = (value: string) => { setFiltro(value as FiltroFinanzas); setPagina(1); };
+  const cambiarMoneda = (value: string) => { setMoneda(value as FiltroMoneda); setPagina(1); };
+  const cambiarPeriodo = (nuevo: Periodo) => { setPeriodo(nuevo); setPagina(1); };
+  const cambiarZona = (nueva: string) => { setZona(nueva); setPagina(1); };
+  const cambiarPaseador = (nuevo: string) => { setPaseador(nuevo); setPagina(1); };
+  const buscar = (value: string) => { setBusqueda(value); setPagina(1); };
 
-  const pagados = movimientos.filter((movement) => movement.estado_pago === "pagado");
-  const pendientes = movimientos.filter((movement) => movement.estado_pago === "pendiente");
-  const brutoPagado = pagados.reduce((sum, movement) => sum + movement.bruto, 0);
+  /* Las cifras. La comisión se gana al cobrar (`pagado`); lo pendiente
+     y lo reservado todavía no entró. Todo suma en colones —el precio
+     del paseo—, pague el dueño en la moneda que pague, que es lo que
+     hace cuadrar este panel con el del dueño y el del paseador.
+
+     Las tres primeras respetan el filtro de moneda: con «Dólares»
+     puesto dicen cuánta comisión dejaron los pagos en dólares. El
+     cobrado por moneda no: es la comparación entre las dos. */
+  const cifras = useMemo(() => {
+    const suma = (lista: AdminFinanceMovement[], campo: "bruto" | "comision" | "neto_paseador") =>
+      lista.reduce((total, m) => total + m[campo], 0);
+    const pagados = enMoneda.filter((m) => m.estado_pago === "pagado");
+    const pendientes = enMoneda.filter((m) => m.estado_pago === "pendiente");
+    const reservados = enMoneda.filter((m) => m.estado_pago === "retenido");
+
+    const todosPagados = enAlcance.filter((m) => m.estado_pago === "pagado");
+    const pagadosColones = todosPagados.filter((m) => monedaDe(m) === "CRC");
+    const pagadosDolares = todosPagados.filter((m) => monedaDe(m) === "USD");
+
+    return {
+      pagados,
+      comisionGanada: suma(pagados, "comision"),
+      comisionPorCobrar: suma([...pendientes, ...reservados], "comision"),
+      pendientes: pendientes.length,
+      reservados: reservados.length,
+      brutoCobrado: suma(pagados, "bruto"),
+      netoPaseadores: suma(pagados, "neto_paseador"),
+      colonesCobrado: suma(pagadosColones, "bruto"),
+      colonesCuantos: pagadosColones.length,
+      dolaresCobrado: pagadosDolares.reduce((total, m) => total + (m.monto_moneda ?? 0), 0),
+      dolaresEnColones: suma(pagadosDolares, "bruto"),
+      dolaresCuantos: pagadosDolares.length,
+    };
+  }, [enMoneda, enAlcance]);
+
+  /* El mismo cálculo para el periodo anterior equivalente, con los
+     mismos filtros: de ahí sale el «+12 % vs la semana anterior». Con
+     «Todo» no hay con qué comparar. */
+  const anterior = useMemo(() => {
+    if (!limitesAnteriores) return null;
+    const pagados = alcance(movimientos, limitesAnteriores).filter(
+      (m) => m.estado_pago === "pagado" && (moneda === "Todas" || monedaDe(m) === moneda),
+    );
+    return {
+      comisionGanada: pagados.reduce((total, m) => total + m.comision, 0),
+      netoPaseadores: pagados.reduce((total, m) => total + m.neto_paseador, 0),
+    };
+  }, [alcance, movimientos, limitesAnteriores, moneda]);
+
+  const contraQue = t(`admin.finances.compare.against.${periodo.tipo}`);
+  const cambio = (actual: number, antes: number | undefined) => {
+    if (antes === undefined) return undefined;
+    if (antes === 0) {
+      return actual === 0
+        ? { tono: "igual" as const, texto: t("admin.finances.compare.same", { contra: contraQue }) }
+        : { tono: "sube" as const, texto: t("admin.finances.compare.fromZero", { contra: contraQue }) };
+    }
+    const porcentaje = Math.round(((actual - antes) / antes) * 100);
+    if (porcentaje === 0) return { tono: "igual" as const, texto: t("admin.finances.compare.same", { contra: contraQue }) };
+    return {
+      tono: porcentaje > 0 ? ("sube" as const) : ("baja" as const),
+      texto: t(porcentaje > 0 ? "admin.finances.compare.up" : "admin.finances.compare.down", { pct: Math.abs(porcentaje), contra: contraQue }),
+    };
+  };
+
   const exportar = () => {
     const rows = [
-      ["Fecha", "Mascota", "Dueño", "Paseador", "Bruto", "Comisión", "Neto", "Estado"],
-      ...visibles.map((movement) => [movement.fecha, movement.mascota, movement.dueno, movement.paseador, String(movement.bruto), String(movement.comision), String(movement.neto_paseador), movement.estado_pago]),
+      [
+        t("admin.finances.csv.date"), t("admin.finances.csv.time"), t("admin.finances.csv.pet"), t("admin.finances.csv.owner"),
+        t("admin.finances.csv.walker"), t("admin.finances.csv.zone"), t("admin.finances.csv.walkStatus"), t("admin.finances.csv.gross"),
+        t("admin.finances.csv.commission"), t("admin.finances.csv.net"), t("admin.finances.csv.status"), t("admin.finances.csv.method"),
+        t("admin.finances.csv.currency"), t("admin.finances.csv.amountCharged"), t("admin.finances.csv.exchangeRate"),
+        t("admin.finances.csv.reference"), t("admin.finances.csv.reservedOn"), t("admin.finances.csv.chargedOn"),
+      ],
+      ...visibles.map((m) => [
+        m.fecha, m.hora_inicio?.slice(0, 5) ?? "", m.mascota, m.dueno, m.paseador, m.zona ?? "", m.estado_paseo ?? "",
+        String(m.bruto), String(m.comision), String(m.neto_paseador), m.estado_pago,
+        sinMetodo(m.metodo_pago) ? "" : m.metodo_pago ?? "",
+        m.moneda ?? "CRC",
+        String(m.moneda === "USD" ? m.monto_moneda ?? "" : m.bruto),
+        m.tipo_cambio != null ? String(m.tipo_cambio) : "",
+        m.referencia ?? "", m.fecha_retencion ?? "", m.estado_pago === "pagado" ? m.fecha_pago ?? "" : "",
+      ]),
     ];
     const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    /* En el documento, para que Firefox obedezca el clic (ver Pagos). */
     const link = document.createElement("a");
     link.href = url;
-    link.download = "finanzas-tuaniscan.csv";
+    link.download = `tuaniscan-finanzas-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
     link.click();
+    link.remove();
     URL.revokeObjectURL(url);
   };
+
+  const plural = (n: number, singular: string, varios: string) => `${n} ${n === 1 ? t(singular) : t(varios)}`;
 
   return (
     <Page wide>
       <PageHeader
-        title="Pagos y comisiones"
-        subtitle="Pagos, ganancias de paseadores y comisión de la plataforma."
+        title={t("admin.finances.title")}
+        subtitle={t("admin.finances.subtitle")}
         action={botonNotificaciones}
       />
 
-      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Comisión ganada" valor={colones(pagados.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pagados.length} ${pagados.length === 1 ? "pago completado" : "pagos completados"}`} />
-        <Stat etiqueta="Comisión pendiente" valor={colones(pendientes.reduce((sum, movement) => sum + movement.comision, 0))} nota={`${pendientes.length} ${pendientes.length === 1 ? "pago" : "pagos"}`} />
-        <Stat etiqueta="Volumen pagado" valor={colones(brutoPagado)} nota={pagados.length ? `${pagados.length} paseos` : "sin pagos"} />
+      <FiltrosFinanzas
+        periodo={periodo}
+        onPeriodo={cambiarPeriodo}
+        zona={zona}
+        zonas={zonas}
+        onZona={cambiarZona}
+        paseador={paseador}
+        paseadores={paseadores}
+        onPaseador={cambiarPaseador}
+      />
+
+      {/* Dos por renglón ya en el teléfono: una debajo de otra, las
+          cuatro llenaban la primera pantalla entera. */}
+      <div className="grid min-w-0 grid-cols-2 gap-2.5 xl:grid-cols-4">
+        <Stat
+          etiqueta={t("admin.finances.earnedCommission")}
+          valor={colones(cifras.comisionGanada)}
+          nota={plural(cifras.pagados.length, "admin.finances.paymentCompletedSingular", "admin.finances.paymentCompletedPlural")}
+          cambio={cambio(cifras.comisionGanada, anterior?.comisionGanada)}
+        />
+        <Stat
+          etiqueta={t("admin.finances.pendingCommission")}
+          valor={colones(cifras.comisionPorCobrar)}
+          nota={t("admin.finances.pendingNote", { pendientes: cifras.pendientes, reservados: cifras.reservados })}
+        />
+        <Stat
+          etiqueta={t("admin.finances.walkersNet")}
+          valor={colones(cifras.netoPaseadores)}
+          nota={cifras.pagados.length ? t("admin.finances.walkersNetNote", { bruto: colones(cifras.brutoCobrado) }) : t("admin.finances.noPayments")}
+          cambio={cambio(cifras.netoPaseadores, anterior?.netoPaseadores)}
+        />
+        <StatMonedas
+          colonesCobrado={cifras.colonesCobrado}
+          colonesCuantos={cifras.colonesCuantos}
+          dolaresCobrado={cifras.dolaresCobrado}
+          dolaresEnColones={cifras.dolaresEnColones}
+          dolaresCuantos={cifras.dolaresCuantos}
+          activa={moneda}
+        />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-surface px-3 py-3">
-        <FilterTabs
-          label="Filtrar pagos"
-          options={["Todos", "Pendientes", "Pagados"]}
-          value={filtro}
-          onChange={cambiarFiltro}
-        />
-        <button type="button" className={btnSecondary} onClick={exportar} disabled={!visibles.length}>
-          <Download size={14} strokeWidth={1.9} />
-          Exportar
-        </button>
+      {/* Cómo se movió lo cobrado y dónde. Con el filtro de moneda puesto,
+          solo esa moneda; los montos siempre en colones. */}
+      {!loading && !error && (
+        <div className="grid min-w-0 gap-2.5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+          <CobradoEnElTiempo movimientos={enMoneda} limites={limites} />
+          <CobradoPorZona movimientos={enMoneda} />
+        </div>
+      )}
+
+      {/* El dólar del día y el conversor: la misma consulta a Hacienda
+          con la que paga un dueño que elige dólares. */}
+      <TipoCambioDia />
+
+      {/* Los filtros: el estado del pago y, de la par, la moneda. En la
+          computadora van en un renglón y la búsqueda en el siguiente;
+          en el teléfono cada uno en el suyo, el de estados deslizable. */}
+      <div className="flex flex-col gap-3 bg-surface px-3 py-3">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="-mx-3 overflow-x-auto px-3 lg:mx-0 lg:shrink-0 lg:overflow-visible lg:px-0">
+            <FilterTabs
+              label={t("admin.finances.filterLabel")}
+              options={(Object.keys(claveFiltroFinanzas) as FiltroFinanzas[]).map((o) => ({ value: o, label: t(claveFiltroFinanzas[o]) }))}
+              value={filtro}
+              onChange={cambiarFiltro}
+              cuentas={cuentas}
+              desplazable
+            />
+          </div>
+          <FilterTabs
+            label={t("admin.finances.currency.label")}
+            options={(Object.keys(claveFiltroMoneda) as FiltroMoneda[]).map((o) => ({ value: o, label: t(claveFiltroMoneda[o]) }))}
+            value={moneda}
+            onChange={cambiarMoneda}
+            cuentas={cuentasMoneda}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative min-w-[200px] flex-1">
+            <Search size={14} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-mute" />
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => buscar(e.target.value)}
+              placeholder={t("admin.finances.searchPlaceholder")}
+              aria-label={t("admin.finances.searchPlaceholder")}
+              className="w-full rounded-full bg-sunken py-2 pr-3 pl-9 text-[12.5px] text-ink placeholder:text-ink-mute focus:bg-white focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
+            />
+          </div>
+          <button type="button" className={`${btnSecondary} shrink-0`} onClick={exportar} disabled={!visibles.length}>
+            <Download size={14} strokeWidth={1.9} />
+            {t("admin.finances.export")}
+          </button>
+        </div>
       </div>
 
       <Section bodyClass="">
@@ -341,99 +774,560 @@ export const FinanzasAdmin = () => {
           <div role="alert" className="bg-danger-wash px-6 py-5 text-[13px] text-danger">{error}</div>
         ) : loading ? (
           <div className="flex items-center gap-2 px-6 py-10 text-[13px] text-ink-soft">
-            <Loader size={16} className="animate-spin" /> Cargando finanzas…
+            <Loader size={16} className="animate-spin" /> {t("admin.finances.loading")}
           </div>
         ) : visibles.length > 0 ? (
           <>
-            <Table
-              caption={`Pagos filtrados por ${filtro.toLowerCase()}`}
-              columnas={[
-                { label: "Paseo" },
-                { label: "Dueño" },
-                { label: "Paseador" },
-                { label: "Bruto", align: "right" },
-                { label: "Comisión", align: "right" },
-                { label: "Neto", align: "right" },
-                { label: "Estado" },
-              ]}
-            >
-              {paginaMovimientos.map((movement) => (
-                <tr key={movement.id_pago} className="transition-colors duration-150 hover:bg-sunken">
-                  <td className="px-6 py-4 align-top">
-                    <p className="text-[13px] font-medium text-ink">{movement.mascota}</p>
-                    <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{movement.fecha}</p>
-                  </td>
-                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                    {movement.dueno}
-                  </td>
-                  <td className="px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                    {movement.paseador}
-                  </td>
-                  <td className="nums px-6 py-4 text-right align-top text-[12.5px] text-ink-soft">
-                    {colones(movement.bruto)}
-                  </td>
-                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
-                    {colones(movement.comision)}
-                  </td>
-                  <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
-                    {colones(movement.neto_paseador)}
-                  </td>
-                  <td className="px-6 py-4 align-top">
-                    <Badge tono={movement.estado_pago === "pagado" ? "ok" : "warn"}>
-                      {movement.estado_pago === "pagado" ? "Pagado" : "Pendiente"}
-                    </Badge>
-                  </td>
-                </tr>
+            <div className="hidden md:block">
+              <Table
+                caption={t("admin.finances.caption", {
+                  filtro: `${t(claveFiltroFinanzas[filtro]).toLowerCase()} · ${t(claveFiltroMoneda[moneda]).toLowerCase()}`,
+                })}
+                min="min-w-[860px]"
+                padX="px-4"
+                columnas={[
+                  { label: t("admin.finances.columns.walk"), ancho: "w-[22%]" },
+                  { label: t("admin.finances.columns.people"), ancho: "w-[18%]" },
+                  { label: t("admin.finances.columns.charge"), ancho: "w-[16%]" },
+                  { label: t("admin.finances.columns.gross"), ancho: "w-[10%]", align: "right" },
+                  { label: t("admin.finances.columns.commission"), ancho: "w-[10%]", align: "right" },
+                  { label: t("admin.finances.columns.net"), ancho: "w-[10%]", align: "right" },
+                  // 14 %: «Por confirmar» es la insignia más larga y en 12 % se partía.
+                  { label: t("admin.finances.columns.status"), ancho: "w-[14%]" },
+                ]}
+              >
+                {paginaMovimientos.map((m) => (
+                  <tr key={m.id_pago} className="group transition-colors duration-150 hover:bg-sunken">
+                    <td className="px-4 py-3.5 align-top">
+                      <button
+                        type="button"
+                        onClick={() => setDetalle(m)}
+                        className="-my-2 block max-w-full truncate py-2 text-left text-[13px] font-semibold text-ink underline-offset-[3px] transition-colors duration-150 group-hover:underline hover:text-accent-deep"
+                      >
+                        {m.mascota}
+                      </button>
+                      <p className="nums mt-0.5 truncate text-[11.5px] text-ink-mute">
+                        {fechaPaseo(m, localeTag)}
+                        {m.duracion_min ? ` · ${m.duracion_min} min` : ""}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3.5 align-top">
+                      <p className="truncate text-[12.5px] text-ink-soft">{m.dueno}</p>
+                      <p className="truncate text-[11.5px] text-ink-mute">→ {m.paseador}</p>
+                    </td>
+                    <td className="px-4 py-3.5 align-top">
+                      <CobroBreve movimiento={m} />
+                    </td>
+                    <td className="nums px-4 py-3.5 text-right align-top text-[12.5px] text-ink-soft">{colones(m.bruto)}</td>
+                    <td className="nums px-4 py-3.5 text-right align-top text-[13px] font-semibold text-ink">{colones(m.comision)}</td>
+                    <td className="nums px-4 py-3.5 text-right align-top text-[12.5px] text-ink-soft">{colones(m.neto_paseador)}</td>
+                    <td className="px-4 py-3.5 align-top">
+                      <Badge tono={tonoEstadoPago(m.estado_pago)}>{t(claveEstadoPago[m.estado_pago])}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            </div>
+
+            {/* En el teléfono, una tarjeta por pago: siete columnas no
+                caben y la tabla obligaba a rodar de lado para ver el
+                estado. */}
+            <ul className="md:hidden [&>li:nth-child(even)]:bg-sunken/60">
+              {paginaMovimientos.map((m) => (
+                <li key={m.id_pago} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setDetalle(m)}
+                        className="-my-2 block max-w-full truncate py-2 text-left text-[13.5px] font-semibold text-ink transition-transform duration-150 ease-out active:scale-[0.99]"
+                      >
+                        {m.mascota}
+                      </button>
+                      <p className="mt-0.5 truncate text-[11.5px] text-ink-soft">{m.dueno} → {m.paseador}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="nums text-[14px] font-semibold text-ink">{colones(m.bruto)}</p>
+                      <p className="nums mt-0.5 text-[11px] text-ink-mute">{fechaPaseo(m, localeTag)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <Badge tono={tonoEstadoPago(m.estado_pago)}>{t(claveEstadoPago[m.estado_pago])}</Badge>
+                    <span className="nums text-[11.5px] text-ink-soft">
+                      {t("admin.finances.columns.commission")} {colones(m.comision)} · {t("admin.finances.columns.net")} {colones(m.neto_paseador)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 empty:hidden">
+                    <CobroBreve movimiento={m} compacta />
+                  </div>
+                </li>
               ))}
-            </Table>
+            </ul>
 
             <Paginacion
-              etiqueta="Paginación de pagos"
+              etiqueta={t("admin.finances.pagination")}
               actual={paginaActual}
               total={totalPaginas}
               onCambiar={setPagina}
               desde={inicioPagina + 1}
               hasta={finPagina}
               cuantos={visibles.length}
-              nombre={["pago", "pagos"]}
+              nombre={[t("admin.finances.paymentWord"), t("admin.finances.paymentsWord")]}
             />
           </>
         ) : (
           <EmptyState
-            title="Sin pagos en este filtro"
-            hint="Los movimientos aparecerán cuando los paseadores acepten solicitudes."
+            title={t("admin.finances.empty.title")}
+            hint={busqueda || moneda !== "Todas" ? t("admin.finances.empty.withSearch") : t("admin.finances.empty.hint")}
           />
         )}
       </Section>
+
+      {detalle && <DetallePago movimiento={detalle} onClose={() => setDetalle(null)} />}
     </Page>
+  );
+};
+
+/* ── El detalle de un pago ──
+   Lo que el admin necesita para responder «¿qué pasó con este pago?»
+   sin abrir la base. En el orden en que se pregunta:
+
+     1. cuánto se le cobró al dueño y en qué está el pago (arriba,
+        grande: es lo primero que se busca),
+     2. cómo se repartió y cómo se cobró (lado a lado en la
+        computadora),
+     3. de qué paseo es y por dónde pasó el pago.
+
+   La referencia se copia con un toque: es lo que se pega en el banco o
+   en un mensaje cuando alguien pregunta por un cobro. */
+const DetallePago = ({ movimiento: m, onClose }: { movimiento: AdminFinanceMovement; onClose: () => void }) => {
+  const { t, localeTag } = useTranslation();
+  const enDolares = m.moneda === "USD" && m.monto_moneda != null;
+  const porcentaje = m.bruto > 0 ? Math.round((m.comision / m.bruto) * 100) : 0;
+  const parteComision = m.bruto > 0 ? m.comision / m.bruto : 0;
+  const referencia = m.referencia ?? `#${m.id_pago.slice(0, 8)}`;
+
+  const copiarReferencia = async () => {
+    try {
+      await navigator.clipboard.writeText(referencia);
+      aviso.ok(t("admin.finances.detail.referenceCopied"));
+    } catch {
+      aviso.error(null, { respaldo: t("admin.finances.detail.referenceNotCopied") });
+    }
+  };
+
+  const fila = (etiqueta: string, valor: ReactNode) => (
+    <div key={etiqueta} className="flex items-baseline justify-between gap-4 py-2">
+      <dt className="text-ink-soft">{etiqueta}</dt>
+      <dd className="min-w-0 text-right font-medium break-words text-ink">{valor}</dd>
+    </div>
+  );
+
+  /* Por dónde pasó el pago, en orden. Un paso sin fecha es que todavía
+     no llegó; el de liberar no guarda fecha, solo que pasó. */
+  const pasos: Array<{ clave: string; cuando: string | null; hecho: boolean }> = [
+    { clave: "admin.finances.detail.steps.created", cuando: m.creado_en ?? null, hecho: true },
+    { clave: "admin.finances.detail.steps.reserved", cuando: m.fecha_retencion ?? null, hecho: Boolean(m.fecha_retencion) },
+    m.estado_pago === "reembolsado"
+      ? { clave: "admin.finances.detail.steps.released", cuando: null, hecho: true }
+      : { clave: "admin.finances.detail.steps.charged", cuando: m.estado_pago === "pagado" ? m.fecha_pago ?? null : null, hecho: m.estado_pago === "pagado" },
+  ];
+
+  return (
+    <Dialog
+      title={t("admin.finances.detail.title")}
+      contexto={`${t("admin.finances.detail.walkOf", { mascota: m.mascota })} · ${fechaPaseo(m, localeTag)}`}
+      onClose={onClose}
+      ancho="max-w-[680px]"
+    >
+      {/* ── Lo que se cobró y en qué está ── */}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-sunken px-5 py-5 sm:px-6">
+        <div className="min-w-0">
+          <p className="rotulo text-ink-mute">{t("admin.finances.detail.chargedToOwner")}</p>
+          <p className="nums mt-1.5 text-[30px] leading-none font-semibold tracking-[-0.02em] text-ink">
+            {enDolares ? dolares(m.monto_moneda ?? 0) : colones(m.bruto)}
+          </p>
+          {enDolares && (
+            <p className="nums mt-1.5 text-[12.5px] text-ink-soft">
+              {t("admin.finances.detail.inColones", { colones: colones(m.bruto) })}
+              {m.tipo_cambio != null && ` · ${t("admin.finances.rateShort", { tipo: colones(m.tipo_cambio) })}`}
+            </p>
+          )}
+        </div>
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end">
+          <Badge tono={tonoEstadoPago(m.estado_pago)}>{t(claveEstadoPago[m.estado_pago])}</Badge>
+          <button
+            type="button"
+            onClick={() => void copiarReferencia()}
+            title={t("admin.finances.detail.copyReference")}
+            className="nums inline-flex max-w-full items-center gap-1.5 rounded-full bg-sunken px-3 py-1.5 text-[12px] text-ink-soft transition-[background-color,color] duration-150 hover:bg-neutral-wash hover:text-ink"
+          >
+            <span className="truncate">{referencia}</span>
+            <FileText size={13} className="shrink-0" />
+            <span className="sr-only">{t("admin.finances.detail.copyReference")}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-x-8 gap-y-5 px-5 py-5 sm:grid-cols-2 sm:px-6">
+        {/* ── El reparto ── el filete es el mismo turquesa de `Stat`;
+            la parte de la plataforma va en el navy de la casa. */}
+        <section>
+          <h3 className="rotulo text-ink-mute">{t("admin.finances.detail.split")}</h3>
+          <div className="mt-3 flex h-2 gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
+            <span className="h-full rounded-full bg-accent" style={{ flexGrow: 1 - parteComision }} />
+            <span className="h-full rounded-full bg-rail" style={{ flexGrow: parteComision }} />
+          </div>
+          <dl className="mt-1.5 divide-y divide-sunken text-[13px]">
+            {fila(t("admin.finances.detail.gross"), <span className="nums">{colones(m.bruto)}</span>)}
+            {fila(
+              t("admin.finances.detail.net"),
+              <span className="nums inline-flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-full bg-accent" />
+                {colones(m.neto_paseador)}
+              </span>,
+            )}
+            {fila(
+              t("admin.finances.detail.commission", { porcentaje }),
+              <span className="nums inline-flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-full bg-rail" />
+                {colones(m.comision)}
+              </span>,
+            )}
+          </dl>
+        </section>
+
+        <section>
+          <h3 className="rotulo text-ink-mute">{t("admin.finances.detail.charge")}</h3>
+          <dl className="mt-1.5 divide-y divide-sunken text-[13px]">
+            {fila(t("admin.finances.detail.currency"), t(enDolares ? "admin.finances.detail.currencyUSD" : "admin.finances.detail.currencyCRC"))}
+            {enDolares && m.tipo_cambio != null && fila(t("admin.finances.detail.exchangeRate"), <span className="nums">{colones(m.tipo_cambio)}</span>)}
+            {fila(t("admin.finances.detail.method"), sinMetodo(m.metodo_pago) ? t("admin.finances.methodPending") : m.metodo_pago)}
+          </dl>
+        </section>
+
+        <section className="sm:col-span-2">
+          <h3 className="rotulo text-ink-mute">{t("admin.finances.detail.walk")}</h3>
+          <dl className="mt-1.5 grid text-[13px] sm:grid-cols-2 sm:gap-x-8 [&>div]:border-b [&>div]:border-sunken">
+            {fila(t("admin.finances.detail.owner"), m.dueno)}
+            {fila(t("admin.finances.detail.walker"), m.paseador)}
+            {fila(t("admin.finances.detail.zone"), m.zona ?? t("admin.finances.detail.noZone"))}
+            {m.duracion_min ? fila(t("admin.finances.detail.duration"), t("admin.finances.detail.durationMinutes", { n: m.duracion_min })) : null}
+            {m.estado_paseo && fila(t("admin.finances.detail.walkStatus"), <Badge tono={tonoPaseo(m.estado_paseo)}>{t(claveEstadoPaseo[m.estado_paseo])}</Badge>)}
+          </dl>
+        </section>
+
+        {/* ── Por dónde pasó ── en fila en la computadora, en columna en
+            el teléfono. La línea entre pasos se pinta hasta el último
+            que ya pasó. */}
+        <section className="sm:col-span-2">
+          <h3 className="rotulo text-ink-mute">{t("admin.finances.detail.timeline")}</h3>
+          <ol className="mt-3 grid gap-3 sm:grid-cols-3 sm:gap-2">
+            {pasos.map((paso) => (
+              <li key={paso.clave} className="flex items-start gap-3 sm:flex-col sm:gap-2">
+                <span className="flex w-full items-center gap-2 sm:w-auto sm:self-stretch">
+                  <span
+                    aria-hidden
+                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${paso.hecho ? "bg-accent text-white" : "bg-sunken text-ink-mute"}`}
+                  >
+                    {paso.hecho ? <Check size={13} strokeWidth={2.4} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                  </span>
+                  <span aria-hidden className={`hidden h-[2px] flex-1 rounded-full sm:block ${paso.hecho ? "bg-accent/40" : "bg-sunken"}`} />
+                </span>
+                <span className="min-w-0 sm:pr-3">
+                  <span className={`block text-[12.5px] leading-snug ${paso.hecho ? "text-ink" : "text-ink-mute"}`}>{t(paso.clave)}</span>
+                  <span className="nums mt-0.5 block text-[11.5px] text-ink-mute">
+                    {paso.cuando ? fechaHoraFinanzas(paso.cuando, localeTag) : paso.hecho ? "" : t("admin.finances.detail.notYet")}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+
+      {/* `rounded-none`: en el mundo `suave` todo fondo blanco lleva radio, y
+          el pie fijo salía con las esquinas de arriba curvas. */}
+      <div className="sticky bottom-0 flex justify-end rounded-none border-t border-sunken bg-surface px-5 py-3.5 sm:px-6">
+        <BotonCerrarVentana className={btnSecondary}>{t("admin.finances.detail.close")}</BotonCerrarVentana>
+      </div>
+    </Dialog>
   );
 };
 
 /* ── Paseadores ──────────────────────────────────────────────── */
 
-const estadoPaseadorLabel: Record<AdminWalker["estado"], string> = {
-  activo: "Activo",
-  inactivo: "Inactivo",
-  suspendido: "Suspendido",
+const claveEstadoPaseador: Record<AdminWalker["estado"], string> = {
+  activo: "admin.walkers.status.active",
+  inactivo: "admin.walkers.status.inactive",
+  suspendido: "admin.walkers.status.suspended",
 };
 
 const tonoPaseador = (estado: AdminWalker["estado"]) =>
   estado === "activo" ? "ok" : estado === "suspendido" ? "danger" : "neutral";
 
+const claveVerificacionPaseador: Record<string, string> = {
+  aprobado: "admin.walkers.detail.verificationStates.approved",
+  pendiente: "admin.walkers.detail.verificationStates.pending",
+  rechazado: "admin.walkers.detail.verificationStates.rejected",
+};
+
+/* Los teléfonos se guardan como se escribieron. Si tienen la forma de
+   Costa Rica se separan para leerse de un vistazo; si no, se dejan. */
+const telefonoLegible = (valor: string) => {
+  const limpio = valor.replace(/[\s.-]/g, "");
+  const cr = /^(?:\+?506)?(\d{4})(\d{4})$/.exec(limpio);
+  return cr ? `+506 ${cr[1]} ${cr[2]}` : valor;
+};
+
+/** La foto, o las iniciales si no hay o si la dirección ya no sirve. */
+const FotoPaseador = ({ paseador, size }: { paseador: AdminWalker; size: number }) => {
+  const [rota, setRota] = useState(false);
+  return paseador.foto_perfil && !rota ? (
+    <img
+      src={paseador.foto_perfil}
+      alt=""
+      aria-hidden
+      onError={() => setRota(true)}
+      className="shrink-0 rounded-full bg-sunken object-cover"
+      style={{ width: size, height: size }}
+    />
+  ) : (
+    <Avatar nombre={paseador.nombre} size={size} />
+  );
+};
+
+/** La calificación con cuántas reseñas la sostienen. Un «0» suelto se
+    leía como una nota pésima cuando en realidad nadie lo calificó. */
+const Calificacion = ({ paseador, alinear = "derecha" }: { paseador: AdminWalkerConFicha; alinear?: "derecha" | "izquierda" }) => {
+  const { t, localeTag } = useTranslation();
+  const resenas = paseador.ficha.total_resenas;
+  const sinResenas = resenas === 0 || (resenas == null && paseador.rating === 0);
+  const nota = new Intl.NumberFormat(localeTag, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(paseador.rating);
+
+  return (
+    <span className={`flex flex-col ${alinear === "derecha" ? "items-end" : "items-start"}`}>
+      {sinResenas ? (
+        <span className="text-[12.5px] text-ink-mute">{t("admin.walkers.noReviews")}</span>
+      ) : (
+        <>
+          <span className="nums inline-flex items-center gap-1 text-[13px] font-semibold text-ink">
+            <Star size={12} className="text-gold" aria-hidden />
+            {nota}
+          </span>
+          {resenas != null && (
+            <span className="nums mt-0.5 text-[11px] text-ink-mute">
+              {t(resenas === 1 ? "admin.walkers.reviewsOne" : "admin.walkers.reviewsMany", { n: resenas })}
+            </span>
+          )}
+        </>
+      )}
+    </span>
+  );
+};
+
+/** «Nicoya» arriba y «Guanacaste» debajo: el lugar y dónde queda. */
+const ZonaPaseador = ({ paseador }: { paseador: AdminWalkerConFicha }) => {
+  const { t } = useTranslation();
+  const zona = paseador.ficha.zona;
+  if (!zona && paseador.zona === "Sin zona") {
+    return <span className="text-[12.5px] text-ink-mute italic">{t("admin.walkers.noZone")}</span>;
+  }
+  return (
+    <span className="block min-w-0">
+      <span className="block truncate text-[12.5px] font-medium text-ink">{zona?.nombre ?? paseador.zona}</span>
+      {zona?.provincia && <span className="mt-0.5 block truncate text-[11.5px] text-ink-mute">{zona.provincia}</span>}
+    </span>
+  );
+};
+
+/** Renglones de la ficha: etiqueta a la izquierda, dato a la derecha. */
+const Renglones = ({ filas }: { filas: [string, ReactNode][] }) => (
+  <dl className="text-[13px]">
+    {filas.map(([etiqueta, valor]) => (
+      <div key={etiqueta} className="flex items-start justify-between gap-6 border-b border-sunken py-2.5 last:border-b-0">
+        <dt className="shrink-0 text-ink-soft">{etiqueta}</dt>
+        <dd className="min-w-0 text-right font-medium break-words text-ink">{valor}</dd>
+      </div>
+    ))}
+  </dl>
+);
+
+
+/* ── La ficha del paseador ──
+   Todo lo que se sabe de él en una sola ventana: cómo contactarlo, qué
+   cobra, qué dice de sí mismo y cómo le va. Con la forma del detalle de
+   un paseo: renglones con la etiqueta a la izquierda y el dato a la
+   derecha, y los números grandes arriba. */
+const FichaPaseadorDialog = ({ paseador, onCerrar }: { paseador: AdminWalkerConFicha; onCerrar: () => void }) => {
+  const { t, localeTag } = useTranslation();
+  const { ficha } = paseador;
+  const sinDato = <span className="font-normal text-ink-mute">{t("admin.walkers.noData")}</span>;
+  const desde = ficha.fecha_registro
+    ? new Intl.DateTimeFormat(localeTag, { month: "long", year: "numeric" }).format(new Date(ficha.fecha_registro))
+    : null;
+  const recargos = ficha.recargos
+    ? [
+        ficha.recargos.recargo_nocturno > 0 &&
+          t("admin.walkers.detail.surchargeNight", {
+            pct: ficha.recargos.recargo_nocturno,
+            desde: ficha.recargos.nocturno_desde,
+            hasta: ficha.recargos.nocturno_hasta,
+          }),
+        ficha.recargos.recargo_fin_semana > 0 && t("admin.walkers.detail.surchargeWeekend", { pct: ficha.recargos.recargo_fin_semana }),
+        ficha.recargos.recargo_mismo_dia > 0 && t("admin.walkers.detail.surchargeSameDay", { pct: ficha.recargos.recargo_mismo_dia }),
+      ].filter((r): r is string => Boolean(r))
+    : null;
+  const verificacionPendiente = ficha.estado_verificacion === "pendiente" || ficha.estado_verificacion === "rechazado";
+
+  const renglones: [string, ReactNode][] = [
+    [
+      t("admin.walkers.detail.email"),
+      ficha.correo ? (
+        <a href={`mailto:${ficha.correo}`} className="break-all text-accent-deep underline-offset-[3px] hover:underline">
+          {ficha.correo}
+        </a>
+      ) : (
+        sinDato
+      ),
+    ],
+    [
+      t("admin.walkers.detail.phone"),
+      ficha.telefono ? (
+        <a href={`tel:${ficha.telefono.replace(/[^\d+]/g, "")}`} className="nums text-accent-deep underline-offset-[3px] hover:underline">
+          {telefonoLegible(ficha.telefono)}
+        </a>
+      ) : (
+        sinDato
+      ),
+    ],
+    [
+      t("admin.walkers.detail.zone"),
+      ficha.zona ? [ficha.zona.nombre, ficha.zona.canton, ficha.zona.provincia].filter((p, i, a) => p && a.indexOf(p) === i).join(", ") : paseador.zona,
+    ],
+  ];
+
+  const perfil: [string, ReactNode][] = [
+    [
+      t("admin.walkers.detail.rate"),
+      ficha.tarifa_base != null ? <span className="nums">{colones(ficha.tarifa_base)}</span> : sinDato,
+    ],
+    [
+      t("admin.walkers.detail.surcharges"),
+      recargos == null ? sinDato : recargos.length ? (
+        <span className="flex flex-col items-end gap-0.5">
+          {recargos.map((r) => (
+            <span key={r} className="nums">{r}</span>
+          ))}
+        </span>
+      ) : (
+        <span className="font-normal text-ink-soft">{t("admin.walkers.detail.noSurcharges")}</span>
+      ),
+    ],
+    [
+      t("admin.walkers.detail.availability"),
+      ficha.disponible == null ? sinDato : ficha.disponible ? t("admin.walkers.detail.availableYes") : t("admin.walkers.detail.availableNo"),
+    ],
+    [
+      t("admin.walkers.detail.verification"),
+      ficha.estado_verificacion ? t(claveVerificacionPaseador[ficha.estado_verificacion] ?? ficha.estado_verificacion) : sinDato,
+    ],
+  ];
+
+  const cifras: [string, ReactNode][] = [
+    [t("admin.walkers.columns.walks"), <span className="nums">{paseador.paseos}</span>],
+    [t("admin.walkers.columns.rating"), <Calificacion paseador={paseador} alinear="izquierda" />],
+    [t("admin.walkers.columns.generated"), <span className="nums">{colones(paseador.generado)}</span>],
+  ];
+
+  return (
+    <Dialog title={t("admin.walkers.detail.title")} onClose={onCerrar} ancho="max-w-[600px]">
+      <div className="grid gap-5 p-6">
+        <div className="flex items-start gap-4">
+          <FotoPaseador paseador={paseador} size={56} />
+          <div className="min-w-0 flex-1">
+            <h4 className="titular truncate text-[18px] text-ink">{paseador.nombre}</h4>
+            {desde && <p className="mt-0.5 text-[12.5px] text-ink-soft">{t("admin.walkers.detail.since", { fecha: desde })}</p>}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge tono={tonoPaseador(paseador.estado)}>{t(claveEstadoPaseador[paseador.estado])}</Badge>
+              {ficha.disponible === false && <Badge tono="neutral">{t("admin.walkers.detail.availableNo")}</Badge>}
+            </div>
+          </div>
+        </div>
+
+        {verificacionPendiente && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-warn-wash px-4 py-3 text-[12.5px] text-warn">
+            <span>{t(ficha.estado_verificacion === "rechazado" ? "admin.walkers.detail.verificationRejectedNote" : "admin.walkers.detail.verificationPendingNote")}</span>
+            <Link to={`${RUTA_ADMIN}/verificaciones`} className={`${btnSecondary} bg-white px-4 py-2 text-[12px]`}>
+              {t("admin.walkers.detail.reviewVerification")}
+            </Link>
+          </div>
+        )}
+
+        {/* Las tres cifras de la fila, en grande. */}
+        <div className="grid grid-cols-3 gap-2">
+          {cifras.map(([etiqueta, valor]) => (
+            <div key={etiqueta} className="min-w-0 rounded-[14px] bg-sunken px-3 py-3 sm:px-3.5">
+              {/* No es `rotulo`: con su espaciado, «CALIFICACIÓN» no
+                  entraba en un tercio del ancho de un teléfono. */}
+              <p className="font-[Archivo] text-[9.5px] font-bold tracking-[0.05em] text-ink-mute uppercase sm:text-[10px] sm:tracking-[0.12em]">{etiqueta}</p>
+              <div className="mt-1.5 text-[16px] leading-tight font-semibold text-ink">{valor}</div>
+            </div>
+          ))}
+        </div>
+
+        <section>
+          <h5 className="rotulo text-ink-mute">{t("admin.walkers.detail.contact")}</h5>
+          <Renglones filas={renglones} />
+        </section>
+
+        <section>
+          <h5 className="rotulo text-ink-mute">{t("admin.walkers.detail.profile")}</h5>
+          <Renglones filas={perfil} />
+          <div className="mt-3 rounded-[14px] bg-sunken px-4 py-3">
+            <p className="text-[11.5px] font-semibold text-ink-mute">{t("admin.walkers.detail.about")}</p>
+            <p className="mt-1 text-[13px] leading-relaxed whitespace-pre-line text-ink-soft">
+              {ficha.descripcion ?? <span className="italic">{t("admin.walkers.detail.noDescription")}</span>}
+            </p>
+          </div>
+        </section>
+
+        <div className="flex justify-end border-t border-sunken pt-4">
+          <BotonCerrarVentana className={btnSecondary}>
+            {t("admin.walkers.detail.close")}
+          </BotonCerrarVentana>
+        </div>
+      </div>
+    </Dialog>
+  );
+};
+
 export const PaseadoresAdmin = () => {
   const botonNotificaciones = useContext(NotificationButtonContext);
-  const { paseadores, loading, error } = useAdminPaseadores();
+  const { t } = useTranslation();
+  const claveFiltroPaseadores: Record<string, string> = {
+    Todos: "admin.walkers.filters.all",
+    Activos: "admin.walkers.filters.active",
+    Inactivos: "admin.walkers.filters.inactive",
+    Suspendidos: "admin.walkers.filters.suspended",
+  };
+  const { paseadores, loading, error } = useAdminPaseadoresConFicha();
   const [filtro, setFiltro] = useState("Todos");
   const [pagina, setPagina] = useState(1);
+  const [fichaId, setFichaId] = useState<string | null>(null);
 
-  const visibles = paseadores.filter((paseador) =>
-    filtro === "Todos"
+  const enFiltro = (paseador: AdminWalker, valor: string) =>
+    valor === "Todos"
       ? true
-      : filtro === "Activos"
+      : valor === "Activos"
         ? paseador.estado === "activo"
-        : filtro === "Inactivos"
+        : valor === "Inactivos"
           ? paseador.estado === "inactivo"
-          : paseador.estado === "suspendido"
+          : paseador.estado === "suspendido";
+
+  const visibles = paseadores.filter((paseador) => enFiltro(paseador, filtro));
+  const cuentas = Object.fromEntries(
+    ["Todos", "Activos", "Inactivos", "Suspendidos"].map((valor) => [valor, paseadores.filter((p) => enFiltro(p, valor)).length]),
   );
 
   const totalPaginas = Math.max(1, Math.ceil(visibles.length / PAGE_SIZE));
@@ -441,23 +1335,38 @@ export const PaseadoresAdmin = () => {
   const inicioPagina = (paginaActual - 1) * PAGE_SIZE;
   const finPagina = Math.min(inicioPagina + PAGE_SIZE, visibles.length);
   const paginaPaseadores = visibles.slice(inicioPagina, inicioPagina + PAGE_SIZE);
+  const ficha = fichaId ? paseadores.find((p) => p.id_usuario === fichaId) ?? null : null;
 
   const cambiarFiltro = (value: string) => { setFiltro(value); setPagina(1); };
+
+  /** El nombre abre la ficha, como el «Paseo con…» de Pagos. */
+  const abrirFicha = (p: AdminWalkerConFicha, className: string) => (
+    <button
+      type="button"
+      onClick={() => setFichaId(p.id_usuario)}
+      title={t("admin.walkers.open", { nombre: p.nombre })}
+      className={`-my-2 block max-w-full truncate py-2 text-left font-semibold text-ink underline-offset-[3px] transition-colors duration-150 hover:text-accent-deep ${className}`}
+    >
+      {p.nombre}
+    </button>
+  );
 
   return (
     <Page wide>
       <PageHeader
-        title="Directorio de paseadores"
-        subtitle="Todos los paseadores registrados en la plataforma."
+        title={t("admin.walkers.title")}
+        subtitle={t("admin.walkers.subtitle")}
         action={botonNotificaciones}
       />
 
-      <div className="bg-surface px-3 py-3">
+      <div className="overflow-x-auto bg-surface px-3 py-3">
         <FilterTabs
-          label="Filtrar paseadores"
-          options={["Todos", "Activos", "Inactivos", "Suspendidos"]}
+          label={t("admin.walkers.filterLabel")}
+          options={["Todos", "Activos", "Inactivos", "Suspendidos"].map((o) => ({ value: o, label: t(claveFiltroPaseadores[o]) }))}
           value={filtro}
           onChange={cambiarFiltro}
+          cuentas={loading ? undefined : cuentas}
+          desplazable
         />
       </div>
 
@@ -470,94 +1379,113 @@ export const PaseadoresAdmin = () => {
       <div className="min-w-0">
         <Section bodyClass="">
           {loading ? (
-            <p className="px-6 py-8 text-[13px] text-ink-soft">Cargando paseadores...</p>
+            <p className="px-6 py-8 text-[13px] text-ink-soft">{t("admin.walkers.loading")}</p>
           ) : visibles.length > 0 ? (
             <>
-              {/* ── De lg para arriba: la tabla ── */}
+              {/* ── De lg para arriba: la tabla ──
+                  Antes eran seis columnas de números alrededor de un
+                  nombre: no se sabía cómo contactar al paseador ni qué
+                  cobraba. Ahora el correo va bajo el nombre, la zona dice
+                  la provincia, entra la tarifa y la calificación dice
+                  cuántas reseñas la sostienen. Lo demás, en la ficha. */}
               <div className="hidden lg:block">
                 <Table
-                  caption={`Paseadores filtrados por ${filtro.toLowerCase()}`}
-                  min="min-w-[900px]"
+                  caption={t("admin.walkers.caption", { filtro: t(claveFiltroPaseadores[filtro]).toLowerCase() })}
+                  min="min-w-[980px]"
                   padX="px-4"
                   columnas={[
-                    { label: "Paseador", ancho: "w-[28%]" },
-                    { label: "Zona", ancho: "w-[20%]" },
-                    { label: "Paseos", align: "right", ancho: "w-[13%]" },
-                    { label: "Rating", align: "right", ancho: "w-[13%]" },
-                    { label: "Generado", align: "right", ancho: "w-[16%]" },
-                    { label: "Estado", ancho: "w-[10%]" },
+                    { label: t("admin.walkers.columns.walker"), ancho: "w-[27%]" },
+                    { label: t("admin.walkers.columns.zone"), ancho: "w-[15%]" },
+                    { label: t("admin.walkers.columns.rate"), align: "right", ancho: "w-[11%]" },
+                    { label: t("admin.walkers.columns.walks"), align: "right", ancho: "w-[8%]" },
+                    { label: t("admin.walkers.columns.rating"), align: "right", ancho: "w-[13%]" },
+                    { label: t("admin.walkers.columns.generated"), align: "right", ancho: "w-[11%]" },
+                    { label: t("admin.walkers.columns.status"), ancho: "w-[10%]" },
+                    { label: t("admin.walkers.columns.actions"), ancho: "w-[5%]", muda: true },
                   ]}
                 >
                   {paginaPaseadores.map((p) => (
-                    <tr key={p.id_usuario} className="transition-colors duration-150 hover:bg-accent-wash/25">
+                    <tr key={p.id_usuario} className="group transition-colors duration-150 hover:bg-accent-wash/40">
                       <td className="px-4 py-3">
                         <div className="flex min-w-0 items-center gap-3">
-                          {p.foto_perfil ? (
-                            <img
-                              src={p.foto_perfil}
-                              alt=""
-                              aria-hidden
-                              className="h-9 w-9 shrink-0 rounded-full bg-sunken object-cover"
-                            />
-                          ) : (
-                            <Avatar nombre={p.nombre} size={36} />
-                          )}
-                          <span className="truncate text-[13.5px] font-semibold text-ink" title={p.nombre}>
-                            {p.nombre}
+                          <FotoPaseador paseador={p} size={36} />
+                          <span className="min-w-0">
+                            {abrirFicha(p, "text-[13.5px] group-hover:underline")}
+                            <span className="mt-0.5 block truncate text-[11.5px] text-ink-mute" title={p.ficha.correo ?? undefined}>
+                              {p.ficha.correo ?? t("admin.walkers.noEmail")}
+                            </span>
                           </span>
                         </div>
                       </td>
-                      <td className="truncate px-4 py-3 text-[12.5px] text-ink-soft" title={p.zona}>{p.zona}</td>
-                      <td className="nums px-4 py-3 text-right text-[12.5px] text-ink-soft">
-                        {p.paseos}
-                      </td>
-                      <td className="nums px-4 py-3 text-right text-[12.5px] text-ink-soft">
-                        {p.rating}
-                      </td>
-                      <td className="nums px-4 py-3 text-right text-[13px] font-semibold text-ink">
-                        {colones(p.generado)}
-                      </td>
                       <td className="px-4 py-3">
-                        <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
+                        <ZonaPaseador paseador={p} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {p.ficha.tarifa_base != null ? (
+                          <span className="flex flex-col items-end">
+                            <span className="nums text-[13px] font-semibold text-ink">{colones(p.ficha.tarifa_base)}</span>
+                            <span className="mt-0.5 text-[11px] text-ink-mute">{t("admin.walkers.rateNote")}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[12.5px] text-ink-mute">—</span>
+                        )}
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-[13px] text-ink">{p.paseos}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Calificacion paseador={p} />
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-[13px] font-semibold text-ink">{colones(p.generado)}</td>
+                      <td className="px-4 py-3">
+                        <Badge tono={tonoPaseador(p.estado)}>{t(claveEstadoPaseador[p.estado])}</Badge>
+                      </td>
+                      <td className="px-2 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setFichaId(p.id_usuario)}
+                          aria-label={t("admin.walkers.open", { nombre: p.nombre })}
+                          title={t("admin.walkers.open", { nombre: p.nombre })}
+                          className="ml-auto grid h-8 w-8 place-items-center rounded-full text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken hover:text-ink active:scale-[0.94]"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </Table>
               </div>
 
-              {/* ── Debajo de lg: fichas ── */}
-              <ul className="grid gap-2.5 p-4 lg:hidden">
+              {/* ── Debajo de lg: la lista de mano ── */}
+              <ul className="lg:hidden [&>li:nth-child(even)]:bg-sunken/60">
                 {paginaPaseadores.map((p) => (
-                  <li key={p.id_usuario} className="rounded-[14px] bg-sunken/60 p-4">
+                  <li key={p.id_usuario} className="px-4 py-4 sm:px-5">
                     <div className="flex items-start gap-3">
-                      {p.foto_perfil ? (
-                        <img
-                          src={p.foto_perfil}
-                          alt=""
-                          aria-hidden
-                          className="h-10 w-10 shrink-0 rounded-full bg-sunken object-cover"
-                        />
-                      ) : (
-                        <Avatar nombre={p.nombre} size={40} />
-                      )}
+                      <FotoPaseador paseador={p} size={40} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-semibold text-ink">{p.nombre}</p>
-                        <p className="truncate text-[11.5px] text-ink-mute">{p.zona}</p>
+                        {abrirFicha(p, "text-[14px]")}
+                        <p className="mt-0.5 truncate text-[11.5px] text-ink-mute">{p.ficha.correo ?? t("admin.walkers.noEmail")}</p>
                       </div>
-                      <Badge tono={tonoPaseador(p.estado)}>{estadoPaseadorLabel[p.estado]}</Badge>
+                      <Badge tono={tonoPaseador(p.estado)}>{t(claveEstadoPaseador[p.estado])}</Badge>
                     </div>
 
-                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
-                      <div>
-                        <dt className="rotulo text-ink-mute">Paseos</dt>
-                        <dd className="nums mt-1 text-ink-soft">{p.paseos}</dd>
+                    <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2.5 pl-[52px] text-[12px]">
+                      <div className="min-w-0">
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.zone")}</dt>
+                        <dd className="mt-1"><ZonaPaseador paseador={p} /></dd>
                       </div>
                       <div>
-                        <dt className="rotulo text-ink-mute">Rating</dt>
-                        <dd className="nums mt-1 text-ink-soft">{p.rating}</dd>
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.rate")}</dt>
+                        <dd className="nums mt-1 font-semibold text-ink">{p.ficha.tarifa_base != null ? colones(p.ficha.tarifa_base) : "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.rating")}</dt>
+                        <dd className="mt-1"><Calificacion paseador={p} alinear="izquierda" /></dd>
+                      </div>
+                      <div>
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.walks")}</dt>
+                        <dd className="nums mt-1 text-ink">{p.paseos}</dd>
                       </div>
                       <div className="col-span-2">
-                        <dt className="rotulo text-ink-mute">Generado</dt>
+                        <dt className="rotulo text-ink-mute">{t("admin.walkers.columns.generated")}</dt>
                         <dd className="nums mt-1 font-semibold text-ink">{colones(p.generado)}</dd>
                       </div>
                     </dl>
@@ -567,50 +1495,50 @@ export const PaseadoresAdmin = () => {
 
               {visibles.length > PAGE_SIZE && (
                 <Paginacion
-                  etiqueta="Paginación de paseadores"
+                  etiqueta={t("admin.walkers.pagination")}
                   actual={paginaActual}
                   total={totalPaginas}
                   onCambiar={setPagina}
                   desde={inicioPagina + 1}
                   hasta={finPagina}
                   cuantos={visibles.length}
-                  nombre={["paseador", "paseadores"]}
+                  nombre={[t("admin.walkers.walkerWord"), t("admin.walkers.walkersWord")]}
                 />
               )}
             </>
           ) : (
             <div className="px-4 py-4 sm:px-6">
-              <EmptyState title="Sin paseadores" hint={error ? "Revisa la conexión o los permisos de administrador." : "Cambia el filtro para ver el resto."} />
+              <EmptyState
+                title={t("admin.walkers.empty.title")}
+                hint={error ? t("admin.walkers.empty.withError") : t("admin.walkers.empty.withoutError")}
+              />
             </div>
           )}
         </Section>
       </div>
+
+      {ficha && <FichaPaseadorDialog paseador={ficha} onCerrar={() => setFichaId(null)} />}
     </Page>
   );
 };
 
 /* ── Verificaciones ──────────────────────────────────────────── */
 
-const documentLabel: Record<VerificationDocumentType, string> = {
-  cedula_frente: "Cédula (frente)",
-  cedula_reverso: "Cédula (reverso)",
-  hoja_delincuencia: "Hoja de delincuencia",
-  permiso_funcionamiento: "Permiso de funcionamiento",
+const claveDocumentLabel: Record<VerificationDocumentType, string> = {
+  cedula_frente: "admin.verifications.documentLabels.cedula_frente",
+  cedula_reverso: "admin.verifications.documentLabels.cedula_reverso",
+  hoja_delincuencia: "admin.verifications.documentLabels.hoja_delincuencia",
+  permiso_funcionamiento: "admin.verifications.documentLabels.permiso_funcionamiento",
 };
 
-const verificationRoleLabel: Record<RolPublico, string> = {
-  dueno: "Dueño",
-  paseador: "Paseador",
-  negocio: "Negocio",
+const claveVerificationRoleLabel: Record<RolPublico, string> = {
+  dueno: "admin.verifications.roleLabels.dueno",
+  paseador: "admin.verifications.roleLabels.paseador",
+  negocio: "admin.verifications.roleLabels.negocio",
 };
 
-const verificationDate = new Intl.DateTimeFormat("es-CR", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-const errorMessage = (cause: unknown) =>
-  cause instanceof Error ? cause.message : "No se pudo completar la revisión.";
+const errorMessage = (cause: unknown, t: T) =>
+  cause instanceof Error ? cause.message : t("admin.verifications.reviewError");
 
 /* ─────────────────────────────────────────────────────────────
    EL VISOR DE DOCUMENTOS
@@ -666,6 +1594,7 @@ const VisorDocumentos = ({
     observacion?: string,
   ) => Promise<void>;
 }) => {
+  const { t } = useTranslation();
   const [activo, setActivo] = useState(inicial);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(false);
@@ -750,7 +1679,7 @@ const VisorDocumentos = ({
     let vivo = true;
     setCargando(true);
     setFallo(null);
-    getVerificationDocumentUrl(documento)
+    getVerificationDocumentUrl(documento, t)
       .then((firmada) => {
         if (vivo) {
           setUrls((actuales) => ({
@@ -760,7 +1689,7 @@ const VisorDocumentos = ({
         }
       })
       .catch((cause) => {
-        if (vivo) setFallo(errorMessage(cause));
+        if (vivo) setFallo(errorMessage(cause, t));
       })
       .finally(() => {
         if (vivo) setCargando(false);
@@ -810,11 +1739,11 @@ const VisorDocumentos = ({
     setDescargando(true);
     setFallo(null);
     try {
-      await downloadVerificationDocument(documento);
-      aviso.ok("Documento descargado", { detalle: documento.nombre_archivo });
+      await downloadVerificationDocument(documento, t);
+      aviso.ok(t("admin.verifications.viewer.downloaded"), { detalle: documento.nombre_archivo });
     } catch (cause) {
-      setFallo(errorMessage(cause));
-      aviso.error(cause, { respaldo: "No se pudo descargar el documento." });
+      setFallo(errorMessage(cause, t));
+      aviso.error(cause, { respaldo: t("admin.verifications.viewer.downloadFailed") });
     } finally {
       setDescargando(false);
     }
@@ -822,7 +1751,7 @@ const VisorDocumentos = ({
 
   const resolver = async (estado: "aprobado" | "rechazado") => {
     if (estado === "rechazado" && observacion.trim().length < 5) {
-      setFallo("Escribí una observación de al menos 5 caracteres para rechazar.");
+      setFallo(t("admin.verifications.rejectMinLength"));
       return;
     }
     setVeredicto(estado);
@@ -834,16 +1763,16 @@ const VisorDocumentos = ({
       );
       onClose();
       if (estado === "aprobado") {
-        aviso.ok(`${solicitud.nombre} quedó verificado`, {
-          detalle: "Ya puede operar en la plataforma con todos sus perfiles.",
+        aviso.ok(t("admin.verifications.verified", { nombre: solicitud.nombre }), {
+          detalle: t("admin.verifications.verifiedDetail"),
         });
       } else {
-        aviso.dato(`Verificación de ${solicitud.nombre} rechazada`, {
-          detalle: "Recibió tu observación y puede volver a enviarla.",
+        aviso.dato(t("admin.verifications.rejected", { nombre: solicitud.nombre }), {
+          detalle: t("admin.verifications.rejectedDetail"),
         });
       }
     } catch (cause) {
-      setFallo(errorMessage(cause));
+      setFallo(errorMessage(cause, t));
       setVeredicto(null);
     }
   };
@@ -933,7 +1862,7 @@ const VisorDocumentos = ({
     <div className="suave fixed inset-0 z-[100] flex p-2.5 sm:p-6">
       <button
         type="button"
-        aria-label="Cerrar visor"
+        aria-label={t("admin.verifications.viewer.close")}
         onClick={onClose}
         className="anim-fade absolute inset-0 bg-rail/80 backdrop-blur-[2px]"
       />
@@ -979,13 +1908,13 @@ const VisorDocumentos = ({
             ) : (
               <Download size={14} />
             )}
-            <span className="hidden sm:inline">Descargar</span>
+            <span className="hidden sm:inline">{t("admin.verifications.viewer.download")}</span>
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar visor"
+            aria-label={t("admin.verifications.viewer.close")}
             className={botonHerramienta}
           >
             <X size={18} />
@@ -998,7 +1927,7 @@ const VisorDocumentos = ({
               sitio: en un teléfono una columna de 190 px se come la
               mitad del ancho útil. */}
           <nav
-            aria-label="Documentos de la solicitud"
+            aria-label={t("admin.verifications.viewer.documentsAria")}
             className="flex shrink-0 gap-1.5 overflow-x-auto bg-sunken p-2 sm:w-[212px] sm:flex-col sm:overflow-x-visible sm:overflow-y-auto sm:p-2.5"
           >
             {documentos.map((doc) => {
@@ -1028,7 +1957,7 @@ const VisorDocumentos = ({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[12.5px] font-medium whitespace-nowrap sm:whitespace-normal">
-                      {documentLabel[doc.tipo_documento]}
+                      {t(claveDocumentLabel[doc.tipo_documento])}
                     </span>
                     <span
                       className={`hidden truncate text-[10.5px] sm:block ${
@@ -1051,19 +1980,19 @@ const VisorDocumentos = ({
                 type="button"
                 onClick={() => mover(-1)}
                 disabled={documentos.length < 2}
-                aria-label="Documento anterior"
+                aria-label={t("admin.verifications.viewer.previousDocument")}
                 className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
               >
                 <ChevronLeft size={17} />
               </button>
               <span className="nums min-w-[3.5rem] text-center text-[11.5px] font-medium text-ink-mute">
-                {indice + 1} de {documentos.length}
+                {t("admin.verifications.viewer.ofTotal", { actual: indice + 1, total: documentos.length })}
               </span>
               <button
                 type="button"
                 onClick={() => mover(1)}
                 disabled={documentos.length < 2}
-                aria-label="Documento siguiente"
+                aria-label={t("admin.verifications.viewer.nextDocument")}
                 className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
               >
                 <ChevronRight size={17} />
@@ -1077,7 +2006,7 @@ const VisorDocumentos = ({
                     type="button"
                     onClick={() => acercar(-0.5)}
                     disabled={escala <= ESCALA_MIN}
-                    aria-label="Alejar"
+                    aria-label={t("admin.verifications.viewer.zoomOut")}
                     className={`${botonHerramienta} text-[17px] leading-none font-semibold text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
                   >
                     −
@@ -1093,7 +2022,7 @@ const VisorDocumentos = ({
                     type="button"
                     onClick={() => acercar(0.5)}
                     disabled={escala >= ESCALA_MAX}
-                    aria-label="Acercar"
+                    aria-label={t("admin.verifications.viewer.zoomIn")}
                     className={`${botonHerramienta} text-[17px] leading-none font-semibold text-ink-soft hover:bg-white hover:text-ink disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
                   >
                     +
@@ -1102,7 +2031,7 @@ const VisorDocumentos = ({
                   <button
                     type="button"
                     onClick={() => setGiro((actual) => (actual + 90) % 360)}
-                    aria-label="Girar un cuarto de vuelta"
+                    aria-label={t("admin.verifications.viewer.rotate")}
                     className={`${botonHerramienta} text-ink-soft hover:bg-white hover:text-ink`}
                   >
                     <RefreshCw size={15} />
@@ -1111,8 +2040,7 @@ const VisorDocumentos = ({
               )}
 
               <span className="ml-auto hidden shrink-0 pr-1 text-[11px] whitespace-nowrap text-ink-mute lg:block">
-                ← → cambian de documento · rueda o pellizco acercan · 0
-                encuadra
+                {t("admin.verifications.viewer.shortcutsHint")}
               </span>
             </div>
 
@@ -1130,10 +2058,9 @@ const VisorDocumentos = ({
               className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-sunken"
             >
               {cargando && (
-                <p className="flex items-center gap-2 text-[13px] text-ink-soft">
-                  <Loader size={16} className="animate-spin" /> Abriendo
-                  documento…
-                </p>
+                <div className="flex items-center gap-2 text-[13px] text-ink-soft">
+                  <Loader size={16} className="animate-spin" /> {t("admin.verifications.viewer.opening")}
+                </div>
               )}
 
               {!cargando && fallo && (
@@ -1144,7 +2071,7 @@ const VisorDocumentos = ({
                     className="mx-auto text-danger"
                   />
                   <p className="mt-2 text-[13px] font-semibold text-ink">
-                    No se pudo abrir el documento
+                    {t("admin.verifications.viewer.openFailed")}
                   </p>
                   <p className="mt-1 text-[12.5px] text-ink-soft">{fallo}</p>
                 </div>
@@ -1154,13 +2081,13 @@ const VisorDocumentos = ({
                 pdf ? (
                   <iframe
                     src={url}
-                    title={documentLabel[documento.tipo_documento]}
+                    title={t(claveDocumentLabel[documento.tipo_documento])}
                     className="h-full w-full bg-white"
                   />
                 ) : (
                   <img
                     src={url}
-                    alt={documentLabel[documento.tipo_documento]}
+                    alt={t(claveDocumentLabel[documento.tipo_documento])}
                     draggable={false}
                     onPointerDown={tomar}
                     onPointerMove={llevar}
@@ -1209,7 +2136,7 @@ const VisorDocumentos = ({
                 htmlFor="visor-observacion"
                 className="rotulo text-ink-mute"
               >
-                Qué debe corregir *
+                {t("admin.verifications.viewer.whatToFix")}
               </label>
               <textarea
                 id="visor-observacion"
@@ -1218,7 +2145,7 @@ const VisorDocumentos = ({
                 maxLength={500}
                 value={observacion}
                 onChange={(evento) => setObservacion(evento.target.value)}
-                placeholder="Indicá qué documento está mal y por qué. Lo va a leer la persona."
+                placeholder={t("admin.verifications.viewer.whatToFixPlaceholder")}
                 className={`${input} mt-1.5 resize-y`}
               />
             </div>
@@ -1236,7 +2163,7 @@ const VisorDocumentos = ({
                 }}
                 className={`${btnQuiet} w-full sm:w-auto`}
               >
-                Cancelar
+                {t("common.cancel")}
               </button>
             )}
 
@@ -1257,7 +2184,7 @@ const VisorDocumentos = ({
               ) : (
                 <X size={15} strokeWidth={2.2} />
               )}
-              {rechazando ? "Confirmar rechazo" : "Rechazar"}
+              {rechazando ? t("admin.verifications.confirmReject") : t("admin.verifications.reject")}
             </button>
 
             {!rechazando && (
@@ -1272,7 +2199,7 @@ const VisorDocumentos = ({
                 ) : (
                   <Check size={15} strokeWidth={2.2} />
                 )}
-                Aprobar perfil
+                {t("admin.verifications.approveProfile")}
               </button>
             )}
           </div>
@@ -1284,6 +2211,11 @@ const VisorDocumentos = ({
 };
 
 export const VerificacionesAdmin = () => {
+  const { t, localeTag } = useTranslation();
+  const verificationDate = new Intl.DateTimeFormat(localeTag, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
   const [pendientes, setPendientes] = useState<AdminVerificationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -1302,11 +2234,11 @@ export const VerificacionesAdmin = () => {
     try {
       setPendientes(await listVerificationRequests());
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(errorMessage(cause, t));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -1326,7 +2258,7 @@ export const VerificacionesAdmin = () => {
 
   const review = async (request: AdminVerificationRequest, status: "aprobado" | "rechazado") => {
     if (status === "rechazado" && observation.trim().length < 5) {
-      setError("Escribe una observación de al menos 5 caracteres para rechazar.");
+      setError(t("admin.verifications.rejectMinLength"));
       return;
     }
     setProcessingId(request.id_usuario);
@@ -1336,17 +2268,17 @@ export const VerificacionesAdmin = () => {
       setRejectingId(null);
       setObservation("");
       if (status === "aprobado") {
-        aviso.ok(`${request.nombre} quedó verificado`, {
-          detalle: "Ya puede operar en la plataforma con todos sus perfiles.",
+        aviso.ok(t("admin.verifications.verified", { nombre: request.nombre }), {
+          detalle: t("admin.verifications.verifiedDetail"),
         });
       } else {
-        aviso.dato(`Verificación de ${request.nombre} rechazada`, {
-          detalle: "Recibió tu observación y puede volver a enviarla.",
+        aviso.dato(t("admin.verifications.rejected", { nombre: request.nombre }), {
+          detalle: t("admin.verifications.rejectedDetail"),
         });
       }
     } catch (cause) {
-      setError(errorMessage(cause));
-      aviso.error(cause, { respaldo: "No se pudo registrar la revisión." });
+      setError(errorMessage(cause, t));
+      aviso.error(cause, { respaldo: t("admin.verifications.reviewFailed") });
     } finally {
       setProcessingId(null);
     }
@@ -1355,9 +2287,9 @@ export const VerificacionesAdmin = () => {
   return (
     <Page>
       <PageHeader
-        title="Verificaciones"
-        subtitle="Solicitudes de identidad pendientes de revisión administrativa."
-        action={<Badge tono="warn">{pendientes.length} pendientes</Badge>}
+        title={t("admin.verifications.title")}
+        subtitle={t("admin.verifications.subtitle")}
+        action={<Badge tono="warn">{t("admin.verifications.pendingBadge", { count: pendientes.length })}</Badge>}
       />
 
       {error && <p role="alert" className="bg-danger-wash px-5 py-4 text-[13px] text-danger">{error}</p>}
@@ -1371,27 +2303,27 @@ export const VerificacionesAdmin = () => {
       {pendientes.map((v) => (
         <article key={v.id_usuario} className="anim-rise bg-surface px-6 py-5">
           <div className="flex flex-wrap items-start gap-5">
-            {v.foto_perfil ? <img src={v.foto_perfil} alt={`Foto de ${v.nombre}`} className="h-16 w-16 flex-shrink-0 rounded-full bg-sunken object-cover" /> : <Avatar nombre={v.nombre} size={64} />}
+            {v.foto_perfil ? <img src={v.foto_perfil} alt={t("common.photoOf", { nombre: v.nombre })} className="h-16 w-16 flex-shrink-0 rounded-full bg-sunken object-cover" /> : <Avatar nombre={v.nombre} size={64} />}
 
             <div className="min-w-[200px] flex-1">
               <h3 className="text-[15px] font-semibold text-ink">{v.nombre}</h3>
               <p className="mt-0.5 text-[12.5px] text-ink-soft">
                 {v.correo} · {v.zona}
               </p>
-              <p className="mt-1 text-[11.5px] text-ink-mute">{v.roles.map((role) => verificationRoleLabel[role]).join(" + ") || "Perfil de paseador solicitado"} · enviado {verificationDate.format(new Date(v.fecha_solicitud))}</p>
+              <p className="mt-1 text-[11.5px] text-ink-mute">{v.roles.map((role) => t(claveVerificationRoleLabel[role])).join(" + ") || t("admin.verifications.walkerProfileRequested")} · {t("admin.verifications.sentOn", { fecha: verificationDate.format(new Date(v.fecha_solicitud)) })}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {v.documentos.length === 0 ? (
-                  <p className="text-[12.5px] text-ink-mute">Sin documentos adjuntos.</p>
+                  <p className="text-[12.5px] text-ink-mute">{t("admin.verifications.noDocuments")}</p>
                 ) : (
                   <>
                     <button type="button" onClick={() => setRevision({ solicitud: v, inicial: v.documentos[0].id_documento })} className={btnPrimary}>
-                      <Eye size={14} /> Revisar {v.documentos.length} documento{v.documentos.length === 1 ? "" : "s"}
+                      <Eye size={14} /> {t(v.documentos.length === 1 ? "admin.verifications.reviewDocuments" : "admin.verifications.reviewDocumentsPlural", { count: v.documentos.length })}
                     </button>
                     {/* Cada documento sigue teniendo su propia entrada:
                         abren la misma ventana, ya puesta en ese. */}
                     {v.documentos.map((documento) => (
                       <button key={documento.id_documento} type="button" onClick={() => setRevision({ solicitud: v, inicial: documento.id_documento })} className={btnSecondary}>
-                        {documentLabel[documento.tipo_documento]}
+                        {t(claveDocumentLabel[documento.tipo_documento])}
                       </button>
                     ))}
                   </>
@@ -1399,8 +2331,8 @@ export const VerificacionesAdmin = () => {
               </div>
               {rejectingId === v.id_usuario && (
                 <div className="mt-4">
-                  <label htmlFor={`observation-${v.id_usuario}`} className="rotulo text-ink-mute">Observación para el usuario *</label>
-                  <textarea id={`observation-${v.id_usuario}`} value={observation} onChange={(event) => setObservation(event.target.value)} rows={3} maxLength={500} className={`${input} mt-2 resize-y`} placeholder="Indica qué documento debe corregir y por qué." />
+                  <label htmlFor={`observation-${v.id_usuario}`} className="rotulo text-ink-mute">{t("admin.verifications.observationLabel")}</label>
+                  <textarea id={`observation-${v.id_usuario}`} value={observation} onChange={(event) => setObservation(event.target.value)} rows={3} maxLength={500} className={`${input} mt-2 resize-y`} placeholder={t("admin.verifications.observationPlaceholder")} />
                 </div>
               )}
             </div>
@@ -1413,7 +2345,7 @@ export const VerificacionesAdmin = () => {
                 className={btnPrimary}
               >
                 {processingId === v.id_usuario ? <Loader size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.2} />}
-                Aprobar perfil
+                {t("admin.verifications.approveProfile")}
               </button>
               <button
                 type="button"
@@ -1425,7 +2357,7 @@ export const VerificacionesAdmin = () => {
                 className={btnDanger}
               >
                 <X size={15} strokeWidth={2.2} />
-                {rejectingId === v.id_usuario ? "Confirmar rechazo" : "Rechazar"}
+                {rejectingId === v.id_usuario ? t("admin.verifications.confirmReject") : t("admin.verifications.reject")}
               </button>
             </div>
           </div>
@@ -1434,8 +2366,8 @@ export const VerificacionesAdmin = () => {
 
       {!loading && pendientes.length === 0 && (
         <EmptyState
-          title="No hay verificaciones pendientes"
-          hint="Todas las solicitudes fueron revisadas."
+          title={t("admin.verifications.empty.title")}
+          hint={t("admin.verifications.empty.hint")}
         />
       )}
 
@@ -1482,21 +2414,25 @@ export const VerificacionesAdmin = () => {
        inactiva sin necesitar la palabra.
      · Debajo de `lg` no hay tabla: fichas apiladas, sin borde. */
 
-const rolLabel: Record<Rol, string> = { dueno: "Dueño", paseador: "Paseador", negocio: "Negocio", admin: "Administrador" };
-const rolesLabel = (roles: Rol[]) => roles.map((rol) => rolLabel[rol]).join(" + ") || "Sin rol";
+const claveRolLabel: Record<Rol, string> = {
+  dueno: "admin.users.roleLabels.dueno",
+  paseador: "admin.users.roleLabels.paseador",
+  negocio: "admin.users.roleLabels.negocio",
+  admin: "admin.users.roleLabels.admin",
+};
+const rolesLabel = (roles: Rol[], t: T) => roles.map((rol) => t(claveRolLabel[rol])).join(" + ") || t("admin.users.noRole");
 /** Chip para la cuenta sin rol. `label` es corto porque vive en una
     columna de cien píxeles; `detalle` es la explicación completa y va
     en el tooltip. */
-const perfilSinRol = (estado: AdminUser["estado_paseador"]) =>
+const perfilSinRol = (estado: AdminUser["estado_paseador"], t: T) =>
   estado === "pendiente"
-    ? { label: "Pendiente", detalle: "Solicitud de paseador pendiente de aprobación", className: "bg-warn-wash text-warn" }
+    ? { label: t("admin.users.noRoleStatus.pendingLabel"), detalle: t("admin.users.noRoleStatus.pendingDetail"), className: "bg-warn-wash text-warn" }
     : estado === "rechazado"
-      ? { label: "Rechazado", detalle: "Solicitud de paseador rechazada", className: "bg-danger-wash text-danger" }
+      ? { label: t("admin.users.noRoleStatus.rejectedLabel"), detalle: t("admin.users.noRoleStatus.rejectedDetail"), className: "bg-danger-wash text-danger" }
       : estado === "aprobado"
-        ? { label: "Falta rol", detalle: "Aprobado como paseador, pero sin el rol asignado todavía", className: "bg-danger-wash text-danger" }
-        : { label: "Sin rol", detalle: "La cuenta no tiene ningún rol asignado", className: "bg-sunken text-ink-mute" };
+        ? { label: t("admin.users.noRoleStatus.missingRoleLabel"), detalle: t("admin.users.noRoleStatus.missingRoleDetail"), className: "bg-danger-wash text-danger" }
+        : { label: t("admin.users.noRoleStatus.noneLabel"), detalle: t("admin.users.noRoleStatus.noneDetail"), className: "bg-sunken text-ink-mute" };
 const PAGE_SIZE = 8;
-const dateFormatter = new Intl.DateTimeFormat("es-CR", { dateStyle: "medium" });
 
 const chipRol =
   "inline-flex h-6 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[10px] font-semibold uppercase leading-none tracking-wide";
@@ -1510,17 +2446,18 @@ const chipRolTono: Record<Rol, string> = {
 /** Los chips de rol de un usuario, o el chip de «sin rol» que dice
     por qué. Igual en la tabla y en la ficha. */
 const ChipsRol = ({ usuario }: { usuario: AdminUser }) => {
+  const { t } = useTranslation();
   if (usuario.roles.length) {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
         {usuario.roles.map((rol) => (
-          <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{rolLabel[rol]}</span>
+          <span key={rol} className={`${chipRol} ${chipRolTono[rol]}`}>{t(claveRolLabel[rol])}</span>
         ))}
       </div>
     );
   }
 
-  const perfil = perfilSinRol(usuario.estado_paseador);
+  const perfil = perfilSinRol(usuario.estado_paseador, t);
   return (
     <span className={`${chipRol} ${perfil.className}`} title={perfil.detalle}>
       {perfil.label}
@@ -1544,6 +2481,8 @@ const FotoUsuario = ({ usuario, size }: { usuario: AdminUser; size: number }) =>
 
 export const UsuariosAdmin = () => {
   const { user } = useAuth();
+  const { t, localeTag } = useTranslation();
+  const dateFormatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "medium" });
   const { usuarios, loading, procesandoId, error, mensaje, cambiarEstado, clearMessage } = useAdminUsuarios();
   const [busqueda, setBusqueda] = useState("");
   const [filtroRol, setFiltroRol] = useState<"todos" | Rol>("todos");
@@ -1566,7 +2505,8 @@ export const UsuariosAdmin = () => {
   const cambiarFiltroRol = (value: "todos" | Rol) => { setFiltroRol(value); setPagina(1); };
   const cambiarFiltroEstado = (value: "todos" | "activos" | "inactivos") => { setFiltroEstado(value); setPagina(1); };
   const exportar = () => {
-    const csv = ["Nombre,Correo,Telefono,Roles,Zona,Registro,Estado", ...visibles.map((u) => [u.nombre, u.correo ?? "", u.telefono ?? "", rolesLabel(u.roles), u.zona?.nombre ?? "Sin zona", u.fecha_registro, u.activo ? "Activo" : "Inactivo"].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
+    const encabezado = [t("admin.users.csv.name"), t("admin.users.csv.email"), t("admin.users.csv.phone"), t("admin.users.csv.roles"), t("admin.users.csv.zone"), t("admin.users.csv.registration"), t("admin.users.csv.status")].join(",");
+    const csv = [encabezado, ...visibles.map((u) => [u.nombre, u.correo ?? "", u.telefono ?? "", rolesLabel(u.roles, t), u.zona?.nombre ?? t("admin.users.csv.noZone"), u.fecha_registro, u.activo ? t("admin.users.csv.active") : t("admin.users.csv.inactive")].map((v) => `"${v.replaceAll('"', '""')}"`).join(","))].join("\n");
     const enlace = document.createElement("a");
     enlace.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     enlace.download = "usuarios-tuaniscan.csv";
@@ -1574,8 +2514,8 @@ export const UsuariosAdmin = () => {
     enlace.click();
     enlace.remove();
     URL.revokeObjectURL(enlace.href);
-    aviso.ok("Directorio exportado", {
-      detalle: `${visibles.length} ${visibles.length === 1 ? "fila" : "filas"} en usuarios-tuaniscan.csv`,
+    aviso.ok(t("admin.users.exported"), {
+      detalle: t(visibles.length === 1 ? "admin.users.exportedRowSingular" : "admin.users.exportedRowPlural", { count: visibles.length }),
     });
   };
 
@@ -1590,10 +2530,10 @@ export const UsuariosAdmin = () => {
         activo={usuario.activo}
         etiqueta={
           esCuentaActual
-            ? "Es tu cuenta: no se puede inactivar desde acá"
+            ? t("admin.users.isYourAccountSwitch")
             : usuario.activo
-              ? `Inactivar a ${usuario.nombre}`
-              : `Activar a ${usuario.nombre}`
+              ? t("admin.users.deactivateSwitch", { nombre: usuario.nombre })
+              : t("admin.users.activateSwitch", { nombre: usuario.nombre })
         }
         deshabilitado={esCuentaActual}
         ocupado={procesandoId === usuario.id_usuario}
@@ -1607,12 +2547,12 @@ export const UsuariosAdmin = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Usuarios"
-        subtitle="Directorio general de las personas y negocios registrados."
+        title={t("admin.users.title")}
+        subtitle={t("admin.users.subtitle")}
         action={
           <div className="flex w-full items-center gap-2.5 sm:w-auto">
             <button type="button" onClick={exportar} className={`${btnSecondary} flex-1 sm:flex-none`}>
-              <Download size={14} strokeWidth={1.9} /> Exportar vista
+              <Download size={14} strokeWidth={1.9} /> {t("admin.users.exportView")}
             </button>
             {botonNotificaciones}
           </div>
@@ -1620,40 +2560,40 @@ export const UsuariosAdmin = () => {
       />
 
       <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Usuarios registrados" valor={String(usuarios.length)} nota="Todas las cuentas" />
+        <Stat etiqueta={t("admin.users.stats.registered")} valor={String(usuarios.length)} nota={t("admin.users.stats.allAccounts")} />
         <Stat
-          etiqueta="Cuentas activas"
+          etiqueta={t("admin.users.stats.activeAccounts")}
           valor={String(activos)}
-          nota={`${porcentaje(activos)} % del total`}
+          nota={t("admin.users.stats.percentOfTotal", { pct: porcentaje(activos) })}
           parte={usuarios.length ? activos / usuarios.length : 0}
         />
         <Stat
-          etiqueta="Dueños de mascotas"
+          etiqueta={t("admin.users.stats.petOwners")}
           valor={String(duenos)}
-          nota={`${porcentaje(duenos)} % del total`}
+          nota={t("admin.users.stats.percentOfTotal", { pct: porcentaje(duenos) })}
           parte={usuarios.length ? duenos / usuarios.length : 0}
         />
       </div>
 
       <div className="min-w-0">
         <Section
-          title="Directorio"
-          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}</Badge>}
+          title={t("admin.users.directory")}
+          aside={<Badge tono="accent">{visibles.length} {visibles.length === 1 ? t("admin.users.resultSingular") : t("admin.users.resultPlural")}</Badge>}
           bodyClass="px-4 py-4 sm:px-6"
         >
           <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.6fr)_minmax(150px,1fr)_minmax(150px,1fr)]">
             <label className="relative block sm:col-span-2 lg:col-span-1">
               <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-ink-mute" aria-hidden />
-              <span className="sr-only">Buscar usuarios</span>
+              <span className="sr-only">{t("admin.users.searchAria")}</span>
               <input
                 value={busqueda}
                 onChange={(event) => { setBusqueda(event.target.value); setPagina(1); }}
                 className={`${input} pl-10`}
-                placeholder="Buscar por nombre, teléfono o zona"
+                placeholder={t("admin.users.searchPlaceholder")}
               />
             </label>
-            <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label="Filtrar por rol" options={[{ value: "todos", label: "Todos los roles" }, { value: "dueno", label: "Dueños" }, { value: "paseador", label: "Paseadores" }, { value: "negocio", label: "Negocios" }, { value: "admin", label: "Administradores" }]} />
-            <Combo value={filtroEstado} onChange={(v) => cambiarFiltroEstado(v as typeof filtroEstado)} aria-label="Filtrar por estado" options={[{ value: "todos", label: "Todos los estados" }, { value: "activos", label: "Activos" }, { value: "inactivos", label: "Inactivos" }]} />
+            <Combo value={filtroRol} onChange={(v) => cambiarFiltroRol(v as typeof filtroRol)} aria-label={t("admin.users.roleFilterAria")} options={[{ value: "todos", label: t("admin.users.allRoles") }, { value: "dueno", label: t("admin.users.owners") }, { value: "paseador", label: t("admin.users.walkers") }, { value: "negocio", label: t("admin.users.businesses") }, { value: "admin", label: t("admin.users.administrators") }]} />
+            <Combo value={filtroEstado} onChange={(v) => cambiarFiltroEstado(v as typeof filtroEstado)} aria-label={t("admin.users.statusFilterAria")} options={[{ value: "todos", label: t("admin.users.allStatuses") }, { value: "activos", label: t("admin.users.active") }, { value: "inactivos", label: t("admin.users.inactive") }]} />
           </div>
         </Section>
       </div>
@@ -1670,7 +2610,7 @@ export const UsuariosAdmin = () => {
             <Skeleton name="admin-tabla" loading><div /></Skeleton>
           ) : visibles.length === 0 ? (
             <div className="px-4 py-4 sm:px-6">
-              <EmptyState title="No hay usuarios con esos filtros" hint={error ? "Revisa la conexión o los permisos de administrador." : "Prueba con otra búsqueda o limpia los filtros."} />
+              <EmptyState title={t("admin.users.empty.title")} hint={error ? t("admin.users.empty.withError") : t("admin.users.empty.withoutError")} />
             </div>
           ) : (
             <>
@@ -1680,16 +2620,16 @@ export const UsuariosAdmin = () => {
                   puntos y se lee entero al pasar el cursor. */}
               <div className="hidden lg:block">
                 <Table
-                  caption="Directorio de usuarios"
+                  caption={t("admin.users.directory")}
                   min="min-w-[840px]"
                   padX="px-4"
                   columnas={[
-                    { label: "Usuario", ancho: "w-[25%]" },
-                    { label: "Roles", ancho: "w-[16%]" },
-                    { label: "Contacto", ancho: "w-[22%]" },
-                    { label: "Zona", ancho: "w-[12%]" },
-                    { label: "Registro", ancho: "w-[13%]" },
-                    { label: "Activa", ancho: "w-[12%]", align: "right" },
+                    { label: t("admin.users.columns.user"), ancho: "w-[25%]" },
+                    { label: t("admin.users.columns.roles"), ancho: "w-[16%]" },
+                    { label: t("admin.users.columns.contact"), ancho: "w-[22%]" },
+                    { label: t("admin.users.columns.zone"), ancho: "w-[12%]" },
+                    { label: t("admin.users.columns.registration"), ancho: "w-[13%]" },
+                    { label: t("admin.users.columns.active"), ancho: "w-[12%]", align: "right" },
                   ]}
                 >
                   {paginaUsuarios.map((usuario) => {
@@ -1702,7 +2642,7 @@ export const UsuariosAdmin = () => {
                             <span className="min-w-0">
                               <span className="block truncate text-[13.5px] font-semibold text-ink" title={usuario.nombre}>{usuario.nombre}</span>
                               {esCuentaActual ? (
-                                <span className="mt-0.5 block text-[11px] font-medium text-accent-deep">Tu cuenta</span>
+                                <span className="mt-0.5 block text-[11px] font-medium text-accent-deep">{t("admin.users.yourAccount")}</span>
                               ) : (
                                 <span className="nums mt-0.5 block text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</span>
                               )}
@@ -1713,10 +2653,10 @@ export const UsuariosAdmin = () => {
                           <ChipsRol usuario={usuario} />
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`block truncate text-[12.5px] ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`} title={usuario.correo ?? undefined}>{usuario.correo || "Sin correo"}</span>
-                          <span className="nums mt-0.5 block truncate text-[11.5px] text-ink-mute">{usuario.telefono || "Sin teléfono"}</span>
+                          <span className={`block truncate text-[12.5px] ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`} title={usuario.correo ?? undefined}>{usuario.correo || t("admin.users.noEmail")}</span>
+                          <span className="nums mt-0.5 block truncate text-[11.5px] text-ink-mute">{usuario.telefono || t("admin.users.noPhone")}</span>
                         </td>
-                        <td className={`truncate px-4 py-3 text-[12.5px] ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`} title={usuario.zona?.nombre}>{usuario.zona?.nombre || "Sin zona"}</td>
+                        <td className={`truncate px-4 py-3 text-[12.5px] ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`} title={usuario.zona?.nombre}>{usuario.zona?.nombre || t("admin.users.noZone")}</td>
                         <td className="nums px-4 py-3 text-[12.5px] whitespace-nowrap text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</td>
                         <td className="px-4 py-3 text-right">
                           {interruptorDe(usuario)}
@@ -1738,7 +2678,7 @@ export const UsuariosAdmin = () => {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14px] font-semibold text-ink">{usuario.nombre}</p>
                           {esCuentaActual ? (
-                            <p className="mt-0.5 text-[11px] font-medium text-accent-deep">Tu cuenta</p>
+                            <p className="mt-0.5 text-[11px] font-medium text-accent-deep">{t("admin.users.yourAccount")}</p>
                           ) : (
                             <p className="nums mt-0.5 text-[11px] text-ink-mute">ID {usuario.id_usuario.slice(0, 8)}</p>
                           )}
@@ -1751,23 +2691,23 @@ export const UsuariosAdmin = () => {
 
                       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
                         <div className="col-span-2">
-                          <dt className="rotulo text-ink-mute">Contacto</dt>
-                          <dd className={`mt-1 break-words ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`}>{usuario.correo || "Sin correo"}</dd>
-                          <dd className="nums mt-0.5 text-ink-mute">{usuario.telefono || "Sin teléfono"}</dd>
+                          <dt className="rotulo text-ink-mute">{t("admin.users.columns.contact")}</dt>
+                          <dd className={`mt-1 break-words ${usuario.correo ? "font-medium text-ink" : "text-ink-mute italic"}`}>{usuario.correo || t("admin.users.noEmail")}</dd>
+                          <dd className="nums mt-0.5 text-ink-mute">{usuario.telefono || t("admin.users.noPhone")}</dd>
                         </div>
                         <div>
-                          <dt className="rotulo text-ink-mute">Zona</dt>
-                          <dd className={`mt-1 break-words ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`}>{usuario.zona?.nombre || "Sin zona"}</dd>
+                          <dt className="rotulo text-ink-mute">{t("admin.users.columns.zone")}</dt>
+                          <dd className={`mt-1 break-words ${usuario.zona?.nombre ? "text-ink-soft" : "text-ink-mute italic"}`}>{usuario.zona?.nombre || t("admin.users.noZone")}</dd>
                         </div>
                         <div>
-                          <dt className="rotulo text-ink-mute">Registro</dt>
+                          <dt className="rotulo text-ink-mute">{t("admin.users.columns.registration")}</dt>
                           <dd className="nums mt-1 text-ink-soft">{dateFormatter.format(new Date(usuario.fecha_registro))}</dd>
                         </div>
                       </dl>
 
                       <div className="mt-3.5 flex items-center justify-between gap-3">
                         <span className="text-[12px] text-ink-soft">
-                          {esCuentaActual ? "No se puede inactivar la cuenta propia" : usuario.activo ? "Cuenta activa" : "Cuenta inactiva"}
+                          {esCuentaActual ? t("admin.users.cannotDeactivateOwn") : usuario.activo ? t("admin.users.accountActive") : t("admin.users.accountInactive")}
                         </span>
                         {interruptorDe(usuario)}
                       </div>
@@ -1777,14 +2717,14 @@ export const UsuariosAdmin = () => {
               </ul>
 
               <Paginacion
-                etiqueta="Paginación de usuarios"
+                etiqueta={t("admin.users.pagination")}
                 actual={paginaActual}
                 total={totalPaginas}
                 onCambiar={setPagina}
                 desde={inicioPagina + 1}
                 hasta={finPagina}
                 cuantos={visibles.length}
-                nombre={["usuario", "usuarios"]}
+                nombre={[t("admin.users.userWord"), t("admin.users.usersWord")]}
               />
             </>
           )}
@@ -1793,18 +2733,18 @@ export const UsuariosAdmin = () => {
 
       {confirmar && (
         <Confirmar
-          titulo={confirmar.activo ? "Inactivar usuario" : "Activar usuario"}
+          titulo={confirmar.activo ? t("admin.users.deactivateTitle") : t("admin.users.activateTitle")}
           tono={confirmar.activo ? "peligro" : "normal"}
-          confirmar={confirmar.activo ? "Sí, inactivar" : "Sí, activar"}
+          confirmar={confirmar.activo ? t("admin.users.confirmDeactivate") : t("admin.users.confirmActivate")}
           ocupado={procesandoId === confirmar.id_usuario}
           onCancelar={() => setConfirmar(null)}
           onConfirmar={() => void cambiarEstado(confirmar).then(() => setConfirmar(null)).catch(() => undefined)}
           cuerpo={
             <>
-              Vas a {confirmar.activo ? "inactivar" : "activar"} a <strong className="font-semibold text-ink">{confirmar.nombre}</strong>.{" "}
+              {confirmar.activo ? t("admin.users.willDeactivate") : t("admin.users.willActivate")} <strong className="font-semibold text-ink">{confirmar.nombre}</strong>.{" "}
               {confirmar.activo
-                ? "La cuenta no podrá usar funciones protegidas aunque conserve una sesión anterior."
-                : "La cuenta recuperará acceso a las funciones protegidas."}
+                ? t("admin.users.bodyDeactivate")
+                : t("admin.users.bodyActivate")}
               {error && <span className="mt-3 block rounded-[10px] bg-danger-wash px-3 py-2 text-danger">{error}</span>}
             </>
           }
@@ -1816,12 +2756,18 @@ export const UsuariosAdmin = () => {
 
 /* ── Paseos de la plataforma ─────────────────────────────────── */
 
-const estadoPaseoLabel: Record<EstadoPaseo, string> = {
-  solicitado: "Solicitado",
-  confirmado: "Confirmado",
-  en_curso: "En curso",
-  finalizado: "Completado",
-  cancelado: "Cancelado",
+const claveEstadoPaseo: Record<EstadoPaseo, string> = {
+  solicitado: "admin.walks.status.requested",
+  confirmado: "admin.walks.status.confirmed",
+  en_curso: "admin.walks.status.inCourse",
+  finalizado: "admin.walks.status.completed",
+  cancelado: "admin.walks.status.cancelled",
+};
+
+const claveFiltroPaseosAdmin: Record<string, string> = {
+  Todos: "admin.walks.filters.all",
+  "En curso": "admin.walks.filters.inCourse",
+  Incidencias: "admin.walks.filters.incidents",
 };
 
 const tonoPaseo = (estado: EstadoPaseo) =>
@@ -1835,10 +2781,11 @@ const tonoPaseo = (estado: EstadoPaseo) =>
           ? "warn"
           : "danger";
 
-const formatoCuando = (fecha: string, hora: string) =>
-  `${new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "short" }).format(new Date(`${fecha}T00:00:00`))} ${hora.slice(0, 5)}`;
+const formatoCuando = (fecha: string, hora: string, localeTag: string) =>
+  `${new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(new Date(`${fecha}T00:00:00`))} ${hora.slice(0, 5)}`;
 
 export const PaseosAdmin = () => {
+  const { t, localeTag } = useTranslation();
   const botonNotificaciones = useContext(NotificationButtonContext);
   const [filtro, setFiltro] = useState("Todos");
   const [pagina, setPagina] = useState(1);
@@ -1850,9 +2797,9 @@ export const PaseosAdmin = () => {
     setLoading(true);
     listAdminWalks()
       .then(setPaseos)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudieron cargar los paseos."))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("admin.walks.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const enCurso = paseos.filter((p) => p.estado === "en_curso");
 
@@ -1878,11 +2825,11 @@ export const PaseosAdmin = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Paseos"
-        subtitle="Actividad de toda la plataforma en tiempo real."
+        title={t("admin.walks.title")}
+        subtitle={t("admin.walks.subtitle")}
         action={
           <div className="flex items-center gap-2.5">
-            <Badge tono="accent">{enCurso.length} en curso</Badge>
+            <Badge tono="accent">{t("admin.walks.inCourse", { count: enCurso.length })}</Badge>
             {botonNotificaciones}
           </div>
         }
@@ -1890,8 +2837,8 @@ export const PaseosAdmin = () => {
 
       <div className="bg-surface px-3 py-3">
         <FilterTabs
-          label="Filtrar paseos"
-          options={["Todos", "En curso", "Incidencias"]}
+          label={t("admin.walks.filterLabel")}
+          options={["Todos", "En curso", "Incidencias"].map((o) => ({ value: o, label: t(claveFiltroPaseosAdmin[o]) }))}
           value={filtro}
           onChange={cambiarFiltro}
         />
@@ -1902,19 +2849,19 @@ export const PaseosAdmin = () => {
           <div role="alert" className="bg-danger-wash px-6 py-5 text-[13px] text-danger">{error}</div>
         ) : loading ? (
           <div className="flex items-center gap-2 px-6 py-10 text-[13px] text-ink-soft">
-            <Loader size={16} className="animate-spin" /> Cargando paseos…
+            <Loader size={16} className="animate-spin" /> {t("admin.walks.loading")}
           </div>
         ) : visibles.length > 0 ? (
           <>
             <Table
-              caption={`Paseos de la plataforma filtrados por ${filtro.toLowerCase()}`}
+              caption={t("admin.walks.caption", { filtro: t(claveFiltroPaseosAdmin[filtro]).toLowerCase() })}
               columnas={[
-                { label: "Paseo" },
-                { label: "Dueño" },
-                { label: "Paseador" },
-                { label: "Cuándo" },
-                { label: "Estado" },
-                { label: "Monto", align: "right" },
+                { label: t("admin.walks.columns.walk") },
+                { label: t("admin.walks.columns.owner") },
+                { label: t("admin.walks.columns.walker") },
+                { label: t("admin.walks.columns.when") },
+                { label: t("admin.walks.columns.status") },
+                { label: t("admin.walks.columns.amount"), align: "right" },
               ]}
             >
               {paginaPaseos.map((p) => (
@@ -1930,10 +2877,10 @@ export const PaseosAdmin = () => {
                     {p.paseador}
                   </td>
                   <td className="nums px-6 py-4 align-top text-[12.5px] text-ink-soft">
-                    {formatoCuando(p.fecha, p.hora_inicio)}
+                    {formatoCuando(p.fecha, p.hora_inicio, localeTag)}
                   </td>
                   <td className="px-6 py-4 align-top">
-                    <Badge tono={tonoPaseo(p.estado)}>{estadoPaseoLabel[p.estado]}</Badge>
+                    <Badge tono={tonoPaseo(p.estado)}>{t(claveEstadoPaseo[p.estado])}</Badge>
                   </td>
                   <td className="nums px-6 py-4 text-right align-top text-[13px] font-semibold text-ink">
                     {colones(p.precio)}
@@ -1943,18 +2890,18 @@ export const PaseosAdmin = () => {
             </Table>
 
             <Paginacion
-              etiqueta="Paginación de paseos"
+              etiqueta={t("admin.walks.pagination")}
               actual={paginaActual}
               total={totalPaginas}
               onCambiar={setPagina}
               desde={inicioPagina + 1}
               hasta={finPagina}
               cuantos={visibles.length}
-              nombre={["paseo", "paseos"]}
+              nombre={[t("admin.walks.walkWord"), t("admin.walks.walksWord")]}
             />
           </>
         ) : (
-          <EmptyState title="Sin paseos" hint="Cambia el filtro para ver el resto." />
+          <EmptyState title={t("admin.walks.empty.title")} hint={t("admin.walks.empty.hint")} />
         )}
       </Section>
     </Page>

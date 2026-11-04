@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
@@ -16,6 +16,7 @@ import {
 import type { AuthState, ProfileUpdate, RegistrationData, RolPublico, UserProfile } from "../types/auth.types";
 import type { Rol } from "../lib/nav";
 import { AuthContext } from "./auth-context";
+import { olvidarTodo } from "../lib/memoria";
 
 const ACTIVE_ROLE_KEY = "tuaniscan.activeRole";
 const INACTIVE_ACCOUNT_MESSAGE =
@@ -88,7 +89,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     accessError: null,
   });
 
+  /* De quién es la memoria de consultas. Si entra otra cuenta —o nadie—
+     se olvida todo lo recordado: ver lib/memoria.ts. */
+  const duenoDeLaMemoria = useRef<string | null>(null);
+
   const loadSession = useCallback(async (session: Session | null, preferredRole?: Rol) => {
+    const quien = session?.user?.id ?? null;
+    if (quien !== duenoDeLaMemoria.current) {
+      olvidarTodo();
+      duenoDeLaMemoria.current = quien;
+    }
+
     if (!session?.user) {
       sessionStorage.removeItem(ACTIVE_ROLE_KEY);
       setState((current) => ({

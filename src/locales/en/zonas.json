@@ -1,0 +1,57 @@
+{
+  "title": "Zones",
+  "subtitle": "Catalog of zones available for profiles and services.",
+  "countSingular": "zone",
+  "countPlural": "zones",
+  "resultSingular": "result",
+  "resultPlural": "results",
+  "stats": {
+    "registered": "Registered zones",
+    "registeredHint": "Across the whole catalog",
+    "provinces": "Provinces",
+    "provincesHint": "With at least one zone",
+    "cantons": "Cantons",
+    "cantonsHint": "Covered in the catalog"
+  },
+  "filters": {
+    "title": "Filters",
+    "searchPlaceholder": "Search by zone, canton or province",
+    "searchAria": "Search zones",
+    "provinceAria": "Filter by province",
+    "allProvinces": "All provinces",
+    "cantonAria": "Filter by canton",
+    "allCantons": "All cantons",
+    "selectProvince": "Pick a province",
+    "districtAria": "Filter by district",
+    "allDistricts": "All districts",
+    "selectCanton": "Pick a canton"
+  },
+  "table": {
+    "caption": "Registered zones",
+    "columns": {
+      "zone": "Zone",
+      "province": "Province",
+      "canton": "Canton",
+      "district": "District",
+      "actions": "Actions"
+    },
+    "deleteAction": "Delete {{nombre}}"
+  },
+  "pagination": {
+    "label": "Zones pagination"
+  },
+  "empty": {
+    "title": "No matches",
+    "withFilters": "Adjust the search or change the filters.",
+    "withoutFilters": "There are no zones in the catalog yet."
+  },
+  "delete": {
+    "title": "Delete zone",
+    "body": "{{nombre}}, {{canton}} will be removed from the catalog. If there are people or businesses registered in that zone, the database won't allow deleting it.",
+    "confirm": "Delete zone",
+    "success": "Zone deleted",
+    "inUseError": "Cannot delete because the zone is in use",
+    "inUseToast": "Cannot delete: there are accounts or businesses in that zone."
+  },
+  "loadError": "Could not load the zones catalog"
+}

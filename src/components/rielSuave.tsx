@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import type { ElementType, KeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "@tanstack/react-router";
@@ -27,6 +27,8 @@ import type { UserProfile } from "../types/auth.types";
 import { useMedia } from "../hooks/useMedia";
 import { usePreferencia } from "../hooks/usePreferencia";
 import { useCajon } from "../hooks/useCajon";
+import { useTranslation } from "../hooks/useTranslation";
+import { ContadoresMenu } from "../lib/contadoresMenu";
 import ProfileAvatar from "./ProfileAvatar";
 
 /* ─────────────────────────────────────────────────────────────
@@ -112,15 +114,18 @@ const NavLink = ({
   onNavegar?: () => void;
 }) => {
   const { pathname } = useLocation();
+  const { t } = useTranslation();
+  const contadores = useContext(ContadoresMenu);
   const activo = item.to === pathname;
   const { Icon } = item;
+  const insignia = contadores[item.to] || item.badge || null;
 
   return (
     <Link
       to={item.to}
       onClick={onNavegar}
       aria-current={activo ? "page" : undefined}
-      title={expandido ? undefined : item.label}
+      title={expandido ? undefined : t(item.label)}
       style={{ animationDelay: `${40 + orden * 26}ms` }}
       className={`anim-nav-in group flex h-11 items-center gap-2.5 rounded-full px-2.5 text-[13.5px] transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.97] ${
         activo
@@ -137,7 +142,7 @@ const NavLink = ({
           />
           {/* Cerrado no cabe el contador, pero la señal de que hay algo
               esperando no se puede perder: queda como un punto. */}
-          {item.badge != null && !expandido && (
+          {insignia != null && !expandido && (
             <span
               aria-hidden
               className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-accent"
@@ -148,15 +153,15 @@ const NavLink = ({
 
       <Texto expandido={expandido}>
         <span className="truncate transition-transform duration-300 ease-out group-hover:translate-x-0.5">
-          {item.label}
+          {t(item.label)}
         </span>
-        {item.badge != null && (
+        {insignia != null && (
           <span
             className={`nums ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
               activo ? "bg-rail text-accent-wash" : "bg-accent-wash text-rail"
             }`}
           >
-            {item.badge}
+            {insignia}
           </span>
         )}
       </Texto>
@@ -180,8 +185,13 @@ const Grupo = ({
   onNavegar?: () => void;
 }) => {
   const { pathname } = useLocation();
-  const id = `grupo-suave-${grupo.titulo.replace(/\s+/g, "-").toLowerCase()}`;
-  const contieneActiva = grupo.items.some((item) => item.to === pathname);
+  const { t } = useTranslation();
+  const id = `grupo-suave-${grupo.titulo.replace(/[.\s]+/g, "-").toLowerCase()}`;
+  /* Lo oculto (ver `NavItem.oculto`) no se dibuja, ni cuenta para el
+     punto de "acá estás" de un grupo plegado: `/perfil` vive en la
+     tarjeta del pie, y es ella la que se marca. */
+  const visibles = grupo.items.filter((item) => !item.oculto);
+  const contieneActiva = visibles.some((item) => item.to === pathname);
 
   /* Plegar solo tiene sentido con el riel abierto. Cerrado, el título
      no se lee, así que el grupo se muestra entero y la separación la
@@ -211,7 +221,7 @@ const Grupo = ({
           </span>
           <Texto expandido={expandido}>
             <span className="rotulo truncate text-rail-mute transition-colors duration-200 group-hover:text-white">
-              {grupo.titulo}
+              {t(grupo.titulo)}
             </span>
             {/* Plegado con la pantalla activa adentro: el grupo tiene
                 que seguir diciendo dónde está parado el usuario. */}
@@ -236,7 +246,7 @@ const Grupo = ({
         }`}
       >
         <div className="flex flex-col gap-0.5 overflow-hidden">
-          {grupo.items.map((item, i) => (
+          {visibles.map((item, i) => (
             <NavLink
               key={item.to}
               item={item}
@@ -293,11 +303,11 @@ const Marca = ({
   </div>
 );
 
-const etiquetaRol: Record<Rol, string> = {
-  dueno: "Dueño",
-  paseador: "Paseador",
-  negocio: "Negocio",
-  admin: "Administración",
+const claveEtiquetaRol: Record<Rol, string> = {
+  dueno: "common.role.dueno",
+  paseador: "common.role.paseador",
+  negocio: "common.role.negocio",
+  admin: "common.role.admin",
 };
 
 const iconoRol: Record<Rol, ElementType> = {
@@ -335,6 +345,7 @@ const MenuRol = ({
   roles: Rol[];
   onCambiar: (rol: Rol) => void;
 }) => {
+  const { t } = useTranslation();
   const [abierto, setAbierto] = useState(false);
   const [activo, setActivo] = useState(0);
   const [caja, setCaja] = useState({ izquierda: 0, abajo: 0, ancho: 0 });
@@ -440,7 +451,7 @@ const MenuRol = ({
   return (
     <div className="px-2.5 pt-1 pb-2">
       <span className="rotulo mb-1.5 block px-1 text-rail-mute">
-        Perfil activo
+        {t("common.activeProfile")}
       </span>
 
       <button
@@ -451,7 +462,7 @@ const MenuRol = ({
         aria-expanded={abierto}
         aria-controls={abierto ? idLista : undefined}
         aria-activedescendant={abierto ? `${idLista}-${activo}` : undefined}
-        aria-label="Cambiar de perfil"
+        aria-label={t("common.changeProfile")}
         onClick={() => (abierto ? cerrar() : abrir())}
         onKeyDown={alTeclear}
         className={`flex h-10 w-full items-center gap-2.5 rounded-full px-3 text-[12.5px] font-medium text-white transition-[background-color,transform] duration-200 ease-out focus:outline-2 focus:outline-offset-2 focus:outline-accent active:scale-[0.98] ${
@@ -465,7 +476,7 @@ const MenuRol = ({
           className="shrink-0 text-accent"
         />
         <span className="min-w-0 flex-1 truncate text-left">
-          {etiquetaRol[rol]}
+          {t(claveEtiquetaRol[rol])}
         </span>
         <ChevronsUpDown
           size={14}
@@ -481,7 +492,7 @@ const MenuRol = ({
             ref={panel}
             id={idLista}
             role="listbox"
-            aria-label="Cambiar de perfil"
+            aria-label={t("common.changeProfile")}
             tabIndex={-1}
             style={{
               position: "fixed",
@@ -524,7 +535,7 @@ const MenuRol = ({
                     className="shrink-0"
                   />
                   <span className="min-w-0 flex-1 truncate">
-                    {etiquetaRol[item]}
+                    {t(claveEtiquetaRol[item])}
                   </span>
                   {elegido && (
                     <Check
@@ -544,6 +555,14 @@ const MenuRol = ({
   );
 };
 
+/* El pie del riel. La tarjeta del usuario es la puerta a su perfil:
+   antes había además un renglón "Mis datos" en el menú que llevaba al
+   mismo sitio, y quedaba repetido —y lejos de la foto y el nombre,
+   que es donde uno busca su cuenta en cualquier aplicación—.
+
+   Se porta igual que un renglón del menú: píldora, roce blanco al
+   pasar, y el lavado turquesa cuando la página abierta es el perfil.
+   Así se lee como navegación y no como un letrero. */
 const PiePerfil = ({
   profile,
   rol,
@@ -551,6 +570,7 @@ const PiePerfil = ({
   expandido,
   onRoleChange,
   onLogout,
+  onNavegar,
 }: {
   profile: UserProfile | null;
   rol: Rol;
@@ -558,16 +578,27 @@ const PiePerfil = ({
   expandido: boolean;
   onRoleChange: (rol: Rol) => void;
   onLogout?: () => void;
+  onNavegar?: () => void;
 }) => {
-  const nombre = profile?.nombre || "Usuario";
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const nombre = profile?.nombre || t("common.defaultUserName");
+  const activo = pathname === "/perfil";
+  const destino = t("nav.item.miPerfil");
 
   return (
     <div className="shrink-0">
       <div aria-hidden className="mx-2.5 mb-2 h-px bg-white/12" />
 
-      <div
-        className="flex h-12 items-center gap-2.5 px-2.5"
-        title={expandido ? undefined : nombre}
+      <Link
+        to="/perfil"
+        onClick={onNavegar}
+        aria-current={activo ? "page" : undefined}
+        aria-label={`${nombre} · ${destino}`}
+        title={expandido ? destino : `${nombre} · ${destino}`}
+        className={`group flex h-12 items-center gap-2.5 rounded-full px-2.5 transition-[background-color,transform] duration-200 ease-out active:scale-[0.97] ${
+          activo ? "bg-accent-wash" : "hover:bg-white/10"
+        }`}
       >
         <span className={CAJA_ICONO}>
           {profile ? (
@@ -577,16 +608,16 @@ const PiePerfil = ({
           )}
         </span>
         <Texto expandido={expandido}>
-          <span className="min-w-0">
-            <span className="block truncate text-[13px] font-semibold text-white">
+          <span className="min-w-0 transition-transform duration-300 ease-out group-hover:translate-x-0.5">
+            <span className={`block truncate text-[13px] font-semibold ${activo ? "text-rail" : "text-white"}`}>
               {nombre}
             </span>
-            <span className="block truncate text-[11.5px] text-rail-mute">
-              {etiquetaRol[rol]}
+            <span className={`block truncate text-[11.5px] ${activo ? "text-rail/70" : "text-rail-mute"}`}>
+              {t(claveEtiquetaRol[rol])}
             </span>
           </span>
         </Texto>
-      </div>
+      </Link>
 
       {/* El cambio de perfil solo aparece con el riel abierto: es un
           menú de texto, cerrado no habría nada que leer. */}
@@ -598,7 +629,7 @@ const PiePerfil = ({
         <button
           type="button"
           onClick={onLogout}
-          title={expandido ? undefined : "Cerrar sesión"}
+          title={expandido ? undefined : t("common.logout")}
           className="group flex h-11 w-full items-center gap-2.5 rounded-full px-2.5 text-[13.5px] text-rail-text transition-[background-color,color,transform] duration-200 ease-out hover:bg-white/10 hover:text-white active:scale-[0.97]"
         >
           <span className={CAJA_ICONO}>
@@ -609,7 +640,7 @@ const PiePerfil = ({
             />
           </span>
           <Texto expandido={expandido}>
-            <span className="truncate">Cerrar sesión</span>
+            <span className="truncate">{t("common.logout")}</span>
           </Texto>
         </button>
       )}
@@ -642,6 +673,8 @@ const Panel = ({
   anclado,
   onAnclar,
 }: PanelProps) => {
+  const { t } = useTranslation();
+
   /* Un juego de grupos plegados por rol: la navegación de un paseador
      no se parece a la de un administrador, y plegar "Gestión" no
      tiene por qué afectarle a nadie más. */
@@ -653,7 +686,7 @@ const Panel = ({
   const alternar = (titulo: string) =>
     setPlegados((previos) =>
       previos.includes(titulo)
-        ? previos.filter((t) => t !== titulo)
+        ? previos.filter((item) => item !== titulo)
         : [...previos, titulo],
     );
 
@@ -664,7 +697,7 @@ const Panel = ({
       <Marca expandido={expandido} anclado={anclado} onAnclar={onAnclar} />
 
       <nav
-        aria-label="Navegación principal"
+        aria-label={t("shell.menu.navigation")}
         className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto py-1"
       >
         {navPorRol[rol].map((grupo) => {
@@ -691,6 +724,7 @@ const Panel = ({
         expandido={expandido}
         onRoleChange={onRoleChange}
         onLogout={onLogout}
+        onNavegar={onNavegar}
       />
     </>
   );
@@ -748,12 +782,23 @@ export const RielSuave = (props: RielProps) => {
         alEntrar();
       }}
       onPointerLeave={alSalir}
-      onFocus={() => setFoco(true)}
+      /* El foco abre el riel SOLO si llegó por teclado. Antes abría con
+         cualquier foco, y un clic también enfoca: tocar el botón de
+         desanclar, un renglón o un grupo dejaba el foco adentro, y el
+         riel se quedaba abierto al sacar el cursor hasta el próximo
+         clic en otro lado. `:focus-visible` es exactamente esa
+         distinción —el navegador la marca para Tab y no para el
+         ratón—, así que con ratón manda solo el roce y con teclado el
+         riel se abre para que se vea a dónde se está yendo. */
+      onFocus={(evento) => {
+        if ((evento.target as HTMLElement).matches(":focus-visible")) setFoco(true);
+      }}
       onBlur={(evento) => {
         if (!evento.currentTarget.contains(evento.relatedTarget as Node)) {
           setFoco(false);
         }
       }}
+      onPointerDown={() => setFoco(false)}
       style={{ width: expandido ? TARJETA_ABIERTA : TARJETA_ICONOS }}
       className="riel riel-suave relative z-10 hidden shrink-0 flex-col overflow-hidden rounded-[26px] bg-rail p-2.5 md:flex"
     >
@@ -775,6 +820,7 @@ type CajonProps = Omit<PanelProps, "expandido" | "anclado" | "onAnclar"> & {
 };
 
 export const CajonSuave = ({ abierto, cerrar, ...props }: CajonProps) => {
+  const { t } = useTranslation();
   const panel = useRef<HTMLDivElement>(null);
   const hayRiel = useMedia("(min-width: 768px)");
   const montado = useCajon(abierto && !hayRiel, cerrar, panel, MS_SALIDA);
@@ -789,8 +835,13 @@ export const CajonSuave = ({ abierto, cerrar, ...props }: CajonProps) => {
 
   if (hayRiel || !montado) return null;
 
+  /* `z-[90]` y no `z-50`: el cajón se monta junto al lienzo, y la
+     barra superior del lienzo va en `z-[80]` para que su panel de
+     notificaciones pase por encima del contenido. Con `z-50` el título
+     de la barra —«Panel general», «Paseos»— quedaba encima del menú
+     abierto en el teléfono. */
   return (
-    <div className="fixed inset-0 z-50 flex p-2.5">
+    <div className="fixed inset-0 z-[90] flex p-2.5">
       <div
         aria-hidden
         onClick={cerrar}
@@ -802,7 +853,7 @@ export const CajonSuave = ({ abierto, cerrar, ...props }: CajonProps) => {
         ref={panel}
         role="dialog"
         aria-modal="true"
-        aria-label="Menú de navegación"
+        aria-label={t("shell.menu.dialogLabel")}
         className={`riel-suave relative flex w-[272px] max-w-[86%] flex-col overflow-hidden rounded-[26px] bg-rail p-2.5 ${
           abierto ? "anim-slide-left" : "anim-cajon-out"
         }`}
@@ -810,7 +861,7 @@ export const CajonSuave = ({ abierto, cerrar, ...props }: CajonProps) => {
         <button
           type="button"
           onClick={cerrar}
-          aria-label="Cerrar menú"
+          aria-label={t("shell.menu.close")}
           className="absolute top-2.5 right-2.5 z-10 grid h-9 w-9 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-200 ease-out hover:bg-white/10 hover:text-white active:scale-[0.94]"
         >
           <X size={18} />

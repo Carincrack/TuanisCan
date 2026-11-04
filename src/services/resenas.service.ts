@@ -30,3 +30,9 @@ export const guardarResena = async (input: { id_resena?: string; id_paseo: strin
     : await supabase.from("resenas").insert({ ...values, id_paseo: input.id_paseo, id_autor: input.id_autor, id_receptor: input.id_receptor });
   if (result.error) throw result.error;
 };
+
+/** El paseo recién terminado, si este dueño todavía no lo reseñó. */
+export const paseoPorResenar = async (idPaseo: string, userId: string) => {
+  const { pendientes } = await listResenasDelDueno(userId);
+  return pendientes.find((paseo) => paseo.id_paseo === idPaseo) ?? null;
+};

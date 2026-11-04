@@ -1,0 +1,150 @@
+{
+  "title": "Gestión de pagos",
+  "subtitle": "Monitoreá tus comprobantes y aboná paseos pendientes.",
+  "manageCards": "Gestionar tarjetas",
+  "status": {
+    "paid": "Pagado",
+    "pending": "Pendiente",
+    "failed": "Fallido",
+    "refunded": "Reembolso",
+    "held": "Reservado"
+  },
+  "filters": {
+    "label": "Filtrar movimientos",
+    "all": "Todos",
+    "paid": "Pagados",
+    "pending": "Pendientes",
+    "refunds": "Reembolsos"
+  },
+  "stats": {
+    "spentThisMonth": "Gasto de {{mes}}",
+    "paymentSingular": "pago realizado",
+    "paymentPlural": "pagos realizados",
+    "pendingToCollect": "Pendiente de cobro",
+    "walkSingularDue": "paseo por abonar",
+    "walkPluralDue": "paseos por abonar",
+    "allUpToDate": "Al día con todos los paseos",
+    "totalRefunded": "Total reembolsado",
+    "refundSingular": "reembolso emitido",
+    "refundPlural": "reembolsos emitidos",
+    "noRefunds": "Sin reembolsos registrados",
+    "heldSingular": "1 reservado · se cobra al terminar",
+    "heldPlural": "{{n}} reservados · se cobran al terminar"
+  },
+  "cards": {
+    "savedSingular": "tarjeta guardada",
+    "savedPlural": "tarjetas guardadas",
+    "none": "Todavía no tenés tarjetas guardadas.",
+    "addCard": "Agregar tarjeta"
+  },
+  "searchPlaceholder": "Buscar por mascota o paseador…",
+  "exportCsv": "Exportar CSV",
+  "exportCsvTitle": "Descargar el historial en formato CSV",
+  "exported": {
+    "singular": "movimiento exportado",
+    "plural": "movimientos exportados",
+    "detail": "Se descargó {{nombre}}."
+  },
+  "csv": {
+    "transactionId": "ID Transacción",
+    "service": "Servicio",
+    "walkOf": "Paseo ({{duracion}} min)",
+    "pet": "Mascota",
+    "walker": "Paseador",
+    "date": "Fecha",
+    "method": "Método",
+    "status": "Estado",
+    "amount": "Monto CRC",
+    "currency": "Moneda",
+    "amountCharged": "Monto cobrado",
+    "exchangeRate": "Tipo de cambio"
+  },
+  "table": {
+    "caption": "Historial de movimientos de pago",
+    "transaction": "Transacción",
+    "date": "Fecha",
+    "method": "Método",
+    "status": "Estado",
+    "amount": "Monto",
+    "walkWith": "Paseo con {{mascota}}",
+    "viewReceiptTitle": "Ver el comprobante · Paseo con {{mascota}}",
+    "pay": "Confirmar pago",
+    "chargedAtEnd": "Se cobra al terminar"
+  },
+  "empty": {
+    "title": "Sin movimientos en este filtro",
+    "withSearch": "Ningún movimiento coincide con lo que buscaste.",
+    "withoutSearch": "Los cobros y los paseos van a aparecer registrados acá."
+  },
+  "payDialog": {
+    "title": "Confirmar pago del paseo",
+    "dogWalk": "Paseo canino",
+    "withWalker": "Con {{paseador}} · {{duracion}} minutos",
+    "totalToPay": "Total del paseo",
+    "toWalker": "Al paseador {{monto}}",
+    "commission": "Comisión {{monto}}",
+    "whichCard": "Con cuál cobramos",
+    "principal": "Principal",
+    "whichMethod": "Método de pago",
+    "walletsTitle": "Billeteras digitales",
+    "wallets": {
+      "paypal": "PayPal",
+      "googlePay": "Google Pay",
+      "applePay": "Apple Pay"
+    },
+    "noCards": {
+      "title": "No tenés ninguna tarjeta activa",
+      "hint": "Registrá una para poder abonar el paseo."
+    },
+    "secureTransaction": "Transacción segura",
+    "cancel": "Cancelar",
+    "payAmount": "Reservar {{monto}}",
+    "addCard": "Agregar tarjeta",
+    "paying": "Reservando {{monto}}…",
+    "paid": "Pago confirmado: {{monto}} reservados",
+    "payFailed": "No se pudo confirmar el pago.",
+    "holdExplain": "No se cobra ahora. El monto queda reservado en el método que elijas y se cobra cuando el paseo termine. Con el pago confirmado, el paseador ya puede iniciar el paseo.",
+    "payingNow": "Cobrando {{monto}}…",
+    "paidNow": "Pago de {{monto}} completado",
+    "chargeNowExplain": "Este paseo ya se hizo y su pago quedó pendiente: se cobra ahora en el método que elijas.",
+    "payNow": "Pagar {{monto}}",
+    "currencyLabel": "Pagar en",
+    "currency": {
+      "CRC": "Colones (₡)",
+      "USD": "Dólares ($)"
+    },
+    "rateLine": "{{colones}} al tipo de cambio de {{tipo}}",
+    "rateSource": "Tipo de compra del {{fecha}} · {{fuente}}",
+    "rateLoading": "Consultando el tipo de cambio…",
+    "rateFailed": "No se pudo consultar el tipo de cambio. Paga en colones o vuelve a intentarlo.",
+    "rateRetry": "Reintentar"
+  },
+  "receipt": {
+    "title": "Comprobante",
+    "walker": "Paseador",
+    "serviceDate": "Fecha del servicio",
+    "duration": "Duración",
+    "durationMinutes": "{{duracion}} minutos",
+    "methodUsed": "Método utilizado",
+    "walkerRate": "Tarifa del paseador",
+    "commission": "Comisión TuanisCan",
+    "totalAmount": "Monto total",
+    "close": "Cerrar",
+    "reference": "Referencia",
+    "reservedOn": "Reservado el",
+    "chargedOn": "Cobrado el",
+    "currency": "Moneda de pago",
+    "currencyUSD": "Dólares",
+    "exchangeRate": "Tipo de cambio",
+    "inColones": "Equivale a"
+  },
+  "errors": {
+    "loadFailed": "No se pudieron cargar tus pagos."
+  },
+  "rates": {
+    "sources": {
+      "hacienda": "Ministerio de Hacienda",
+      "exchangerate": "ExchangeRate-API"
+    }
+  }
+}

@@ -3,6 +3,7 @@ import type { ElementType, FormEvent, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { CalendarDays, Clock, Loader, Save, Timer } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 import { aviso } from "../lib/aviso";
 import {
   RECARGOS_POR_DEFECTO,
@@ -10,8 +11,10 @@ import {
   type RecargosPaseador,
 } from "../lib/precios";
 import { updateWalkerPricing } from "../services/walkers.service";
+import type { I18nContextValue } from "../context/i18n-context";
 import {
   EmptyState,
+  Interruptor,
   Page,
   PageHeader,
   Section,
@@ -19,6 +22,8 @@ import {
   colones,
   input,
 } from "./ui";
+
+type T = I18nContextValue["t"];
 
 /* ─────────────────────────────────────────────────────────────
    TARIFAS DEL PASEADOR
@@ -67,27 +72,27 @@ const aRecargos = (f: Formulario): RecargosPaseador => ({
 });
 
 /** Mismas reglas que el `check` de `paseadores`. */
-const validar = (f: Formulario) => {
+const validar = (f: Formulario, t: T) => {
   const tarifa = Number(f.tarifa_base);
   if (!f.tarifa_base.trim() || !Number.isFinite(tarifa) || tarifa <= 0) {
-    return "La tarifa base debe ser mayor a cero.";
+    return t("tarifas.errors.baseRateInvalid");
   }
   const porcentajes = [
-    ["nocturno", f.recargo_nocturno],
-    ["de fin de semana", f.recargo_fin_semana],
-    ["de mismo día", f.recargo_mismo_dia],
+    ["tarifas.errors.surchargeNight", f.recargo_nocturno],
+    ["tarifas.errors.surchargeWeekend", f.recargo_fin_semana],
+    ["tarifas.errors.surchargeSameDay", f.recargo_mismo_dia],
   ] as const;
-  for (const [nombre, valor] of porcentajes) {
+  for (const [claveNombre, valor] of porcentajes) {
     const n = Number(valor);
     if (!valor.trim() || !Number.isFinite(n) || n < 0 || n > 100) {
-      return `El recargo ${nombre} debe estar entre 0 % y 100 %.`;
+      return t("tarifas.errors.surchargeRange", { nombre: t(claveNombre) });
     }
   }
   if (!f.nocturno_desde || !f.nocturno_hasta) {
-    return "Indicá desde y hasta qué hora es tu horario nocturno.";
+    return t("tarifas.errors.nightRangeMissing");
   }
   if (f.nocturno_desde === f.nocturno_hasta) {
-    return "El horario nocturno no puede empezar y terminar a la misma hora.";
+    return t("tarifas.errors.nightRangeSame");
   }
   return null;
 };
@@ -98,13 +103,15 @@ const minutos = (hora: string) => {
 };
 
 /** Horas que cubre el rango nocturno, cruce la medianoche o no. */
-const horasNocturnas = (desde: string, hasta: string) => {
+const horasNocturnas = (desde: string, hasta: string, t: T) => {
   const d = minutos(desde);
   const a = minutos(hasta);
   const total = d > a ? 1440 - d + a : a - d;
   const h = Math.floor(total / 60);
   const m = total % 60;
-  return m ? `${h} h ${m} min` : `${h} h`;
+  return m
+    ? t("tarifas.surcharges.night.durationHoursMinutes", { h, m })
+    : t("tarifas.surcharges.night.durationHours", { h });
 };
 
 /* ── Piezas ─────────────────────────────────────────────────── */
@@ -114,12 +121,13 @@ const horasNocturnas = (desde: string, hasta: string) => {
     medianoche son dos tramos: del inicio al final del día y del
     principio del día hasta el fin. */
 const RelojNocturno = ({ desde, hasta }: { desde: string; hasta: string }) => {
+  const { t } = useTranslation();
   const d = (minutos(desde) / 1440) * 100;
   const a = (minutos(hasta) / 1440) * 100;
   const tramos = d > a ? [[d, 100], [0, a]] : [[d, a]];
 
   return (
-    <figure className="mt-4" aria-label={`Horario nocturno de ${desde} a ${hasta}`}>
+    <figure className="mt-4" aria-label={t("tarifas.surcharges.night.ariaRange", { desde, hasta })}>
       <div className="relative h-7 overflow-hidden rounded-[8px] bg-sunken">
         {/* Marcas de cada tres horas, apenas visibles, para leer la escala. */}
         {Array.from({ length: 7 }, (_, i) => (
@@ -159,6 +167,7 @@ const CampoPorcentaje = ({
   value: string;
   onChange: (value: string) => void;
 }) => {
+  const { t } = useTranslation();
   const n = Math.min(100, Math.max(0, Number(value) || 0));
   return (
     <div className="flex items-center gap-3">
@@ -169,8 +178,15 @@ const CampoPorcentaje = ({
         step={1}
         value={n}
         onChange={(event) => onChange(event.target.value)}
-        aria-label={`${etiqueta} (deslizador)`}
-        className="h-1.5 w-full min-w-[120px] cursor-pointer accent-rail"
+        aria-label={t("tarifas.surcharges.sliderAria", { etiqueta })}
+        /* El deslizador del navegador es gris y de otro mundo. Este
+           pinta lo recorrido en navy y el resto en el hundido de la
+           casa, con la perilla blanca de borde navy: el mismo par de
+           colores que el interruptor. */
+        style={{
+          background: `linear-gradient(to right, var(--color-rail) ${n}%, var(--color-sunken) ${n}%)`,
+        }}
+        className="h-1.5 w-full min-w-[120px] cursor-pointer appearance-none rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-rail [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-rail [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(20,36,46,0.25)] [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-150 active:[&::-webkit-slider-thumb]:scale-110"
       />
       <span className="relative block w-[88px] shrink-0">
         <input
@@ -230,8 +246,18 @@ const FilaRecargo = ({
   </div>
 );
 
-/** El resultado. Navy, fijo al hacer scroll, y con la duración y el
-    "para hoy" como palancas para ver cualquier caso. */
+/** El resultado: lo que cobra con esta configuración, en vivo. Fijo
+    al hacer scroll, con la duración y el "para hoy" como palancas
+    para ver cualquier caso.
+
+    Antes era un bloque navy entero —píldora blanca para la duración,
+    celdas translúcidas, porcentajes en turquesa pleno sobre navy—, y
+    junto a una página clara se sentía chillón: todo competía con
+    todo. Ahora el navy queda donde tiene sentido, en la cabecera con
+    el precio, que ES el resultado; el resto es papel claro con las
+    piezas de siempre de la casa: la pista de píldoras de los filtros,
+    el interruptor, el botón navy. Los recargos se marcan con el
+    lavado turquesa en vez del turquesa a pleno. */
 const PanelPrecio = ({
   form,
   cambios,
@@ -241,6 +267,7 @@ const PanelPrecio = ({
   cambios: boolean;
   saving: boolean;
 }) => {
+  const { t } = useTranslation();
   const [duracion, setDuracion] = useState<(typeof DURACIONES)[number]>(45);
   const [hoy, setHoy] = useState(false);
   const tarifa = Number(form.tarifa_base) || 0;
@@ -250,98 +277,138 @@ const PanelPrecio = ({
     precioSegunCondiciones(tarifa, r, duracion, { finDeSemana, nocturno, mismoDia: hoy });
 
   const filas = [
-    { rotulo: "Entre semana", finDeSemana: false },
-    { rotulo: "Fin de semana", finDeSemana: true },
+    { rotulo: t("tarifas.panel.weekday"), finDeSemana: false },
+    { rotulo: t("tarifas.panel.weekend"), finDeSemana: true },
   ];
 
-  return (
-    <aside className="rounded-[18px] bg-rail p-5 text-white lg:sticky lg:top-4 sm:p-6" aria-label="Lo que cobrás con esta configuración">
-      <p className="text-[13px] text-rail-text">Lo que cobrás por un paseo de</p>
+  /* La cifra grande es la de base —entre semana, de día, sin "para
+     hoy"—: la que el paseador reconoce como "su precio". Las demás
+     viven en la grilla, como variaciones de esta. */
+  const base = precioSegunCondiciones(tarifa, r, duracion, {
+    finDeSemana: false,
+    nocturno: false,
+    mismoDia: false,
+  });
 
-      <div role="group" aria-label="Duración del paseo" className="mt-2.5 grid grid-cols-4 gap-1 rounded-full bg-white/10 p-1">
-        {DURACIONES.map((min) => (
-          <button
-            key={min}
-            type="button"
-            aria-pressed={duracion === min}
-            onClick={() => setDuracion(min)}
-            className={`nums rounded-full py-1.5 text-[12.5px] font-semibold transition-colors duration-150 ${
-              duracion === min ? "bg-white text-rail" : "text-rail-text hover:text-white"
-            }`}
-          >
-            {min} min
-          </button>
-        ))}
+  return (
+    <aside
+      className="overflow-hidden rounded-[18px] bg-surface lg:sticky lg:top-4"
+      aria-label={t("tarifas.panel.label")}
+    >
+      {/* ── La cabecera: el resultado ── */}
+      <div className="bg-rail px-5 pt-5 pb-6 sm:px-6">
+        <p className="rotulo text-rail-mute">{t("tarifas.panel.title")}</p>
+        <p className="mt-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <span className="titular nums text-[34px] leading-none text-white">{colones(base.total)}</span>
+          <span className="nums text-[13px] text-rail-text">{t("tarifas.panel.perWalk", { min: duracion })}</span>
+        </p>
+        <p className="mt-1.5 text-[12px] text-rail-mute">{t("tarifas.panel.heroCaption")}</p>
       </div>
 
-      <table className="nums mt-5 w-full border-separate border-spacing-1.5 text-left">
-        <caption className="sr-only">Precio según el día y la hora</caption>
-        <thead>
-          <tr>
-            <td />
-            <th scope="col" className="px-1 text-[11.5px] font-medium text-rail-mute">De día</th>
-            <th scope="col" className="px-1 text-[11.5px] font-medium text-rail-mute">
-              De noche
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {filas.map((fila) => (
-            <tr key={fila.rotulo}>
-              <th scope="row" className="w-[74px] pr-1 align-middle text-[12px] leading-tight font-medium text-rail-text">
-                {fila.rotulo}
-              </th>
-              {[false, true].map((nocturno) => {
-                const precio = celda(fila.finDeSemana, nocturno);
-                const suma = precio.aplicados.reduce((t, a) => t + a.porcentaje, 0);
-                return (
-                  <td key={String(nocturno)} className="rounded-[12px] bg-white/[0.08] px-3 py-3 align-top">
-                    <span className="block text-[19px] leading-none font-semibold tracking-[-0.01em]">
-                      {colones(precio.total)}
-                    </span>
-                    <span className={`mt-1.5 block text-[11px] ${suma > 0 ? "text-accent" : "text-rail-mute"}`}>
-                      {suma > 0 ? `+${suma} %` : "Tarifa base"}
-                    </span>
-                  </td>
-                );
-              })}
-            </tr>
+      <div className="px-5 pt-5 pb-5 sm:px-6">
+        {/* La duración: la misma pista de píldoras que los filtros. */}
+        <div
+          role="group"
+          aria-label={t("tarifas.panel.durationAria")}
+          className="grid grid-cols-4 gap-1 rounded-full bg-sunken p-1"
+        >
+          {DURACIONES.map((min) => (
+            <button
+              key={min}
+              type="button"
+              aria-pressed={duracion === min}
+              onClick={() => setDuracion(min)}
+              className={`nums rounded-full py-2 text-[12.5px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
+                duracion === min ? "bg-rail font-semibold text-white" : "text-ink-soft hover:bg-white/70 hover:text-ink"
+              }`}
+            >
+              {min} min
+            </button>
           ))}
-        </tbody>
-      </table>
+        </div>
 
-      <button
-        type="button"
-        role="switch"
-        aria-checked={hoy}
-        onClick={() => setHoy(!hoy)}
-        className="mt-3 flex w-full items-center justify-between gap-3 rounded-[12px] bg-white/[0.06] px-3.5 py-2.5 text-left transition-colors hover:bg-white/10"
-      >
-        <span className="text-[12.5px] text-rail-text">
-          Si lo piden para el mismo día
-          <span className="nums ml-1 text-white">+{r.recargo_mismo_dia} %</span>
-        </span>
-        <span
-          aria-hidden
-          className={`relative inline-flex h-[20px] w-[34px] shrink-0 items-center rounded-full p-[3px] transition-colors ${hoy ? "bg-accent" : "bg-white/20"}`}
-        >
-          <span className={`h-3.5 w-3.5 rounded-full bg-white transition-transform duration-200 ${hoy ? "translate-x-3.5" : ""}`} />
-        </span>
-      </button>
+        {/* ── La grilla: día y noche, entre semana y fin de semana ── */}
+        <table className="nums mt-4 w-full border-separate border-spacing-1 text-left">
+          <caption className="sr-only">{t("tarifas.panel.priceCaption")}</caption>
+          <thead>
+            <tr>
+              <td />
+              <th scope="col" className="px-2 pb-1 text-[11px] font-semibold tracking-[0.04em] text-ink-mute">
+                {t("tarifas.panel.daytime")}
+              </th>
+              <th scope="col" className="px-2 pb-1 text-[11px] font-semibold tracking-[0.04em] text-ink-mute">
+                {t("tarifas.panel.nighttime")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((fila) => (
+              <tr key={fila.rotulo}>
+                <th
+                  scope="row"
+                  className="w-[78px] pr-1 align-middle text-[12px] leading-tight font-medium text-ink-soft"
+                >
+                  {fila.rotulo}
+                </th>
+                {[false, true].map((nocturno) => {
+                  const precio = celda(fila.finDeSemana, nocturno);
+                  const suma = precio.aplicados.reduce((total, a) => total + a.porcentaje, 0);
+                  return (
+                    <td key={String(nocturno)} className="rounded-[12px] bg-sunken/60 px-3 py-2.5 align-top">
+                      <span className="block text-[16px] leading-none font-semibold tracking-[-0.01em] text-ink">
+                        {colones(precio.total)}
+                      </span>
+                      {suma > 0 ? (
+                        <span className="mt-1.5 inline-block rounded-full bg-accent-wash px-1.5 py-0.5 text-[10.5px] font-semibold text-accent-deep">
+                          +{suma} %
+                        </span>
+                      ) : (
+                        <span className="mt-1.5 inline-block py-0.5 text-[10.5px] font-medium text-ink-mute">
+                          {t("tarifas.panel.base")}
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      <div className="mt-5 border-t border-white/10 pt-5">
-        <p aria-live="polite" className="mb-3 text-[12px] text-rail-text">
-          {cambios ? "Tenés cambios sin guardar." : "Esto es lo que ven los dueños hoy."}
-        </p>
-        <button
-          type="submit"
-          form="form-tarifas"
-          disabled={saving || !cambios}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-rail transition-[filter,transform] duration-150 hover:brightness-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-rail-text"
-        >
-          {saving ? <Loader size={15} className="animate-spin" /> : <Save size={15} />}
-          {saving ? "Guardando…" : "Guardar tarifas"}
-        </button>
+        {/* "Para hoy": el interruptor de la casa. */}
+        {/* Sin fondo: el interruptor apagado es gris claro y sobre un
+            gris de la misma familia desaparecía. */}
+        <div className="mt-3 flex items-center justify-between gap-3 px-1 py-1.5">
+          <span className="text-[12.5px] text-ink-soft">
+            {t("tarifas.panel.sameDayToggle")}
+            <span className="nums ml-1 font-semibold text-ink">+{r.recargo_mismo_dia} %</span>
+          </span>
+          <Interruptor
+            activo={hoy}
+            etiqueta={t("tarifas.panel.sameDayToggle")}
+            onCambio={() => setHoy(!hoy)}
+          />
+        </div>
+
+        {/* ── Guardar ── */}
+        <div className="mt-5 border-t border-sunken pt-4">
+          <p aria-live="polite" className="mb-3 flex items-center gap-2 text-[12px] text-ink-soft">
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${cambios ? "bg-warn" : "bg-ok"}`}
+            />
+            {cambios ? t("tarifas.panel.unsavedChanges") : t("tarifas.panel.currentView")}
+          </p>
+          <button
+            type="submit"
+            form="form-tarifas"
+            disabled={saving || !cambios}
+            className={`${btnPrimary} w-full disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100`}
+          >
+            {saving ? <Loader size={15} className="animate-spin" /> : <Save size={15} />}
+            {saving ? t("tarifas.saving") : t("tarifas.panel.save")}
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -351,6 +418,7 @@ const PanelPrecio = ({
 
 const TarifasPaseador = () => {
   const { user, getProfile } = useAuth();
+  const { t } = useTranslation();
   const [form, setForm] = useState<Formulario | null>(null);
   const [guardado, setGuardado] = useState<Formulario | null>(null);
   const [sinPerfil, setSinPerfil] = useState(false);
@@ -369,9 +437,9 @@ const TarifasPaseador = () => {
         setForm(inicial);
         setGuardado(inicial);
       })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudo cargar tu tarifa."))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t("tarifas.errors.loadFailed")))
       .finally(() => setLoading(false));
-  }, [getProfile]);
+  }, [getProfile, t]);
 
   const set = (campo: keyof Formulario) => (value: string) =>
     setForm((actual) => (actual ? { ...actual, [campo]: value } : actual));
@@ -386,7 +454,7 @@ const TarifasPaseador = () => {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!form || !user) return;
-    const problema = validar(form);
+    const problema = validar(form, t);
     if (problema) {
       setError(problema);
       return;
@@ -399,12 +467,12 @@ const TarifasPaseador = () => {
         ...aRecargos(form),
       });
       setGuardado(form);
-      aviso.ok("Tarifas guardadas", {
-        detalle: "Las próximas solicitudes se calculan con estos valores.",
+      aviso.ok(t("tarifas.saved"), {
+        detalle: t("tarifas.savedDetail"),
       });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudieron guardar las tarifas.");
-      aviso.error(cause, { respaldo: "No se pudieron guardar las tarifas." });
+      setError(cause instanceof Error ? cause.message : t("tarifas.errors.saveFailed"));
+      aviso.error(cause, { respaldo: t("tarifas.errors.saveFailed") });
     } finally {
       setSaving(false);
     }
@@ -413,8 +481,8 @@ const TarifasPaseador = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Tarifas"
-        subtitle="Cuánto cobrás por paseo y cuánto de más según el horario y el día."
+        title={t("tarifas.title")}
+        subtitle={t("tarifas.subtitle")}
         action={
           form ? (
             <button
@@ -424,7 +492,7 @@ const TarifasPaseador = () => {
               className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <Save size={15} />
-              {saving ? "Guardando…" : "Guardar"}
+              {saving ? t("tarifas.saving") : t("tarifas.save")}
             </button>
           ) : undefined
         }
@@ -438,18 +506,18 @@ const TarifasPaseador = () => {
 
       {loading && (
         <Section>
-          <p role="status" className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-mute">
-            <Loader size={15} className="animate-spin" /> Cargando tus tarifas…
-          </p>
+          <div role="status" className="flex items-center gap-2 px-6 py-8 text-[13px] text-ink-mute">
+            <Loader size={15} className="animate-spin" /> {t("tarifas.loadingRates")}
+          </div>
         </Section>
       )}
 
       {!loading && sinPerfil && (
         <Section>
           <EmptyState
-            title="Todavía no tenés perfil de paseador"
-            hint="Solicitalo desde Mi perfil; cuando lo tengas, acá definís tus tarifas."
-            action={<Link to="/perfil" className={btnPrimary}>Ir a Mi perfil</Link>}
+            title={t("tarifas.noProfile.title")}
+            hint={t("tarifas.noProfile.hint")}
+            action={<Link to="/perfil" className={btnPrimary}>{t("tarifas.noProfile.goToProfile")}</Link>}
           />
         </Section>
       )}
@@ -462,9 +530,9 @@ const TarifasPaseador = () => {
         >
           <div className="flex min-w-0 flex-col gap-2.5">
             {/* ── La tarifa ── */}
-            <Section title="Tarifa base" bodyClass="px-6 pt-3 pb-6">
+            <Section title={t("tarifas.baseRate.title")} bodyClass="px-6 pt-3 pb-6">
               <label htmlFor="tarifa-base" className="block text-[13px] text-ink-soft">
-                Lo que cobrás por un paseo de 45 minutos, sin recargos.
+                {t("tarifas.baseRate.label")}
               </label>
               <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-4">
                 <span className="relative block w-full max-w-[240px]">
@@ -494,23 +562,23 @@ const TarifasPaseador = () => {
             </Section>
 
             {/* ── Los recargos ── */}
-            <Section title="Recargos" bodyClass="pt-1">
+            <Section title={t("tarifas.surcharges.title")} bodyClass="pt-1">
               <p className="px-6 text-[13px] leading-snug text-ink-soft">
-                Se suman a tu tarifa cuando el paseo cae en esa condición. En 0 % no se cobra.
+                {t("tarifas.surcharges.hint")}
               </p>
               <div className="mt-1 divide-y divide-sunken">
                 <FilaRecargo
                   id="recargo-nocturno"
                   Icon={Clock}
-                  titulo="Horario nocturno"
-                  ayuda="Paseos que empiezan dentro de tu horario nocturno."
+                  titulo={t("tarifas.surcharges.night.title")}
+                  ayuda={t("tarifas.surcharges.night.hint")}
                   value={form.recargo_nocturno}
                   onChange={set("recargo_nocturno")}
                 >
                   <div className="mt-4 rounded-[14px] bg-sunken/50 p-4 sm:ml-12">
                     <div className="flex flex-wrap items-end gap-3">
                       <label className="block">
-                        <span className="mb-1 block text-[11.5px] text-ink-mute">Desde</span>
+                        <span className="mb-1 block text-[11.5px] text-ink-mute">{t("tarifas.surcharges.night.from")}</span>
                         <input
                           type="time"
                           value={form.nocturno_desde}
@@ -519,7 +587,7 @@ const TarifasPaseador = () => {
                         />
                       </label>
                       <label className="block">
-                        <span className="mb-1 block text-[11.5px] text-ink-mute">Hasta</span>
+                        <span className="mb-1 block text-[11.5px] text-ink-mute">{t("tarifas.surcharges.night.to")}</span>
                         <input
                           type="time"
                           value={form.nocturno_hasta}
@@ -529,8 +597,8 @@ const TarifasPaseador = () => {
                       </label>
                       <p className="nums pb-2.5 text-[12.5px] text-ink-soft">
                         {form.nocturno_desde && form.nocturno_hasta && form.nocturno_desde !== form.nocturno_hasta
-                          ? `${horasNocturnas(form.nocturno_desde, form.nocturno_hasta)} con recargo`
-                          : "Elegí un rango"}
+                          ? t("tarifas.surcharges.night.withSurcharge", { duracion: horasNocturnas(form.nocturno_desde, form.nocturno_hasta, t) })
+                          : t("tarifas.surcharges.night.pickRange")}
                       </p>
                     </div>
                     <RelojNocturno
@@ -543,8 +611,8 @@ const TarifasPaseador = () => {
                 <FilaRecargo
                   id="recargo-fin-semana"
                   Icon={CalendarDays}
-                  titulo="Fin de semana"
-                  ayuda="Sábados y domingos, a cualquier hora."
+                  titulo={t("tarifas.surcharges.weekend.title")}
+                  ayuda={t("tarifas.surcharges.weekend.hint")}
                   value={form.recargo_fin_semana}
                   onChange={set("recargo_fin_semana")}
                 />
@@ -552,8 +620,8 @@ const TarifasPaseador = () => {
                 <FilaRecargo
                   id="recargo-mismo-dia"
                   Icon={Timer}
-                  titulo="Mismo día"
-                  ayuda="Cuando te piden el paseo para hoy."
+                  titulo={t("tarifas.surcharges.sameDay.title")}
+                  ayuda={t("tarifas.surcharges.sameDay.hint")}
                   value={form.recargo_mismo_dia}
                   onChange={set("recargo_mismo_dia")}
                 />

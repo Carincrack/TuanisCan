@@ -1,0 +1,13 @@
+{
+  "title": "Reviews received",
+  "subtitle": "What owners say after every walk.",
+  "ratingSection": "Rating",
+  "countLabel": "{{count}} reviews",
+  "walkOf": "Walk with {{mascota}}",
+  "empty": {
+    "title": "You have no reviews yet",
+    "hint": "They'll show up once owners rate finished walks."
+  },
+  "loadError": "Could not load the reviews.",
+  "starsAria": "{{valor}} out of 5 stars"
+}

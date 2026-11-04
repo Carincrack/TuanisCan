@@ -19,8 +19,10 @@ import { Combo } from "../components/Combo";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 import { distritoDe, normalizar } from "../lib/zonas";
+import { useTranslation } from "../hooks/useTranslation";
 
 const ZonasAdminPage = () => {
+  const { t } = useTranslation();
   const botonNotificaciones = useContext(NotificationButtonContext);
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [busqueda, setBusqueda] = useState("");
@@ -43,7 +45,7 @@ const ZonasAdminPage = () => {
 
   useEffect(() => {
     cargar()
-      .catch(() => setError("No se pudo cargar el catálogo de zonas"))
+      .catch(() => setError(t("zonas.loadError")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -154,11 +156,11 @@ const ZonasAdminPage = () => {
       await deleteZona(porEliminar.id_zona);
       setPorEliminar(null);
       await cargar();
-      aviso.ok("Zona eliminada");
+      aviso.ok(t("zonas.delete.success"));
     } catch (cause) {
-      setError("No se puede eliminar porque la zona está en uso");
+      setError(t("zonas.delete.inUseError"));
       aviso.error(cause, {
-        respaldo: "No se puede eliminar: hay cuentas o negocios en esa zona.",
+        respaldo: t("zonas.delete.inUseToast"),
       });
     } finally {
       setEliminando(false);
@@ -182,27 +184,27 @@ const ZonasAdminPage = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Zonas"
-        subtitle="Catálogo de zonas disponibles para perfiles y servicios."
+        title={t("zonas.title")}
+        subtitle={t("zonas.subtitle")}
         action={
           <div className="flex items-center gap-2.5">
-            <Badge tono="accent">{zonas.length} {zonas.length === 1 ? "zona" : "zonas"}</Badge>
+            <Badge tono="accent">{zonas.length} {zonas.length === 1 ? t("zonas.countSingular") : t("zonas.countPlural")}</Badge>
             {botonNotificaciones}
           </div>
         }
       />
 
       <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <Stat etiqueta="Zonas registradas" valor={String(zonas.length)} nota="En todo el catálogo" />
-        <Stat etiqueta="Provincias" valor={String(totalProvincias)} nota="Con al menos una zona" />
-        <Stat etiqueta="Cantones" valor={String(totalCantones)} nota="Cubiertos en el catálogo" />
+        <Stat etiqueta={t("zonas.stats.registered")} valor={String(zonas.length)} nota={t("zonas.stats.registeredHint")} />
+        <Stat etiqueta={t("zonas.stats.provinces")} valor={String(totalProvincias)} nota={t("zonas.stats.provincesHint")} />
+        <Stat etiqueta={t("zonas.stats.cantons")} valor={String(totalCantones)} nota={t("zonas.stats.cantonsHint")} />
       </div>
 
       <Section
-        title="Filtros"
+        title={t("zonas.filters.title")}
         aside={
           <span className="inline-flex items-center rounded-full bg-sunken px-2.5 py-1 text-[12px] font-medium text-ink-soft">
-            {visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}
+            {visibles.length} {visibles.length === 1 ? t("zonas.resultSingular") : t("zonas.resultPlural")}
           </span>
         }
         bodyClass="px-4 py-4 sm:px-5"
@@ -221,42 +223,42 @@ const ZonasAdminPage = () => {
               value={busqueda}
               onChange={(event) => setBusqueda(event.target.value)}
               className={`${input} pl-9`}
-              placeholder="Buscar zona, cantón o provincia"
-              aria-label="Buscar zonas"
+              placeholder={t("zonas.filters.searchPlaceholder")}
+              aria-label={t("zonas.filters.searchAria")}
             />
           </div>
 
           <Combo
             value={provinciaFiltro}
             onChange={cambiarProvinciaFiltro}
-            aria-label="Filtrar por provincia"
+            aria-label={t("zonas.filters.provinceAria")}
             options={provinciasFiltro.map((item) => ({
               value: item,
-              label: item === "Todas" ? "Todas las provincias" : item,
+              label: item === "Todas" ? t("zonas.filters.allProvinces") : item,
             }))}
           />
 
           <Combo
             value={cantonFiltro}
             onChange={cambiarCantonFiltro}
-            aria-label="Filtrar por cantón"
+            aria-label={t("zonas.filters.cantonAria")}
             disabled={provinciaFiltro === "Todas"}
-            textoInactivo="Elegí una provincia"
+            textoInactivo={t("zonas.filters.selectProvince")}
             options={cantonesFiltro.map((item) => ({
               value: item,
-              label: item === "Todos" ? "Todos los cantones" : item,
+              label: item === "Todos" ? t("zonas.filters.allCantons") : item,
             }))}
           />
 
           <Combo
             value={distritoFiltro}
             onChange={setDistritoFiltro}
-            aria-label="Filtrar por distrito"
+            aria-label={t("zonas.filters.districtAria")}
             disabled={cantonFiltro === "Todos"}
-            textoInactivo="Elegí un cantón"
+            textoInactivo={t("zonas.filters.selectCanton")}
             options={distritosFiltro.map((item) => ({
               value: item,
-              label: item === "Todos" ? "Todos los distritos" : item,
+              label: item === "Todos" ? t("zonas.filters.allDistricts") : item,
             }))}
           />
         </div>
@@ -275,11 +277,11 @@ const ZonasAdminPage = () => {
         ) : visibles.length === 0 ? (
           <div className="px-4 py-4 sm:px-5">
             <EmptyState
-              title="No hay coincidencias"
+              title={t("zonas.empty.title")}
               hint={
                 hayFiltros
-                  ? "Ajustá la búsqueda o cambiá los filtros."
-                  : "Todavía no hay zonas en el catálogo."
+                  ? t("zonas.empty.withFilters")
+                  : t("zonas.empty.withoutFilters")
               }
             />
           </div>
@@ -293,15 +295,15 @@ const ZonasAdminPage = () => {
                 es ruido. */}
             <div className="hidden lg:block">
               <Table
-                caption="Zonas registradas"
+                caption={t("zonas.table.caption")}
                 min="min-w-[640px]"
                 padX="px-4"
                 columnas={[
-                  { label: "Zona", ancho: "w-[32%]" },
-                  { label: "Provincia", ancho: "w-[20%]" },
-                  { label: "Cantón", ancho: "w-[20%]" },
-                  { label: "Distrito", ancho: "w-[20%]" },
-                  { label: "Acciones", ancho: "w-[8%]", align: "right", muda: true },
+                  { label: t("zonas.table.columns.zone"), ancho: "w-[32%]" },
+                  { label: t("zonas.table.columns.province"), ancho: "w-[20%]" },
+                  { label: t("zonas.table.columns.canton"), ancho: "w-[20%]" },
+                  { label: t("zonas.table.columns.district"), ancho: "w-[20%]" },
+                  { label: t("zonas.table.columns.actions"), ancho: "w-[8%]", align: "right", muda: true },
                 ]}
               >
                 {zonasPaginadas.map((zona) => (
@@ -337,8 +339,8 @@ const ZonasAdminPage = () => {
                         type="button"
                         onClick={() => setPorEliminar(zona)}
                         className={btnEliminar}
-                        aria-label={`Eliminar ${zona.nombre}`}
-                        title={`Eliminar ${zona.nombre}`}
+                        aria-label={t("zonas.table.deleteAction", { nombre: zona.nombre })}
+                        title={t("zonas.table.deleteAction", { nombre: zona.nombre })}
                       >
                         <Trash2 size={15} strokeWidth={1.9} />
                       </button>
@@ -372,7 +374,7 @@ const ZonasAdminPage = () => {
                     type="button"
                     onClick={() => setPorEliminar(zona)}
                     className={btnEliminar}
-                    aria-label={`Eliminar ${zona.nombre}`}
+                    aria-label={t("zonas.table.deleteAction", { nombre: zona.nombre })}
                   >
                     <Trash2 size={15} strokeWidth={1.9} />
                   </button>
@@ -381,7 +383,7 @@ const ZonasAdminPage = () => {
             </ul>
 
             <Paginacion
-              etiqueta="Paginación de zonas"
+              etiqueta={t("zonas.pagination.label")}
               actual={paginaActual}
               total={totalPaginas}
               onCambiar={setPaginaActual}
@@ -400,15 +402,12 @@ const ZonasAdminPage = () => {
       {porEliminar && (
         <Confirmar
           tono="peligro"
-          titulo="Eliminar zona"
-          cuerpo={
-            <>
-              Se quita <strong className="font-semibold text-ink">{porEliminar.nombre}</strong>, {porEliminar.canton} del
-              catálogo. Si hay personas o negocios registrados en esa zona, la
-              base no va a permitir borrarla.
-            </>
-          }
-          confirmar="Eliminar zona"
+          titulo={t("zonas.delete.title")}
+          cuerpo={t("zonas.delete.body", {
+            nombre: porEliminar.nombre,
+            canton: porEliminar.canton,
+          })}
+          confirmar={t("zonas.delete.confirm")}
           ocupado={eliminando}
           onConfirmar={() => void eliminar()}
           onCancelar={() => setPorEliminar(null)}

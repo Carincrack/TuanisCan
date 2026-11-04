@@ -1,9 +1,21 @@
-import { useRef } from "react";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "../lib/iconos";
-import { MARCA } from "../lib/nav";
-import { usePortadaAnimacion } from "./animacion";
-import { AZUL, CANVAS, NAVY, TINTA } from "./tokens";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useCursorPortada, usePortadaAnimacion } from "./animacion";
+import ConmutadorIdioma from "./componentes/ConmutadorIdioma";
+import HeroPerdidas from "./perdidas/HeroPerdidas";
+import TableroPerdidas from "./perdidas/TableroPerdidas";
+import { esEncontrada, type Estado } from "./perdidas/estado";
+import Pie from "./secciones/Pie";
+import { CANVAS, NAVY } from "./tokens";
+import type { ModoAcceso } from "./tipos";
+import { useTranslation } from "../hooks/useTranslation";
+import { useAuth } from "../hooks/useAuth";
+import { getZonas } from "../services/auth.service";
+import { listPublicLostPets } from "../services/lost-pets.service";
+import type { PublicLostPet } from "../types/lost-pet.types";
+import type { Zona } from "../types/auth.types";
+import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
+import Visor from "../components/Visor";
 
 /* ─────────────────────────────────────────────────────────────
    Mascotas perdidas, del lado público.
@@ -13,99 +25,166 @@ import { AZUL, CANVAS, NAVY, TINTA } from "./tokens";
    un registro. Por eso vive en la portada y no en la aplicación, y
    por eso `RootLayout` la deja pasar sin el guardia de sesión.
 
-   Arriba lleva la banda de la portada —mismo azul, mismo símbolo
-   centrado, misma letra del wordmark— para que el clic se sienta
-   como seguir en el mismo lugar y no como salir a otra app. Abajo,
-   el lugar donde va a ir el tablero.
-
    No es `/mascotas-perdidas`: esa ruta ya existe y es la pantalla
    interna, con sesión, donde se reporta y se administra. Esta es
    la vitrina.
 
-   La entrada es la misma línea de tiempo del hero de la portada:
-   `usePortadaAnimacion` busca las marcas —`data-anim="marca"` con
-   sus `.letra`, `data-entra="barra"` y `data-entra="entrada"`— y
-   les da el mismo orden y la misma curva. Cada renglón del título es
-   su propia máscara, así las letras de «PERDIDAS» suben desde
-   detrás de su propio borde y no desde el de «MASCOTAS».
+   Tres partes, con el aire de la portada y sin sus textos:
+
+     banda azul    "Inicio", el símbolo y el título de siempre
+     tablero       búsqueda, estado y las fichas
+     pie           el de la portada
+
+   Este archivo carga los reportes, guarda los filtros y reparte. La
+   entrada del título es la del hero de la portada: `usePortadaAnimacion`
+   encuentra las mismas manijas.
    ───────────────────────────────────────────────────────────── */
 
-const RENGLONES = ["MASCOTAS", "PERDIDAS"];
-
 const PaginaPerdidas = () => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const raiz = useRef<HTMLDivElement>(null);
   usePortadaAnimacion(raiz);
+  useCursorPortada();
+
+  const [mascotas, setMascotas] = useState<PublicLostPet[]>([]);
+  const [zonas, setZonas] = useState<Zona[]>([]);
+  const [busqueda, setBusqueda] = useState("");
+  const [estado, setEstado] = useState<Estado>("todas");
+  const [fotoAbierta, setFotoAbierta] = useState<PublicLostPet | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let vigente = true;
+    Promise.all([listPublicLostPets(), getZonas().catch(() => [])])
+      .then(([pets, zonasData]) => {
+        if (!vigente) return;
+        setMascotas(pets);
+        setZonas(zonasData);
+      })
+      .catch(() => {
+        if (vigente) setError(t("landingPerdidas.loadError"));
+      })
+      .finally(() => {
+        if (vigente) setCargando(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [t]);
+
+  const territorio = useZonasEncadenadas(zonas);
+
+  /* Zona y búsqueda primero, de lo más nuevo a lo más viejo. El estado
+     se aplica después, para que el separador pueda contar cuántas hay
+     de cada una con la zona y la búsqueda ya puestas. */
+  const filtradas = useMemo(() => {
+    const consulta = busqueda.trim().toLocaleLowerCase("es");
+    return mascotas
+      .filter((mascota) => {
+        const texto = [
+          mascota.nombre,
+          mascota.especie,
+          mascota.raza,
+          mascota.zona?.nombre,
+          mascota.zona?.canton,
+          mascota.zona?.provincia,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLocaleLowerCase("es");
+        return territorio.cubre(mascota.zona) && (!consulta || texto.includes(consulta));
+      })
+      .sort((a, b) => b.fecha_reporte.localeCompare(a.fecha_reporte));
+    // `territorio` se rehace en cada render; sus escalones son la dependencia real.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda, mascotas, territorio.provincia, territorio.canton, territorio.distrito]);
+
+  const conteos: Record<Estado, number> = {
+    todas: filtradas.length,
+    perdidas: filtradas.filter((m) => !esEncontrada(m)).length,
+    encontradas: filtradas.filter(esEncontrada).length,
+  };
+  const visibles =
+    estado === "todas"
+      ? filtradas
+      : filtradas.filter((m) => (estado === "encontradas" ? esEncontrada(m) : !esEncontrada(m)));
+  const filtrando = busqueda.trim() !== "" || territorio.filtrando || estado !== "todas";
+
+  /* Esta vitrina vive fuera del armazón de `RootLayout` y no puede
+     abrir el formulario de acceso por su cuenta: manda a la portada
+     con `#iniciar-sesion` o `#crear-cuenta`, que `RootLayout` lee
+     para abrirlo directamente. */
+  const entrar = (modo?: ModoAcceso) =>
+    navigate({ to: "/", hash: modo === "registro" ? "crear-cuenta" : "iniciar-sesion" });
+
+  const limpiar = () => {
+    setBusqueda("");
+    setEstado("todas");
+    territorio.limpiar();
+  };
+
+  const conSesion = Boolean(user);
 
   return (
-    <div
-      ref={raiz}
-      className="portada min-h-dvh"
-      style={{ background: CANVAS }}
-    >
-      <section className="relative" style={{ background: AZUL }}>
-        <header
-          data-entra="barra"
-          className="relative flex h-20 items-center px-5 sm:h-24 sm:px-8"
-        >
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 rounded-full py-2.5 pr-5 pl-3.5 text-[14px] font-bold transition-transform duration-150 ease-out active:scale-[0.97]"
-            style={{ background: CANVAS, color: NAVY }}
-          >
-            <ArrowLeft size={17} strokeWidth={2.4} aria-hidden />
-            Inicio
-          </Link>
+    <div ref={raiz} className="portada min-h-screen" style={{ background: NAVY }}>
+      <HeroPerdidas
+        onEntrar={entrar}
+        conSesion={conSesion}
+        onMiCuenta={() => navigate({ to: "/" })}
+        total={cargando || error ? null : mascotas.length}
+      />
 
-          <Link
-            to="/"
-            aria-label={`${MARCA.completo}, volver al inicio`}
-            className="absolute left-1/2 -translate-x-1/2"
-          >
-            <img
-              src={MARCA.logoSimbolo}
-              alt=""
-              className="h-11 w-11 object-contain sm:h-12 sm:w-12"
-            />
-          </Link>
-        </header>
-
-        <div className="px-5 pt-6 pb-14 text-center sm:px-8 sm:pt-10 sm:pb-20">
-          <p data-entra="entrada" className="rotulo" style={{ color: TINTA }}>
-            Comunidad
-          </p>
-          <p
-            aria-hidden
-            className="mt-3 flex flex-col items-center leading-[0.9] tracking-[-0.035em]"
-            style={{
-              color: NAVY,
-              fontFamily: 'Archivo, "Instrument Sans", sans-serif',
-              fontVariationSettings: '"wdth" 112, "wght" 900',
-              fontSize: "clamp(40px, 9vw, 128px)",
-            }}
-          >
-            {RENGLONES.map((renglon) => (
-              <span key={renglon} data-anim="marca" className="marca-mascara">
-                {renglon.split("").map((letra, indice) => (
-                  <span key={indice} className="letra">
-                    {letra}
-                  </span>
-                ))}
-              </span>
-            ))}
-          </p>
-          <p
-            data-entra="entrada"
-            className="mx-auto mt-6 max-w-md text-[15.5px] leading-relaxed font-medium"
-            style={{ color: TINTA }}
-          >
-          Las que se perdieron cerca de vos. Si viste alguna, podés avisarle a su dueño desde su ficha.
-          </p>
-        </div>
-      </section>
-
-      <main className="px-5 py-12 sm:px-8">
-        <h1>Aquí van a estar las mascotas perdidas</h1>
+      <main>
+        <TableroPerdidas
+          total={mascotas.length}
+          visibles={visibles}
+          conteos={conteos}
+          estado={estado}
+          onEstado={setEstado}
+          busqueda={busqueda}
+          onBuscar={setBusqueda}
+          territorio={territorio}
+          filtrando={filtrando}
+          onLimpiar={limpiar}
+          cargando={cargando}
+          error={error}
+          conSesion={conSesion}
+          onVerFoto={setFotoAbierta}
+          /* Avisar de un avistamiento vive en /mascotas-perdidas,
+             detrás del guardia de sesión. */
+          onGestionar={conSesion ? () => navigate({ to: "/mascotas-perdidas" }) : () => entrar("login")}
+        />
       </main>
+
+      {/* El pie de la portada, con los enlaces de esta página. El idioma
+          va también acá porque en el teléfono la barra de arriba no
+          tiene sitio para él. */}
+      <Pie
+        enlaces={
+          <>
+            <Link to="/" className="rotulo transition-opacity duration-150 hover:opacity-60" style={{ color: CANVAS }}>
+              {t("landingPerdidas.backHome")}
+            </Link>
+            <ConmutadorIdioma />
+          </>
+        }
+      />
+
+      <Visor
+        abierto={fotoAbierta !== null}
+        src={fotoAbierta?.fotoUrl ?? "/mock/dog-nube.jpg"}
+        alt={
+          fotoAbierta
+            ? t("landingPerdidas.card.photoAlt", {
+                nombre: esEncontrada(fotoAbierta) ? fotoAbierta.especie : fotoAbierta.nombre,
+              })
+            : ""
+        }
+        cerrar={() => setFotoAbierta(null)}
+      />
     </div>
   );
 };

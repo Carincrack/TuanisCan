@@ -6,6 +6,8 @@
    de verdad cobra; esto es para que el dueño vea el total antes de
    pedir y el paseador vea el efecto de lo que configura. */
 
+import { hoyEnCostaRica } from "./fechas";
+
 export interface RecargosPaseador {
   /** Porcentajes, de 0 a 100. */
   recargo_nocturno: number;
@@ -94,6 +96,7 @@ export const estimarPrecioPaseo = (
   return precioSegunCondiciones(tarifaBase, recargos, duracionMin, {
     nocturno: esHorarioNocturno(horaInicio, recargos.nocturno_desde, recargos.nocturno_hasta),
     finDeSemana: dia === 0 || dia === 6,
-    mismoDia: fecha === new Date().toISOString().slice(0, 10),
+    // Hoy en Costa Rica, igual que `calcular_precio_paseo` en la base.
+    mismoDia: fecha === hoyEnCostaRica(),
   });
 };

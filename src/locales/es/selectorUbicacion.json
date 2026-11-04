@@ -1,0 +1,8 @@
+{
+  "noGeolocation": "Este navegador no permite usar tu ubicación.",
+  "locationError": "No pudimos obtener tu ubicación. Revisa el permiso del navegador.",
+  "searching": "Buscando…",
+  "myLocation": "Mi ubicación",
+  "marked": "Marcado: {{lat}}, {{lng}}",
+  "tapHint": "Tocá el mapa para marcar dónde está tu negocio (opcional)."
+}

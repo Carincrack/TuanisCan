@@ -22,3 +22,12 @@ export const listarAgendaPaseador = async (): Promise<CitaAgendaPaseador[]> => {
     precio: Number(cita.precio),
   }));
 };
+
+/** El estado del pago de cada paseo de la agenda, por id. Con el pago
+    confirmado por el dueño (`retenido`) el paseo se puede iniciar. */
+export const listarEstadosDePago = async (idsPaseo: string[]): Promise<Record<string, string>> => {
+  if (!idsPaseo.length) return {};
+  const { data, error } = await supabase.from("pagos").select("id_paseo, estado_pago").in("id_paseo", idsPaseo);
+  if (error) throw error;
+  return Object.fromEntries((data ?? []).map((fila) => [fila.id_paseo as string, fila.estado_pago as string]));
+};

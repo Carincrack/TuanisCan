@@ -3,6 +3,7 @@ import Boronas from "../componentes/Boronas";
 import Onda from "../componentes/Onda";
 import { PASOS } from "../datos";
 import { AZUL_HONDO, CIELO, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
+import { useTranslation } from "../../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    Cómo funciona. Banda celeste, entre dos bandas blancas.
@@ -80,7 +81,9 @@ import { AZUL_HONDO, CIELO, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
    el layout.
    ───────────────────────────────────────────────────────────── */
 
-const Pasos = () => (
+const Pasos = () => {
+  const { t } = useTranslation();
+  return (
   <section
     id="pasos"
     className="relative scroll-mt-6 overflow-hidden px-6 pt-32 pb-24 sm:px-10 lg:px-14 lg:pt-40 lg:pb-32"
@@ -104,9 +107,9 @@ const Pasos = () => (
         vuelven ilegibles en pantallas anchas. */}
     <div className="relative z-10 mx-auto max-w-[1000px]">
       <EncabezadoSeccion
-        antetitulo="Cómo funciona"
-        lineas={["Todo empieza con", "un pequeño paso."]}
-        subrayada="Y de ahí, a disfrutar."
+        antetitulo={t("landing.pasosSeccion.antetitulo")}
+        lineas={[t("landing.pasosSeccion.linea1"), t("landing.pasosSeccion.linea2")]}
+        subrayada={t("landing.pasosSeccion.subrayada")}
       />
 
       <ol data-anim="ruta" className="mt-16 max-w-[720px]">
@@ -127,13 +130,13 @@ const Pasos = () => (
 
             <div data-anim="paso" className="min-w-0">
               <h3 className="display text-[20px] leading-tight sm:text-[22px]" style={{ color: TINTA }}>
-                {titulo}
+                {t(titulo)}
               </h3>
               <p
                 className="mt-2.5 max-w-[50ch] text-[14.5px] leading-relaxed"
                 style={{ color: TINTA_SUAVE }}
               >
-                {texto}
+                {t(texto)}
               </p>
             </div>
           </li>
@@ -141,6 +144,7 @@ const Pasos = () => (
       </ol>
     </div>
   </section>
-);
+  );
+};
 
 export default Pasos;

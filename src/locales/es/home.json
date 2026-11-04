@@ -1,0 +1,66 @@
+{
+  "title": "Panel general",
+  "loading": "Cargando...",
+  "loadingPanel": "Cargando tu panel…",
+  "subtitleSummary": "{{fecha}} · resumen de tu cuenta",
+  "scheduleWalk": "Agendar paseo",
+  "loadError": "No se pudo cargar tu panel.",
+  "quickAccess": {
+    "walkers": { "label": "Buscar paseador", "descripcion": "Perfiles verificados de tu zona." },
+    "registerPet": { "label": "Registrar mascota", "descripcion": "Agrega un perfil nuevo." },
+    "reportLost": { "label": "Reportar pérdida", "descripcion": "Avisa a la comunidad." }
+  },
+  "stats": {
+    "pets": "Mascotas",
+    "petsPendingVaccine": "{{count}} con vacuna pendiente",
+    "walksThisMonth": "Paseos del mes",
+    "walksThisWeek": "{{count}} esta semana",
+    "monthSpend": "Gasto del mes",
+    "paidWalks": "{{count}} paseos pagados",
+    "pending": "Pendiente",
+    "chargeSingular": "cobro",
+    "chargePlural": "cobros"
+  },
+  "upcomingWalks": {
+    "title": "Próximos paseos",
+    "viewAll": "Ver todos",
+    "caption": "Paseos programados y en curso",
+    "columns": {
+      "when": "Cuándo",
+      "pet": "Mascota",
+      "walker": "Paseador",
+      "status": "Estado",
+      "price": "Precio"
+    },
+    "noPetName": "Sin nombre",
+    "unassigned": "Sin asignar",
+    "statusInCourse": "En curso",
+    "statusScheduled": "Programado",
+    "empty": {
+      "title": "No tienes paseos programados",
+      "hint": "Busca un paseador de tu zona para agendar el próximo."
+    }
+  },
+  "myPets": {
+    "title": "Mis mascotas",
+    "manage": "Administrar",
+    "noPhoto": "Sin foto",
+    "upToDate": "Al día",
+    "pendingVaccine": "Vacuna pendiente",
+    "empty": {
+      "title": "Aún no registras mascotas",
+      "hint": "Agrega una para poder agendar paseos."
+    }
+  },
+  "alerts": {
+    "title": "Requiere atención",
+    "none": "Todo al día, sin pendientes.",
+    "vaccineExpired": "Vacuna {{vacuna}} de {{mascota}} venció el {{fecha}}.",
+    "vaccineExpiring": "Vacuna {{vacuna}} de {{mascota}} vence el {{fecha}}.",
+    "lostPetsSingular": "{{count}} mascota reportada como perdida en tu zona.",
+    "lostPetsPlural": "{{count}} mascotas reportadas como perdidas en tu zona.",
+    "unratedSingular": "Tienes {{count}} paseo sin calificar.",
+    "unratedPlural": "Tienes {{count}} paseos sin calificar."
+  },
+  "quickAccessTitle": "Accesos rápidos"
+}

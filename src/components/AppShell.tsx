@@ -1,23 +1,36 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Bell, Check, Menu, ShieldAlert, Trash2 } from "../lib/iconos";
+import { Link, useLocation, useNavigate, useRouterState } from "@tanstack/react-router";
+import { BadgeCheck, Bell, Check, Footprints, Menu, PawPrint, ShieldAlert, Star, Trash2, Wallet } from "../lib/iconos";
+import type { Icono } from "../lib/iconos";
 
-import { inicioDeRol, RUTA_ADMIN, tituloDeRuta, type Rol } from "../lib/nav";
+import { inicioDeRol, MARCA, RUTA_ADMIN, tituloDeRuta, type Rol } from "../lib/nav";
 import { NotificationButtonContext, PageWidthContext } from "./ui";
+import QuickLanguageSwitcher from "./QuickLanguageSwitcher";
 import type { UserProfile } from "../types/auth.types";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
+import { useMedia } from "../hooks/useMedia";
 import { GooeyToaster } from "goey-toast";
 import {
   deleteAllNotifications,
   deleteNotification,
+  escucharNotificaciones,
+  LIMITE_NOTIFICACIONES,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   type Notification,
 } from "../services/notifications.service";
 import { CajonSuave, RielSuave } from "./rielSuave";
+import { aviso } from "../lib/aviso";
+import { prepararSonido, sonarAviso } from "../lib/sonido";
+import { anunciarNotificacion, useAlLlegarNotificacion } from "../lib/tiempoReal";
+import { ContadoresMenu } from "../lib/contadoresMenu";
+import { contarSolicitudesPendientes } from "../services/walk-requests.service";
+import { contarMensajesSinLeer, escucharMensajesParaMi, rutaChat } from "../services/chat.service";
+import { ResenaAlTerminar } from "./ResenaAlTerminar";
 
 /* ─────────────────────────────────────────────────────────────
    EL ARMAZÓN
@@ -46,6 +59,28 @@ import { CajonSuave, RielSuave } from "./rielSuave";
    quien las tiene a las dos sabe cuánto tienen que separarse.
    ───────────────────────────────────────────────────────────── */
 
+/** De qué se trata cada aviso, de un vistazo y sin leerlo. */
+const ICONO_NOTIFICACION: Record<Notification["tipo"], Icono> = {
+  paseo: Footprints,
+  pago: Wallet,
+  resena: Star,
+  verificacion: BadgeCheck,
+  mascota_perdida: PawPrint,
+};
+
+/** «ahora», «hace 5 minutos», «hace 2 horas», «ayer» y, de ahí para
+    atrás, la fecha. Lo reciente se lee mejor por distancia que por
+    hora; la fecha y hora exactas quedan en el `title`. */
+const haceCuanto = (fecha: string, localeTag: string) => {
+  const segundos = (Date.now() - new Date(fecha).getTime()) / 1000;
+  const relativo = new Intl.RelativeTimeFormat(localeTag, { numeric: "auto" });
+  if (segundos < 45) return relativo.format(0, "second");
+  if (segundos < 3600) return relativo.format(-Math.round(segundos / 60), "minute");
+  if (segundos < 86_400) return relativo.format(-Math.round(segundos / 3600), "hour");
+  if (segundos < 172_800) return relativo.format(-1, "day");
+  return new Intl.DateTimeFormat(localeTag, { day: "numeric", month: "short" }).format(new Date(fecha));
+};
+
 interface AppShellProps {
   rol: Rol;
   onLogout?: () => void;
@@ -53,7 +88,32 @@ interface AppShellProps {
 }
 
 const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const { matches } = useRouterState();
+  const rutaMostrada = String(matches[matches.length - 1]?.routeId ?? "");
+
+  /* ── El desplazamiento del contenido ──
+     El contenido se desplaza dentro de su propio contenedor, que no
+     cambia al navegar: sin volverlo arriba, la pantalla nueva aparecía
+     a la altura en que se había dejado la anterior.
+
+     Y en el teléfono el título de la barra de arriba aparece recién
+     cuando el encabezado de la página quedó atrás: con los dos a la
+     vista el título se leía dos veces seguidas. */
+  const contenido = useRef<HTMLDivElement>(null);
+  const [desplazado, setDesplazado] = useState(false);
+  const desplazadoRef = useRef(false);
+  useLayoutEffect(() => {
+    contenido.current?.scrollTo({ top: 0 });
+    desplazadoRef.current = false;
+    setDesplazado(false);
+  }, [rutaMostrada]);
+  const alDesplazar = () => {
+    const abajo = (contenido.current?.scrollTop ?? 0) > 72;
+    if (abajo === desplazadoRef.current) return;
+    desplazadoRef.current = abajo;
+    setDesplazado(abajo);
+  };
   /* Estas pantallas piden su propio botón de notificaciones —ver
      `NotificationButtonContext` más abajo— y con eso la franja
      superior les queda vacía: se pliega solo para ellas. */
@@ -66,12 +126,21 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     pathname === "/acceso-interno/paseos" ||
     pathname === "/pagos" ||
     pathname === "/pagos/tarjetas" ||
-    pathname === "/directorio";
+    pathname === "/directorio" ||
+    pathname === "/perfil";
   const navigate = useNavigate();
-  const { getProfile, roles, isAdmin, setActiveRole } = useAuth();
+  const { t, localeTag } = useTranslation();
+  const { getProfile, roles, isAdmin, setActiveRole, user } = useAuth();
+  const idUsuario = user?.id ?? null;
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [contenidoAncho, setContenidoAncho] = useState(false);
+  /* Todas las pantallas usan el carril ancho (ver más abajo); el aviso
+     de `Page wide` se sigue recibiendo para no romper las páginas que lo
+     mandan, pero ya no cambia nada. */
+  const [, setContenidoAncho] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  /* Solo con el perfil cargado. Ver la nota junto al aviso. */
+  const avisoVerificacion =
+    rol !== "admin" && profile !== null && profile.verificacion.estado !== "aprobado";
   const [notificaciones, setNotificaciones] = useState<Notification[]>([]);
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   /* El botón vive en dos sitios posibles —ver `NotificationButtonContext`
@@ -80,9 +149,17 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
      ejemplo, que además pide el carril ancho) el botón real queda lejos
      del borde derecho de la ventana, y un panel anclado a ese borde se
      abre en un sitio que no tiene nada que ver con lo que se tocó. Se
-     mide la posición del botón al abrir y el panel se ancla ahí. */
-  const notifBotonRef = useRef<HTMLButtonElement>(null);
-  const [notifPanelPos, setNotifPanelPos] = useState<{ top: number; right: number } | null>(null);
+     mide la posición del botón al abrir y el panel se ancla ahí.
+
+     Se guarda el botón que se TOCÓ y no uno fijo: en el teléfono la
+     campana vive en la barra de arriba y en la computadora, en esas
+     páginas, dentro de su encabezado. Las dos copias existen a la vez
+     y una está oculta; medir la oculta da todo en cero. */
+  const notifBotonRef = useRef<HTMLButtonElement | null>(null);
+  const [notifPanelPos, setNotifPanelPos] = useState<{ top: number; right: number; ancho: number } | null>(null);
+  /* En el teléfono los avisos van arriba y centrados: abajo a la
+     derecha quedaban corridos, con la X suelta, encima del buscador. */
+  const esTelefono = !useMedia("(min-width: 640px)");
   const [notificacionesError, setNotificacionesError] = useState<string | null>(null);
   const [accionNotificacion, setAccionNotificacion] = useState<string | null>(null);
   const rolesDisponibles: Rol[] = [
@@ -103,43 +180,295 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
     getProfile().then(setProfile).catch(() => setProfile(null));
   }, [getProfile, pathname]);
 
+  /* ── Lo que ya se conoce ──
+     Los avisos que ya pasaron por la lista. Sirve para saber cuáles son
+     NUEVOS de verdad: cada uno se anuncia una sola vez, llegue por el
+     canal en tiempo real o por una recarga. `null` es que todavía no se
+     cargó nada: la primera carga solo aprende, no anuncia lo de antes. */
+  const conocidas = useRef<Set<string> | null>(null);
+  const abrirDesdeAviso = useRef<(n: Notification) => void>(() => undefined);
+
+  /* ── Fin de un paseo ──
+     Cuando el paseador finaliza, al dueño le llegan juntas dos
+     notificaciones: «el paseo terminó, deja tu reseña» y «se
+     cobraron…». En vez de dos avisos, se abre la ventana de la reseña
+     con el cobro adentro (`ResenaAlTerminar`). `paseosTerminados`
+     recuerda esos paseos para no avisar después lo que ya está en la
+     ventana. */
+  const [resenaPorDejar, setResenaPorDejar] = useState<{ idPaseo: string; cobro: string | null } | null>(null);
+  const paseosTerminados = useRef(new Set<string>());
+
+  /* Las notificaciones de un mismo momento llegan por el canal una por
+     una, con milisegundos de diferencia. Se juntan un instante antes de
+     anunciarlas: así suena una vez, sale un solo aviso y se puede ver
+     que el «terminó» y el «se cobró» son del mismo paseo. */
+  const lote = useRef<Notification[]>([]);
+  const esperaLote = useRef<number | undefined>(undefined);
+
+  const anunciarLote = useCallback(() => {
+    const nuevas = lote.current.splice(0);
+    if (!nuevas.length) return;
+    sonarAviso();
+
+    const finDePaseo = (n: Notification) => n.tipo === "resena" && n.referencia_id !== null && /finaliz/i.test(n.mensaje);
+    for (const n of nuevas) if (finDePaseo(n) && n.referencia_id) paseosTerminados.current.add(n.referencia_id);
+    const delFin = (n: Notification) =>
+      (n.tipo === "resena" || n.tipo === "pago") && n.referencia_id !== null && paseosTerminados.current.has(n.referencia_id);
+    const cobroDe = (idPaseo: string) => nuevas.find((n) => n.tipo === "pago" && n.referencia_id === idPaseo)?.mensaje ?? null;
+
+    const fin = nuevas.find(finDePaseo);
+    if (fin?.referencia_id) {
+      setResenaPorDejar({ idPaseo: fin.referencia_id, cobro: cobroDe(fin.referencia_id) });
+    } else {
+      // El cobro llegó después de abrir la ventana: se suma a ella.
+      const cobroTardio = nuevas.find((n) => n.tipo === "pago" && delFin(n));
+      if (cobroTardio) {
+        setResenaPorDejar((actual) =>
+          actual && actual.idPaseo === cobroTardio.referencia_id ? { ...actual, cobro: cobroTardio.mensaje } : actual,
+        );
+      }
+    }
+
+    /* Con uno solo, el aviso trae «Ver», que lleva a la pantalla del
+       aviso; con varios juntos —volver de estar sin conexión—, un
+       resumen en vez de una ráfaga. */
+    const resto = nuevas.filter((n) => !delFin(n));
+    if (resto.length === 1) {
+      /* Título corto —de qué se trata— y el mensaje entero debajo. Con
+         el mensaje como título, la pastilla del aviso es de una sola
+         línea y lo cortaba a media frase contra el borde. */
+      const [nueva] = resto;
+      aviso.dato(t(`shell.notifications.types.${nueva.tipo}`), {
+        detalle: nueva.mensaje,
+        id: nueva.id_notificacion,
+        accion: { label: t("shell.notifications.view"), onClick: () => abrirDesdeAviso.current(nueva) },
+      });
+    } else if (resto.length > 1) {
+      aviso.dato(t("shell.notifications.newMany", { n: resto.length }));
+    }
+  }, [t]);
+
+  /** Anuncia lo nuevo: avisa enseguida a las pantallas abiertas (para
+      que se refresquen) y deja el sonido y el aviso para el lote. */
+  const recibir = useCallback((nuevas: Notification[]) => {
+    if (!nuevas.length) return;
+    for (const n of nuevas) anunciarNotificacion(n);
+    lote.current.push(...nuevas);
+    window.clearTimeout(esperaLote.current);
+    esperaLote.current = window.setTimeout(anunciarLote, 350);
+  }, [anunciarLote]);
+
+  useEffect(() => () => window.clearTimeout(esperaLote.current), []);
+
+  /* Cargar es también ponerse al día: si la base trae avisos sin leer
+     que nunca pasaron por acá —se perdieron con la conexión cortada—,
+     se anuncian. Si falla, la lista que ya estaba se queda: vaciarla
+     hacía creer que no había nada. */
   const cargarNotificaciones = useCallback(async () => {
     try {
-      setNotificaciones(await listNotifications());
+      const lista = await listNotifications();
+      setNotificaciones(lista);
       setNotificacionesError(null);
+      const vistas = conocidas.current;
+      conocidas.current = new Set([...(vistas ?? []), ...lista.map((n) => n.id_notificacion)]);
+      if (vistas) recibir(lista.filter((n) => !n.leido && !vistas.has(n.id_notificacion)).reverse());
     } catch {
-      setNotificaciones([]);
-      setNotificacionesError("No se pudieron cargar las notificaciones.");
+      setNotificacionesError(t("shell.notifications.loadError"));
     }
-  }, []);
+  }, [t, recibir]);
 
+  /* Una vez al entrar. Antes se volvían a pedir en cada cambio de
+     pantalla, pero no hace falta: lo nuevo llega por el canal en tiempo
+     real, y lo que se pierda sin conexión se recupera más abajo. */
   useEffect(() => {
     void cargarNotificaciones();
-  }, [cargarNotificaciones, pathname]);
+  }, [cargarNotificaciones]);
+
+  const cargarRef = useRef(cargarNotificaciones);
+  const recibirRef = useRef(recibir);
+  useEffect(() => {
+    cargarRef.current = cargarNotificaciones;
+    recibirRef.current = recibir;
+  });
+
+  /* ── En tiempo real ──
+     Cada notificación nueva entra arriba de la lista —la campana cuenta
+     una más sin recargar—, suena, aparece como aviso y se anuncia a la
+     pantalla abierta para que se refresque sola (ver
+     `lib/tiempoReal.ts`). Es una sola suscripción para toda la app,
+     atada al usuario y no a la ruta: cambiar de pantalla no la corta.
+
+     Y se pone al día sola en los tres momentos en que pudo perderse
+     algo: cuando el canal se vuelve a conectar, cuando la pantalla
+     vuelve a verse (el teléfono estaba bloqueado o en otra app) y
+     cuando vuelve la conexión a internet. */
+  useEffect(() => {
+    if (!idUsuario) return;
+    const despertar = prepararSonido();
+    const dejarDeEscuchar = escucharNotificaciones(
+      idUsuario,
+      (nueva) => {
+        setNotificaciones((actuales) =>
+          actuales.some((n) => n.id_notificacion === nueva.id_notificacion)
+            ? actuales
+            : [nueva, ...actuales].slice(0, LIMITE_NOTIFICACIONES),
+        );
+        if (conocidas.current?.has(nueva.id_notificacion)) return;
+        conocidas.current?.add(nueva.id_notificacion);
+        recibirRef.current([nueva]);
+      },
+      () => void cargarRef.current(),
+    );
+    const alVolver = () => {
+      if (document.visibilityState === "visible") void cargarRef.current();
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    window.addEventListener("online", alVolver);
+    return () => {
+      dejarDeEscuchar();
+      document.removeEventListener("visibilitychange", alVolver);
+      window.removeEventListener("online", alVolver);
+      window.removeEventListener("pointerdown", despertar);
+      window.removeEventListener("keydown", despertar);
+    };
+  }, [idUsuario]);
+
+  /* ── Solicitudes esperando ──
+     El número junto a «Solicitudes» en el menú del paseador. Se cuenta
+     al cambiar de pantalla —responder una baja el número— y cuando
+     llega un aviso de paseo, que es como entra una solicitud nueva o
+     se va una que el dueño canceló. */
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState(0);
+  const contarSolicitudes = useCallback(async () => {
+    if (rol !== "paseador" || !idUsuario) {
+      setSolicitudesPendientes(0);
+      return;
+    }
+    try {
+      setSolicitudesPendientes(await contarSolicitudesPendientes(idUsuario));
+    } catch {
+      setSolicitudesPendientes(0);
+    }
+  }, [rol, idUsuario]);
+
+  useEffect(() => {
+    void contarSolicitudes();
+  }, [contarSolicitudes, pathname]);
+
+  useAlLlegarNotificacion(["paseo"], () => void contarSolicitudes());
+
+  /* ── Mensajes del chat ──
+     El número junto a «Mensajes» y el aviso cuando llega uno estando en
+     otra pantalla. Si ese chat está abierto en pantalla, no se avisa: ya
+     se está viendo. Se cuenta otra vez al entrar, salir o cambiar de
+     chat, que es lo único que los marca como leídos; en las demás
+     pantallas el número lo lleva el aviso en tiempo real. */
+  const [mensajesSinLeer, setMensajesSinLeer] = useState(0);
+  const contarMensajes = useCallback(async () => {
+    if (!idUsuario || (rol !== "dueno" && rol !== "paseador")) {
+      setMensajesSinLeer(0);
+      return;
+    }
+    try {
+      setMensajesSinLeer(await contarMensajesSinLeer());
+    } catch {
+      setMensajesSinLeer(0);
+    }
+  }, [rol, idUsuario]);
+
+  const chatAbierto = pathname.endsWith("/mensajes") ? `${pathname}?${String((search as Record<string, unknown>).chat ?? "")}` : "";
+  useEffect(() => {
+    void contarMensajes();
+  }, [contarMensajes, chatAbierto]);
+
+  const dondeEstoy = useRef({ pathname, search, rol });
+  useEffect(() => {
+    dondeEstoy.current = { pathname, search, rol };
+  });
+
+  useEffect(() => {
+    if (!idUsuario) return;
+    return escucharMensajesParaMi(idUsuario, (fila) => {
+      window.dispatchEvent(new CustomEvent("tuaniscan:mensaje", { detail: fila }));
+      const { pathname: ruta, search: busqueda, rol: rolActual } = dondeEstoy.current;
+      const chatAbierto = (busqueda as Record<string, unknown>).chat;
+      if (ruta.endsWith("/mensajes") && chatAbierto === fila.id_paseo) return;
+      setMensajesSinLeer((n) => n + 1);
+      sonarAviso();
+      const rolChat = rolActual === "paseador" ? "paseador" : "dueno";
+      aviso.dato(t("chat.newMessage"), {
+        id: `mensaje-${fila.id_mensaje}`,
+        detalle:
+          fila.tipo === "sticker"
+            ? t(`chat.stickers.${fila.contenido}`)
+            : fila.tipo === "foto"
+              ? t("chat.list.photo")
+              : fila.contenido.length > 90 ? `${fila.contenido.slice(0, 90)}…` : fila.contenido,
+        accion: { label: t("chat.view"), onClick: () => void navigate({ href: rutaChat(fila.id_paseo, rolChat) }) },
+      });
+    });
+  }, [idUsuario, navigate, t]);
+
+  const contadoresMenu = {
+    "/p/solicitudes": solicitudesPendientes,
+    "/mensajes": mensajesSinLeer,
+    "/p/mensajes": mensajesSinLeer,
+  };
 
   const pendientes = notificaciones.filter((n) => !n.leido).length;
 
+  /* Lo que no se leyó, también en la pestaña del navegador: «(2)
+     TuanisCan». Así se ve desde otra pestaña sin volver a la app. */
+  useEffect(() => {
+    const sinNumero = document.title.replace(/^\(\d+\+?\) /, "");
+    document.title = pendientes > 0 ? `(${pendientes > 9 ? "9+" : pendientes}) ${sinNumero}` : sinNumero;
+  }, [pendientes, pathname]);
+
+  /* «Eliminar todas» no se deshace: pide un segundo toque. Antes se
+     borraba todo con uno solo y era fácil quedarse sin avisos. */
+  const [confirmarBorrado, setConfirmarBorrado] = useState(false);
+
+  /* El panel cuelga de la campana pero nunca se sale de la pantalla.
+     Antes solo se cuidaba el borde derecho: en el teléfono la campana
+     de Pagos queda a media pantalla y el panel, de 358 px, se salía
+     por la izquierda con el título y el comienzo de cada aviso
+     cortados. Ahora el ancho se acota a la ventana y el borde derecho
+     se corre lo que haga falta para que el izquierdo quede adentro.
+     En el teléfono eso da un panel de lado a lado con 12 px de aire. */
   const medirPosicionPanel = useCallback(() => {
     const rect = notifBotonRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    if (!rect || (rect.width === 0 && rect.height === 0)) return;
+    const margen = 12;
+    const ancho = Math.min(420, window.innerWidth - margen * 2);
+    const derechaDelBoton = window.innerWidth - rect.right;
     setNotifPanelPos({
       top: rect.bottom + 8,
-      right: Math.max(16, window.innerWidth - rect.right),
+      right: Math.min(Math.max(margen, derechaDelBoton), window.innerWidth - margen - ancho),
+      ancho,
     });
   }, []);
 
-  const abrirNotificaciones = async () => {
+  const abrirNotificaciones = async (boton: HTMLButtonElement) => {
+    notifBotonRef.current = boton;
     const seAbre = !notificacionesAbiertas;
     if (seAbre) medirPosicionPanel();
     setNotificacionesAbiertas(seAbre);
     setNotificacionesError(null);
+    setConfirmarBorrado(false);
     if (seAbre) await cargarNotificaciones();
   };
 
   useEffect(() => {
     if (!notificacionesAbiertas) return;
+    const alTeclear = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") setNotificacionesAbiertas(false);
+    };
     window.addEventListener("resize", medirPosicionPanel);
-    return () => window.removeEventListener("resize", medirPosicionPanel);
+    window.addEventListener("keydown", alTeclear);
+    return () => {
+      window.removeEventListener("resize", medirPosicionPanel);
+      window.removeEventListener("keydown", alTeclear);
+    };
   }, [notificacionesAbiertas, medirPosicionPanel]);
 
   const leerNotificacion = async (id: string) => {
@@ -149,7 +478,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       await markNotificationRead(id);
       await cargarNotificaciones();
     } catch {
-      setNotificacionesError("No se pudo marcar como leida.");
+      setNotificacionesError(t("shell.notifications.markReadError"));
     } finally {
       setAccionNotificacion(null);
     }
@@ -160,8 +489,23 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       return rol === "paseador" ? "/p/solicitudes" : "/paseos";
     }
     if (notificacion.tipo === "mascota_perdida") return "/mascotas-perdidas";
-    if (notificacion.tipo === "verificacion") return "/perfil";
-    if (notificacion.tipo === "pago") return "/pagos";
+    /* Al admin, «nueva solicitud de verificación» lo lleva a revisarla;
+       a los demás, a la pestaña de verificación de su perfil. */
+    if (notificacion.tipo === "verificacion") {
+      return rol === "admin" ? `${RUTA_ADMIN}/verificaciones` : "/perfil#verificacion";
+    }
+    if (notificacion.tipo === "pago") {
+      /* Al paseador le llegan dos avisos de pago: «el dueño confirmó el
+         pago, ya puedes iniciar» —va a Paseo activo— y «se acreditaron
+         ₡X» al terminar —va a Ganancias—. Los dos los escribe la base
+         (`retener_pago_paseo` y `finalizar_mi_paseo`), por eso se
+         distinguen por cómo empieza el mensaje. */
+      if (rol === "paseador") {
+        return notificacion.mensaje.startsWith("Se acreditaron") ? "/p/ganancias" : "/p/paseo-activo";
+      }
+      // Al dueño lo lleva a confirmar ESE pago, con la ventana abierta.
+      return notificacion.referencia_id ? `/pagos?pagar=${notificacion.referencia_id}` : "/pagos";
+    }
     if (notificacion.tipo === "resena") return rol === "paseador" ? "/p/resenas" : "/resenas";
     return "/";
   };
@@ -169,8 +513,14 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
   const abrirDesdeNotificacion = async (notificacion: Notification) => {
     await leerNotificacion(notificacion.id_notificacion);
     setNotificacionesAbiertas(false);
-    await navigate({ to: rutaNotificacion(notificacion) });
+    // `href` y no `to`: la ruta puede traer `?pagar=…`.
+    await navigate({ href: rutaNotificacion(notificacion) });
   };
+
+  // El «Ver» de un aviso flotante hace lo mismo que tocarlo en el panel.
+  useEffect(() => {
+    abrirDesdeAviso.current = (n) => void abrirDesdeNotificacion(n);
+  });
 
   const leerTodas = async () => {
     setNotificacionesError(null);
@@ -179,7 +529,7 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       await markAllNotificationsRead();
       await cargarNotificaciones();
     } catch {
-      setNotificacionesError("No se pudieron marcar como leidas.");
+      setNotificacionesError(t("shell.notifications.markAllReadError"));
     } finally {
       setAccionNotificacion(null);
     }
@@ -192,20 +542,21 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
       await deleteNotification(id);
       await cargarNotificaciones();
     } catch {
-      setNotificacionesError("No se pudo eliminar la notificacion.");
+      setNotificacionesError(t("shell.notifications.deleteError"));
     } finally {
       setAccionNotificacion(null);
     }
   };
 
   const eliminarTodas = async () => {
+    setConfirmarBorrado(false);
     setNotificacionesError(null);
     setAccionNotificacion("todas");
     try {
       await deleteAllNotifications();
       await cargarNotificaciones();
     } catch {
-      setNotificacionesError("No se pudieron eliminar las notificaciones.");
+      setNotificacionesError(t("shell.notifications.deleteAllError"));
     } finally {
       setAccionNotificacion(null);
     }
@@ -224,16 +575,26 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
      `NotificationButtonContext`—. El estado y el panel no se mueven. */
   const botonNotificaciones = (
     <button
-      ref={notifBotonRef}
       type="button"
-      aria-label="Notificaciones"
+      aria-label={
+        pendientes > 0
+          ? t("shell.notifications.buttonUnread", { n: pendientes })
+          : t("shell.notifications.button")
+      }
       aria-expanded={notificacionesAbiertas}
-      onClick={() => void abrirNotificaciones()}
+      onClick={(evento) => void abrirNotificaciones(evento.currentTarget)}
       className="flota relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]"
     >
       <Bell size={18} strokeWidth={1.9} />
+      {/* Cuántas faltan por leer, no solo que hay alguna: con un punto
+          no se sabía si era una o veinte. */}
       {pendientes > 0 && (
-        <span aria-hidden className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent" />
+        <span
+          aria-hidden
+          className="nums absolute -top-0.5 -right-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] leading-none font-semibold text-white ring-2 ring-surface"
+        >
+          {pendientes > 9 ? "9+" : pendientes}
+        </span>
       )}
     </button>
   );
@@ -268,27 +629,51 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           de contexto solo aparece a partir de xl, así que esa esquina
           es la única que no tapa nada en ningún ancho.
 
+          En el teléfono, arriba y al centro: abajo a la derecha la
+          pastilla del título se corría a un lado, la X quedaba suelta
+          del otro y el aviso tapaba el buscador o el botón de la
+          pantalla, que en el teléfono viven abajo.
+
+          Uno a la vez (`visibleToasts={1}`): apilados se tapaban entre
+          sí y no se leía ninguno. Los que llegan mientras hay uno
+          esperan su turno.
+
           Solo posición y comportamiento. El aspecto y la animación
           son los que trae la librería: no se le pasa `preset`, ni
           separación, ni margen. */}
       {createPortal(
         <GooeyToaster
-          position="bottom-right"
-          closeButton
+          position={esTelefono ? "top-center" : "bottom-right"}
+          closeButton={!esTelefono}
           swipeToDismiss
           closeOnEscape
-          visibleToasts={4}
+          visibleToasts={1}
         />,
         document.body,
       )}
 
-      <RielSuave {...navegacion} />
-      <CajonSuave
-        {...navegacion}
-        abierto={menuAbierto}
-        cerrar={cerrarMenu}
-        onNavegar={cerrarMenu}
-      />
+      {resenaPorDejar && (
+        <ResenaAlTerminar
+          key={resenaPorDejar.idPaseo}
+          idPaseo={resenaPorDejar.idPaseo}
+          cobro={resenaPorDejar.cobro}
+          onCerrar={(seMostro) => {
+            // Si la ventana no llegó a abrirse, el cobro no se pierde: va como aviso.
+            if (!seMostro && resenaPorDejar.cobro) aviso.dato(t("shell.notifications.types.pago"), { detalle: resenaPorDejar.cobro });
+            setResenaPorDejar(null);
+          }}
+        />
+      )}
+
+      <ContadoresMenu.Provider value={contadoresMenu}>
+        <RielSuave {...navegacion} />
+        <CajonSuave
+          {...navegacion}
+          abierto={menuAbierto}
+          cerrar={cerrarMenu}
+          onNavegar={cerrarMenu}
+        />
+      </ContadoresMenu.Provider>
 
       {/* ── El lienzo ── */}
       <div className="lienzo flex min-w-0 flex-1 flex-col overflow-hidden rounded-[26px] bg-canvas">
@@ -304,41 +689,80 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           <button
             type="button"
             onClick={() => setMenuAbierto(true)}
-            aria-label="Abrir menú"
+            aria-label={t("shell.menu.open")}
             aria-expanded={menuAbierto}
             className="flota flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94] md:hidden"
           >
             <Menu size={19} />
           </button>
 
-          {!conEncabezadoPropio && (
-            <h1 className="titular min-w-0 flex-1 truncate text-[20px] text-ink">
-              {tituloDeRuta(rol, pathname)}
-            </h1>
-          )}
-          {conEncabezadoPropio && <div className="min-w-0 flex-1" />}
+          <h1
+            className={`titular min-w-0 flex-1 truncate text-[20px] text-ink transition-[opacity,transform] duration-200 ease-out ${
+              desplazado ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0"
+            } md:pointer-events-auto md:translate-y-0 ${conEncabezadoPropio ? "md:opacity-0" : "md:opacity-100"}`}
+          >
+            {(() => {
+              const clave = tituloDeRuta(rol, pathname);
+              return clave ? t(clave) : MARCA.completo;
+            })()}
+          </h1>
+
+          <QuickLanguageSwitcher className="flota flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-rail transition-transform duration-200 ease-out active:scale-[0.94]" />
 
           <div className="relative">
-            {/* En "Usuarios" este botón se pinta desde su propio
-                encabezado —vía `NotificationButtonContext`— y no acá,
-                para no tener dos disparadores del mismo panel a la vez. */}
-            {!conEncabezadoPropio && botonNotificaciones}
+            {/* En las páginas de encabezado propio la campana se pinta
+                dentro de ese encabezado —vía `NotificationButtonContext`—,
+                pero solo en la computadora. En el teléfono va siempre
+                acá, en la barra de arriba junto al menú y el idioma: es
+                donde se la busca, y abajo, al lado de "Gestionar
+                tarjetas", parecía un botón más de la página. */}
+            {conEncabezadoPropio ? <div className="md:hidden">{botonNotificaciones}</div> : botonNotificaciones}
 
             {notificacionesAbiertas && createPortal(
               <>
                 <button
                   type="button"
-                  aria-label="Cerrar notificaciones"
+                  aria-label={t("shell.notifications.closeAria")}
                   onClick={() => setNotificacionesAbiertas(false)}
                   className="fixed inset-0 z-[110] cursor-default"
                 />
                 <div
-                  className="flota pointer-events-auto fixed z-[120] w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[18px] bg-surface shadow-xl"
-                  style={{ top: notifPanelPos?.top ?? 76, right: notifPanelPos?.right ?? 16 }}
+                  role="dialog"
+                  aria-label={t("shell.notifications.title")}
+                  className="flota pointer-events-auto fixed z-[120] flex flex-col overflow-hidden rounded-[18px] bg-surface shadow-xl"
+                  style={{
+                    top: notifPanelPos?.top ?? 76,
+                    right: notifPanelPos?.right ?? 12,
+                    width: notifPanelPos?.ancho ?? "min(420px, calc(100vw - 24px))",
+                    // Que el panel termine dentro de la pantalla y la
+                    // lista ruede por dentro, no la página.
+                    maxHeight: `calc(100dvh - ${(notifPanelPos?.top ?? 76) + 12}px)`,
+                  }}
                 >
-                <div className="flex items-center justify-between gap-3 border-b border-sunken px-4 py-3">
-                  <h2 className="rotulo text-ink-mute">Notificaciones</h2>
-                  {notificaciones.length > 0 && (
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-sunken px-4 py-3">
+                  <h2 className="rotulo text-ink-mute">{t("shell.notifications.title")}</h2>
+                  {notificaciones.length > 0 && (confirmarBorrado ? (
+                    /* El segundo toque, en el mismo sitio: la pregunta
+                       reemplaza a los botones y nada salta de lugar. */
+                    <div className="flex items-center gap-3" role="group" aria-label={t("shell.notifications.deleteAllConfirm")}>
+                      <span className="text-[12px] font-semibold text-ink">{t("shell.notifications.deleteAllConfirm")}</span>
+                      <button
+                        type="button"
+                        onClick={() => void eliminarTodas()}
+                        disabled={accionNotificacion !== null}
+                        className="text-[12px] font-semibold text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {t("shell.notifications.deleteAllYes")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmarBorrado(false)}
+                        className="text-[12px] font-semibold text-ink-soft hover:underline"
+                      >
+                        {t("shell.notifications.deleteAllNo")}
+                      </button>
+                    </div>
+                  ) : (
                     <div className="flex items-center gap-3">
                       {pendientes > 0 && (
                         <button
@@ -347,63 +771,81 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                           disabled={accionNotificacion !== null}
                           className="text-[12px] font-semibold text-accent-dark hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          Marcar leidas
+                          {t("shell.notifications.markAllRead")}
                         </button>
                       )}
                       <button
                         type="button"
-                        onClick={() => void eliminarTodas()}
+                        onClick={() => setConfirmarBorrado(true)}
                         disabled={accionNotificacion !== null}
                         className="text-[12px] font-semibold text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Eliminar todas
+                        {t("shell.notifications.deleteAll")}
                       </button>
                     </div>
-                  )}
+                  ))}
                 </div>
-                <div className="max-h-[420px] overflow-y-auto p-2">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 sm:max-h-[420px]">
                   {notificacionesError && (
                     <p className="mb-2 rounded-[12px] bg-danger-wash px-3 py-2 text-[12px] text-danger">
                       {notificacionesError}
                     </p>
                   )}
                   {notificaciones.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-[13px] text-ink-soft">
-                      No tienes notificaciones.
-                    </p>
+                    <div className="flex flex-col items-center px-4 py-8 text-center">
+                      <span className="grid h-11 w-11 place-items-center rounded-full bg-sunken text-ink-mute">
+                        <Bell size={18} />
+                      </span>
+                      <p className="mt-3 text-[13px] font-semibold text-ink">{t("shell.notifications.empty")}</p>
+                      <p className="mt-1 max-w-[260px] text-[12px] text-ink-soft">{t("shell.notifications.emptyHint")}</p>
+                    </div>
                   ) : (
-                    notificaciones.map((n) => (
+                    notificaciones.map((n) => {
+                      const IconoTipo = ICONO_NOTIFICACION[n.tipo] ?? Bell;
+                      return (
+                      /* El mensaje se queda con todo el ancho y debajo va
+                         un solo renglón: cuándo, a la izquierda, y los
+                         dos botones a la derecha. El círculo de la
+                         izquierda dice de qué se trata —un paseo, un
+                         pago, una reseña— y, en turquesa, que no se leyó. */
                       <div
                         key={n.id_notificacion}
-                        className={`flex items-start gap-2 rounded-[14px] px-3 py-3 hover:bg-sunken ${
+                        className={`flex items-start gap-3 rounded-[14px] px-3 pt-3 pb-1.5 hover:bg-sunken ${
                           n.leido ? "text-ink-soft" : "text-ink"
                         }`}
                       >
-                        {!n.leido && (
-                          <span
-                            aria-hidden
-                            className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-accent"
-                          />
-                        )}
+                        <span
+                          aria-hidden
+                          className={`mt-0.5 grid h-8 w-8 flex-shrink-0 place-items-center rounded-full ${
+                            n.leido ? "bg-sunken text-ink-mute" : "bg-accent-wash text-accent-dark"
+                          }`}
+                        >
+                          <IconoTipo size={15} />
+                        </span>
+                        <div className="min-w-0 flex-1">
                         <button
                           type="button"
                           onClick={() => void abrirDesdeNotificacion(n)}
                           disabled={accionNotificacion !== null}
-                          className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
+                          className="block w-full text-left disabled:cursor-not-allowed"
                         >
                           <span className={`block text-[12.5px] leading-snug ${n.leido ? "" : "font-medium"}`}>
                             {n.mensaje}
                           </span>
-                          <span className="nums mt-1 block text-[11px] font-normal text-ink-mute">
-                            {new Intl.DateTimeFormat("es-CR", {
+                        </button>
+                        <div className="relative z-10 mt-0.5 flex items-center gap-1">
+                          <time
+                            dateTime={n.fecha}
+                            title={new Intl.DateTimeFormat(localeTag, {
                               day: "numeric",
                               month: "short",
                               hour: "2-digit",
                               minute: "2-digit",
                             }).format(new Date(n.fecha))}
-                          </span>
-                        </button>
-                        <div className="relative z-10 flex flex-shrink-0 flex-col gap-1">
+                            className="nums mr-auto text-[11px] font-normal text-ink-mute"
+                          >
+                            {haceCuanto(n.fecha, localeTag)}
+                          </time>
                           {!n.leido && (
                             <button
                               type="button"
@@ -411,13 +853,13 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                                 e.stopPropagation();
                                 void leerNotificacion(n.id_notificacion);
                               }}
-                              aria-label="Marcar como leída"
-                              title="Marcar como leída"
+                              aria-label={t("shell.notifications.markRead")}
+                              title={t("shell.notifications.markRead")}
                               disabled={accionNotificacion !== null}
                               className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-ok-wash hover:text-ok disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Check size={14} />
-                              Leida
+                              {t("shell.notifications.read")}
                             </button>
                           )}
                           <button
@@ -426,17 +868,19 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
                               e.stopPropagation();
                               void eliminarNotificacion(n.id_notificacion);
                             }}
-                            aria-label="Eliminar notificación"
-                            title="Eliminar notificación"
+                            aria-label={t("shell.notifications.delete")}
+                            title={t("shell.notifications.delete")}
                             disabled={accionNotificacion !== null}
                             className="flex h-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold text-ink-soft hover:bg-danger-wash hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2 size={14} />
-                            Eliminar
+                            {t("common.delete")}
                           </button>
                         </div>
+                        </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
                 </div>
@@ -446,42 +890,87 @@ const AppShell = ({ rol, onLogout, children }: AppShellProps) => {
           </div>
         </header>
 
-        {rol !== "admin" && profile?.verificacion.estado !== "aprobado" && (
-          <div
-            className="mx-3 flex flex-wrap items-center gap-2 rounded-[18px] bg-warn-wash px-5 py-3 text-[12.5px] text-warn lg:mx-4"
-            role="status"
-          >
-            <ShieldAlert size={16} aria-hidden className="shrink-0" />
-            <span className="min-w-[16rem] flex-1">
-              {profile?.verificacion.estado === "pendiente"
-                ? "Tu verificación está en revisión. Puedes consultar información, pero las operaciones siguen bloqueadas."
-                : profile?.verificacion.estado === "rechazado"
-                  ? `Debes corregir tu verificación: ${profile.verificacion.observacion ?? "revisa los documentos enviados."}`
-                  : "Verifica tu perfil para registrar mascotas, solicitar paseos y usar las funciones de la plataforma."}
-            </span>
-            {/* El fragmento no es decorativo: el perfil abre por
-                pestañas y sin él este enlace deja al usuario en "Mis
-                datos", que es justo lo que no vino a ver. */}
-            <Link
-              to="/perfil"
-              hash="verificacion"
-              className="font-semibold underline underline-offset-2"
-            >
-              Ir a verificación
-            </Link>
-          </div>
-        )}
+        {/* ── El aviso de verificación ──
 
-        <div className="flex min-h-0 flex-1 overflow-y-auto">
-          <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-4">
+            Antes la condición era `profile?.verificacion.estado !==
+            "aprobado"`. Mientras el perfil carga, `profile` es `null`,
+            la cadena da `undefined`, y `undefined !== "aprobado"` es
+            verdadero: la app trataba como NO verificado a todo el que
+            todavía no había terminado de cargar. A quien sí estaba
+            verificado le aparecía el aviso amarillo un instante y se
+            iba, empujando la pantalla dos veces.
+
+            Ahora el aviso solo se decide con el perfil YA en la mano.
+            Mientras carga —o si la consulta falla— no se acusa a nadie.
+
+            Y cuando sí corresponde, se abre: la fila pasa de 0fr a 1fr
+            en vez de aparecer de golpe y bajar todo el contenido de un
+            salto. Es la única forma de animar a una altura que no se
+            conoce de antemano sin medirla. */}
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
+          style={{ gridTemplateRows: avisoVerificacion ? "1fr" : "0fr" }}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {avisoVerificacion && profile && (
+              <div
+                className="mx-3 flex flex-wrap items-center gap-2 rounded-[18px] bg-warn-wash px-5 py-3 text-[12.5px] text-warn lg:mx-4"
+                role="status"
+              >
+                <ShieldAlert size={16} aria-hidden className="shrink-0" />
+                <span className="min-w-[16rem] flex-1">
+                  {profile?.verificacion.estado === "pendiente"
+                    ? t("shell.verificationBanner.pending")
+                    : profile?.verificacion.estado === "rechazado"
+                      ? t("shell.verificationBanner.rejected", {
+                          detail:
+                            profile.verificacion.observacion ??
+                            t("shell.verificationBanner.rejectedFallback"),
+                        })
+                      : t("shell.verificationBanner.none")}
+                </span>
+                {/* El fragmento no es decorativo: el perfil abre por
+                    pestañas y sin él este enlace deja al usuario en "Mis
+                    datos", que es justo lo que no vino a ver. */}
+                <Link
+                  to="/perfil"
+                  hash="verificacion"
+                  className="font-semibold underline underline-offset-2"
+                >
+                  {t("shell.verificationBanner.link")}
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div ref={contenido} onScroll={alDesplazar} className="flex min-h-0 flex-1 overflow-y-auto">
+          <main className="min-w-0 flex-1 px-3 pt-2 pb-4 lg:px-6">
             {/* La clave remonta el contenido en cada ruta: así la entrada
-                se reproduce al navegar, no solo al cargar la página. */}
+                se reproduce al navegar, no solo al cargar la página.
+
+                Ancho completo para todas: con el carril angosto de 900 px
+                la pantalla quedaba vacía a los lados en la computadora.
+                El margen lo dan el lienzo y el relleno de `main`, así el
+                contenido llena el ancho sin pegarse a los bordes.
+
+                Es la ruta que se está MOSTRANDO, no la de la barra de
+                direcciones. Con `pathname` la clave cambiaba un instante
+                antes que la pantalla —el router actualiza la dirección y
+                después la página—, así que la pantalla que se dejaba se
+                volvía a montar dentro del contenedor nuevo y pedía todos
+                sus datos otra vez justo al irse: cada navegación cargaba
+                dos pantallas. */}
             <div
-              key={pathname}
-              className={`anim-rise mx-auto w-full ${contenidoAncho ? "max-w-[1600px]" : "max-w-[900px]"}`}
+              key={rutaMostrada}
+              className="anim-rise mx-auto w-full max-w-[1600px]"
             >
               <PageWidthContext.Provider value={setContenidoAncho}>
-                <NotificationButtonContext.Provider value={conEncabezadoPropio ? botonNotificaciones : null}>
+                {/* La copia del encabezado de la página: solo desde `md`.
+                    En el teléfono manda la de la barra de arriba. */}
+                <NotificationButtonContext.Provider
+                  value={conEncabezadoPropio ? <span className="hidden md:contents">{botonNotificaciones}</span> : null}
+                >
                   {children}
                 </NotificationButtonContext.Provider>
               </PageWidthContext.Provider>

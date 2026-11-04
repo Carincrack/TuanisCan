@@ -1,9 +1,15 @@
 import { supabase } from "../lib/supabase";
 import type { Zona } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
-import type { LostPetInput, LostPetReport, MatchStatus, PetMatch, Sighting, SightingInput } from "../types/lost-pet.types";
+import type { LostPetInput, LostPetReport, MatchStatus, PetMatch, PublicLostPet, Sighting, SightingInput } from "../types/lost-pet.types";
 
 const PHOTO_BUCKET = "mascotas-perdidas";
+const PHOTO_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 type LostPetRow = Omit<LostPetReport, "fotoUrl" | "latitud" | "longitud" | "recompensa" | "zona" | "avistamientos"> & {
   latitud: string | number;
@@ -104,6 +110,48 @@ export const listLostPetReports = async (filters: {
   }));
 };
 
+/** La vitrina de /perdidas: no pide sesión (el RPC es `security
+    definer` y está concedido a `anon`), y solo trae mascotas con
+    estado "perdida". Nada de contacto ni de quién reportó. */
+export const listPublicLostPets = async (): Promise<PublicLostPet[]> => {
+  const { data, error } = await supabase.rpc("listar_mascotas_perdidas_publicas");
+  if (error) throw error;
+  const rows = (data ?? []) as Array<{
+    id_mascota_perdida: string;
+    id_mascota: string | null;
+    nombre: string;
+    especie: string;
+    raza: string | null;
+    foto: string | null;
+    fecha_reporte: string;
+    zona_id: string | null;
+    zona_nombre: string | null;
+    zona_canton: string | null;
+    zona_provincia: string | null;
+    zona_distrito: string | null;
+  }>;
+  return Promise.all(
+    rows.map(async (row) => ({
+      id_mascota_perdida: row.id_mascota_perdida,
+      id_mascota: row.id_mascota,
+      nombre: row.nombre,
+      especie: row.especie,
+      raza: row.raza,
+      fecha_reporte: row.fecha_reporte,
+      fotoUrl: await photoUrl(row.foto),
+      zona: row.zona_id
+        ? {
+            id_zona: row.zona_id,
+            nombre: row.zona_nombre ?? "",
+            canton: row.zona_canton ?? "",
+            provincia: row.zona_provincia ?? "",
+            distrito: row.zona_distrito ?? "",
+          }
+        : null,
+    })),
+  );
+};
+
 export const listSightings = async (reportIds: string[]): Promise<Sighting[]> => {
   const { data, error } = await supabase
     .from("avistamientos")
@@ -120,7 +168,10 @@ export const listSightings = async (reportIds: string[]): Promise<Sighting[]> =>
 };
 
 export const uploadLostPetPhoto = async (userId: string, file: File) => {
-  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const extension = PHOTO_EXTENSIONS[file.type];
+  if (!extension || file.size > MAX_PHOTO_BYTES) {
+    throw new Error("La imagen debe ser JPG, PNG o WebP y pesar menos de 5 MB.");
+  }
   const path = `${userId}/${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage
     .from(PHOTO_BUCKET)
@@ -144,19 +195,18 @@ export const reportLostPet = async (userId: string, values: LostPetInput, photo:
   }
 
   const foto = await uploadLostPetPhoto(userId, photo);
-  const { error } = await supabase.from("mascotas_perdidas").insert({
-    id_mascota: values.id_mascota || null,
-    id_usuario_reporta: userId,
-    zona_id: values.zona_id,
-    especie: values.especie,
-    nombre: values.nombre?.trim() || "Mascota encontrada",
-    raza: values.raza || "Desconocida",
-    contacto: values.contacto,
-    descripcion: values.descripcion,
-    foto,
-    latitud: values.latitud,
-    longitud: values.longitud,
-    recompensa: values.recompensa,
+  const { error } = await supabase.rpc("reportar_mascota_perdida", {
+    p_id_mascota: values.id_mascota || null,
+    p_especie: values.especie,
+    p_nombre: values.nombre?.trim() || "Mascota encontrada",
+    p_raza: values.raza || "Desconocida",
+    p_zona_id: values.zona_id,
+    p_descripcion: values.descripcion,
+    p_foto: foto,
+    p_latitud: values.latitud,
+    p_longitud: values.longitud,
+    p_contacto: values.contacto,
+    p_recompensa: values.recompensa,
   });
   if (error) {
     await supabase.storage.from(PHOTO_BUCKET).remove([foto]);

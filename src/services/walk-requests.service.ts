@@ -90,3 +90,15 @@ export const respondWalkRequest = async (
   });
   if (error) throw error;
 };
+
+/** Cuántas solicitudes esperan respuesta del paseador. Pide solo el
+    número (`head: true`), no las filas: es lo que muestra el menú. */
+export const contarSolicitudesPendientes = async (idPaseador: string) => {
+  const { count, error } = await supabase
+    .from("paseos")
+    .select("id_paseo", { count: "exact", head: true })
+    .eq("id_paseador", idPaseador)
+    .eq("estado", "solicitado");
+  if (error) throw error;
+  return count ?? 0;
+};

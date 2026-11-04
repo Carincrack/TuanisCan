@@ -76,6 +76,9 @@ const PaseadoresPage = perezoso(() => import("./src/page/PaseadoresPage"), "pase
 const CarnetDigital = perezoso(() => import("./src/components/carnet"), "carnet-tarjeta");
 const Paseos = perezoso(() => import("./src/components/paseos"), "paseos-lista");
 const PaseoEnVivo = perezoso(() => import("./src/components/paseoEnVivo"));
+const chat = () => import("./src/components/chat/Mensajes");
+const MensajesDueno = perezoso(nombrada(chat, "MensajesDueno"));
+const MensajesPaseador = perezoso(nombrada(chat, "MensajesPaseador"));
 const MascotasPerdidas = perezoso(() => import("./src/components/mascotasPerdidas"), "perdidas-rejilla");
 const Directorio = perezoso(() => import("./src/components/directorio"), "directorio-rejilla");
 const Pagos = perezoso(() => import("./src/components/pagos"));
@@ -126,6 +129,7 @@ const paseadoresRoute = ruta("/paseadores", PaseadoresPage);
    nada. */
 const paseosRoute = ruta("/paseos", Paseos);
 const paseoEnVivoRoute = ruta("/paseo-en-vivo", PaseoEnVivo);
+const mensajesRoute = ruta("/mensajes", MensajesDueno);
 const mascotasPerdidasRoute = ruta("/mascotas-perdidas", MascotasPerdidas);
 const directorioRoute = ruta("/directorio", Directorio);
 const pagosRoute = ruta("/pagos", Pagos);
@@ -150,6 +154,7 @@ const panelPaseadorRoute = ruta("/p/panel", PanelPaseador);
 const solicitudesRoute = ruta("/p/solicitudes", SolicitudesPaseador);
 const agendaRoute = ruta("/p/agenda", AgendaPaseador);
 const paseoActivoRoute = ruta("/p/paseo-activo", PaseoActivoPaseador);
+const mensajesPaseadorRoute = ruta("/p/mensajes", MensajesPaseador);
 const gananciasRoute = ruta("/p/ganancias", GananciasPaseador);
 const tarifasRoute = ruta("/p/tarifas", TarifasPaseador);
 const perfilPaseadorRoute = ruta("/p/perfil", PerfilPaseador);
@@ -181,6 +186,7 @@ rootRoute.addChildren([
   solicitudesRoute,
   agendaRoute,
   paseoActivoRoute,
+  mensajesPaseadorRoute,
   gananciasRoute,
   tarifasRoute,
   perfilPaseadorRoute,
@@ -195,6 +201,7 @@ rootRoute.addChildren([
   paseadoresRoute,
   paseosRoute,
   paseoEnVivoRoute,
+  mensajesRoute,
   mascotasPerdidasRoute,
   directorioRoute,
   pagosRoute,

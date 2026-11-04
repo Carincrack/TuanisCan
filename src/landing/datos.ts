@@ -13,8 +13,8 @@ label: string;
 }
 
 export const ENLACES: Enlace[] = [
-{ href: "#servicios", label: "Servicios" },
-{ href: "#pasos", label: "Cómo funciona" },
+{ href: "#servicios", label: "landing.nav.services" },
+{ href: "#pasos", label: "landing.nav.howItWorks" },
 ];
 
 /* ── Los tres públicos ─────────────────────────────────────────
@@ -30,18 +30,20 @@ export interface Publico {
 clave: ClavePublico;
 Icon: Icono;
 
-/** Rótulo del conmutador. */
+/** Rótulo del conmutador. Clave de traducción, se resuelve con `t()`. */
 label: string;
 
-/** Texto principal que acompaña al hero. */
+/** Texto principal que acompaña al hero. Clave de traducción. */
 entrada: string;
 
+/** Clave de traducción. */
 cta: string;
 
 /** Si existe, el CTA lleva a una página específica. */
 ruta?: string;
 
 foto: string;
+/** Clave de traducción. */
 fotoAlt: string;
 }
 
@@ -49,35 +51,32 @@ export const PUBLICOS: Publico[] = [
 {
 clave: "dueno",
 Icon: PawPrint,
-label: "Tengo mascota",
-entrada:
-"Todo lo que tu mascota necesita, más cerca de vos: encontrá paseadores, veterinarias y lugares de confianza, y mantené siempre a tu compañero conectado con su comunidad.",
-cta: "Buscar paseador",
+label: "landing.publicos.dueno.label",
+entrada: "landing.publicos.dueno.entrada",
+cta: "landing.publicos.dueno.cta",
 foto: "/img/hero-dueno.webp",
-fotoAlt: "Border collie atento, listo para salir a pasear",
+fotoAlt: "landing.publicos.dueno.fotoAlt",
 },
 
 {
 clave: "paseador",
 Icon: Footprints,
-label: "Quiero pasear",
-entrada:
-"Convertí tu amor por los animales en una oportunidad. Creá tu perfil, elegí dónde querés pasear y conectá con personas de tu zona que necesitan alguien de confianza para cuidar a su mascota.",
-cta: "Ofrecer mis paseos",
+label: "landing.publicos.paseador.label",
+entrada: "landing.publicos.paseador.entrada",
+cta: "landing.publicos.paseador.cta",
 foto: "/img/hero-paseador.webp",
-fotoAlt: "Husky de ojos azules sentado, esperando a que lo saquen",
+fotoAlt: "landing.publicos.paseador.fotoAlt",
 },
 
 {
 clave: "perdidas",
 Icon: Siren,
-label: "Mascotas perdidas",
-entrada:
-"Mirá las mascotas que se perdieron cerca de vos. Si viste alguna, avisale a su dueño desde su ficha y ayudá a que vuelva a casa.",
-cta: "Ver mascotas perdidas",
+label: "landing.publicos.perdidas.label",
+entrada: "landing.publicos.perdidas.entrada",
+cta: "landing.publicos.perdidas.cta",
 ruta: "/perdidas",
 foto: "/img/hero-perdidas.webp",
-fotoAlt: "Gato atigrado gris mirando de frente a cámara",
+fotoAlt: "landing.publicos.perdidas.fotoAlt",
 },
 ];
 
@@ -102,34 +101,31 @@ export const MODULOS: Modulo[] = [
 {
 foto: {
 src: "/img/golden.webp",
-alt: "Golden retriever adulto sentado, con la boca abierta, mirando a cámara",
+alt: "landing.modulos.paseos.fotoAlt",
 },
-etiqueta: "Paseos",
-titulo: "Un paseo se disfruta más cuando hay confianza",
-texto:
-"Encontrá paseadores verificados cerca de vos, conocé su perfil, calificaciones y zona de trabajo antes de reservar. Coordiná el paseo, seguí el recorrido y pagá de forma sencilla, todo desde un mismo lugar.",
+etiqueta: "landing.modulos.paseos.etiqueta",
+titulo: "landing.modulos.paseos.titulo",
+texto: "landing.modulos.paseos.texto",
 },
 
 {
 foto: {
 src: "/img/gato-angora.webp",
-alt: "Gato angora blanco y negro sentado, mirando a cámara",
+alt: "landing.modulos.directorio.fotoAlt",
 },
-etiqueta: "Directorio",
-titulo: "Todo lo que tu mascota necesita, más cerca",
-texto:
-"Encontrá veterinarias, tiendas y otros servicios para mascotas en tu zona. Consultá horarios, teléfonos y reseñas para saber adónde ir cuando necesitás una mano con tu compañero.",
+etiqueta: "landing.modulos.directorio.etiqueta",
+titulo: "landing.modulos.directorio.titulo",
+texto: "landing.modulos.directorio.texto",
 },
 
 {
 foto: {
 src: "/img/chihuahua.webp",
-alt: "Chihuahua color crema sentado, con la lengua afuera, mirando a cámara",
+alt: "landing.modulos.alertas.fotoAlt",
 },
-etiqueta: "Alertas",
-titulo: "Cuando una mascota se pierde, todos podemos ayudar",
-texto:
-"Publicá una alerta y hacé que llegue a personas de la zona. Si alguien reconoce a tu mascota o la ve por ahí, puede avisarte directamente para que entre todos podamos ayudarla a volver a casa.",
+etiqueta: "landing.modulos.alertas.etiqueta",
+titulo: "landing.modulos.alertas.titulo",
+texto: "landing.modulos.alertas.texto",
 },
 ];
 
@@ -146,21 +142,18 @@ texto: string;
 
 export const PASOS: Paso[] = [
 {
-titulo: "Registrá a tu mascota",
-texto:
-"Creá su perfil con su nombre, raza, foto y la información que querás tener siempre a mano. Así, cuando necesités un paseo o ayuda, todo está listo.",
+titulo: "landing.pasos.registrar.titulo",
+texto: "landing.pasos.registrar.texto",
 },
 
 {
-titulo: "Encontrá a alguien de confianza",
-texto:
-"Buscá paseadores por zona, disponibilidad y calificación. Revisá su perfil y conocé el precio antes de solicitar el paseo.",
+titulo: "landing.pasos.encontrar.titulo",
+texto: "landing.pasos.encontrar.texto",
 },
 
 {
-titulo: "Disfrutá el paseo con tranquilidad",
-texto:
-"Seguí el recorrido, mantené todo registrado y realizá el pago al terminar. Después, dejá tu reseña para ayudar a otros dueños de la comunidad.",
+titulo: "landing.pasos.disfrutar.titulo",
+texto: "landing.pasos.disfrutar.texto",
 },
 ];
 

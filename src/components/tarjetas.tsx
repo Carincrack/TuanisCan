@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Skeleton } from "boneyard-js/react";
 import { AlertTriangle, ArrowLeft, CreditCard, Loader, Plus, ShieldCheck, Trash2 } from "../lib/iconos";
 import { aviso, motivo } from "../lib/aviso";
+import { useTranslation } from "../hooks/useTranslation";
 import {
   CARD_NUMBER_LENGTH,
   cardBrand,
@@ -19,6 +20,8 @@ import {
   type PaymentMethod,
 } from "../services/payments.service";
 import {
+  BotonCerrarVentana,
+  Badge,
   Confirmar,
   Dialog,
   EmptyState,
@@ -27,6 +30,7 @@ import {
   PageHeader,
   Section,
   btnPrimary,
+  btnQuiet,
   btnSecondary,
   fieldLabel,
   input,
@@ -79,7 +83,23 @@ const soloDigitos = (event: React.KeyboardEvent<HTMLInputElement>) => {
 
 type CampoTarjeta = "titular" | "numero" | "vencimiento" | "cvv";
 
+/** En qué punto de su vida está la tarjeta. Vence el ÚLTIMO día del
+    mes impreso —una 12/28 sirve todo diciembre—, y se avisa desde dos
+    meses antes, que es lo que tarda un banco en mandar el reemplazo. */
+const estadoVencimiento = (metodo: PaymentMethod): "vigente" | "pronto" | "vencida" => {
+  const fin = new Date(metodo.exp_ano, metodo.exp_mes, 0, 23, 59, 59);
+  const hoy = new Date();
+  if (fin < hoy) return "vencida";
+  const enDosMeses = new Date(hoy.getFullYear(), hoy.getMonth() + 2, hoy.getDate());
+  return fin <= enDosMeses ? "pronto" : "vigente";
+};
+
 const Tarjetas = () => {
+  const { t, localeTag } = useTranslation();
+  const mesVence = (metodo: PaymentMethod) =>
+    new Intl.DateTimeFormat(localeTag, { month: "long", year: "numeric" })
+      .format(new Date(metodo.exp_ano, metodo.exp_mes - 1, 1))
+      .replace(" de ", " ");
   const [metodos, setMetodos] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,11 +118,11 @@ const Tarjetas = () => {
       setMetodos(await listPaymentMethods());
     } catch (cause) {
       setError(motivo(cause));
-      aviso.error(cause, { respaldo: "No se pudieron cargar tus tarjetas." });
+      aviso.error(cause, { respaldo: t("tarjetas.errors.loadFailed") });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -121,22 +141,22 @@ const Tarjetas = () => {
     return {
       titular:
         form.titular.trim().length < 3
-          ? "Escribí el nombre como aparece en la tarjeta, solo letras."
+          ? t("tarjetas.errors.holderTooShort")
           : "",
       numero:
         digitos.length !== CARD_NUMBER_LENGTH
-          ? `Faltan ${CARD_NUMBER_LENGTH - digitos.length} dígitos.`
+          ? t("tarjetas.errors.missingDigits", { count: CARD_NUMBER_LENGTH - digitos.length })
           : !marca
-            ? "Solo aceptamos Visa y Mastercard."
+            ? t("tarjetas.errors.unsupportedBrand")
             : !isValidCardNumber(form.numero)
-              ? "Ese número no existe. Revisá los dígitos."
+              ? t("tarjetas.errors.invalidNumber")
               : "",
       vencimiento: !parseExpiry(form.vencimiento)
-        ? "Fecha inválida o ya vencida. Usá MM/AA."
+        ? t("tarjetas.errors.invalidExpiry")
         : "",
-      cvv: !/^\d{3,4}$/.test(form.cvv) ? "Son los tres dígitos del reverso." : "",
+      cvv: !/^\d{3,4}$/.test(form.cvv) ? t("tarjetas.errors.invalidCvv") : "",
     } satisfies Record<CampoTarjeta, string>;
-  }, [form]);
+  }, [form, t]);
 
   const formValido = !Object.values(errores).some(Boolean);
 
@@ -165,9 +185,9 @@ const Tarjetas = () => {
     setDialogError("");
     try {
       await aviso.proceso(registerPaymentMethod(form), {
-        esperando: "Registrando la tarjeta…",
-        bien: "Tarjeta registrada",
-        mal: "No se pudo registrar la tarjeta.",
+        esperando: t("tarjetas.form.saving"),
+        bien: t("tarjetas.form.saved"),
+        mal: t("tarjetas.form.saveFailed"),
       });
       setForm({ titular: "", numero: "", vencimiento: "", cvv: "" });
       cerrarFormulario();
@@ -191,14 +211,14 @@ const Tarjetas = () => {
     setEliminando(true);
     try {
       await aviso.proceso(deletePaymentMethod(porEliminar.id_metodo_pago), {
-        esperando: "Eliminando la tarjeta…",
-        bien: "Tarjeta eliminada",
-        mal: "No se pudo eliminar la tarjeta.",
+        esperando: t("tarjetas.delete.deleting"),
+        bien: t("tarjetas.delete.deleted"),
+        mal: t("tarjetas.delete.deleteFailed"),
       });
       setPorEliminar(null);
       await load();
     } catch (cause) {
-      aviso.error(cause, { respaldo: "No se pudo eliminar la tarjeta." });
+      aviso.error(cause, { respaldo: t("tarjetas.delete.deleteFailed") });
     } finally {
       setEliminando(false);
     }
@@ -213,17 +233,17 @@ const Tarjetas = () => {
   return (
     <Page wide>
       <PageHeader
-        title="Métodos de pago"
-        subtitle="Registrá y administrá las tarjetas con las que abonás los paseos."
+        title={t("tarjetas.title")}
+        subtitle={t("tarjetas.subtitle")}
         action={
           <div className="flex items-center gap-2.5">
             <Link to="/pagos" className={btnSecondary}>
               <ArrowLeft size={15} strokeWidth={2} />
-              Volver a pagos
+              {t("tarjetas.backToPayments")}
             </Link>
             <button type="button" className={btnPrimary} onClick={abrirFormulario}>
               <Plus size={15} strokeWidth={2} />
-              Agregar tarjeta
+              {t("tarjetas.addCard")}
             </button>
             {botonNotificaciones}
           </div>
@@ -241,11 +261,11 @@ const Tarjetas = () => {
       )}
 
       <Section
-        title="Tarjetas guardadas"
+        title={t("tarjetas.savedCards")}
         aside={
           metodos.length > 0 && (
             <span className="text-[12px] text-ink-soft">
-              {metodos.length} {metodos.length === 1 ? "tarjeta activa" : "tarjetas activas"}
+              {metodos.length} {metodos.length === 1 ? t("tarjetas.countSingular") : t("tarjetas.countPlural")}
             </span>
           )
         }
@@ -255,40 +275,87 @@ const Tarjetas = () => {
             <div />
           </Skeleton>
         ) : metodos.length ? (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {metodos.map((method) => (
-              <div key={method.id_metodo_pago} className="relative mx-auto w-full max-w-[360px]">
-                <TarjetaVisual
-                  marca={method.marca}
-                  numero={`•••• •••• •••• ${method.ultimos4}`}
-                  titular={method.titular}
-                  vencimiento={`${String(method.exp_mes).padStart(2, "0")}/${String(method.exp_ano).slice(-2)}`}
-                  esPrincipal={method.es_principal}
-                />
-                <button
-                  type="button"
-                  onClick={() => setPorEliminar(method)}
-                  disabled={metodos.length <= 1}
-                  title={
-                    metodos.length <= 1
-                      ? "Debés conservar al menos una tarjeta"
-                      : "Eliminar tarjeta"
-                  }
-                  className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-black/25 text-white backdrop-blur-sm transition-[background-color,transform] duration-150 ease-out hover:bg-danger active:scale-[0.94] disabled:pointer-events-none disabled:opacity-40"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
+          <>
+            {/* Cada tarjeta lleva DEBAJO su ficha: qué tarjeta es en
+                palabras, cuándo vence y el botón para quitarla. El botón
+                de borrar vivía ENCIMA de la tarjeta, en la esquina de
+                arriba, y caía justo sobre el logo de la marca —con una
+                sola tarjeta, además, se veía a medias porque no se
+                puede borrar la última—. */}
+            <div className="grid gap-x-5 gap-y-7 sm:grid-cols-2 xl:grid-cols-3">
+              {metodos.map((method) => {
+                const vence = estadoVencimiento(method);
+                const unica = metodos.length <= 1;
+                return (
+                  <article key={method.id_metodo_pago} className="mx-auto flex w-full max-w-[360px] flex-col gap-3.5">
+                    <TarjetaVisual
+                      marca={method.marca}
+                      numero={`•••• •••• •••• ${method.ultimos4}`}
+                      titular={method.titular}
+                      vencimiento={`${String(method.exp_mes).padStart(2, "0")}/${String(method.exp_ano).slice(-2)}`}
+                    />
+                    <div className="flex items-start justify-between gap-3 px-1">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-[13.5px] font-semibold text-ink">
+                          {t("tarjetas.card.endingIn", { marca: method.marca, ultimos4: method.ultimos4 })}
+                        </p>
+                        <p className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-ink-soft">
+                          {t("tarjetas.card.expiresOn", { fecha: mesVence(method) })}
+                          {/* "Principal" vivía impreso en la cara de la tarjeta;
+                              ninguna tarjeta real lo lleva. Es un dato de la app,
+                              y va en la ficha de la app. */}
+                          {method.es_principal && <Badge tono="accent">{t("tarjetas.card.primary")}</Badge>}
+                          {vence !== "vigente" && (
+                            <Badge tono={vence === "vencida" ? "danger" : "warn"}>
+                              {vence === "vencida" ? t("tarjetas.card.expired") : t("tarjetas.card.expiresSoon")}
+                            </Badge>
+                          )}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPorEliminar(method)}
+                        disabled={unica}
+                        title={unica ? t("tarjetas.keepAtLeastOne") : t("tarjetas.deleteCard")}
+                        aria-label={`${t("tarjetas.deleteCard")}: ${t("tarjetas.card.endingIn", { marca: method.marca, ultimos4: method.ultimos4 })}`}
+                        className={`${btnQuiet} shrink-0 px-3 py-1.5 text-[12.5px] hover:bg-danger-wash hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-soft`}
+                      >
+                        <Trash2 size={14} />
+                        {t("tarjetas.card.delete")}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+
+              {/* Agregar otra, en el lugar donde iría. */}
+              <button
+                type="button"
+                onClick={abrirFormulario}
+                className="mx-auto flex aspect-[1.586/1] w-full max-w-[360px] flex-col items-center justify-center gap-2.5 rounded-[20px] bg-sunken/70 text-ink-soft outline-2 -outline-offset-[10px] outline-ink-mute/25 outline-dashed transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken hover:text-ink active:scale-[0.98]"
+              >
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-surface text-rail">
+                  <Plus size={18} strokeWidth={2} />
+                </span>
+                <span className="text-[13px] font-semibold">{t("tarjetas.addTile")}</span>
+              </button>
+            </div>
+
+            {/* Lo que se preguntaba: el código de seguridad no se ve
+                porque no existe en ningún lado. Dicho, no supuesto. */}
+            <div className="mt-6 flex items-start gap-2 border-t border-sunken pt-4 text-[12px] leading-relaxed text-ink-soft">
+              <ShieldCheck size={15} className="mt-px shrink-0 text-ok" aria-hidden />
+              {t("tarjetas.securityNote")}
+            </div>
+          </>
         ) : (
           <EmptyState
-            title="Todavía no tenés tarjetas"
-            hint="Agregá una Visa o una Mastercard para abonar los paseos de tus mascotas."
+            title={t("tarjetas.empty.title")}
+            hint={t("tarjetas.empty.hint")}
             action={
               <button type="button" className={btnPrimary} onClick={abrirFormulario}>
                 <Plus size={15} strokeWidth={2} />
-                Registrar la primera
+                {t("tarjetas.empty.registerFirst")}
               </button>
             }
           />
@@ -297,12 +364,17 @@ const Tarjetas = () => {
 
       {/* ── Registrar tarjeta ── */}
       {mostrarTarjeta && (
-        <Dialog title="Registrar método de pago" ancho="max-w-[780px]" onClose={cerrarFormulario}>
+        <Dialog
+          title={t("tarjetas.form.dialogTitle")}
+          ancho="max-w-[780px]"
+          onClose={cerrarFormulario}
+          cambiosSinGuardar={Object.values(form).some((valor) => valor.trim() !== "")}
+        >
           <div className="grid gap-6 p-6 md:grid-cols-[1fr_1.1fr] md:items-start">
             {/* La vista previa se arma sola mientras se escribe: es la
                 forma más rápida de ver que el número quedó bien. */}
             <div>
-              <p className="rotulo mb-3 text-ink-mute">Vista previa</p>
+              <p className="rotulo mb-3 text-ink-mute">{t("tarjetas.form.preview")}</p>
               <TarjetaVisual
                 marca={previewBrand}
                 numero={previewNumber}
@@ -310,30 +382,29 @@ const Tarjetas = () => {
                 vencimiento={form.vencimiento}
                 className="max-w-none"
               />
-              <p className="mt-4 flex items-center gap-2 text-[12px] text-ink-soft">
+              <div className="mt-4 flex items-center gap-2 text-[12px] text-ink-soft">
                 <ShieldCheck size={16} className="text-ok" />
-                Guardamos solo la marca y los últimos cuatro dígitos.
-              </p>
+                {t("tarjetas.form.storageNotice")}
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[14px] bg-accent-wash px-4 py-3 text-[12px] leading-relaxed text-accent-deep sm:col-span-2">
-                <p className="mb-1 flex items-center gap-1.5 font-semibold">
+                <div className="mb-1 flex items-center gap-1.5 font-semibold">
                   <CreditCard size={14} />
-                  Tarjetas aceptadas
-                </p>
+                  {t("tarjetas.form.acceptedCards")}
+                </div>
                 <p className="text-[11.5px] text-ink-soft">
-                  <strong>Visa</strong> (empieza con 4) y <strong>Mastercard</strong> (51-55 o
-                  2221-2720).
+                  {t("tarjetas.form.acceptedCardsDetail")}
                 </p>
               </div>
 
               <label className={`${fieldLabel} sm:col-span-2`}>
-                Nombre del titular
+                {t("tarjetas.form.holderName")}
                 <input
                   autoComplete="cc-name"
                   className={input}
-                  placeholder="Como aparece en la tarjeta"
+                  placeholder={t("tarjetas.form.holderPlaceholder")}
                   value={form.titular}
                   onBlur={marcar("titular")}
                   onChange={(event) =>
@@ -349,7 +420,7 @@ const Tarjetas = () => {
 
               <label className={`${fieldLabel} sm:col-span-2`}>
                 <span className="flex items-center justify-between">
-                  Número de tarjeta
+                  {t("tarjetas.form.cardNumber")}
                   <span className="nums text-[11px] font-medium normal-case text-ink-soft">
                     {digitosPuestos}/{CARD_NUMBER_LENGTH}
                   </span>
@@ -388,13 +459,13 @@ const Tarjetas = () => {
               </label>
 
               <label className={fieldLabel}>
-                Vencimiento
+                {t("tarjetas.form.expiry")}
                 <input
                   inputMode="numeric"
                   autoComplete="cc-exp"
                   maxLength={5}
                   className={input}
-                  placeholder="MM/AA"
+                  placeholder={t("tarjetaVisual.expiresPlaceholder")}
                   value={form.vencimiento}
                   onKeyDown={soloDigitos}
                   onBlur={marcar("vencimiento")}
@@ -410,7 +481,7 @@ const Tarjetas = () => {
               </label>
 
               <label className={fieldLabel}>
-                Código de seguridad
+                {t("tarjetas.form.securityCode")}
                 <input
                   type="password"
                   inputMode="numeric"
@@ -432,26 +503,25 @@ const Tarjetas = () => {
                 )}
               </label>
 
-              <p className="flex items-start gap-2 text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
+              <div className="flex items-start gap-2 text-[11px] leading-relaxed text-ink-mute sm:col-span-2">
                 <ShieldCheck size={14} className="mt-px shrink-0" />
-                El número completo y el código se comprueban en tu dispositivo. No viajan ni se
-                guardan.
-              </p>
+                {t("tarjetas.form.clientSideNotice")}
+              </div>
 
               {dialogError && (
-                <p
+                <div
                   role="alert"
                   className="flex items-center gap-2 rounded-[14px] bg-danger-wash px-4 py-2.5 text-[12px] font-medium text-danger sm:col-span-2"
                 >
                   <AlertTriangle size={14} className="shrink-0" />
                   {dialogError}
-                </p>
+                </div>
               )}
 
               <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
-                <button type="button" className={btnSecondary} onClick={cerrarFormulario}>
-                  Cancelar
-                </button>
+                <BotonCerrarVentana className={btnSecondary}>
+                  {t("common.cancel")}
+                </BotonCerrarVentana>
                 <button
                   type="button"
                   className={btnPrimary}
@@ -459,7 +529,7 @@ const Tarjetas = () => {
                   onClick={() => void saveCard()}
                 >
                   {saving && <Loader size={14} className="animate-spin" />}
-                  Guardar tarjeta
+                  {t("tarjetas.form.save")}
                 </button>
               </div>
             </div>
@@ -470,15 +540,9 @@ const Tarjetas = () => {
       {/* ── Eliminar tarjeta ── */}
       {porEliminar && (
         <Confirmar
-          titulo="¿Eliminar esta tarjeta?"
-          cuerpo={
-            <>
-              Vas a eliminar la {porEliminar.marca} terminada en{" "}
-              <strong className="nums">{porEliminar.ultimos4}</strong>. Esta acción no se puede
-              deshacer.
-            </>
-          }
-          confirmar="Eliminar"
+          titulo={t("tarjetas.delete.title")}
+          cuerpo={t("tarjetas.delete.body", { marca: porEliminar.marca, ultimos4: porEliminar.ultimos4 })}
+          confirmar={t("tarjetas.delete.confirm")}
           tono="peligro"
           ocupado={eliminando}
           onConfirmar={() => void eliminarTarjeta()}

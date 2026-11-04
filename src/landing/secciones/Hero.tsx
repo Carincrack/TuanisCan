@@ -8,6 +8,7 @@ import { Correa, Rayas } from "../componentes/Garabatos";
 import { PUBLICOS, type ClavePublico } from "../datos";
 import { AZUL, CIELO, NAVY, TINTA } from "../tokens";
 import type { ConAcceso } from "../tipos";
+import { useTranslation } from "../../hooks/useTranslation";
 
 const LETRAS = [
   ...MARCA.nombre.toUpperCase().split("").map((letra) => ({ letra, color: NAVY })),
@@ -23,6 +24,7 @@ interface HeroProps extends ConAcceso {
 const PASO_MS = 6000;
 
 const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
+  const { t } = useTranslation();
   const [publico, setPublico] = useState<ClavePublico>("dueno");
   const [quieto, setQuieto] = useState(false);
   /* Cambia cada vez que alguien elige a mano: reinicia la cuenta, así
@@ -57,8 +59,12 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
   };
 
   return (
+    /* `svh` y no `dvh`: en el teléfono `dvh` crece cuando la barra
+       del navegador se esconde al hacer scroll, y el hero entero —foto
+       incluida— cambiaba de alto en plena lectura, empujando todo lo
+       de abajo. `svh` es el alto con la barra visible y no se mueve. */
     <section
-      className="banda-hero relative z-10 flex min-h-dvh flex-col overflow-x-clip"
+      className="banda-hero relative z-10 flex min-h-svh flex-col overflow-x-clip"
       style={{ background: AZUL }}
     >
       <Barra onEntrar={onEntrar} onAbrirMenu={onAbrirMenu} />
@@ -80,16 +86,32 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
             ))}
           </span>
           <span className="sr-only">
-            {MARCA.completo} — paseos, veterinarias y mascotas perdidas en Costa Rica
+            {MARCA.completo} {t("landing.hero.srSuffix")}
           </span>
         </h1>
 
-        <div data-entra="entrada" className="mx-auto max-w-xl px-6 pt-4 text-center">
+        {/* Los tres textos van montados en la MISMA celda de una
+            rejilla y solo se ve el del público activo. Así la caja mide
+            siempre lo que el más largo, y no lo que el de turno: antes
+            cada cambio del carrusel pasaba de 3 a 5 renglones y la foto
+            de abajo se agrandaba y achicaba cada seis segundos. De paso
+            se funden entre sí en vez de cambiar de golpe. */}
+        <div data-entra="entrada" className="mx-auto max-w-xl px-6 pt-3 text-center sm:pt-4">
           <p
-            className="min-h-[4.5rem] text-[15.5px] leading-relaxed font-medium sm:min-h-[3.5rem]"
+            className="grid text-[14.5px] leading-relaxed font-medium sm:text-[15.5px]"
             style={{ color: TINTA }}
           >
-            {actual.entrada}
+            {PUBLICOS.map(({ clave, entrada }) => (
+              <span
+                key={clave}
+                aria-hidden={clave !== publico || undefined}
+                className={`[grid-area:1/1] self-center transition-opacity duration-300 ease-out ${
+                  clave === publico ? "opacity-100" : "pointer-events-none opacity-0"
+                }`}
+              >
+                {t(entrada)}
+              </span>
+            ))}
           </p>
         </div>
       </div>
@@ -112,14 +134,14 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
             por lo tanto el que decide el LCP: se pide con prioridad alta.
             El otro va con prioridad baja para que no le compita por el
             ancho de banda mientras carga la portada. */}
-        <div data-entra="perro" className="absolute inset-0 z-10">
+        <div data-entra="perro" className="perro-escenario absolute inset-0 z-10">
           {PUBLICOS.map(({ clave, foto, fotoAlt }) => {
             const visible = clave === publico;
             return (
               <img
                 key={clave}
                 src={foto}
-                alt={visible ? fotoAlt : ""}
+                alt={visible ? t(fotoAlt) : ""}
                 aria-hidden={!visible || undefined}
                 fetchPriority={clave === "dueno" ? "high" : "low"}
                 decoding="async"
@@ -138,7 +160,9 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
           Desde `lg` se despegan y flotan en las esquinas de la banda,
           con el perro pasando por detrás. En móvil van en flujo y
           apiladas: superpuestas sobre una pantalla angosta taparían
-          al perro entero. */}
+          al perro entero. Suben 20 px sobre el borde de la foto, que
+          ahí ya se está disolviendo: el botón se apoya en el perro en
+          vez de quedar separado por una franja de azul. */}
       <div
         data-entra="pildoras"
         onPointerEnter={() => setQuieto(true)}
@@ -147,14 +171,14 @@ const Hero = ({ onEntrar, onAbrirMenu }: HeroProps) => {
         onBlur={(evento) => {
           if (!evento.currentTarget.contains(evento.relatedTarget)) setQuieto(false);
         }}
-        className="relative z-30 flex flex-col items-center gap-3 px-5 pt-4 pb-6 sm:px-8 sm:pb-8 lg:absolute lg:inset-x-0 lg:bottom-0 lg:flex-row lg:items-end lg:justify-between lg:pt-0"
+        className="relative z-30 -mt-5 flex flex-col items-center gap-3 px-5 pb-6 sm:px-8 sm:pb-8 lg:absolute lg:inset-x-0 lg:bottom-0 lg:mt-0 lg:flex-row lg:items-end lg:justify-between"
       >
         <PildoraCTA
           onClick={() =>
             actual.ruta ? void navegar({ to: actual.ruta }) : onEntrar("registro")
           }
         >
-          {actual.cta}
+          {t(actual.cta)}
         </PildoraCTA>
         <ConmutadorPublico valor={publico} onCambio={elegir} />
       </div>

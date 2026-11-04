@@ -1,0 +1,66 @@
+{
+  "title": "Overview",
+  "loading": "Loading...",
+  "loadingPanel": "Loading your dashboard…",
+  "subtitleSummary": "{{fecha}} · account summary",
+  "scheduleWalk": "Schedule walk",
+  "loadError": "Could not load your dashboard.",
+  "quickAccess": {
+    "walkers": { "label": "Find a walker", "descripcion": "Verified profiles in your area." },
+    "registerPet": { "label": "Register a pet", "descripcion": "Add a new profile." },
+    "reportLost": { "label": "Report a loss", "descripcion": "Notify the community." }
+  },
+  "stats": {
+    "pets": "Pets",
+    "petsPendingVaccine": "{{count}} with a pending vaccine",
+    "walksThisMonth": "Walks this month",
+    "walksThisWeek": "{{count}} this week",
+    "monthSpend": "Spend this month",
+    "paidWalks": "{{count}} paid walks",
+    "pending": "Pending",
+    "chargeSingular": "charge",
+    "chargePlural": "charges"
+  },
+  "upcomingWalks": {
+    "title": "Upcoming walks",
+    "viewAll": "View all",
+    "caption": "Scheduled and ongoing walks",
+    "columns": {
+      "when": "When",
+      "pet": "Pet",
+      "walker": "Walker",
+      "status": "Status",
+      "price": "Price"
+    },
+    "noPetName": "No name",
+    "unassigned": "Unassigned",
+    "statusInCourse": "In progress",
+    "statusScheduled": "Scheduled",
+    "empty": {
+      "title": "You have no scheduled walks",
+      "hint": "Find a walker in your area to schedule the next one."
+    }
+  },
+  "myPets": {
+    "title": "My pets",
+    "manage": "Manage",
+    "noPhoto": "No photo",
+    "upToDate": "Up to date",
+    "pendingVaccine": "Pending vaccine",
+    "empty": {
+      "title": "You haven't registered any pets yet",
+      "hint": "Add one so you can schedule walks."
+    }
+  },
+  "alerts": {
+    "title": "Needs attention",
+    "none": "Everything's up to date, nothing pending.",
+    "vaccineExpired": "{{mascota}}'s {{vacuna}} vaccine expired on {{fecha}}.",
+    "vaccineExpiring": "{{mascota}}'s {{vacuna}} vaccine expires on {{fecha}}.",
+    "lostPetsSingular": "{{count}} pet reported lost in your area.",
+    "lostPetsPlural": "{{count}} pets reported lost in your area.",
+    "unratedSingular": "You have {{count}} walk to rate.",
+    "unratedPlural": "You have {{count}} walks to rate."
+  },
+  "quickAccessTitle": "Quick access"
+}

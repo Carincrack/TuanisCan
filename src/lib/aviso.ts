@@ -76,19 +76,47 @@ const opciones = (extra?: Detalle): GooeyToastOptions => ({
   ...(extra?.id ? { id: extra.id } : {}),
 });
 
+/* ── El mismo aviso no sale dos veces seguidas ──
+
+   Si una pantalla se monta dos veces o dos ganchos fallan por la misma
+   causa en el mismo instante, salía una pila de pastillas idénticas.
+
+   NO se resuelve dándole al aviso un id fijo. `goey-toast` está hecho
+   para ids al azar: lleva un registro propio por id y anima la forma
+   de cada pastilla según ese id, así que reusar uno revive un aviso
+   que se estaba cerrando y la pastilla se deforma. Se resuelve antes
+   de llegar a la librería: si el mismo texto salió hace menos de
+   cuatro segundos, no se vuelve a mandar. Lo que sí se manda va con
+   el comportamiento normal de la librería, sin tocar. */
+const VENTANA_MS = 4000;
+const recientes = new Map<string, number>();
+
+const repetido = (tipo: string, titulo: string) => {
+  const clave = `${tipo}:${titulo}`;
+  const ahora = Date.now();
+  const antes = recientes.get(clave);
+  recientes.set(clave, ahora);
+  return antes !== undefined && ahora - antes < VENTANA_MS;
+};
+
 export const aviso = {
   /** Salió bien. */
-  ok: (titulo: string, extra?: Detalle) => gooeyToast.success(titulo, opciones(extra)),
+  ok: (titulo: string, extra?: Detalle) =>
+    repetido("ok", titulo) ? undefined : gooeyToast.success(titulo, opciones(extra)),
 
   /** Salió mal. Acepta el error crudo: le saca el mensaje solo. */
-  error: (causa: unknown, extra?: Detalle & { respaldo?: string }) =>
-    gooeyToast.error(motivo(causa, extra?.respaldo), opciones(extra)),
+  error: (causa: unknown, extra?: Detalle & { respaldo?: string }) => {
+    const texto = motivo(causa, extra?.respaldo);
+    return repetido("error", texto) ? undefined : gooeyToast.error(texto, opciones(extra));
+  },
 
   /** Salió, pero hay que mirar algo. */
-  ojo: (titulo: string, extra?: Detalle) => gooeyToast.warning(titulo, opciones(extra)),
+  ojo: (titulo: string, extra?: Detalle) =>
+    repetido("ojo", titulo) ? undefined : gooeyToast.warning(titulo, opciones(extra)),
 
   /** Ni bien ni mal: una noticia. */
-  dato: (titulo: string, extra?: Detalle) => gooeyToast.info(titulo, opciones(extra)),
+  dato: (titulo: string, extra?: Detalle) =>
+    repetido("dato", titulo) ? undefined : gooeyToast.info(titulo, opciones(extra)),
 
   /** Para lo que tarda. Un solo aviso que pasa de "guardando" a
       "guardado" o a la falla, sin que la pantalla tenga que llevar su
