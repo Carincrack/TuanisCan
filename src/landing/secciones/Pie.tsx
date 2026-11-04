@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import Onda from "../componentes/Onda";
 import { MARCA } from "../../lib/nav";
 import { ENLACES } from "../datos";
 import { CANVAS, HUESO } from "../tokens";
+import { useTranslation } from "../../hooks/useTranslation";
 
 /* El pie va sobre el fondo de la página: es el único bloque que no
    trae su propia banda de color.
@@ -12,9 +14,15 @@ import { CANVAS, HUESO } from "../tokens";
 
    Lleva el aviso de derechos completo. "Costa Rica · 2026" no
    reserva nada; la línea de abajo sí dice de quién es la marca y
-   qué se reserva. */
+   qué se reserva.
 
-const Pie = () => (
+   `enlaces` reemplaza la navegación: los de la portada son anclas a
+   sus propias secciones (`#servicios`, `#pasos`), y en otra página
+   que use este pie no llevarían a ninguna parte. */
+
+const Pie = ({ enlaces }: { enlaces?: ReactNode }) => {
+  const { t } = useTranslation();
+  return (
   <footer className="relative overflow-hidden px-6 pt-32 pb-10 sm:px-10">
     <Onda color={HUESO} />
 
@@ -32,14 +40,14 @@ const Pie = () => (
       </span>
 
       <nav className="flex flex-wrap items-center gap-6">
-        {ENLACES.map((e) => (
+        {enlaces ?? ENLACES.map((e) => (
           <a
             key={e.href}
             href={e.href}
             className="rotulo transition-opacity duration-150 hover:opacity-60"
             style={{ color: CANVAS }}
           >
-            {e.label}
+            {t(e.label)}
           </a>
         ))}
       </nav>
@@ -50,14 +58,13 @@ const Pie = () => (
       style={{ borderColor: `${CANVAS}24` }}
     >
       <p className="text-[12.5px] leading-relaxed" style={{ color: `${CANVAS}A6` }}>
-        © {new Date().getFullYear()} {MARCA.completo}. Todos los derechos
-        reservados. La marca, el logotipo y el diseño de este sitio son
-        propiedad de {MARCA.completo}.
+        © {new Date().getFullYear()} {MARCA.completo}. {t("landing.pie.rightsReserved", { marca: MARCA.completo })}
         <br />
-        Hecho en Costa Rica.
+        {t("landing.pie.madeIn")}
       </p>
     </div>
   </footer>
-);
+  );
+};
 
 export default Pie;

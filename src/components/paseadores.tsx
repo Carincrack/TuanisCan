@@ -5,15 +5,26 @@ import {
   Loader,
   MapPin,
   PawPrint,
+  Phone,
   Search,
   Star,
 } from "../lib/iconos";
 import { listPets } from "../services/pets.service";
-import { listActiveWalkers, requestWalk } from "../services/walkers.service";
+import {
+  listActiveWalkers,
+  listPublicWalkerReviews,
+  requestWalk,
+  type PublicWalkerReview,
+} from "../services/walkers.service";
+import { estimarPrecioPaseo, RECARGOS_POR_DEFECTO } from "../lib/precios";
+import { hoyEnCostaRica } from "../lib/fechas";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
+import type { I18nContextValue } from "../context/i18n-context";
 import type { PublicWalker, WalkRequestInput } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import {
+  BotonCerrarVentana,
   Avatar,
   Dialog,
   EmptyState,
@@ -22,6 +33,7 @@ import {
   PageHeader,
   btnPrimary,
   btnSecondary,
+  btnSecondaryCompacto,
   colones,
   input,
 } from "./ui";
@@ -30,34 +42,43 @@ import SelloVerificado from "./SelloVerificado";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 
+type T = I18nContextValue["t"];
+
 interface RequestForm {
   id_mascota: string;
   fecha: string;
   hora_inicio: string;
   duracion_min: string;
   direccion_encuentro: string;
+  /** Vacío = se paga la tarifa. */
+  oferta: string;
 }
 
-const emptyRequest: RequestForm = {
+/* Una función y no una constante: la fecha de hoy se calcula al abrir
+   el formulario, no al cargar la app (que puede quedar abierta de un día
+   para otro). Y es la de Costa Rica: la de UTC, desde las 6 p. m., ya
+   era mañana, y el mínimo del calendario no dejaba elegir hoy. */
+const emptyRequest = (): RequestForm => ({
   id_mascota: "",
-  fecha: new Date().toISOString().slice(0, 10),
+  fecha: hoyEnCostaRica(),
   hora_inicio: "08:00",
   duracion_min: "45",
   direccion_encuentro: "",
-};
+  oferta: "",
+});
 
-const messageFrom = (error: unknown) => {
+const messageFrom = (error: unknown, t: T) => {
   if (error instanceof Error) return error.message;
   if (typeof error === "object" && error && "message" in error) {
     return String(error.message);
   }
-  return "No se pudo completar la operacion.";
+  return t("paseadores.errors.generic");
 };
 
 const normalizar = (value: string) =>
   value
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
 
 /* ─────────────────────────────────────────────────────────────
@@ -87,6 +108,7 @@ const FotoPaseador = ({
   walker: PublicWalker;
   medida: number;
 }) => {
+  const { t } = useTranslation();
   const [rota, setRota] = useState(false);
 
   return (
@@ -109,7 +131,7 @@ const FotoPaseador = ({
 
       <SelloVerificado
         size={Math.round(medida * 0.34)}
-        title={`${walker.nombre} tiene la verificación aprobada`}
+        title={t("paseadores.verifiedTitle", { nombre: walker.nombre })}
         className="pointer-events-none absolute right-0 bottom-0 translate-x-[12%] translate-y-[12%]"
       />
     </span>
@@ -124,19 +146,22 @@ const FotoPaseador = ({
 
     El turquesa acá está bien: es un disco, que es donde vive en la
     portada. Como texto sobre blanco no pasaría AA. */
-const Disponibilidad = ({ disponible }: { disponible: boolean }) => (
-  <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-medium">
-    <span
-      aria-hidden
-      className={`h-2 w-2 rounded-full ${
-        disponible ? "bg-accent" : "bg-ink-mute"
-      }`}
-    />
-    <span className={disponible ? "text-ink" : "text-ink-mute"}>
-      {disponible ? "Disponible" : "No disponible"}
+const Disponibilidad = ({ disponible }: { disponible: boolean }) => {
+  const { t } = useTranslation();
+  return (
+    <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-medium">
+      <span
+        aria-hidden
+        className={`h-2 w-2 rounded-full ${
+          disponible ? "bg-accent" : "bg-ink-mute"
+        }`}
+      />
+      <span className={disponible ? "text-ink" : "text-ink-mute"}>
+        {disponible ? t("paseadores.available") : t("paseadores.unavailable")}
+      </span>
     </span>
-  </span>
-);
+  );
+};
 
 const PildoraZona = ({ zona }: { zona: string }) => (
   <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-sunken px-2.5 py-1 text-[11.5px] font-medium text-ink-soft">
@@ -147,11 +172,14 @@ const PildoraZona = ({ zona }: { zona: string }) => (
 
 const Paseadores = () => {
   const { getProfile, isAdmin } = useAuth();
+  const { t } = useTranslation();
   const [walkers, setWalkers] = useState<PublicWalker[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [zona, setZona] = useState("Todas");
   const [busqueda, setBusqueda] = useState("");
   const [perfil, setPerfil] = useState<PublicWalker | null>(null);
+  const [resenas, setResenas] = useState<PublicWalkerReview[]>([]);
+  const [resenasCargando, setResenasCargando] = useState(false);
   const [solicitud, setSolicitud] = useState<PublicWalker | null>(null);
   const [form, setForm] = useState<RequestForm>(emptyRequest);
   const [loading, setLoading] = useState(true);
@@ -173,9 +201,31 @@ const Paseadores = () => {
           id_mascota: current.id_mascota || nextPets[0]?.id_mascota || "",
         }));
       })
-      .catch((cause) => setError(messageFrom(cause)))
+      .catch((cause) => setError(messageFrom(cause, t)))
       .finally(() => setLoading(false));
-  }, [getProfile, isAdmin]);
+  }, [getProfile, isAdmin, t]);
+
+  useEffect(() => {
+    if (!perfil) {
+      setResenas([]);
+      return;
+    }
+    let vigente = true;
+    setResenasCargando(true);
+    listPublicWalkerReviews(perfil.id_usuario)
+      .then((data) => {
+        if (vigente) setResenas(data);
+      })
+      .catch(() => {
+        if (vigente) setResenas([]);
+      })
+      .finally(() => {
+        if (vigente) setResenasCargando(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [perfil]);
 
   const zonas = useMemo(
     () => ["Todas", ...Array.from(new Set(walkers.map((w) => w.zona))).sort()],
@@ -202,9 +252,9 @@ const Paseadores = () => {
 
   const openRequest = (walker: PublicWalker) => {
     if (!canOperate) {
-      aviso.ojo("Verificá tu perfil primero", {
-        detalle: "Sin la verificación aprobada no podés solicitar paseos.",
-        accion: { label: "Ir a verificación", onClick: () => { window.location.href = "/perfil#verificacion"; } },
+      aviso.ojo(t("paseadores.verificationGate.title"), {
+        detalle: t("paseadores.verificationGate.detail"),
+        accion: { label: t("paseadores.verificationGate.action"), onClick: () => { window.location.href = "/perfil#verificacion"; } },
       });
       return;
     }
@@ -212,19 +262,53 @@ const Paseadores = () => {
     setError(null);
     setMessage(null);
     setForm((current) => ({
-      ...emptyRequest,
+      ...emptyRequest(),
       id_mascota: current.id_mascota || pets[0]?.id_mascota || "",
     }));
   };
 
+  /* Algo escrito en la solicitud, aparte de la mascota elegida: cerrar
+     sin enviar pregunta antes de perderlo. */
+  const solicitudCambiada =
+    JSON.stringify({ ...form, id_mascota: "" }) !== JSON.stringify({ ...emptyRequest(), id_mascota: "" });
+
+  const estimado = useMemo(
+    () =>
+      estimarPrecioPaseo(
+        solicitud?.tarifa_base ?? 0,
+        solicitud ?? RECARGOS_POR_DEFECTO,
+        form.fecha,
+        form.hora_inicio,
+        Number(form.duracion_min)
+      ),
+    [solicitud, form.fecha, form.hora_inicio, form.duracion_min]
+  );
+
+  const oferta = form.oferta.trim() === "" ? null : Number(form.oferta);
+  const ofertaMin = Math.round(estimado.total * 0.5);
+  const ofertaMax = Math.floor(estimado.total * 5);
+  const ofertaInvalida =
+    oferta !== null && (!Number.isFinite(oferta) || oferta < ofertaMin || oferta > ofertaMax);
+  const diferenciaOferta =
+    oferta !== null && estimado.total > 0 ? Math.round(((oferta - estimado.total) / estimado.total) * 100) : 0;
+  const sugerencias = [10, 25, 50].map((pct) => Math.round((estimado.total * (1 + pct / 100)) / 100) * 100);
+
+  /* Los porcentajes son los que eligió ESTE paseador; si puso 0 en
+     alguno, ese recargo ni aparece. */
+  const recargosActivos = estimado.aplicados.map((r) => `${r.porcentaje}% ${r.nombre}`);
+
   const submitRequest = async () => {
     if (!solicitud) return;
     if (!form.id_mascota) {
-      setError("Primero registra una mascota para solicitar un paseo.");
+      setError(t("paseadores.errors.noPet"));
       return;
     }
     if (!form.direccion_encuentro.trim()) {
-      setError("Indica la direccion de encuentro.");
+      setError(t("paseadores.errors.noAddress"));
+      return;
+    }
+    if (ofertaInvalida) {
+      setError(t("paseadores.errors.offerRange", { min: colones(ofertaMin), max: colones(ofertaMax) }));
       return;
     }
 
@@ -235,6 +319,7 @@ const Paseadores = () => {
       hora_inicio: form.hora_inicio,
       duracion_min: Number(form.duracion_min),
       direccion_encuentro: form.direccion_encuentro.trim(),
+      precio_ofrecido: oferta !== null && oferta !== estimado.total ? oferta : null,
     };
 
     setSaving(true);
@@ -242,12 +327,14 @@ const Paseadores = () => {
     try {
       await requestWalk(payload);
       setSolicitud(null);
-      aviso.ok(`Solicitud enviada a ${solicitud.nombre}`, {
-        detalle: "Tiene treinta minutos para responder. Te avisamos apenas conteste.",
+      aviso.ok(t("paseadores.success.sent", { nombre: solicitud.nombre }), {
+        detalle: payload.precio_ofrecido
+          ? t("paseadores.success.withOffer", { monto: colones(payload.precio_ofrecido) })
+          : t("paseadores.success.withoutOffer"),
       });
     } catch (cause) {
-      setError(messageFrom(cause));
-      aviso.error(cause, { respaldo: "No se pudo enviar la solicitud." });
+      setError(messageFrom(cause, t));
+      aviso.error(cause, { respaldo: t("paseadores.errors.sendFailed") });
     } finally {
       setSaving(false);
     }
@@ -256,13 +343,13 @@ const Paseadores = () => {
   return (
     <Page>
       <PageHeader
-        title="Buscar paseadores"
-        subtitle="Perfiles verificados cerca de tu zona, con calificación de la comunidad."
+        title={t("paseadores.title")}
+        subtitle={t("paseadores.subtitle")}
         action={
           loading ? null : (
             <p className="nums rounded-full bg-sunken px-3.5 py-1.5 text-[12.5px] font-medium text-ink-soft">
               {visibles.length}{" "}
-              {visibles.length === 1 ? "paseador" : "paseadores"}
+              {visibles.length === 1 ? t("paseadores.countSingular") : t("paseadores.countPlural")}
             </p>
           )
         }
@@ -271,14 +358,14 @@ const Paseadores = () => {
       <div className="flex flex-col gap-3 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-[300px]">
           <label htmlFor="buscar-paseador" className="sr-only">
-            Buscar paseador por nombre o zona
+            {t("paseadores.searchAria")}
           </label>
           <input
             id="buscar-paseador"
             type="search"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o zona"
+            placeholder={t("paseadores.searchPlaceholder")}
             className={`${input} pl-10`}
           />
           <Search
@@ -290,8 +377,8 @@ const Paseadores = () => {
         </div>
 
         <FilterTabs
-          label="Filtrar por zona"
-          options={zonas}
+          label={t("paseadores.zoneFilterLabel")}
+          options={zonas.map((o) => ({ value: o, label: o === "Todas" ? t("paseadores.allZones") : o }))}
           value={zona}
           onChange={setZona}
         />
@@ -349,7 +436,7 @@ const Paseadores = () => {
                     <span aria-hidden className="text-ink-mute">
                       ·
                     </span>
-                    <span>{w.total_paseos} paseos</span>
+                    <span>{w.total_paseos} {t("paseadores.walksSuffix")}</span>
                   </div>
 
                   <span className="mt-2 flex">
@@ -363,7 +450,7 @@ const Paseadores = () => {
                   dos; el `line-clamp` impide que una tercera las
                   desalinee al revés. */}
               <p className="mt-4 line-clamp-2 min-h-[34px] text-[12.5px] leading-snug text-ink-soft">
-                {w.descripcion || "Paseador verificado por TuanisCan."}
+                {w.descripcion || t("paseadores.defaultDescription")}
               </p>
 
               <div className="mt-4 flex items-center justify-between gap-3 rounded-[14px] bg-sunken px-4 py-3">
@@ -371,7 +458,7 @@ const Paseadores = () => {
                   <p className="nums text-[17px] leading-none font-semibold text-ink">
                     {colones(w.tarifa_base ?? 0)}
                   </p>
-                  <p className="mt-1 text-[11px] text-ink-mute">por paseo</p>
+                  <p className="mt-1 text-[11px] text-ink-mute">{t("paseadores.perWalk")}</p>
                 </div>
                 <Disponibilidad disponible={w.disponible} />
               </div>
@@ -382,7 +469,7 @@ const Paseadores = () => {
                   onClick={() => setPerfil(w)}
                   className={`${btnSecondary} flex-1`}
                 >
-                  Ver perfil
+                  {t("paseadores.viewProfile")}
                 </button>
                 <button
                   type="button"
@@ -390,7 +477,7 @@ const Paseadores = () => {
                   disabled={!canOperate || !w.disponible || !w.tarifa_base}
                   className={`${btnPrimary} flex-1 disabled:cursor-not-allowed disabled:opacity-50`}
                 >
-                  Solicitar
+                  {t("paseadores.request")}
                 </button>
               </div>
             </article>
@@ -402,13 +489,13 @@ const Paseadores = () => {
         <EmptyState
           title={
             filtrando
-              ? "No hay paseadores con ese criterio"
-              : "Todavía no hay paseadores disponibles"
+              ? t("paseadores.empty.filteredTitle")
+              : t("paseadores.empty.emptyTitle")
           }
           hint={
             filtrando
-              ? "Probá con otra zona o quitá el texto de búsqueda."
-              : "En cuanto administración apruebe los primeros perfiles, aparecen acá."
+              ? t("paseadores.empty.filteredHint")
+              : t("paseadores.empty.emptyHint")
           }
           action={
             filtrando ? (
@@ -417,7 +504,7 @@ const Paseadores = () => {
                 onClick={limpiarFiltros}
                 className={btnSecondary}
               >
-                Ver todos
+                {t("paseadores.empty.viewAll")}
               </button>
             ) : undefined
           }
@@ -425,7 +512,7 @@ const Paseadores = () => {
       )}
 
       {perfil && (
-        <Dialog title="Perfil del paseador" onClose={() => setPerfil(null)}>
+        <Dialog title={t("paseadores.profileDialog.title")} onClose={() => setPerfil(null)}>
           <div className="px-6 py-5">
             <div className="flex items-center gap-4">
               <FotoPaseador walker={perfil} medida={64} />
@@ -439,14 +526,29 @@ const Paseadores = () => {
               </div>
             </div>
 
+            {/* El teléfono solo se muestra a quien ya puede operar
+                (dueño verificado): es el mismo dato que ya se muestra
+                públicamente en el directorio de negocios, pero acá
+                basta con reservarlo para quien de verdad va a
+                contactar al paseador. */}
+            {canOperate && perfil.telefono && (
+              <a
+                href={`tel:${perfil.telefono}`}
+                className="mt-3 flex items-center gap-2 text-[13px] font-medium text-accent-dark hover:underline"
+              >
+                <Phone size={14} />
+                {perfil.telefono}
+              </a>
+            )}
+
             <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
               {[
                 {
-                  rotulo: "Calificación",
+                  rotulo: t("paseadores.profileDialog.rating"),
                   valor: perfil.calificacion_promedio.toFixed(1),
                 },
-                { rotulo: "Reseñas", valor: String(perfil.total_resenas) },
-                { rotulo: "Paseos", valor: String(perfil.total_paseos) },
+                { rotulo: t("paseadores.profileDialog.reviews"), valor: String(perfil.total_resenas) },
+                { rotulo: t("paseadores.profileDialog.walks"), valor: String(perfil.total_paseos) },
               ].map((dato) => (
                 /* Antes estos tres eran `bg-surface` dentro de un panel
                    que también es `bg-surface`: cajas blancas invisibles
@@ -465,15 +567,71 @@ const Paseadores = () => {
 
             <p className="mt-5 text-[13px] leading-relaxed text-ink-soft">
               {perfil.descripcion ||
-                "Este paseador todavía no agregó una descripción pública."}
+                t("paseadores.profileDialog.noDescription")}
             </p>
+
+            <div className="mt-5">
+              <p className="rotulo text-ink-mute">{t("paseadores.profileDialog.reviewsTitle")}</p>
+
+              {resenasCargando ? (
+                <div className="mt-2.5 flex items-center gap-2 text-[12.5px] text-ink-soft">
+                  <Loader size={14} className="animate-spin" />
+                  {t("paseadores.profileDialog.reviewsLoading")}
+                </div>
+              ) : resenas.length === 0 ? (
+                <p className="mt-2.5 text-[12.5px] text-ink-soft">
+                  {t("paseadores.profileDialog.reviewsEmpty")}
+                </p>
+              ) : (
+                <ul className="mt-2.5 flex max-h-[280px] flex-col gap-2.5 overflow-y-auto">
+                  {resenas.map((resena) => (
+                    <li key={resena.id_resena} className="rounded-[14px] bg-sunken px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              size={13}
+                              className={
+                                i < resena.calificacion
+                                  ? "fill-warn text-warn"
+                                  : "text-ink-mute/40"
+                              }
+                              aria-hidden
+                            />
+                          ))}
+                        </div>
+                        <span className="shrink-0 text-[11px] text-ink-mute">
+                          {new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(
+                            new Date(resena.fecha),
+                          )}
+                        </span>
+                      </div>
+
+                      {resena.comentario && (
+                        <p className="mt-1.5 text-[12.5px] leading-snug text-ink">
+                          {resena.comentario}
+                        </p>
+                      )}
+
+                      <p className="mt-1.5 text-[11px] text-ink-mute">
+                        {t("paseadores.profileDialog.reviewBy", {
+                          nombre: resena.dueno,
+                          mascota: resena.mascota,
+                        })}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             <div className="mt-5 flex items-center justify-between gap-3 rounded-[14px] bg-sunken px-4 py-3">
               <div>
                 <p className="nums text-[18px] leading-none font-semibold text-ink">
                   {colones(perfil.tarifa_base ?? 0)}
                 </p>
-                <p className="mt-1 text-[11px] text-ink-mute">por paseo</p>
+                <p className="mt-1 text-[11px] text-ink-mute">{t("paseadores.perWalk")}</p>
               </div>
               {/* Acá decía "Disponible hoy" a secas, escrito a mano y
                   sin mirar el dato: un paseador no disponible se
@@ -481,14 +639,25 @@ const Paseadores = () => {
               <Disponibilidad disponible={perfil.disponible} />
             </div>
 
+            <dl className="nums mt-2.5 grid grid-cols-3 gap-2 text-center">
+              {[
+                { rotulo: t("paseadores.profileDialog.nightRange", { desde: perfil.nocturno_desde, hasta: perfil.nocturno_hasta }), valor: perfil.recargo_nocturno },
+                { rotulo: t("paseadores.profileDialog.weekend"), valor: perfil.recargo_fin_semana },
+                { rotulo: t("paseadores.profileDialog.sameDay"), valor: perfil.recargo_mismo_dia },
+              ].map(({ rotulo, valor }) => (
+                <div key={rotulo} className="flex flex-col-reverse rounded-[12px] bg-sunken/60 px-2 py-2">
+                  <dt className="mt-0.5 text-[10.5px] leading-tight text-ink-mute">{rotulo}</dt>
+                  <dd className={`text-[14px] font-semibold ${valor > 0 ? "text-ink" : "text-ink-mute"}`}>
+                    {valor > 0 ? `+${valor}%` : t("paseadores.profileDialog.noSurcharge")}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setPerfil(null)}
-                className={btnSecondary}
-              >
-                Cerrar
-              </button>
+              <BotonCerrarVentana className={btnSecondary}>
+                {t("paseadores.profileDialog.close")}
+              </BotonCerrarVentana>
               <button
                 type="button"
                 onClick={() => {
@@ -500,7 +669,7 @@ const Paseadores = () => {
                 }
                 className={`${btnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
               >
-                Solicitar paseo
+                {t("paseadores.profileDialog.requestWalk")}
               </button>
             </div>
           </div>
@@ -508,7 +677,12 @@ const Paseadores = () => {
       )}
 
       {solicitud && (
-        <Dialog title="Solicitar paseo" onClose={() => setSolicitud(null)}>
+        <Dialog
+          title={t("paseadores.requestDialog.title")}
+          contexto={solicitud.nombre}
+          onClose={() => setSolicitud(null)}
+          cambiosSinGuardar={solicitudCambiada}
+        >
           <div className="px-6 py-5">
             {/* Con quién es el paseo va acá arriba y no en un subtítulo
                 de la cabecera: es un dato, no el nombre de la ventana,
@@ -529,14 +703,14 @@ const Paseadores = () => {
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="sm:col-span-2">
-                <span className="rotulo text-ink-mute">Mascota</span>
+                <span className="rotulo text-ink-mute">{t("paseadores.requestDialog.pet")}</span>
                 <Combo
                   className="mt-2"
                   value={form.id_mascota}
                   onChange={(v) => setForm({ ...form, id_mascota: v })}
                   disabled={!pets.length}
-                  textoInactivo="No tienes mascotas registradas"
-                  placeholder="Elegí una mascota"
+                  textoInactivo={t("paseadores.requestDialog.noPets")}
+                  placeholder={t("paseadores.requestDialog.choosePet")}
                   options={pets.map((pet) => ({
                     value: pet.id_mascota,
                     label: pet.nombre,
@@ -546,11 +720,11 @@ const Paseadores = () => {
 
               <label>
                 <span className="rotulo flex items-center gap-1.5 text-ink-mute">
-                  <CalendarDays size={13} /> Fecha
+                  <CalendarDays size={13} /> {t("paseadores.requestDialog.date")}
                 </span>
                 <input
                   type="date"
-                  min={emptyRequest.fecha}
+                  min={hoyEnCostaRica()}
                   value={form.fecha}
                   onChange={(e) => setForm({ ...form, fecha: e.target.value })}
                   className={`${input} mt-2`}
@@ -559,7 +733,7 @@ const Paseadores = () => {
 
               <label>
                 <span className="rotulo flex items-center gap-1.5 text-ink-mute">
-                  <Clock size={13} /> Hora
+                  <Clock size={13} /> {t("paseadores.requestDialog.time")}
                 </span>
                 <input
                   type="time"
@@ -572,35 +746,93 @@ const Paseadores = () => {
               </label>
 
               <label>
-                <span className="rotulo text-ink-mute">Duración</span>
+                <span className="rotulo text-ink-mute">{t("paseadores.requestDialog.duration")}</span>
                 <Combo
                   className="mt-2"
                   value={form.duracion_min}
                   onChange={(v) => setForm({ ...form, duracion_min: v })}
                   options={[30, 45, 60, 90].map((m) => ({
                     value: String(m),
-                    label: `${m} minutos`,
+                    label: t("paseadores.requestDialog.minutes", { m }),
                   }))}
                 />
               </label>
 
               <div className="rounded-[14px] bg-sunken px-4 py-3">
-                <p className="rotulo text-ink-mute">Total</p>
+                <p className="rotulo text-ink-mute">{t("paseadores.requestDialog.accordingToRate")}</p>
                 <p className="nums mt-1.5 text-[20px] leading-none font-semibold text-ink">
-                  {colones(solicitud.tarifa_base ?? 0)}
+                  {colones(estimado.total)}
                 </p>
-                {/* Dicho explícito porque el campo de al lado invita a
-                    pensar lo contrario: `solicitar_paseo` copia el
-                    precio de `paseadores.tarifa_base` sin mirar
-                    `duracion_min`. */}
+                {/* El precio real lo calcula `calcular_precio_paseo` en
+                    Supabase al confirmar; esto solo adelanta el mismo
+                    resultado para que la persona lo vea antes de pedir
+                    el paseo. */}
                 <p className="mt-1.5 text-[11px] leading-snug text-ink-mute">
-                  Tarifa única del paseador. No cambia con la duración.
+                  {t("paseadores.requestDialog.baseAndDuration", { base: colones(solicitud.tarifa_base ?? 0), duracion: form.duracion_min })}
+                  {recargosActivos.length > 0 && ` · +${recargosActivos.join(", +")}`}
+                </p>
+              </div>
+
+              <div className="rounded-[14px] border border-dashed border-suelo px-4 py-3.5 sm:col-span-2">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <label className="min-w-[180px] flex-1">
+                    <span className="rotulo text-ink-mute">{t("paseadores.requestDialog.offerLabel")}</span>
+                    <span className="relative mt-2 block">
+                      <span aria-hidden className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[13.5px] text-ink-mute">₡</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={ofertaMin}
+                        max={ofertaMax}
+                        step={100}
+                        value={form.oferta}
+                        onChange={(e) => setForm({ ...form, oferta: e.target.value })}
+                        className={`${input} nums pl-8 ${ofertaInvalida ? "outline-2 -outline-offset-2 outline-danger" : ""}`}
+                        placeholder={String(Math.round(estimado.total))}
+                        aria-describedby="oferta-ayuda"
+                      />
+                    </span>
+                  </label>
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("paseadores.requestDialog.suggestedOffers")}>
+                    {sugerencias.map((monto, i) => (
+                      <button
+                        key={monto}
+                        type="button"
+                        onClick={() => setForm({ ...form, oferta: String(monto) })}
+                        aria-pressed={oferta === monto}
+                        className={`nums ${
+                          oferta === monto
+                            ? btnSecondaryCompacto.replace("bg-sunken", "bg-accent-wash").replace("text-ink", "text-accent-deep")
+                            : btnSecondaryCompacto
+                        }`}
+                      >
+                        +{[10, 25, 50][i]}%
+                      </button>
+                    ))}
+                    {form.oferta && (
+                      <button type="button" onClick={() => setForm({ ...form, oferta: "" })} className={btnSecondaryCompacto}>
+                        {t("paseadores.requestDialog.remove")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p id="oferta-ayuda" aria-live="polite" className={`mt-2 text-[12px] leading-snug ${ofertaInvalida ? "text-danger" : "text-ink-mute"}`}>
+                  {ofertaInvalida
+                    ? t("paseadores.requestDialog.offerHelp.invalid", { min: colones(ofertaMin), max: colones(ofertaMax) })
+                    : oferta !== null && oferta !== estimado.total
+                      ? t("paseadores.requestDialog.offerHelp.preview", {
+                          nombre: solicitud.nombre,
+                          monto: colones(oferta),
+                          signo: diferenciaOferta > 0 ? "+" : "",
+                          porcentaje: diferenciaOferta,
+                        })
+                      : t("paseadores.requestDialog.offerHelp.default")}
                 </p>
               </div>
 
               <label className="sm:col-span-2">
                 <span className="rotulo text-ink-mute">
-                  Dirección de encuentro
+                  {t("paseadores.requestDialog.meetingAddress")}
                 </span>
                 <textarea
                   rows={3}
@@ -609,7 +841,7 @@ const Paseadores = () => {
                     setForm({ ...form, direccion_encuentro: e.target.value })
                   }
                   className={`${input} mt-2 resize-y`}
-                  placeholder="Casa, condominio, parque o punto de referencia"
+                  placeholder={t("paseadores.requestDialog.meetingAddressPlaceholder")}
                 />
               </label>
 
@@ -623,14 +855,9 @@ const Paseadores = () => {
               )}
 
               <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setSolicitud(null)}
-                  className={btnSecondary}
-                >
-                  Cancelar
-                </button>
+                <BotonCerrarVentana disabled={saving} className={btnSecondary}>
+                  {t("paseadores.requestDialog.cancel")}
+                </BotonCerrarVentana>
                 <button
                   type="button"
                   disabled={saving || !pets.length}
@@ -642,7 +869,11 @@ const Paseadores = () => {
                   ) : (
                     <PawPrint size={14} />
                   )}
-                  {saving ? "Enviando..." : "Confirmar solicitud"}
+                  {saving
+                    ? t("paseadores.requestDialog.sending")
+                    : oferta !== null && !ofertaInvalida && oferta !== estimado.total
+                      ? t("paseadores.requestDialog.sendOffer", { monto: colones(oferta) })
+                      : t("paseadores.requestDialog.confirmRequest")}
                 </button>
               </div>
             </div>

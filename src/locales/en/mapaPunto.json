@@ -1,0 +1,9 @@
+{
+  "myLocation": "My location",
+  "searching": "Locating…",
+  "noGeolocation": "Your browser can't detect your location. Tap the map to mark the spot.",
+  "locationFailed": "We couldn't get your location. Tap the map to mark the spot.",
+  "dragHint": "Drag to move the spot",
+  "markedHint": "Drag the pin to fine-tune the spot, or tap somewhere else on the map.",
+  "reference": "{{nombre}}: where it was reported lost"
+}

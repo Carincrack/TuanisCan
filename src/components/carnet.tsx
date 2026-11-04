@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
-import { Camera, Download, PawPrint, Share2, Syringe } from "../lib/iconos";
+import { Download, Share2, Stethoscope, Syringe } from "../lib/iconos";
 import { useAuth } from "../hooks/useAuth";
-import { formatDate, petAge } from "../lib/pets";
-import { MARCA } from "../lib/nav";
+import { useTranslation } from "../hooks/useTranslation";
+import { formatDate } from "../lib/pets";
 import { listPets } from "../services/pets.service";
 import type { UserProfile } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
@@ -18,8 +18,12 @@ import {
   btnSecondary,
 } from "./ui";
 import { Combo } from "./Combo";
+import { CarnePapel, EscenarioCarne, cardId } from "./cedulaCarne";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
+import type { I18nContextValue } from "../context/i18n-context";
+
+type T = I18nContextValue["t"];
 
 /* ─────────────────────────────────────────────────────────────
    EL CARNÉ
@@ -29,7 +33,14 @@ import { aviso } from "../lib/aviso";
    monta dos veces —una en la página y otra en una hoja aparte que
    solo existe en el papel—. Un solo diseño para los dos destinos; si
    se tocara solo el de pantalla, el impreso se quedaría atrás.
-   ───────────────────────────────────────────────────────────── */
+
+   La cédula de arriba toma prestadas las técnicas de `TarjetaVisual`
+   —el guilloché, el repujado, el oro del chip— porque son la misma
+   pregunta resuelta antes: qué hace que un rectángulo con esquinas
+   redondas se lea como un objeto físico y no como una tarjeta de
+   SaaS más. Acá el "chip" es el sello de la casa en vez de los seis
+   contactos EMV, y la foto ocupa el sitio del número de tarjeta:
+   es lo primero que se mira en una cédula de verdad. */
 
 const Dato = ({ etiqueta, valor }: { etiqueta: string; valor: string }) => (
   <div className="rounded-[14px] bg-sunken px-4 py-3">
@@ -51,163 +62,124 @@ const Grupo = ({
   </section>
 );
 
-const cardId = (pet: Pet) => {
-  const initials = pet.nombre.replace(/[^a-záéíóúñ]/gi, "").slice(0, 3).toUpperCase();
-  return `TSC-${pet.id_mascota.slice(0, 8).toUpperCase()}-${initials}`;
-};
-
-const messageFrom = (error: unknown) =>
-  error instanceof Error ? error.message : "No se pudo cargar el carné digital.";
+const messageFrom = (error: unknown, t: T) =>
+  error instanceof Error ? error.message : t("carnet.loadError");
 
 const CarneMascota = ({
   pet,
   profile,
   zona,
+  papel = false,
 }: {
   pet: Pet;
   profile: UserProfile | null;
   zona: string;
+  /** La versión de la hoja impresa: las dos caras a tamaño real. */
+  papel?: boolean;
 }) => {
+  const { t, localeTag } = useTranslation();
   const alerta = pet.vacunas.some((vacuna) => vacuna.estado !== "vigente");
 
   return (
-    /* `overflow-hidden` no es un detalle: sin él la cabecera navy saca
-       sus esquinas cuadradas por fuera del radio de la tarjeta. */
-    <article className="carnet-pieza anim-rise overflow-hidden rounded-[18px] bg-surface">
-      <header className="flex flex-wrap items-center justify-between gap-3 bg-rail px-6 py-4">
-        <div className="flex items-center gap-3">
-          <img
-            src={MARCA.logoSimbolo}
-            alt=""
-            aria-hidden
-            className="h-8 w-8 object-contain"
+    <article className="carnet-pieza anim-rise flex flex-col gap-3">
+      {papel ? (
+        <CarnePapel pet={pet} profile={profile} zona={zona} alerta={alerta} />
+      ) : (
+        <EscenarioCarne pet={pet} profile={profile} zona={zona} alerta={alerta} />
+      )}
+
+      {/* ── EL REGISTRO ── lo que una cédula de verdad no puede llevar
+          encima por espacio: quién responde, y el historial completo. */}
+      <div className="carnet-panel rounded-[18px] bg-surface p-6">
+        {/* Los doce datos estaban en dos rejillas seguidas, de tres
+            columnas y de dos, sin nada que dijera por qué se partían
+            ahí. Son dos cosas distintas —quién es el animal, y a
+            quién se llama si aparece— y ahora cada grupo lo dice. */}
+        <Grupo titulo={t("carnet.identification.title")}>
+          <Dato
+            etiqueta={t("carnet.identification.birth")}
+            valor={formatDate(pet.fecha_nacimiento, localeTag)}
           />
-          <div>
-            <p className="text-[13px] font-semibold text-white">
-              {MARCA.nombre}
-              <span className="text-accent">{MARCA.acento}</span>
-            </p>
-            <p className="rotulo text-rail-mute">
-              Carné de identificación y salud
-            </p>
-          </div>
-        </div>
+          <Dato etiqueta={t("carnet.identification.weight")} valor={`${pet.peso} kg`} />
+          <Dato etiqueta={t("carnet.identification.color")} valor={pet.color} />
+          <Dato
+            etiqueta={t("carnet.identification.sterilized")}
+            valor={pet.esterilizado ? t("carnet.identification.yes") : t("carnet.identification.no")}
+          />
+          <Dato
+            etiqueta={t("carnet.identification.microchip")}
+            valor={pet.microchip || t("carnet.identification.notRegistered")}
+          />
+          <Dato
+            etiqueta={t("carnet.identification.vet")}
+            valor={pet.veterinaria || t("carnet.identification.notRegisteredF")}
+          />
+        </Grupo>
 
-        <p className="nums rounded-full bg-rail-hover px-3 py-1.5 text-[11.5px] font-medium text-rail-text">
-          {cardId(pet)}
-        </p>
-      </header>
+        <Grupo titulo={t("carnet.contact.title")}>
+          <Dato
+            etiqueta={t("carnet.contact.owner")}
+            valor={profile?.nombre || t("carnet.identification.notRegistered")}
+          />
+          <Dato
+            etiqueta={t("carnet.contact.phone")}
+            valor={profile?.telefono || t("carnet.identification.notRegistered")}
+          />
+          <Dato etiqueta={t("carnet.contact.zone")} valor={zona} />
+          <Dato
+            etiqueta={t("carnet.contact.allergies")}
+            valor={pet.alergias || t("carnet.contact.noneRegistered")}
+          />
+        </Grupo>
 
-      <div className="flex flex-col gap-5 p-6 sm:flex-row">
-        <div className="flex flex-shrink-0 flex-col gap-3 sm:w-[196px]">
-          {pet.fotoUrl ? (
-            <img
-              src={pet.fotoUrl}
-              alt={`Fotografía de ${pet.nombre}`}
-              className="aspect-[3/4] w-full rounded-[14px] bg-sunken object-cover"
-            />
-          ) : (
-            <div className="flex aspect-[3/4] w-full items-center justify-center rounded-[14px] bg-sunken text-ink-mute">
-              <Camera size={42} strokeWidth={1.3} />
-              <span className="sr-only">Sin fotografía</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-3 rounded-[14px] bg-accent-wash px-4 py-3">
-            <PawPrint
-              size={30}
-              strokeWidth={1.5}
-              className="flex-shrink-0 text-accent-dark"
-            />
-            <p className="text-[11px] leading-snug text-accent-dark">
-              Carné emitido por TuanisCan para la cuenta del responsable.
-            </p>
-          </div>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="titular text-[26px] text-ink">{pet.nombre}</h3>
-            <Badge tono={alerta ? "warn" : pet.vacunas.length ? "ok" : "neutral"}>
-              {alerta
-                ? "Requiere atención"
-                : pet.vacunas.length
-                  ? "Al día"
-                  : "Sin vacunas"}
-            </Badge>
-          </div>
-          <p className="mt-1 text-[13px] text-ink-soft">
-            {pet.especie} · {pet.raza}
+        {pet.notas && (
+          <p className="mt-4 rounded-[14px] bg-accent-wash px-4 py-3 text-[12.5px] leading-snug whitespace-pre-wrap text-accent-dark">
+            {pet.notas}
           </p>
-
-          {/* Los doce datos estaban en dos rejillas seguidas, de tres
-              columnas y de dos, sin nada que dijera por qué se partían
-              ahí. Son dos cosas distintas —quién es el animal, y a
-              quién se llama si aparece— y ahora cada grupo lo dice. */}
-          <div className="mt-5">
-            <Grupo titulo="Identificación">
-              <Dato
-                etiqueta="Sexo"
-                valor={pet.sexo === "macho" ? "Macho" : "Hembra"}
-              />
-              <Dato
-                etiqueta="Nacimiento"
-                valor={formatDate(pet.fecha_nacimiento)}
-              />
-              <Dato etiqueta="Edad" valor={petAge(pet.fecha_nacimiento)} />
-              <Dato etiqueta="Peso" valor={`${pet.peso} kg`} />
-              <Dato etiqueta="Color" valor={pet.color} />
-              <Dato
-                etiqueta="Esterilizado"
-                valor={pet.esterilizado ? "Sí" : "No"}
-              />
-            </Grupo>
-
-            <Grupo titulo="Responsable y contacto">
-              <Dato
-                etiqueta="Responsable"
-                valor={profile?.nombre || "No registrado"}
-              />
-              <Dato
-                etiqueta="Teléfono"
-                valor={profile?.telefono || "No registrado"}
-              />
-              <Dato etiqueta="Zona" valor={zona} />
-              <Dato
-                etiqueta="Microchip"
-                valor={pet.microchip || "No registrado"}
-              />
-              <Dato
-                etiqueta="Veterinaria"
-                valor={pet.veterinaria || "No registrada"}
-              />
-              <Dato
-                etiqueta="Alergias o condiciones"
-                valor={pet.alergias || "Ninguna registrada"}
-              />
-            </Grupo>
-          </div>
-
-          {pet.notas && (
-            <p className="mt-4 rounded-[14px] bg-accent-wash px-4 py-3 text-[12.5px] leading-snug whitespace-pre-wrap text-accent-dark">
-              {pet.notas}
-            </p>
-          )}
-        </div>
+        )}
       </div>
 
-      <div className="px-6 pb-6">
-        <h4 className="rotulo flex items-center gap-2 pb-3 text-ink-mute">
-          <Syringe size={13} /> Historial de vacunación
+      <div className="carnet-panel rounded-[18px] bg-surface p-6">
+        <h4 className="rotulo mb-3 flex items-center gap-2 text-ink-mute">
+          <Stethoscope size={13} /> {t("carnet.conditions.title")}
+        </h4>
+        {pet.padecimientos.length ? (
+          <ul className="grid gap-2.5 sm:grid-cols-2">
+            {pet.padecimientos.map((condicion) => (
+              <li key={condicion.id_padecimiento} className="rounded-[14px] bg-warn-wash/60 px-4 py-3">
+                <p className="text-[13.5px] font-semibold break-words text-ink">{condicion.nombre}</p>
+                {condicion.fecha_diagnostico && (
+                  <p className="nums mt-0.5 text-[11.5px] text-ink-mute">
+                    {t("carnet.conditions.diagnosedOn", { fecha: formatDate(condicion.fecha_diagnostico, localeTag) })}
+                  </p>
+                )}
+                {condicion.cuidados && (
+                  <p className="mt-1.5 text-[12.5px] leading-snug whitespace-pre-wrap text-ink-soft">
+                    {condicion.cuidados}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[13px] text-ink-soft">
+            {t("carnet.conditions.empty")}
+          </p>
+        )}
+      </div>
+
+      <div className="carnet-panel rounded-[18px] bg-surface p-6">
+        <h4 className="rotulo mb-3 flex items-center gap-2 text-ink-mute">
+          <Syringe size={13} /> {t("carnet.vaccines.title")}
         </h4>
         {pet.vacunas.length ? (
           <Table
-            caption={`Vacunas registradas de ${pet.nombre}`}
+            caption={t("carnet.vaccines.caption", { nombre: pet.nombre })}
             columnas={[
-              { label: "Vacuna" },
-              { label: "Aplicada" },
-              { label: "Vence" },
-              { label: "Estado" },
+              { label: t("carnet.vaccines.columns.vaccine") },
+              { label: t("carnet.vaccines.columns.applied") },
+              { label: t("carnet.vaccines.columns.expires") },
+              { label: t("carnet.vaccines.columns.status") },
             ]}
           >
             {pet.vacunas.map((vacuna) => (
@@ -216,10 +188,10 @@ const CarneMascota = ({
                   {vacuna.nombre_vacuna}
                 </td>
                 <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">
-                  {formatDate(vacuna.fecha_aplicacion)}
+                  {formatDate(vacuna.fecha_aplicacion, localeTag)}
                 </td>
                 <td className="nums px-6 py-3 text-[12.5px] text-ink-soft">
-                  {formatDate(vacuna.fecha_vencimiento)}
+                  {formatDate(vacuna.fecha_vencimiento, localeTag)}
                 </td>
                 <td className="px-6 py-3">
                   <Badge
@@ -231,7 +203,7 @@ const CarneMascota = ({
                           : "danger"
                     }
                   >
-                    {vacuna.estado === "pendiente" ? "Por vencer" : vacuna.estado}
+                    {vacuna.estado === "pendiente" ? t("carnet.vaccines.statusUpcoming") : vacuna.estado}
                   </Badge>
                 </td>
               </tr>
@@ -239,8 +211,8 @@ const CarneMascota = ({
           </Table>
         ) : (
           <EmptyState
-            title="Sin vacunas registradas"
-            hint="Agrega los registros desde Mis mascotas."
+            title={t("carnet.vaccines.empty.title")}
+            hint={t("carnet.vaccines.empty.hint")}
           />
         )}
       </div>
@@ -250,6 +222,7 @@ const CarneMascota = ({
 
 const CarnetDigital = () => {
   const { getProfile } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [pets, setPets] = useState<Pet[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -268,34 +241,34 @@ const CarnetDigital = () => {
         setSelectedId(initial?.id_mascota ?? "");
       })
       .catch((cause) => {
-        setError(messageFrom(cause));
-        aviso.error(cause, { respaldo: "No se pudieron cargar los carnés." });
+        setError(messageFrom(cause, t));
+        aviso.error(cause, { respaldo: t("carnet.loadErrorToast") });
       })
       .finally(() => setLoading(false));
-  }, [getProfile]);
+  }, [getProfile, t]);
 
   const pet = pets.find((item) => item.id_mascota === selectedId) ?? null;
   const zone = profile?.zona
     ? `${profile.zona.nombre}, ${profile.zona.provincia}`
-    : "No registrada";
+    : t("carnet.card.notRegisteredZone");
 
   const share = async () => {
     if (!pet) return;
-    const text = `Carné digital de ${pet.nombre} · ${pet.especie}, ${pet.raza} · ID ${cardId(pet)}`;
+    const text = t("carnet.share_.text", { nombre: pet.nombre, especie: pet.especie, raza: pet.raza, id: cardId(pet) });
     try {
       if (navigator.share) {
-        await navigator.share({ title: `Carné de ${pet.nombre}`, text, url: window.location.href });
-        aviso.ok("Carné compartido");
+        await navigator.share({ title: t("carnet.share_.title", { nombre: pet.nombre }), text, url: window.location.href });
+        aviso.ok(t("carnet.share_.shared"));
       } else {
         await navigator.clipboard.writeText(`${text}\n${window.location.href}`);
-        aviso.ok("Enlace copiado", {
-          detalle: "Pegalo donde quieras compartir el carné.",
+        aviso.ok(t("carnet.share_.linkCopied"), {
+          detalle: t("carnet.share_.linkCopiedDetail"),
         });
       }
     } catch (cause) {
       if (!(cause instanceof DOMException && cause.name === "AbortError")) {
         aviso.error(cause, {
-          respaldo: "Este dispositivo no permite compartir el carné.",
+          respaldo: t("carnet.share_.shareUnsupported"),
         });
       }
     }
@@ -315,8 +288,8 @@ const CarnetDigital = () => {
 
        Dice además CUÁL carné sale, que es lo que se preguntaba: la
        hoja lleva solo la mascota seleccionada, no las cuatro. */
-    aviso.dato(`Preparando el carné de ${pet.nombre}`, {
-      detalle: "En el diálogo elegí \u00abGuardar como PDF\u00bb como destino.",
+    aviso.dato(t("carnet.print.preparing", { nombre: pet.nombre }), {
+      detalle: t("carnet.print.hint"),
     });
 
     document.body.classList.add("imprimiendo-carnet");
@@ -330,16 +303,16 @@ const CarnetDigital = () => {
   return (
     <Page>
       <PageHeader
-        title="Carné digital"
-        subtitle="Identificación, cuidados e historial de salud de tu mascota en un solo lugar."
+        title={t("carnet.title")}
+        subtitle={t("carnet.subtitle")}
         action={
           pet && (
             <div className="flex flex-wrap gap-1">
               <button type="button" className={btnSecondary} onClick={() => void share()}>
-                <Share2 size={14} /> Compartir
+                <Share2 size={14} /> {t("carnet.share")}
               </button>
               <button type="button" className={btnPrimary} onClick={print}>
-                <Download size={14} /> Guardar PDF
+                <Download size={14} /> {t("carnet.savePdf")}
               </button>
             </div>
           )
@@ -360,12 +333,12 @@ const CarnetDigital = () => {
       {!loading && !pets.length && (
         <section className="bg-surface p-5">
           <EmptyState
-            title="No hay carnés disponibles"
-            hint="Registra una mascota y su carné se creará automáticamente."
+            title={t("carnet.empty.title")}
+            hint={t("carnet.empty.hint")}
           />
           <div className="mt-4 text-center">
             <button type="button" className={btnPrimary} onClick={() => void navigate({ to: "/mascotas" })}>
-              Registrar mascota
+              {t("carnet.empty.registerPet")}
             </button>
           </div>
         </section>
@@ -375,7 +348,7 @@ const CarnetDigital = () => {
         <>
           <div className="flex flex-wrap items-center gap-3 bg-surface px-5 py-4">
             <label htmlFor="card-pet" className="rotulo text-ink-mute">
-              Mascota
+              {t("carnet.petSelector.label")}
             </label>
             <span className="block w-full max-w-[260px]">
               <Combo
@@ -391,7 +364,7 @@ const CarnetDigital = () => {
             </span>
             {pets.length > 1 && (
               <p className="text-[12px] text-ink-mute">
-                Se imprime solo el carné que estás viendo.
+                {t("carnet.petSelector.printHint")}
               </p>
             )}
             {notice && (
@@ -412,7 +385,7 @@ const CarnetDigital = () => {
               de la ventana. */}
           {createPortal(
             <div className="suave carnet-hoja">
-              <CarneMascota pet={pet} profile={profile} zona={zone} />
+              <CarneMascota pet={pet} profile={profile} zona={zone} papel />
             </div>,
             document.body,
           )}

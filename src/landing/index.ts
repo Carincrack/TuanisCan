@@ -3,4 +3,5 @@
 
 export { default } from "./Landing";
 export { default as Landing } from "./Landing";
+export { default as PaginaPerdidas } from "./PaginaPerdidas";
 export type { LandingProps, ModoAcceso } from "./tipos";

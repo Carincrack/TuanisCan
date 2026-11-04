@@ -4,6 +4,7 @@ import type {
   VerificationDocument,
   VerificationDocumentType,
 } from "../types/auth.types";
+import type { I18nContextValue } from "../context/i18n-context";
 
 const BUCKET = "usuarios-verificacion";
 
@@ -16,17 +17,21 @@ const BUCKET = "usuarios-verificacion";
    `Blob | null` a `URL.createObjectURL`. Dos errores de compilación
    que venían de arrastre —y el segundo no era un tipo mal puesto: si
    la descarga fallaba, reventaba justo acá. */
-function throwVerificationError(error: { code?: string; message?: string }): never {
+function throwVerificationError(
+  error: { code?: string; message?: string },
+  t: I18nContextValue["t"],
+): never {
   if (error.code === "42P01" || error.code === "PGRST205" || /bucket not found/i.test(error.message ?? "")) {
-    throw new Error("Falta aplicar la migración de verificación en Supabase antes de cargar documentos.");
+    throw new Error(t("profile.errors.verificationMigrationMissing"));
   }
-  throw new Error(error.message || "No se pudo completar la operación de verificación.");
+  throw new Error(error.message || t("profile.errors.generic"));
 };
 
 export const uploadVerificationDocument = async (
   userId: string,
   type: VerificationDocumentType,
   file: File,
+  t: I18nContextValue["t"],
 ) => {
   const previous = await supabase
     .from("documentos_verificacion_usuario")
@@ -34,14 +39,14 @@ export const uploadVerificationDocument = async (
     .eq("id_usuario", userId)
     .eq("tipo_documento", type)
     .maybeSingle();
-  if (previous.error) throwVerificationError(previous.error);
+  if (previous.error) throwVerificationError(previous.error, t);
 
   const extension = file.name.split(".").pop()?.toLowerCase() || "bin";
   const path = `${userId}/${type}-${crypto.randomUUID()}.${extension}`;
   const uploaded = await supabase.storage
     .from(BUCKET)
     .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploaded.error) throwVerificationError(uploaded.error);
+  if (uploaded.error) throwVerificationError(uploaded.error, t);
 
   const saved = await supabase
     .from("documentos_verificacion_usuario")
@@ -58,7 +63,7 @@ export const uploadVerificationDocument = async (
 
   if (saved.error) {
     await supabase.storage.from(BUCKET).remove([path]);
-    throwVerificationError(saved.error);
+    throwVerificationError(saved.error, t);
   }
 
   if (previous.data?.ruta_storage) {
@@ -66,9 +71,9 @@ export const uploadVerificationDocument = async (
   }
 };
 
-export const submitVerificationRequest = async () => {
+export const submitVerificationRequest = async (t: I18nContextValue["t"]) => {
   const { error } = await supabase.rpc("enviar_solicitud_verificacion");
-  if (error) throwVerificationError(error);
+  if (error) throwVerificationError(error, t);
 };
 
 export const listVerificationRequests = async (): Promise<AdminVerificationRequest[]> => {
@@ -90,19 +95,25 @@ export const reviewVerificationRequest = async (
   if (error) throw error;
 };
 
-export const getVerificationDocumentUrl = async (document: VerificationDocument) => {
+export const getVerificationDocumentUrl = async (
+  document: VerificationDocument,
+  t: I18nContextValue["t"],
+) => {
   const { data, error } = await supabase.storage
     .from(BUCKET)
     .createSignedUrl(document.ruta_storage, 5 * 60);
-  if (error) throwVerificationError(error);
+  if (error) throwVerificationError(error, t);
   return data.signedUrl;
 };
 
-export const downloadVerificationDocument = async (document: VerificationDocument) => {
+export const downloadVerificationDocument = async (
+  document: VerificationDocument,
+  t: I18nContextValue["t"],
+) => {
   const { data, error } = await supabase.storage
     .from(BUCKET)
     .download(document.ruta_storage);
-  if (error) throwVerificationError(error);
+  if (error) throwVerificationError(error, t);
 
   const url = URL.createObjectURL(data);
   const link = window.document.createElement("a");

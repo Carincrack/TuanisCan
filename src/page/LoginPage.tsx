@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
 import {
   User,
@@ -12,19 +13,59 @@ import {
   Footprints,
   Store,
   MapPin,
-  Image,
+  Camera,
   FileText,
   Banknote,
   Clock,
   ChevronLeft,
   ChevronRight,
+  Globe,
 } from "../lib/iconos";
 import { inicioDeRol, MARCA } from "../lib/nav";
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 import { getZonas } from "../services/auth.service";
 import { Combo } from "../components/Combo";
+import { Dialog } from "../components/ui";
+import TerminosCondiciones from "../components/TerminosCondiciones";
+import { PAIS_PREDETERMINADO } from "../types/auth.types";
 import type { RolPublico, Zona } from "../types/auth.types";
-import { isValidProfilePhotoUrl } from "../lib/profile";
+import { opcionesDePais } from "../lib/paises";
+
+/* Leaflet pesa ~150 kB y solo hace falta en el paso de negocio del
+   registro: se carga aparte para no sumarle peso al arranque de toda
+   la app, que monta LoginPage sin importar el rol. */
+const SelectorUbicacion = lazy(() =>
+  import("../components/SelectorUbicacion").then((m) => ({ default: m.SelectorUbicacion }))
+);
+
+/* El globo de países: d3 y los mapas pesan casi 1 MB entre los dos y
+   solo hacen falta si alguien abre la ventana del paso 2. */
+const cargarGlobo = () => import("../components/GloboPaises");
+const GloboPaises = lazy(cargarGlobo);
+
+/** Deja el globo bajando —su código y el mapa liviano— apenas aparece
+    el paso 2, para que al tocar el campo la ventana abra ya dibujada. */
+const precargarGlobo = () => {
+  void cargarGlobo().catch(() => undefined);
+  void import("../lib/mapaMundo").then((m) => m.precargarMapa()).catch(() => undefined);
+};
+
+/** Por si el código del globo todavía no llegó al abrir la ventana.
+    Va montado en `body`, como la ventana misma: dentro del formulario
+    el `fixed` quedaba encerrado por la tarjeta y se veía como un cuadro
+    oscuro encima de los campos. Sin velo, solo la píldora, y recién a
+    los 250 ms: con la precarga casi nunca llega a verse. */
+const EsperaGlobo = ({ texto }: { texto: string }) =>
+  createPortal(
+    <div className="pointer-events-none fixed inset-0 z-[90] grid place-items-center">
+      <span className="globo-espera inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-600 shadow-[0_18px_44px_-12px_rgba(15,32,44,0.4)]">
+        <Loader size={16} className="animate-spin text-[#14A3B8]" />
+        {texto}
+      </span>
+    </div>,
+    document.body,
+  );
 
 /** Rol elegido en el login. El administrador entra por /acceso-interno. */
 interface LoginPageProps {
@@ -34,28 +75,32 @@ interface LoginPageProps {
   onBack?: () => void;
 }
 
+/* `tituloClave`/`descripcionClave` son claves de traducción: este
+   arreglo vive fuera del componente y no puede llamar a `t()`, así
+   que quien lo consume (`roleSelector`, el resumen del paso 4)
+   traduce al momento de pintar. */
 const ROLES: {
   id: RolPublico;
-  titulo: string;
-  descripcion: string;
+  tituloClave: string;
+  descripcionClave: string;
   Icon: typeof PawPrint;
 }[] = [
   {
     id: "dueno",
-    titulo: "Dueño",
-    descripcion: "Contrato paseos",
+    tituloClave: "auth.roles.dueno.titulo",
+    descripcionClave: "auth.roles.dueno.descripcion",
     Icon: PawPrint,
   },
   {
     id: "paseador",
-    titulo: "Paseador",
-    descripcion: "Realizo los paseos",
+    tituloClave: "auth.roles.paseador.titulo",
+    descripcionClave: "auth.roles.paseador.descripcion",
     Icon: Footprints,
   },
   {
     id: "negocio",
-    titulo: "Negocio",
-    descripcion: "Ofrezco servicios",
+    tituloClave: "auth.roles.negocio.titulo",
+    descripcionClave: "auth.roles.negocio.descripcion",
     Icon: Store,
   },
 ];
@@ -131,6 +176,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   onBack,
 }) => {
   const { login, register, accessError } = useAuth();
+  const { t, localeTag } = useTranslation();
   const navigate = useNavigate();
   // Rol elegido. Se comparte entre iniciar sesión y registrarse.
   const [rol, setRol] = useState<RolPublico>("dueno");
@@ -170,23 +216,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regPassword, setRegPassword] = useState("");
   const [regPasswordConfirmation, setRegPasswordConfirmation] = useState("");
   const [regTelefono, setRegTelefono] = useState("");
-  const [regFotoPerfil, setRegFotoPerfil] = useState("");
-
-  /* La foto de perfil se pide como enlace, no como archivo, y hasta
-     ahora no había forma de saber si el enlace servía: se escribía a
-     ciegas y el error, si lo había, aparecía al enviar el formulario
-     entero. Esto la mira antes.
-
-     `urlMirada` va con retardo a propósito. Ligar la vista previa
-     directamente a lo que se teclea dispara una petición por letra
-     —y por cada trozo de dirección a medio escribir, que además
-     siempre falla— así que se espera medio segundo de quietud antes
-     de pedir nada. */
-  const [urlMirada, setUrlMirada] = useState("");
-  const [estadoFoto, setEstadoFoto] = useState<
-    "vacio" | "cargando" | "lista" | "rota"
-  >("vacio");
-  const [medidaFoto, setMedidaFoto] = useState("");
+  const [regPais, setRegPais] = useState<string>(PAIS_PREDETERMINADO);
+  const [globoAbierto, setGloboAbierto] = useState(false);
   const [regZonaId, setRegZonaId] = useState("");
   const [regDescripcion, setRegDescripcion] = useState("");
   const [regTarifa, setRegTarifa] = useState("");
@@ -198,6 +229,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [regLongitud, setRegLongitud] = useState("");
   const [regHorario, setRegHorario] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
+  const [verTerminos, setVerTerminos] = useState(false);
   const [registrationStep, setRegistrationStep] = useState(1);
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [zonasLoading, setZonasLoading] = useState(true);
@@ -217,46 +250,11 @@ const LoginPage: React.FC<LoginPageProps> = ({
     getZonas()
       .then(setZonas)
       .catch(() => {
-        setError("No se pudo cargar el catálogo de zonas");
+        setError(t("auth.errors.zonesLoadFailed"));
         setShowError(true);
       })
       .finally(() => setZonasLoading(false));
   }, []);
-
-
-  useEffect(() => {
-    const limpia = regFotoPerfil.trim();
-
-    if (!limpia) {
-      setUrlMirada("");
-      setEstadoFoto("vacio");
-      return;
-    }
-
-    /* Base64 ni se intenta: el perfil solo acepta http o https, así
-       que pedirla sería gastar el intento para acabar en el mismo
-       error. Se dice de una vez y con la razón. */
-    if (!isValidProfilePhotoUrl(limpia)) {
-      setUrlMirada("");
-      setEstadoFoto("rota");
-      return;
-    }
-
-    const reloj = setTimeout(() => {
-      /* Si la dirección es la misma de antes no hay nada que volver a
-         pedir, y sobre todo no hay que ponerse en "cargando": la clave
-         del `<img>` no cambiaría, el elemento no se volvería a montar,
-         no llegaría ningún `onLoad` y el aviso se quedaría girando
-         para siempre. Pasa con solo añadir un espacio al final. */
-      if (limpia === urlMirada) return;
-
-      setEstadoFoto("cargando");
-      setMedidaFoto("");
-      setUrlMirada(limpia);
-    }, 500);
-
-    return () => clearTimeout(reloj);
-  }, [regFotoPerfil, urlMirada]);
 
   /* Antes esto era un solo campo de texto contra el catálogo entero.
      Buscar así exige saber ya cómo se llama la zona, y el catálogo
@@ -310,6 +308,22 @@ const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   useEffect(() => {
+    if (isSignUp && registrationStep === 2) precargarGlobo();
+  }, [isSignUp, registrationStep]);
+
+  const nombrePais =
+    opcionesDePais(localeTag).find((opcion) => opcion.value === (regPais || PAIS_PREDETERMINADO))?.label ?? regPais;
+
+  const elegirPais = (valor: string) => {
+    setRegPais(valor);
+    if (valor && valor !== PAIS_PREDETERMINADO) {
+      setRegProvincia("");
+      setRegCanton("");
+      setRegZonaId("");
+    }
+  };
+
+  useEffect(() => {
     const mq = window.matchMedia(MEDIA_ANCHO);
     const alCambiar = (e: MediaQueryListEvent) => setAncho(e.matches);
     setAncho(mq.matches);
@@ -349,11 +363,27 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setTimeout(() => setPhase("idle"), REVEAL_AT + ENTER_MS);
   };
 
+  /* Supabase contesta en inglés y con su jerga («Invalid login
+     credentials»), y eso es lo que se mostraba tal cual. Por el código
+     del error se dice, en el idioma de la app, qué pasó y qué hacer. Los
+     errores propios de la app (cuenta inactiva, admin sin perfil) ya
+     vienen en español y pasan como están. */
+  const mensajeDeAcceso = (causa: unknown) => {
+    const codigo =
+      typeof causa === "object" && causa && "code" in causa ? String((causa as { code?: unknown }).code ?? "") : "";
+    const texto = causa instanceof Error ? causa.message : "";
+    if (codigo === "invalid_credentials" || /invalid login credentials/i.test(texto)) return t("auth.errors.invalidCredentials");
+    if (codigo === "email_not_confirmed" || /email not confirmed/i.test(texto)) return t("auth.errors.emailNotConfirmed");
+    if (codigo.startsWith("over_") || /rate limit/i.test(texto)) return t("auth.errors.tooManyAttempts");
+    if (/failed to fetch|network/i.test(texto)) return t("auth.errors.noConnection");
+    return texto || t("auth.errors.signInFailed");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!username || !password) {
-      setError("Por favor, ingrese usuario y contraseña");
+      setError(t("auth.errors.missingCredentials"));
       setShowError(true);
       return;
     }
@@ -365,7 +395,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     try {
       await login(username.trim(), password);
     } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : "No se pudo iniciar sesión");
+      setError(mensajeDeAcceso(loginError));
       setShowError(true);
     } finally {
       setIsLoading(false);
@@ -375,20 +405,21 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!regUsername.trim() || !regEmail.trim() || !regPassword || !regPasswordConfirmation || !regTelefono.trim() || !regZonaId) {
-      setError("Por favor, complete todos los campos obligatorios");
+    const paisSeleccionado = regPais || PAIS_PREDETERMINADO;
+    if (!regUsername.trim() || !regEmail.trim() || !regPassword || !regPasswordConfirmation || !regTelefono.trim() || (paisSeleccionado === PAIS_PREDETERMINADO && !regZonaId)) {
+      setError(t("auth.errors.missingRequiredFields"));
       setShowError(true);
       return;
     }
 
     if (rol === "paseador" && (!regDescripcion.trim() || Number(regTarifa) <= 0)) {
-      setError("Completa la descripción y una tarifa válida");
+      setError(t("auth.errors.walkerIncomplete"));
       setShowError(true);
       return;
     }
 
     if (rol === "negocio" && (!regNombreNegocio.trim() || !regDireccion.trim() || !regHorario.trim())) {
-      setError("Completa los datos del negocio");
+      setError(t("auth.errors.businessIncomplete"));
       setShowError(true);
       return;
     }
@@ -397,25 +428,25 @@ const LoginPage: React.FC<LoginPageProps> = ({
       (regLatitud && (Number(regLatitud) < -90 || Number(regLatitud) > 90)) ||
       (regLongitud && (Number(regLongitud) < -180 || Number(regLongitud) > 180))
     )) {
-      setError("Las coordenadas del negocio no son válidas");
-      setShowError(true);
-      return;
-    }
-
-    if (!isValidProfilePhotoUrl(regFotoPerfil.trim())) {
-      setError("La foto debe ser una URL https, no una imagen Base64");
+      setError(t("auth.errors.invalidCoordinates"));
       setShowError(true);
       return;
     }
 
     if (regPassword.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres");
+      setError(t("auth.errors.passwordTooShort"));
       setShowError(true);
       return;
     }
 
     if (regPassword !== regPasswordConfirmation) {
-      setError("Las contraseñas no coinciden");
+      setError(t("auth.errors.passwordMismatch"));
+      setShowError(true);
+      return;
+    }
+
+    if (!aceptaTerminos) {
+      setError(t("auth.errors.termsRequired"));
       setShowError(true);
       return;
     }
@@ -432,8 +463,8 @@ const LoginPage: React.FC<LoginPageProps> = ({
         {
           nombre: regUsername.trim(),
           telefono: regTelefono.trim(),
-          foto_perfil: regFotoPerfil.trim() || undefined,
-          zona_id: regZonaId,
+          pais: regPais || PAIS_PREDETERMINADO,
+          zona_id: regZonaId || undefined,
           tipo_usuario: rol,
           roles: [rol],
           descripcion: rol === "paseador" ? regDescripcion.trim() : undefined,
@@ -450,13 +481,13 @@ const LoginPage: React.FC<LoginPageProps> = ({
       if (sessionCreated) {
         navigate({ to: inicioDeRol[rol] });
       } else {
-        setSuccess("Cuenta creada. Revisa tu correo para confirmarla.");
+        setSuccess(t("auth.errors.accountCreatedPendingConfirmation"));
       }
     } catch (registerError) {
       setError(
         registerError instanceof Error
           ? registerError.message
-          : "No se pudo crear la cuenta"
+          : t("auth.errors.signUpFailed")
       );
       setShowError(true);
     } finally {
@@ -471,35 +502,30 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
     if (registrationStep === 2) {
       if (!regUsername.trim() || !regEmail.trim() || !regTelefono.trim()) {
-        setError("Completa tu nombre, correo y teléfono");
+        setError(t("auth.errors.missingPersonalInfo"));
         setShowError(true);
         return;
       }
       if (!/^\S+@\S+\.\S+$/.test(regEmail)) {
-        setError("Ingresa un correo electrónico válido");
+        setError(t("auth.errors.invalidEmail"));
         setShowError(true);
         return;
       }
     }
 
     if (registrationStep === 3) {
-      if (!regZonaId) {
-        setError("Selecciona tu zona");
-        setShowError(true);
-        return;
-      }
-      if (!isValidProfilePhotoUrl(regFotoPerfil.trim())) {
-        setError("La foto debe ser una URL https, no una imagen Base64");
+      if ((regPais || PAIS_PREDETERMINADO) === PAIS_PREDETERMINADO && !regZonaId) {
+        setError(t("auth.errors.zoneRequired"));
         setShowError(true);
         return;
       }
       if (rol === "paseador" && (!regDescripcion.trim() || Number(regTarifa) <= 0)) {
-        setError("Completa la descripción y una tarifa válida");
+        setError(t("auth.errors.walkerIncomplete"));
         setShowError(true);
         return;
       }
       if (rol === "negocio" && (!regNombreNegocio.trim() || !regDireccion.trim() || !regHorario.trim())) {
-        setError("Completa el nombre, dirección y horario del negocio");
+        setError(t("auth.errors.businessStepIncomplete"));
         setShowError(true);
         return;
       }
@@ -507,17 +533,13 @@ const LoginPage: React.FC<LoginPageProps> = ({
         (regLatitud && (Number(regLatitud) < -90 || Number(regLatitud) > 90)) ||
         (regLongitud && (Number(regLongitud) < -180 || Number(regLongitud) > 180))
       )) {
-        setError("Las coordenadas del negocio no son válidas");
+        setError(t("auth.errors.invalidCoordinates"));
         setShowError(true);
         return;
       }
     }
 
     setRegistrationStep((step) => Math.min(step + 1, 4));
-  };
-
-  const handleSocialLogin = (provider: string) => {
-    console.log(`Social login with: ${provider}`);
   };
 
   /*
@@ -606,7 +628,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const roleSelector = (
     <fieldset className="@container mb-5">
       <legend className="mb-2 w-full text-center text-xs tracking-wide text-slate-500">
-        Elige el tipo de cuenta
+        {t("auth.roleSelector.legend")}
       </legend>
       {/* Tres píldoras en fila no caben en una columna de 344 px: la
           etiqueta se parte en "Pasea/dor". Apiladas de a una cuando la
@@ -636,7 +658,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
               />
               <r.Icon size={17} className="flex-shrink-0" />
               <span className="min-w-0">
-                <span className="block text-xs leading-tight font-semibold">{r.titulo}</span>
+                <span className="block text-xs leading-tight font-semibold">{t(r.tituloClave)}</span>
                 {/* `truncate` escrito a mano para poder deshacerlo: en fila
                     la descripción no tiene dónde caer y hay que cortarla,
                     pero en columna sí puede ocupar dos renglones. */}
@@ -645,7 +667,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     active ? "text-white/75" : "text-slate-400"
                   }`}
                 >
-                  {r.descripcion}
+                  {t(r.descripcionClave)}
                 </span>
               </span>
             </label>
@@ -653,61 +675,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
         })}
       </div>
     </fieldset>
-  );
-
-  const socialButtons = (
-    <div className="mt-4 flex justify-center gap-4">
-      {/* Google */}
-      <button
-        type="button"
-        onClick={() => handleSocialLogin("Google")}
-        aria-label="Continuar con Google"
-        className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-[#14A3B8]/40 hover:shadow-md"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24">
-          <path
-            fill="#4285F4"
-            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-          />
-          <path
-            fill="#34A853"
-            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-          />
-          <path
-            fill="#FBBC05"
-            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-          />
-          <path
-            fill="#EA4335"
-            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 2.43-4.53 6.16-4.53z"
-          />
-        </svg>
-      </button>
-
-      {/* Apple */}
-      <button
-        type="button"
-        onClick={() => handleSocialLogin("Apple")}
-        aria-label="Continuar con Apple"
-        className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1E2A33] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#14A3B8]/40 hover:shadow-md"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 384 512" fill="currentColor">
-          <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
-        </svg>
-      </button>
-
-      {/* Meta */}
-      <button
-        type="button"
-        onClick={() => handleSocialLogin("Meta")}
-        aria-label="Continuar con Meta"
-        className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-[#14A3B8]/40 hover:shadow-md"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="#1877F2">
-          <path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z" />
-        </svg>
-      </button>
-    </div>
   );
 
   return (
@@ -725,7 +692,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           className="absolute top-4 left-4 z-50 inline-flex min-h-11 items-center gap-1 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-200 sm:top-5 sm:left-5 sm:bg-white/15 sm:text-white sm:backdrop-blur-sm sm:hover:bg-white/25 lg:min-h-0"
         >
           <ChevronLeft size={17} />
-          Volver
+          {t("common.back")}
         </button>
       )}
       {/* Tarjeta principal */}
@@ -815,12 +782,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
               {/* ▲▲▲ FIN DEL LOGO ▲▲▲ */}
 
               <h2 className="hidden font-bold text-white lg:block lg:text-2xl">
-                {isSignUp ? "¿Ya tienes cuenta?" : "¿Nuevo por aquí?"}
+                {isSignUp ? t("auth.brand.hasAccount") : t("auth.brand.newHere")}
               </h2>
               <p className="hidden max-w-[17rem] text-sm leading-relaxed text-white/75 lg:block">
                 {isSignUp
-                  ? `Inicia sesión para seguir cuidando a tu mascota con ${MARCA.completo}.`
-                  : "Únete a la comunidad y encuentra paseadores de confianza, veterinarias cercanas y mascotas perdidas cerca de ti."}
+                  ? t("auth.brand.signinBody", { marca: MARCA.completo })
+                  : t("auth.brand.signupBody")}
               </p>
               <button
                 type="button"
@@ -828,7 +795,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                 disabled={busy}
                 className="hidden rounded-full border-2 border-white/80 px-9 py-2.5 text-xs font-semibold tracking-[0.12em] text-white transition-all duration-300 hover:border-white hover:bg-white hover:text-[#16242F] disabled:pointer-events-none lg:mt-2 lg:block"
               >
-                {isSignUp ? "INICIAR SESIÓN" : "REGISTRARSE"}
+                {isSignUp ? t("auth.actions.signIn") : t("auth.actions.signUp")}
               </button>
             </div>
           </div>
@@ -836,29 +803,41 @@ const LoginPage: React.FC<LoginPageProps> = ({
           {/* ─── El pie va después en el documento; ver más abajo ─── */}
           {/* ─── CAPA z-10: formulario (lo tapa la media luna) ─── */}
           <div
-            className={`relative z-10 px-5 py-6 sm:px-8 sm:py-10 lg:absolute lg:top-0 lg:h-full lg:w-1/2 lg:px-12 lg:py-0 ${
+            className={`relative z-10 px-5 py-6 sm:px-8 sm:py-10 lg:absolute lg:top-0 lg:h-full lg:w-1/2 lg:overflow-y-auto lg:overscroll-contain lg:px-12 lg:py-8 ${
               isSignUp ? "lg:left-0" : "lg:left-1/2"
             }`}
           >
             <div
               /* Igual que arriba: el padding extra va del lado de la curva */
               key={`cara-${mode}`}
-              className={`@container animate-[tsc-fade_240ms_ease-out] flex h-full flex-col justify-center lg:animate-none ${
+              className={`@container animate-[tsc-fade_240ms_ease-out] flex h-full flex-col justify-center-safe lg:animate-none ${
                 isSignUp ? "lg:pr-10" : "lg:pl-10"
               }`}
               style={formStyle}
             >
               <h1 className={`${isSignUp ? "mb-4 text-2xl sm:text-3xl" : "mb-6 text-3xl sm:mb-8 sm:text-4xl"} text-center font-bold text-[#1E2A33]`}>
-                {isSignUp ? "Crear cuenta" : "Iniciar sesión"}
+                {isSignUp ? t("auth.heading.signup") : t("auth.heading.signin")}
               </h1>
 
               {isSignUp ? (
                 /* ─── Formulario de registro ─── */
                 <form onSubmit={handleRegister} className="space-y-4">
-                  <div aria-label={`Paso ${registrationStep} de 4`} className="mb-5">
+                  <div
+                    aria-label={t("auth.steps.progress", { step: registrationStep })}
+                    className="mb-5"
+                  >
                     <div className="mb-2 flex items-center justify-between text-[11px] font-semibold tracking-wide text-slate-500">
-                      <span>Paso {registrationStep} de 4</span>
-                      <span>{["Tipo de cuenta", "Datos personales", "Perfil", "Acceso"][registrationStep - 1]}</span>
+                      <span>{t("auth.steps.progress", { step: registrationStep })}</span>
+                      <span>
+                        {
+                          [
+                            t("auth.steps.titles.account"),
+                            t("auth.steps.titles.personal"),
+                            t("auth.steps.titles.profile"),
+                            t("auth.steps.titles.access"),
+                          ][registrationStep - 1]
+                        }
+                      </span>
                     </div>
                     <div className="flex gap-2">
                       {[1, 2, 3, 4].map((step) => (
@@ -871,24 +850,55 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <div>
                       {roleSelector}
                       <p className="rounded-2xl bg-slate-50 px-5 py-4 text-center text-xs leading-relaxed text-slate-500">
-                        Los datos del siguiente paso se adaptarán al tipo de cuenta que elijas.
+                        {t("auth.steps.step1Hint")}
                       </p>
                     </div>
                   )}
 
                   {registrationStep === 2 && (
                     <div className="space-y-4">
+                      {/* El país se elige en el globo. Por fuera se ve como un
+                          campo más del formulario, con el país puesto; al
+                          tocarlo se abre la ventana. Solo Costa Rica se
+                          puede confirmar: los demás todavía no tienen
+                          zonas catalogadas. */}
+                      <button
+                        type="button"
+                        onClick={() => setGloboAbierto(true)}
+                        aria-haspopup="dialog"
+                        aria-label={t("auth.globe.triggerAria", { pais: nombrePais })}
+                        className="group flex w-full items-center gap-3 rounded-full border border-transparent bg-slate-100 px-5 py-4 text-left text-[16px] transition-colors duration-150 hover:bg-slate-200/70 focus-visible:border-[#14A3B8]/40 focus-visible:ring-2 focus-visible:ring-[#14A3B8]/25 focus-visible:outline-none sm:text-sm"
+                      >
+                        <MapPin size={17} className="shrink-0 text-[#14A3B8]" />
+                        <span className="min-w-0 flex-1 truncate text-[#1E2A33]">{nombrePais}</span>
+                        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#14A3B8] transition-transform duration-150 ease-out group-hover:translate-x-0.5">
+                          <Globe size={15} />
+                          {t("auth.globe.trigger")}
+                        </span>
+                      </button>
+                      {globoAbierto && (
+                        <Suspense fallback={<EsperaGlobo texto={t("auth.globe.loading")} />}>
+                          <GloboPaises
+                            valor={regPais}
+                            onElegir={(codigo) => {
+                              elegirPais(codigo);
+                              setGloboAbierto(false);
+                            }}
+                            onCerrar={() => setGloboAbierto(false)}
+                          />
+                        </Suspense>
+                      )}
                       <div className="relative">
                         <User className={iconBase} size={18} />
-                        <input type="text" autoComplete="name" placeholder="Nombre completo *" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className={inputBase} maxLength={150} required />
+                        <input type="text" autoComplete="name" placeholder={t("auth.fields.fullName")} value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className={inputBase} maxLength={150} required />
                       </div>
                       <div className="relative">
                         <Mail className={iconBase} size={18} />
-                        <input type="email" autoComplete="email" placeholder="Correo electrónico *" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className={inputBase} required />
+                        <input type="email" autoComplete="email" placeholder={t("auth.fields.email")} value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className={inputBase} required />
                       </div>
                       <div className="relative">
                         <User className={iconBase} size={18} />
-                        <input type="tel" autoComplete="tel" placeholder="Teléfono *" value={regTelefono} onChange={(e) => setRegTelefono(e.target.value)} className={inputBase} maxLength={20} required />
+                        <input type="tel" autoComplete="tel" placeholder={t("auth.fields.phone")} value={regTelefono} onChange={(e) => setRegTelefono(e.target.value)} className={inputBase} maxLength={20} required />
                       </div>
                     </div>
                   )}
@@ -901,10 +911,10 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           Icon={MapPin}
                           value={regProvincia}
                           onChange={elegirProvincia}
-                          disabled={zonasLoading}
-                          textoInactivo="Cargando zonas…"
-                          placeholder="Provincia *"
-                          aria-label="Provincia"
+                           disabled={zonasLoading || Boolean(regPais && regPais !== PAIS_PREDETERMINADO)}
+                           textoInactivo={regPais && regPais !== PAIS_PREDETERMINADO ? t("auth.location.countryNoZones") : t("auth.location.loadingZones")}
+                          placeholder={t("auth.location.province")}
+                          aria-label={t("auth.location.provinceAria")}
                           options={provinciasReg.map((item) => ({
                             value: item,
                             label: item,
@@ -915,10 +925,10 @@ const LoginPage: React.FC<LoginPageProps> = ({
                           tono="login"
                           value={regCanton}
                           onChange={elegirCanton}
-                          disabled={!regProvincia}
-                          textoInactivo="Elegí una provincia"
-                          placeholder="Cantón *"
-                          aria-label="Cantón"
+                           disabled={!regProvincia || Boolean(regPais && regPais !== PAIS_PREDETERMINADO)}
+                           textoInactivo={regPais && regPais !== PAIS_PREDETERMINADO ? t("auth.location.countryNoZones") : t("auth.location.selectProvince")}
+                          placeholder={t("auth.location.canton")}
+                          aria-label={t("auth.location.cantonAria")}
                           options={cantonesReg.map((item) => ({
                             value: item,
                             label: item,
@@ -933,127 +943,41 @@ const LoginPage: React.FC<LoginPageProps> = ({
                             setError(null);
                             setShowError(false);
                           }}
-                          disabled={!regCanton}
-                          textoInactivo="Elegí un cantón"
-                          placeholder="Distrito *"
-                          aria-label="Distrito"
+                           disabled={!regCanton || Boolean(regPais && regPais !== PAIS_PREDETERMINADO)}
+                           textoInactivo={regPais && regPais !== PAIS_PREDETERMINADO ? t("auth.location.countryNoZones") : t("auth.location.selectCanton")}
+                          placeholder={t("auth.location.district")}
+                          aria-label={t("auth.location.districtAria")}
                           options={distritosReg.map((zona) => ({
                             value: zona.id_zona,
                             label: zona.nombre,
                           }))}
                         />
                       </div>
-                      <div>
-                        <div className="relative">
-                          <Image className={iconBase} size={18} />
-                          <input
-                            type="url"
-                            placeholder="URL https de foto (opcional, no Base64)"
-                            value={regFotoPerfil}
-                            onChange={(e) => setRegFotoPerfil(e.target.value)}
-                            className={inputBase}
-                            maxLength={2048}
-                          />
-                        </div>
-
-                        {/* La vista previa. Redonda y del tamaño en el
-                            que la foto se va a ver de verdad —el avatar
-                            del riel mide 32 px—, no un cuadro grande:
-                            lo que hay que comprobar acá no es la foto,
-                            es si el enlace trae una. */}
-                        {estadoFoto !== "vacio" && (
-                          <div
-                            aria-live="polite"
-                            className="mt-3 flex items-center gap-3 pl-2"
-                          >
-                            <span
-                              className={`grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full ${
-                                estadoFoto === "rota"
-                                  ? "bg-red-50 text-red-400"
-                                  : "bg-slate-100 text-slate-400"
-                              }`}
-                            >
-                              {estadoFoto === "rota" ? (
-                                <AlertCircle size={18} aria-hidden />
-                              ) : (
-                                urlMirada && (
-                                  /* La clave fuerza un elemento nuevo
-                                     por dirección. Sin ella el
-                                     navegador reaprovecha el mismo
-                                     `<img>` y no vuelve a avisar de
-                                     que cargó cuando la dirección
-                                     nueva ya estaba en la caché. */
-                                  <img
-                                    key={urlMirada}
-                                    src={urlMirada}
-                                    alt=""
-                                    onLoad={(evento) => {
-                                      setMedidaFoto(
-                                        `${evento.currentTarget.naturalWidth} × ${evento.currentTarget.naturalHeight}`,
-                                      );
-                                      setEstadoFoto("lista");
-                                    }}
-                                    onError={() => setEstadoFoto("rota")}
-                                    className={`h-full w-full object-cover transition-opacity duration-200 ${
-                                      estadoFoto === "lista"
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    }`}
-                                  />
-                                )
-                              )}
-                            </span>
-
-                            <p className="min-w-0 text-[11.5px] leading-snug">
-                              {estadoFoto === "cargando" && (
-                                <span className="text-slate-500">
-                                  Buscando la imagen…
-                                </span>
-                              )}
-
-                              {estadoFoto === "lista" && (
-                                <>
-                                  <span className="font-semibold text-[#14A3B8]">
-                                    La imagen carga
-                                  </span>
-                                  <span className="block text-slate-400">
-                                    {medidaFoto} px · así se va a ver
-                                  </span>
-                                </>
-                              )}
-
-                              {estadoFoto === "rota" && (
-                                <>
-                                  <span className="font-semibold text-red-500">
-                                    {regFotoPerfil.trim().startsWith("data:")
-                                      ? "Base64 no sirve acá"
-                                      : "No se pudo cargar"}
-                                  </span>
-                                  <span className="block text-slate-400">
-                                    {regFotoPerfil.trim().startsWith("data:")
-                                      ? "Hace falta un enlace https a la imagen."
-                                      : "El enlace tiene que llevar directo a la imagen, no a la página que la muestra."}
-                                  </span>
-                                </>
-                              )}
-                            </p>
-                          </div>
-                        )}
+                      {/* La foto ya no se pide acá: durante el registro todavía
+                          no hay sesión ni bucket propio donde subir un
+                          archivo, así que antes se pedía como enlace https
+                          (y Base64 quedaba bloqueado por el límite del JWT).
+                          Ahora se sube como archivo real, pero eso solo es
+                          posible una vez adentro —desde el perfil, con
+                          sesión activa—, así que acá solo se avisa. */}
+                      <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-[11.5px] leading-snug text-slate-500">
+                        <Camera className="flex-shrink-0 text-[#14A3B8]" size={16} aria-hidden />
+                        {t("auth.steps.photoHint")}
                       </div>
 
                       {rol === "paseador" && (
                         <>
                           <div className="relative">
                             <FileText className="pointer-events-none absolute left-5 top-5 text-[#14A3B8]" size={18} />
-                            <textarea rows={3} placeholder="Cuéntanos sobre tu experiencia *" value={regDescripcion} onChange={(e) => setRegDescripcion(e.target.value)} className={`${inputBase} resize-none rounded-2xl`} maxLength={800} required />
+                            <textarea rows={3} placeholder={t("auth.fields.experience")} value={regDescripcion} onChange={(e) => setRegDescripcion(e.target.value)} className={`${inputBase} resize-none rounded-2xl`} maxLength={800} required />
                           </div>
                           <div className="relative">
                             <Banknote className={iconBase} size={18} />
-                            <input type="number" min="0" step="100" placeholder="Tarifa base en colones *" value={regTarifa} onChange={(e) => setRegTarifa(e.target.value)} className={inputBase} required />
+                            <input type="number" min="0" step="100" placeholder={t("auth.fields.baseRate")} value={regTarifa} onChange={(e) => setRegTarifa(e.target.value)} className={inputBase} required />
                           </div>
                           <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-100 px-5 py-3 text-sm text-slate-600">
                             <input type="checkbox" checked={regDisponible} onChange={(e) => setRegDisponible(e.target.checked)} className="h-4 w-4 accent-[#14A3B8]" />
-                            Disponible para recibir solicitudes
+                            {t("auth.fields.available")}
                           </label>
                         </>
                       )}
@@ -1061,15 +985,27 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       {rol === "negocio" && (
                         <>
                           <div className="grid gap-3 @sm:grid-cols-2">
-                            <div className="relative"><Store className={iconBase} size={18} /><input type="text" placeholder="Nombre del negocio *" value={regNombreNegocio} onChange={(e) => setRegNombreNegocio(e.target.value)} className={inputBase} maxLength={150} required /></div>
-                            <Combo tono="login" value={regTipoNegocio} onChange={(v) => setRegTipoNegocio(v as typeof regTipoNegocio)} aria-label="Tipo de negocio" options={[{ value: "veterinaria", label: "Veterinaria" }, { value: "tienda", label: "Tienda" }, { value: "refugio", label: "Refugio" }]} />
+                            <div className="relative"><Store className={iconBase} size={18} /><input type="text" placeholder={t("auth.fields.businessName")} value={regNombreNegocio} onChange={(e) => setRegNombreNegocio(e.target.value)} className={inputBase} maxLength={150} required /></div>
+                            <Combo tono="login" value={regTipoNegocio} onChange={(v) => setRegTipoNegocio(v as typeof regTipoNegocio)} aria-label={t("auth.business.typeAria")} options={[{ value: "veterinaria", label: t("auth.business.types.veterinaria") }, { value: "tienda", label: t("auth.business.types.tienda") }, { value: "refugio", label: t("auth.business.types.refugio") }]} />
                           </div>
-                          <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder="Dirección exacta *" value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
-                          <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder="Horario de atención *" value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>
-                          <div className="grid gap-3 @sm:grid-cols-2">
-                            <input type="number" min="-90" max="90" step="any" placeholder="Latitud (opcional)" value={regLatitud} onChange={(e) => setRegLatitud(e.target.value)} className={`${inputBase} px-5`} />
-                            <input type="number" min="-180" max="180" step="any" placeholder="Longitud (opcional)" value={regLongitud} onChange={(e) => setRegLongitud(e.target.value)} className={`${inputBase} px-5`} />
-                          </div>
+                          <div className="relative"><MapPin className={iconBase} size={18} /><input type="text" placeholder={t("auth.fields.address")} value={regDireccion} onChange={(e) => setRegDireccion(e.target.value)} className={inputBase} required /></div>
+                          <div className="relative"><Clock className={iconBase} size={18} /><input type="text" placeholder={t("auth.fields.schedule")} value={regHorario} onChange={(e) => setRegHorario(e.target.value)} className={inputBase} required /></div>
+                          <Suspense
+                            fallback={
+                              <div className="flex h-[200px] w-full items-center justify-center rounded-2xl bg-slate-50 text-[11.5px] text-slate-400">
+                                {t("auth.map.loading")}
+                              </div>
+                            }
+                          >
+                            <SelectorUbicacion
+                              latitud={regLatitud}
+                              longitud={regLongitud}
+                              onChange={(lat, lng) => {
+                                setRegLatitud(String(lat));
+                                setRegLongitud(String(lng));
+                              }}
+                            />
+                          </Suspense>
                         </>
                       )}
                     </div>
@@ -1079,17 +1015,40 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <div className="space-y-4">
                       <div className="rounded-2xl bg-slate-50 px-5 py-4 text-xs leading-relaxed text-slate-600">
                         <strong className="block text-sm text-[#1E2A33]">{regUsername}</strong>
-                        {regEmail} · {ROLES.find((item) => item.id === rol)?.titulo}
+                        {regEmail} · {(() => {
+                          const claveRol = ROLES.find((item) => item.id === rol)?.tituloClave;
+                          return claveRol ? t(claveRol) : null;
+                        })()}
                       </div>
                       <div className="relative">
                         <Lock className={iconBase} size={18} />
-                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder="Contraseña (mínimo 8 caracteres) *" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className={`${inputBase} pr-14`} minLength={8} required />
-                        <button type="button" onClick={() => setShowRegPassword(!showRegPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 hover:text-[#14A3B8]" aria-label={showRegPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>{showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder={t("auth.fields.passwordMinLength")} value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className={`${inputBase} pr-14`} minLength={8} required />
+                        <button type="button" onClick={() => setShowRegPassword(!showRegPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 hover:text-[#14A3B8]" aria-label={showRegPassword ? t("auth.password.hide") : t("auth.password.show")}>{showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                       </div>
                       <div className="relative">
                         <Lock className={iconBase} size={18} />
-                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder="Confirmar contraseña *" value={regPasswordConfirmation} onChange={(e) => setRegPasswordConfirmation(e.target.value)} className={inputBase} minLength={8} required />
+                        <input type={showRegPassword ? "text" : "password"} autoComplete="new-password" placeholder={t("auth.fields.passwordConfirm")} value={regPasswordConfirmation} onChange={(e) => setRegPasswordConfirmation(e.target.value)} className={inputBase} minLength={8} required />
                       </div>
+
+                      <label className="flex items-start gap-2.5 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={aceptaTerminos}
+                          onChange={(e) => setAceptaTerminos(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[#14A3B8]"
+                        />
+                        <span>
+                          {t("auth.terms.prefix")}{" "}
+                          <button
+                            type="button"
+                            onClick={() => setVerTerminos(true)}
+                            className="font-semibold text-[#14A3B8] underline underline-offset-2 hover:text-[#0e8195]"
+                          >
+                            {t("auth.terms.link")}
+                          </button>{" "}
+                          {t("auth.terms.suffix", { marca: MARCA.completo })}
+                        </span>
+                      </label>
                     </div>
                   )}
 
@@ -1114,12 +1073,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     }`}
                   >
                     {registrationStep > 1 ? (
-                      <button type="button" onClick={() => { setRegistrationStep((step) => step - 1); setError(null); setShowError(false); }} className="inline-flex min-h-11 items-center justify-center gap-1 px-3 py-3 text-xs font-semibold text-slate-500 hover:text-[#14A3B8]"><ChevronLeft size={16} /> Atrás</button>
+                      <button type="button" onClick={() => { setRegistrationStep((step) => step - 1); setError(null); setShowError(false); }} className="inline-flex min-h-11 items-center justify-center gap-1 px-3 py-3 text-xs font-semibold text-slate-500 hover:text-[#14A3B8]"><ChevronLeft size={16} /> {t("auth.actions.back")}</button>
                     ) : <span />}
                     {registrationStep < 4 ? (
-                      <button type="button" onClick={nextRegistrationStep} className={primaryBtn}>SIGUIENTE <ChevronRight size={16} /></button>
+                      <button type="button" onClick={nextRegistrationStep} className={primaryBtn}>{t("auth.actions.next")} <ChevronRight size={16} /></button>
                     ) : (
-                      <button type="submit" disabled={isLoading || Boolean(success)} className={primaryBtn}>{isLoading ? "CREANDO..." : "CREAR CUENTA"}</button>
+                      <button type="submit" disabled={isLoading || Boolean(success) || !aceptaTerminos} className={primaryBtn}>{isLoading ? t("auth.actions.creating") : t("auth.actions.createAccount")}</button>
                     )}
                   </div>
                 </form>
@@ -1131,7 +1090,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <input
                       id="username"
                       type="text"
-                      placeholder="Usuario"
+                      placeholder={t("auth.fields.username")}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       className={inputBase}
@@ -1144,7 +1103,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="Contraseña"
+                      placeholder={t("auth.fields.password")}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className={`${inputBase} pr-14`}
@@ -1155,7 +1114,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 hover:text-[#14A3B8]"
                       aria-label={
-                        showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                        showPassword ? t("auth.password.hide") : t("auth.password.show")
                       }
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1171,7 +1130,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       }}
                       className="text-xs text-slate-500 transition-colors hover:text-[#14A3B8]"
                     >
-                      ¿Olvidaste tu contraseña?
+                      {t("auth.forgotPassword")}
                     </a>
                   </div>
 
@@ -1191,22 +1150,16 @@ const LoginPage: React.FC<LoginPageProps> = ({
                       {isLoading ? (
                         <>
                           <Loader className="animate-spin" size={16} />
-                          <span>INGRESANDO...</span>
+                          <span>{t("auth.actions.signingIn")}</span>
                         </>
                       ) : (
-                        "INICIAR SESIÓN"
+                        t("auth.actions.signIn")
                       )}
                     </button>
                   </div>
                 </form>
               )}
 
-              {!isSignUp && (
-                <>
-                  <p className="mt-8 text-center text-sm text-slate-500">O inicia sesión con</p>
-                  {socialButtons}
-                </>
-              )}
             </div>
           </div>
 
@@ -1216,7 +1169,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             className="animate-[tsc-fade_240ms_ease-out] relative z-10 mt-auto border-t border-slate-200 px-5 pt-5 pb-6 text-center sm:px-8 sm:pb-8 lg:hidden"
           >
             <p className="text-sm text-slate-500">
-              {isSignUp ? "¿Ya tienes cuenta?" : "¿Nuevo por aquí?"}
+              {isSignUp ? t("auth.brand.hasAccount") : t("auth.brand.newHere")}
             </p>
             <button
               type="button"
@@ -1224,11 +1177,17 @@ const LoginPage: React.FC<LoginPageProps> = ({
               disabled={busy}
               className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#14A3B8]/45 px-9 py-2.5 text-xs font-semibold tracking-[0.12em] text-[#14A3B8] transition-all duration-300 hover:border-[#14A3B8] hover:bg-[#14A3B8] hover:text-white disabled:pointer-events-none"
             >
-              {isSignUp ? "INICIAR SESIÓN" : "REGISTRARSE"}
+              {isSignUp ? t("auth.actions.signIn") : t("auth.actions.signUp")}
             </button>
           </div>
         </div>
       </div>
+
+      {verTerminos && (
+        <Dialog title={t("auth.terms.dialogTitle")} onClose={() => setVerTerminos(false)} ancho="max-w-[680px]">
+          <TerminosCondiciones />
+        </Dialog>
+      )}
     </div>
   );
 };

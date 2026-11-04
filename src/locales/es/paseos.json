@@ -1,0 +1,120 @@
+{
+  "title": "Paseos",
+  "subtitle": "Agenda, seguimiento e historial de los paseos de tus mascotas.",
+  "scheduleWalk": "Agendar paseo",
+  "status": {
+    "requested": "Solicitado",
+    "confirmed": "Confirmado",
+    "inCourse": "En curso",
+    "completed": "Completado",
+    "cancelled": "Cancelado",
+    "overdue": "Vencido"
+  },
+  "unassigned": "Sin asignar",
+  "noName": "Sin nombre",
+  "walkerRateTitle": "Tarifa del paseador: {{tarifa}}",
+  "loadError": "No se pudieron cargar los paseos.",
+  "cancelled": "Solicitud de {{mascota}} cancelada",
+  "cancelledDetail": "Le avisamos al paseador.",
+  "cancelFailed": "No se pudo cancelar la solicitud.",
+  "allMyPets": "Todas mis mascotas",
+  "allZones": "Todas las zonas",
+  "cancel": "Cancelar",
+  "watchLive": "Ver en vivo",
+  "stats": {
+    "upcoming": "Próximos",
+    "nextOne": "El siguiente: {{cuando}}",
+    "nothingScheduled": "Nada agendado por ahora",
+    "completed": "Completados",
+    "ofScheduled": "De {{total}} agendados",
+    "ofScheduledOne": "De 1 agendado",
+    "totalSpent": "Total gastado",
+    "spentIn": "En {{n}} paseos completados",
+    "spentInOne": "En 1 paseo completado",
+    "noneCompleted": "Aún sin paseos completados",
+    "noneCharged": "Aún sin pagos cobrados",
+    "chargedInOne": "En 1 paseo cobrado",
+    "chargedIn": "En {{n}} paseos cobrados"
+  },
+  "filters": {
+    "label": "Vista de paseos",
+    "upcoming": "Próximos",
+    "history": "Historial",
+    "all": "Todos",
+    "searchAria": "Buscar paseos",
+    "searchPlaceholder": "Buscar por mascota, paseador o lugar",
+    "petAria": "Filtrar por mascota",
+    "zoneAria": "Filtrar por zona",
+    "clear": "Limpiar"
+  },
+  "empty": {
+    "title": "No hay paseos en esta vista",
+    "noUpcoming": "No hay paseos próximos",
+    "withFilters": "Prueba con otra búsqueda o limpia los filtros.",
+    "withoutFilters": "Agenda un paseo para tu mascota.",
+    "clearFilters": "Limpiar filtros"
+  },
+  "table": {
+    "caption": "Paseos de tus mascotas",
+    "pet": "Mascota",
+    "when": "Cuándo",
+    "walker": "Paseador",
+    "place": "Lugar",
+    "status": "Estado",
+    "price": "Precio",
+    "actions": "Acciones",
+    "noZone": "Sin zona"
+  },
+  "pagination": {
+    "label": "Paginación de paseos",
+    "singular": "paseo",
+    "plural": "paseos"
+  },
+  "cancelDialog": {
+    "title": "¿Cancelar la solicitud?",
+    "body": "{{paseador}} todavía no respondió. Si la cancelás, se le avisa y el paseo de {{mascota}} no se agenda.",
+    "defaultWalker": "El paseador",
+    "confirm": "Cancelar solicitud",
+    "back": "Volver"
+  },
+  "walkerFallback": "Paseador",
+  "yourOfferShort": "Tu oferta",
+  "retry": "Reintentar",
+  "detail": {
+    "title": "Detalle del paseo",
+    "open": "Ver el paseo de {{mascota}}",
+    "walkOf": "Paseo de {{mascota}}",
+    "walker": "Paseador",
+    "schedule": "Horario",
+    "meetingPoint": "Punto de encuentro",
+    "zone": "Zona",
+    "code": "Código de paseo",
+    "price": "Precio",
+    "offerNote": "Fue tu oferta. La tarifa del paseador era {{tarifa}}.",
+    "overdueRequested": "La fecha pasó y el paseador nunca respondió la solicitud.",
+    "overdueConfirmed": "La fecha pasó y el paseo no se llegó a iniciar.",
+    "close": "Cerrar",
+    "viewRoute": "Ver ruta",
+    "payment": "Pago"
+  },
+  "route": {
+    "title": "Ruta del paseo de {{mascota}}",
+    "loading": "Cargando la ruta...",
+    "empty": {
+      "title": "No hay ruta guardada",
+      "hint": "Este paseo no registró ubicaciones durante el recorrido."
+    }
+  },
+  "payment": {
+    "confirm": "Confirmar pago",
+    "missing": "Falta confirmar el pago",
+    "reserved": "Pago reservado",
+    "states": {
+      "pendiente": "Por confirmar",
+      "retenido": "Reservado · se cobra al terminar",
+      "pagado": "Cobrado",
+      "reembolsado": "Reembolsado",
+      "fallido": "Falló"
+    }
+  }
+}

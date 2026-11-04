@@ -26,10 +26,12 @@ export interface LostPetReport {
 }
 
 export interface LostPetInput {
-  id_mascota: string;
+  /** Null para una mascota encontrada que no está registrada por quien
+      reporta: el sistema busca a su posible dueño por coincidencia. */
+  id_mascota: string | null;
   especie: string;
   zona_id: string;
-  nombre: string;
+  nombre: string | null;
   raza: string | null;
   contacto: string | null;
   descripcion: string;
@@ -46,6 +48,47 @@ export interface SightingInput {
   zona_id: string | null;
   direccion: string | null;
   contacto: string | null;
+}
+
+export type MatchStatus = "pendiente" | "confirmado" | "descartado";
+
+/** Una coincidencia entre un reporte de mascota encontrada (sin dueño
+    identificado) y una de las mascotas registradas de quien consulta. */
+export interface PetMatch {
+  id_match: string;
+  id_reporte: string;
+  id_mascota: string;
+  mascotaNombre: string;
+  especie: string;
+  descripcion: string;
+  fotoUrl: string | null;
+  zona_id: string | null;
+  latitud: number;
+  longitud: number;
+  recompensa: number | null;
+  fecha_reporte: string;
+  puntaje_coincidencia: number;
+  estado_match: MatchStatus;
+  estado_reporte: LostPetStatus;
+  zona?: Zona | null;
+}
+
+/** La ficha pública de /perdidas: solo lo que ya es público en un
+    cartel de "se perdió esta mascota" (foto, nombre, zona, fecha).
+    Nunca el contacto, la descripción completa ni quién reportó —
+    eso vive detrás de sesión, en /mascotas-perdidas. */
+export interface PublicLostPet {
+  id_mascota_perdida: string;
+  /** Null cuando el reporte es de una mascota encontrada sin dueño
+      identificado: ahí `nombre` no es un nombre real, es el texto
+      por defecto que pone `reportar_mascota_perdida`. */
+  id_mascota: string | null;
+  nombre: string;
+  especie: string;
+  raza: string | null;
+  fotoUrl: string | null;
+  fecha_reporte: string;
+  zona: Zona | null;
 }
 
 export interface Sighting {

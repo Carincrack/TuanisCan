@@ -13,6 +13,17 @@ export interface Vaccine {
   notas: string | null;
 }
 
+/** Enfermedad o condición de salud que el dueño registra. */
+export interface Condition {
+  id_padecimiento: string;
+  id_mascota: string;
+  nombre: string;
+  cuidados: string | null;
+  fecha_diagnostico: string | null;
+}
+
+export type ConditionInput = Pick<Condition, "nombre" | "cuidados" | "fecha_diagnostico">;
+
 export interface Pet {
   id_mascota: string;
   id_dueno: string;
@@ -31,6 +42,7 @@ export interface Pet {
   veterinaria: string | null;
   notas: string | null;
   vacunas: Vaccine[];
+  padecimientos: Condition[];
 }
 
 export type PetInput = Pick<

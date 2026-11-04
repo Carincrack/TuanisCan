@@ -1,0 +1,150 @@
+{
+  "title": "Payment management",
+  "subtitle": "Monitor your receipts and pay pending walks.",
+  "manageCards": "Manage cards",
+  "status": {
+    "paid": "Paid",
+    "pending": "Pending",
+    "failed": "Failed",
+    "refunded": "Refund",
+    "held": "Reserved"
+  },
+  "filters": {
+    "label": "Filter movements",
+    "all": "All",
+    "paid": "Paid",
+    "pending": "Pending",
+    "refunds": "Refunds"
+  },
+  "stats": {
+    "spentThisMonth": "{{mes}} spend",
+    "paymentSingular": "payment made",
+    "paymentPlural": "payments made",
+    "pendingToCollect": "Pending collection",
+    "walkSingularDue": "walk due",
+    "walkPluralDue": "walks due",
+    "allUpToDate": "Up to date with all walks",
+    "totalRefunded": "Total refunded",
+    "refundSingular": "refund issued",
+    "refundPlural": "refunds issued",
+    "noRefunds": "No refunds recorded",
+    "heldSingular": "1 reserved · charged when it ends",
+    "heldPlural": "{{n}} reserved · charged when they end"
+  },
+  "cards": {
+    "savedSingular": "saved card",
+    "savedPlural": "saved cards",
+    "none": "You don't have any saved cards yet.",
+    "addCard": "Add card"
+  },
+  "searchPlaceholder": "Search by pet or walker…",
+  "exportCsv": "Export CSV",
+  "exportCsvTitle": "Download the history as CSV",
+  "exported": {
+    "singular": "movement exported",
+    "plural": "movements exported",
+    "detail": "{{nombre}} was downloaded."
+  },
+  "csv": {
+    "transactionId": "Transaction ID",
+    "service": "Service",
+    "walkOf": "Walk ({{duracion}} min)",
+    "pet": "Pet",
+    "walker": "Walker",
+    "date": "Date",
+    "method": "Method",
+    "status": "Status",
+    "amount": "Amount CRC",
+    "currency": "Currency",
+    "amountCharged": "Amount charged",
+    "exchangeRate": "Exchange rate"
+  },
+  "table": {
+    "caption": "Payment movement history",
+    "transaction": "Transaction",
+    "date": "Date",
+    "method": "Method",
+    "status": "Status",
+    "amount": "Amount",
+    "walkWith": "Walk with {{mascota}}",
+    "viewReceiptTitle": "View the receipt · Walk with {{mascota}}",
+    "pay": "Confirm payment",
+    "chargedAtEnd": "Charged when it ends"
+  },
+  "empty": {
+    "title": "No movements for this filter",
+    "withSearch": "No movement matches your search.",
+    "withoutSearch": "Charges and walks will show up recorded here."
+  },
+  "payDialog": {
+    "title": "Confirm walk payment",
+    "dogWalk": "Dog walk",
+    "withWalker": "With {{paseador}} · {{duracion}} minutes",
+    "totalToPay": "Walk total",
+    "toWalker": "To the walker {{monto}}",
+    "commission": "Commission {{monto}}",
+    "whichCard": "Which card to charge",
+    "principal": "Primary",
+    "whichMethod": "Payment method",
+    "walletsTitle": "Digital wallets",
+    "wallets": {
+      "paypal": "PayPal",
+      "googlePay": "Google Pay",
+      "applePay": "Apple Pay"
+    },
+    "noCards": {
+      "title": "You don't have any active card",
+      "hint": "Register one to be able to pay for the walk."
+    },
+    "secureTransaction": "Secure transaction",
+    "cancel": "Cancel",
+    "payAmount": "Reserve {{monto}}",
+    "addCard": "Add card",
+    "paying": "Reserving {{monto}}…",
+    "paid": "Payment confirmed: {{monto}} reserved",
+    "payFailed": "The payment couldn't be confirmed.",
+    "holdExplain": "Nothing is charged now. The amount is reserved on the method you choose and charged when the walk ends. Once the payment is confirmed, the walker can start the walk.",
+    "payingNow": "Charging {{monto}}…",
+    "paidNow": "Payment of {{monto}} completed",
+    "chargeNowExplain": "This walk already happened and its payment was left pending: it is charged now on the method you choose.",
+    "payNow": "Pay {{monto}}",
+    "currencyLabel": "Pay in",
+    "currency": {
+      "CRC": "Colones (₡)",
+      "USD": "Dollars ($)"
+    },
+    "rateLine": "{{colones}} at an exchange rate of {{tipo}}",
+    "rateSource": "Buying rate for {{fecha}} · {{fuente}}",
+    "rateLoading": "Checking the exchange rate…",
+    "rateFailed": "Couldn't get the exchange rate. Pay in colones or try again.",
+    "rateRetry": "Try again"
+  },
+  "receipt": {
+    "title": "Receipt",
+    "walker": "Walker",
+    "serviceDate": "Service date",
+    "duration": "Duration",
+    "durationMinutes": "{{duracion}} minutes",
+    "methodUsed": "Method used",
+    "walkerRate": "Walker's rate",
+    "commission": "TuanisCan commission",
+    "totalAmount": "Total amount",
+    "close": "Close",
+    "reference": "Reference",
+    "reservedOn": "Reserved on",
+    "chargedOn": "Charged on",
+    "currency": "Payment currency",
+    "currencyUSD": "US dollars",
+    "exchangeRate": "Exchange rate",
+    "inColones": "Equivalent to"
+  },
+  "errors": {
+    "loadFailed": "Could not load your payments."
+  },
+  "rates": {
+    "sources": {
+      "hacienda": "Costa Rica Ministry of Finance",
+      "exchangerate": "ExchangeRate-API"
+    }
+  }
+}

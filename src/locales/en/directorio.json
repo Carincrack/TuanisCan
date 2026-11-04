@@ -1,0 +1,78 @@
+{
+  "title": "Directory",
+  "subtitleNearby": "Businesses located within 10 km of you.",
+  "subtitleAll": "Vets, stores and shelters in the area, all in one place.",
+  "viewAll": "View all",
+  "searching": "Looking…",
+  "nearMe": "Near me",
+  "filtersAria": "Directory filters",
+  "searchPlaceholder": "Search by name, address or zone",
+  "searchAria": "Search by name, address or zone",
+  "typeFilterAria": "Filter by business type",
+  "types": {
+    "all": "All",
+    "vets": "Vets",
+    "stores": "Stores",
+    "shelters": "Shelters"
+  },
+  "businessType": {
+    "vet": "Vet",
+    "store": "Store",
+    "shelter": "Shelter"
+  },
+  "provinceAria": "Province",
+  "provinceFilterAria": "Filter by province",
+  "allProvinces": "All provinces",
+  "cantonAria": "Canton",
+  "cantonFilterAria": "Filter by canton",
+  "selectProvince": "Pick a province",
+  "allCantons": "All cantons",
+  "districtAria": "District",
+  "districtFilterAria": "Filter by district",
+  "selectCanton": "Pick a canton",
+  "allDistricts": "All districts",
+  "loadError": "Could not load the directory from Supabase.",
+  "loadErrorToast": "Could not load the directory.",
+  "retry": "Retry",
+  "empty": {
+    "title": "No results",
+    "withZoneFilter": "There are no businesses registered in that zone yet.",
+    "withoutZoneFilter": "Try another name or another business type.",
+    "viewAllZones": "View all zones"
+  },
+  "resultsAria": "{{count}} businesses found",
+  "resultSingular": "result found",
+  "resultPlural": "results found",
+  "sortBy": "Sort by",
+  "sortAria": "Sort results",
+  "sortNearest": "Nearest",
+  "sortName": "Name A-Z",
+  "moreFilters": "More filters",
+  "noAddress": "No address given",
+  "removeFavorite": "Remove from favorites",
+  "addFavorite": "Save to favorites",
+  "featured": "Featured",
+  "noSchedule": "No schedule given",
+  "noPhone": "No phone given",
+  "viewDetails": "View details",
+  "call": "Call",
+  "getDirections": "Get directions",
+  "map": {
+    "aria": "Interactive map of businesses",
+    "title": "Interactive map",
+    "locationSingular": "location available",
+    "locationPlural": "locations available",
+    "exitFullscreen": "Exit fullscreen",
+    "expand": "Expand map",
+    "expandShort": "Expand",
+    "collapseShort": "Collapse",
+    "empty": {
+      "title": "No coordinates to show",
+      "hint": "Businesses show up on the list even if they haven't added their location yet."
+    }
+  },
+  "errors": {
+    "noGeolocation": "This browser does not allow using your location.",
+    "locationFailed": "We couldn't get your location. Check your browser permission."
+  }
+}

@@ -71,18 +71,22 @@ const ForgotPasswordPage = perezoso(() => import("./src/page/ForgotPasswordPage"
 const UpdatePasswordPage = perezoso(() => import("./src/page/UpdatePasswordPage"));
 
 const ProfilePage = perezoso(() => import("./src/page/ProfilePage"), "perfil-cuenta");
-const dashboardPage = perezoso(() => import("./src/page/dashboardPage"), "panel-metricas");
 const MascotasPage = perezoso(() => import("./src/page/MascotasPage"), "mascotas-rejilla");
 const PaseadoresPage = perezoso(() => import("./src/page/PaseadoresPage"), "paseadores-rejilla");
 const CarnetDigital = perezoso(() => import("./src/components/carnet"), "carnet-tarjeta");
 const Paseos = perezoso(() => import("./src/components/paseos"), "paseos-lista");
 const PaseoEnVivo = perezoso(() => import("./src/components/paseoEnVivo"));
+const chat = () => import("./src/components/chat/Mensajes");
+const MensajesDueno = perezoso(nombrada(chat, "MensajesDueno"));
+const MensajesPaseador = perezoso(nombrada(chat, "MensajesPaseador"));
 const MascotasPerdidas = perezoso(() => import("./src/components/mascotasPerdidas"), "perdidas-rejilla");
 const Directorio = perezoso(() => import("./src/components/directorio"), "directorio-rejilla");
 const Pagos = perezoso(() => import("./src/components/pagos"));
+const Tarjetas = perezoso(() => import("./src/components/tarjetas"));
 const Resenas = perezoso(() => import("./src/components/resenas"));
 const ZonasAdminPage = perezoso(() => import("./src/page/ZonasAdminPage"), "admin-tabla");
 const PaginaCaptura = perezoso(() => import("./src/esqueletos/PaginaCaptura"));
+const PaginaPerdidas = perezoso(nombrada(() => import("./src/landing"), "PaginaPerdidas"));
 
 const admin = () => import("./src/components/admin");
 const PanelAdmin = perezoso(nombrada(admin, "PanelAdmin"), "panel-metricas");
@@ -96,10 +100,11 @@ const paseador = () => import("./src/components/paseador");
 const PanelPaseador = perezoso(nombrada(paseador, "PanelPaseador"), "panel-metricas");
 const SolicitudesPaseador = perezoso(nombrada(paseador, "SolicitudesPaseador"), "paseador-solicitudes");
 const AgendaPaseador = perezoso(nombrada(paseador, "AgendaPaseador"));
-const PaseoActivoPaseador = perezoso(nombrada(paseador, "PaseoActivoPaseador"));
+const PaseoActivoPaseador = perezoso(() => import("./src/components/PaseoActivoPaseador"));
 const GananciasPaseador = perezoso(nombrada(paseador, "GananciasPaseador"));
-const PerfilPaseador = perezoso(nombrada(paseador, "PerfilPaseador"));
-const ResenasPaseador = perezoso(nombrada(paseador, "ResenasPaseador"));
+const TarifasPaseador = perezoso(() => import("./src/components/TarifasPaseador"));
+const PerfilPaseador = perezoso(() => import("./src/components/PerfilPaseador"));
+const ResenasPaseador = perezoso(() => import("./src/components/ResenasPaseador"));
 
 /* ── El árbol ───────────────────────────────────────────────────── */
 
@@ -116,7 +121,6 @@ const registerRoute = ruta("/registro", RegisterPage);
 const forgotPasswordRoute = ruta("/recuperar-contrasena", ForgotPasswordPage);
 const updatePasswordRoute = ruta("/actualizar-contrasena", UpdatePasswordPage);
 const profileRoute = ruta("/perfil", ProfilePage);
-const dashboardRoute = ruta("/dashboard", dashboardPage);
 const mascotasRoute = ruta("/mascotas", MascotasPage);
 const paseadoresRoute = ruta("/paseadores", PaseadoresPage);
 
@@ -125,9 +129,11 @@ const paseadoresRoute = ruta("/paseadores", PaseadoresPage);
    nada. */
 const paseosRoute = ruta("/paseos", Paseos);
 const paseoEnVivoRoute = ruta("/paseo-en-vivo", PaseoEnVivo);
+const mensajesRoute = ruta("/mensajes", MensajesDueno);
 const mascotasPerdidasRoute = ruta("/mascotas-perdidas", MascotasPerdidas);
 const directorioRoute = ruta("/directorio", Directorio);
 const pagosRoute = ruta("/pagos", Pagos);
+const tarjetasRoute = ruta("/pagos/tarjetas", Tarjetas);
 const resenasRoute = ruta("/resenas", Resenas);
 const carnetRoute = ruta("/carnet", CarnetDigital);
 
@@ -137,13 +143,20 @@ const carnetRoute = ruta("/carnet", CarnetDigital);
    ningún dato: solo cajas de relleno. */
 const esqueletosRoute = ruta("/esqueletos", PaginaCaptura);
 
+/* Vitrina pública de mascotas perdidas. Se llega desde el hero y no
+   pide sesión. No confundir con /mascotas-perdidas, que es la
+   pantalla interna. */
+const perdidasRoute = ruta("/perdidas", PaginaPerdidas);
+
 /* Lado del paseador. Prefijo /p/ para que las dos mitades de la
    plataforma no se pisen ni se confundan al leer las rutas. */
 const panelPaseadorRoute = ruta("/p/panel", PanelPaseador);
 const solicitudesRoute = ruta("/p/solicitudes", SolicitudesPaseador);
 const agendaRoute = ruta("/p/agenda", AgendaPaseador);
 const paseoActivoRoute = ruta("/p/paseo-activo", PaseoActivoPaseador);
+const mensajesPaseadorRoute = ruta("/p/mensajes", MensajesPaseador);
 const gananciasRoute = ruta("/p/ganancias", GananciasPaseador);
+const tarifasRoute = ruta("/p/tarifas", TarifasPaseador);
 const perfilPaseadorRoute = ruta("/p/perfil", PerfilPaseador);
 const resenasPaseadorRoute = ruta("/p/resenas", ResenasPaseador);
 
@@ -161,6 +174,7 @@ const adminPaseosRoute = ruta(`${RUTA_ADMIN}/paseos`, PaseosAdmin);
 rootRoute.addChildren([
   carnetRoute,
   esqueletosRoute,
+  perdidasRoute,
   adminPanelRoute,
   adminFinanzasRoute,
   adminPaseadoresRoute,
@@ -172,7 +186,9 @@ rootRoute.addChildren([
   solicitudesRoute,
   agendaRoute,
   paseoActivoRoute,
+  mensajesPaseadorRoute,
   gananciasRoute,
+  tarifasRoute,
   perfilPaseadorRoute,
   resenasPaseadorRoute,
   homeRoute,
@@ -181,14 +197,15 @@ rootRoute.addChildren([
   forgotPasswordRoute,
   updatePasswordRoute,
   profileRoute,
-  dashboardRoute,
   mascotasRoute,
   paseadoresRoute,
   paseosRoute,
   paseoEnVivoRoute,
+  mensajesRoute,
   mascotasPerdidasRoute,
   directorioRoute,
   pagosRoute,
+  tarjetasRoute,
   resenasRoute,
 ]);
 

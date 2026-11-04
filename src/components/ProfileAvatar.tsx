@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { UserProfile } from "../types/auth.types";
 import SelloVerificado from "./SelloVerificado";
+import { useTranslation } from "../hooks/useTranslation";
 
 const iniciales = (nombre: string) =>
   nombre
@@ -29,6 +30,7 @@ const ProfileAvatar = ({
       de clases y no se puede medir. */
   tamanoSello?: number;
 }) => {
+  const { t } = useTranslation();
   const [imageError, setImageError] = useState(false);
 
   const verified =
@@ -38,14 +40,14 @@ const ProfileAvatar = ({
     profile.foto_perfil && !imageError ? (
       <img
         src={profile.foto_perfil}
-        alt={`Foto de ${profile.nombre}`}
+        alt={t("common.photoOf", { nombre: profile.nombre })}
         onError={() => setImageError(true)}
         className={`${size} flex-shrink-0 rounded-full object-cover`}
       />
     ) : (
       <span
         className={`${size} flex flex-shrink-0 items-center justify-center rounded-full bg-accent text-[12px] font-semibold text-white`}
-        aria-label={`Iniciales de ${profile.nombre}`}
+        aria-label={t("common.initialsOf", { nombre: profile.nombre })}
       >
         {iniciales(profile.nombre)}
       </span>

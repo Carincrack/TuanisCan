@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, startTransition, useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
   Footprints,
@@ -9,10 +9,9 @@ import {
   Store,
 } from "../lib/iconos";
 
-import LoginPage from "../page/LoginPage";
-import AppShell from "./AppShell";
-import Landing from "../landing";
 import Splash from "./Splash";
+import { levantarCortina } from "../lib/cortina";
+import { AppShell, Landing, LoginPage } from "../precarga";
 
 import {
   MARCA,
@@ -23,6 +22,7 @@ import {
 } from "../lib/nav";
 
 import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
 import AuthGuard from "../guards/AuthGuard";
 import RoleGuard from "../guards/RoleGuard";
 
@@ -31,39 +31,42 @@ import RoleGuard from "../guards/RoleGuard";
  * desde Supabase Auth.
  */
 
+
 /* ============================================================
    INFORMACIÓN VISUAL DE LOS ROLES
    ============================================================ */
 
+/* `tituloClave`/`descripcionClave` son claves de traducción, no el
+   texto: `RoleChooser` las resuelve con `t()` al pintarlas. */
 const rolMeta: Record<
   Rol,
   {
-    titulo: string;
-    descripcion: string;
+    tituloClave: string;
+    descripcionClave: string;
     Icon: typeof PawPrint;
   }
 > = {
   dueno: {
-    titulo: "Dueño",
-    descripcion: "Administra tus mascotas, vacunas y solicitudes de paseo.",
+    tituloClave: "common.role.dueno",
+    descripcionClave: "nav.role.dueno.descripcion",
     Icon: PawPrint,
   },
 
   paseador: {
-    titulo: "Paseador",
-    descripcion: "Gestiona solicitudes, disponibilidad y servicios de paseo.",
+    tituloClave: "common.role.paseador",
+    descripcionClave: "nav.role.paseador.descripcion",
     Icon: Footprints,
   },
 
   negocio: {
-    titulo: "Negocio",
-    descripcion: "Administra tu negocio y presencia dentro del directorio.",
+    tituloClave: "common.role.negocio",
+    descripcionClave: "nav.role.negocio.descripcion",
     Icon: Store,
   },
 
   admin: {
-    titulo: "Administrador",
-    descripcion: "Gestiona usuarios, verificaciones y configuración general.",
+    tituloClave: "common.role.admin",
+    descripcionClave: "nav.role.admin.descripcion",
     Icon: ShieldCheck,
   },
 };
@@ -83,6 +86,8 @@ const RoleChooser = ({
   onChoose: (rol: Rol) => void;
   onLogout: () => void;
 }) => {
+  const { t } = useTranslation();
+
   /*
    * Si además de sus perfiles normales el usuario es administrador,
    * agregamos "admin" a las opciones disponibles.
@@ -132,12 +137,11 @@ const RoleChooser = ({
           <p className="rotulo mt-4 text-accent-wash">{MARCA.completo}</p>
 
           <h1 className="titular mt-2 text-[26px] text-white sm:text-[28px]">
-            ¿Cómo quieres ingresar?
+            {t("shell.roleChooser.title")}
           </h1>
 
           <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-accent-wash">
-            Elegí el perfil que vas a usar. Podés cambiarlo después sin
-            volver a entrar.
+            {t("shell.roleChooser.subtitle")}
           </p>
         </div>
 
@@ -161,10 +165,10 @@ const RoleChooser = ({
 
                       <span className="min-w-0 flex-1">
                         <span className="titular block text-[16px] text-ink">
-                          {meta.titulo}
+                          {t(meta.tituloClave)}
                         </span>
                         <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-soft">
-                          {meta.descripcion}
+                          {t(meta.descripcionClave)}
                         </span>
                       </span>
 
@@ -186,10 +190,10 @@ const RoleChooser = ({
           ) : (
             <div className="rounded-[18px] bg-danger-wash px-5 py-6 text-center">
               <p className="text-[13.5px] font-semibold text-danger">
-                Esta cuenta no tiene perfiles activos.
+                {t("shell.roleChooser.noProfiles")}
               </p>
               <p className="mt-1.5 text-[12.5px] text-danger/80">
-                Escribile a administración si creés que es un error.
+                {t("shell.roleChooser.noProfilesHint")}
               </p>
             </div>
           )}
@@ -201,7 +205,7 @@ const RoleChooser = ({
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-medium text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-sunken hover:text-ink active:scale-[0.97]"
             >
               <LogOut size={14} />
-              Cerrar sesión
+              {t("common.logout")}
             </button>
           </div>
         </div>
@@ -240,7 +244,31 @@ const RootLayout = () => {
     isAdmin,
     logout,
     setActiveRole,
+    loading: cargandoSesion,
   } = useAuth();
+
+  /* La vitrina pública de mascotas perdidas (`/perdidas`) vive fuera
+     de este armazón y no tiene forma de abrir el formulario de login
+     directamente —`accesoPublico` es estado local de este
+     componente—, así que su botón "Iniciá sesión" manda acá con
+     `#iniciar-sesion` en el hash. Sin esto, ese botón solo traía de
+     vuelta a la portada pública a secas, con el mismo "Entrar" que
+     ya había esquivado: dos clics para lo que debería ser uno.
+     `#crear-cuenta` hace lo mismo con el registro: es el "Crear
+     cuenta" de la barra de esa vitrina. */
+  useEffect(() => {
+    if (pathname !== "/" || role) return;
+    const modo =
+      window.location.hash === "#iniciar-sesion"
+        ? "signin"
+        : window.location.hash === "#crear-cuenta"
+          ? "signup"
+          : null;
+    if (modo) {
+      setAccesoPublico(modo);
+      window.history.replaceState(null, "", "/");
+    }
+  }, [pathname, role]);
 
   /* ============================================================
      DETECTAR TIPO DE RUTA
@@ -261,6 +289,9 @@ const RootLayout = () => {
        medidas reales. Montarla dentro del armazón de verdad la
        encerraría dos veces. */
     "/esqueletos",
+    /* La vitrina pública de mascotas perdidas: trae la banda de la
+       portada y se ve con o sin sesión. */
+    "/perdidas",
   ].includes(pathname);
 
   /*
@@ -346,6 +377,13 @@ const RootLayout = () => {
     zonaAdmin,
   ]);
 
+  /* La cortina de `index.html` se levanta apenas se sabe qué mostrar:
+     cuando la sesión terminó de resolverse, o enseguida en las rutas
+     que no dependen de ella. */
+  useEffect(() => {
+    if (esRutaAuth || !cargandoSesion) levantarCortina();
+  }, [esRutaAuth, cargandoSesion]);
+
   /* ============================================================
      CERRAR SESIÓN
      ============================================================ */
@@ -410,27 +448,35 @@ const RootLayout = () => {
    *   ↓
    * LoginPage
    */
-  const puertaPublica =
-    zonaAdmin || accesoPublico !== null ? (
-      <LoginPage
-        initialMode={accesoPublico ?? "signin"}
-        onBack={
-          zonaAdmin
-            ? undefined
-            : () => setAccesoPublico(null)
-        }
-      />
-    ) : (
-      <Landing
-        onEntrar={(modo) => {
-          setAccesoPublico(
-            modo === "registro"
-              ? "signup"
-              : "signin",
-          );
-        }}
-      />
-    );
+  /* Los cambios de puerta van en una transición: si el trozo del login
+     todavía no llegó, la portada se queda a la vista hasta que esté
+     listo, en vez de dejar la pantalla vacía en medio. */
+  const puertaPublica = (
+    <Suspense fallback={null}>
+      {zonaAdmin || accesoPublico !== null ? (
+        <LoginPage
+          initialMode={accesoPublico ?? "signin"}
+          onBack={
+            zonaAdmin
+              ? undefined
+              : () => startTransition(() => setAccesoPublico(null))
+          }
+        />
+      ) : (
+        <Landing
+          onEntrar={(modo) => {
+            startTransition(() =>
+              setAccesoPublico(
+                modo === "registro"
+                  ? "signup"
+                  : "signin",
+              ),
+            );
+          }}
+        />
+      )}
+    </Suspense>
+  );
 
   /* ============================================================
      RENDER PRINCIPAL
@@ -454,19 +500,29 @@ const RootLayout = () => {
             <Splash onFin={cerrarSplash} />
           )}
 
-          <div
-            key={splash ? "cargando" : "listo"}
-            className="anim-app-in"
-          >
-            {rolActual && (
-              <AppShell
-                rol={rolActual}
-                onLogout={salir}
-              >
-                <Outlet />
-              </AppShell>
-            )}
-          </div>
+          {/* Sin `key`. Antes llevaba `key={splash ? "cargando" : "listo"}`,
+              o sea que al irse el splash la aplicación entera se
+              desmontaba y se volvía a montar: la cortina se levantaba
+              justo mientras todo debajo se rompía y se rearmaba —
+              esqueletos otra vez, la entrada otra vez, cada pantalla
+              pidiendo sus datos dos veces—. Ese era el parpadeo. Ahora
+              la aplicación se arma UNA vez debajo de la cortina y la
+              cortina se va sobre algo que ya está quieto. */}
+          {/* El `Suspense` envuelve también la caja: mientras llega el
+              trozo del armazón no queda ni una caja vacía en `#root`, y
+              la cortina sigue arriba. */}
+          <Suspense fallback={null}>
+            <div className="anim-app-in">
+              {rolActual && (
+                <AppShell
+                  rol={rolActual}
+                  onLogout={salir}
+                >
+                  <Outlet />
+                </AppShell>
+              )}
+            </div>
+          </Suspense>
         </RoleGuard>
       )}
     </AuthGuard>

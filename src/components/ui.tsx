@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useId, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Loader, X } from "../lib/iconos";
+import { ChevronLeft, ChevronRight, Loader, X } from "../lib/iconos";
+import { useTranslation } from "../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    Piezas compartidas del sistema.
@@ -57,6 +58,9 @@ export const btnQuiet = `${pulsable} px-4 py-2 text-[13px] font-medium text-ink-
 
 export const btnDanger = `${pulsable} bg-danger-wash px-5 py-2.5 text-[13px] text-danger hover:brightness-[0.97]`;
 
+/** Peligro compacto: la pareja de `btnSecondaryCompacto` en una fila. */
+export const btnDangerCompacto = `${pulsable} bg-danger-wash px-3 py-2 text-[12px] text-danger hover:brightness-[0.97]`;
+
 /* ── Campos ──────────────────────────────────────────────────── */
 
 export const input =
@@ -75,11 +79,48 @@ export const fieldLabel = "campo";
 
 export const colones = (n: number) => `₡${n.toLocaleString("es-CR")}`;
 
+/** «$22,31»: siempre con dos decimales, igual que los avisos de la base. */
+export const dolares = (n: number) =>
+  `$${n.toLocaleString("es-CR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Lo que se le cobra al dueño, en la moneda en que paga. Un pago en
+    dólares sin conversión guardada —no debería existir— cae a colones. */
+export const montoCobrado = (pago: { monto: number; moneda?: string; monto_moneda?: number | null }) =>
+  pago.moneda === "USD" && pago.monto_moneda != null ? dolares(pago.monto_moneda) : colones(pago.monto);
+
 /* ── Estructura de página ────────────────────────────────────── */
 
-export const Page = ({ children }: { children: ReactNode }) => (
-  <div className="flex flex-col gap-2.5">{children}</div>
-);
+/** `AppShell` centra el contenido en un carril angosto —cómodo para
+    formularios y paneles chicos— pero una tabla densa como el
+    directorio de usuarios necesita más aire. `<Page wide>` avisa a
+    `AppShell`, por contexto, que ceda ese ancho extra solo mientras
+    esta página esté montada; el resto del sistema no se entera. */
+export const PageWidthContext = createContext<((wide: boolean) => void) | null>(null);
+
+/** El botón de notificaciones vive en `AppShell` —ahí están el estado
+    y el panel—, pero una página puede pedir mostrarlo dentro de su
+    propio encabezado en vez de la franja superior del layout. Se pasa
+    el botón ya armado (no la lógica) para no duplicar nada: quien lo
+    consume solo lo coloca donde le convenga. */
+export const NotificationButtonContext = createContext<ReactNode>(null);
+
+export const Page = ({
+  children,
+  wide = false,
+}: {
+  children: ReactNode;
+  /** Pide el carril ancho de `AppShell` para esta página. */
+  wide?: boolean;
+}) => {
+  const setWide = useContext(PageWidthContext);
+
+  useLayoutEffect(() => {
+    setWide?.(wide);
+    return () => setWide?.(false);
+  }, [setWide, wide]);
+
+  return <div className="flex flex-col gap-2.5">{children}</div>;
+};
 
 export const PageHeader = ({
   title,
@@ -87,15 +128,15 @@ export const PageHeader = ({
   action,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   action?: ReactNode;
 }) => (
   <header
-    className={`${surface} flex flex-wrap items-end justify-between gap-4 px-6 py-5`}
+    className={`${surface} flex flex-wrap ${subtitle ? "items-end" : "items-center"} justify-between gap-4 px-6 py-5`}
   >
     <div>
       <h2 className="titular text-[21px] text-ink">{title}</h2>
-      <p className="mt-1 text-[13px] text-ink-soft">{subtitle}</p>
+      {subtitle && <p className="mt-1 text-[13px] text-ink-soft">{subtitle}</p>}
     </div>
     {action}
   </header>
@@ -130,45 +171,72 @@ export const Section = ({
 
     Van dentro de una pista hundida en vez de pegados unos a otros:
     con píldoras sueltas no se lee que son un solo control con una
-    sola respuesta posible. */
+    sola respuesta posible.
+
+    En el teléfono la pista ocupa todo el ancho y las pestañas se
+    reparten el renglón; si no entran en uno, bajan a un segundo
+    renglón parejo. La pista lleva esquinas de 22 px y no
+    `rounded-full`: en un renglón se ve igual que una píldora, y en dos
+    no se deforma en un óvalo como pasaba con las cuatro de Pagos. */
+/** Cada pestaña separa lo que la IDENTIFICA (`value`, estable, lo que
+    compara `onChange`/`cuentas`) de lo que se LEE (`label`, el texto
+    traducido). Antes `options` era `string[]` y la pestaña activa se
+    decidía comparando ese mismo string contra `value`: funcionaba
+    mientras el texto nunca cambiara, pero con el idioma cambiando en
+    caliente el string mostrado deja de ser un identificador seguro.
+    Mismo par `{value, label}` que ya usa `Combo`, a propósito. */
+export interface OpcionFiltro {
+  value: string;
+  label: string;
+}
+
 export const FilterTabs = ({
   options,
   value,
   onChange,
   label,
   cuentas,
+  desplazable = false,
 }: {
-  options: string[];
+  options: OpcionFiltro[];
   value: string;
   onChange: (v: string) => void;
   label: string;
-  /** Cuántos elementos cae en cada opción. Opcional: sin esto las
-      pestañas son solo etiquetas. Con esto se ve de un vistazo si
-      vale la pena entrar a una —una pestaña en cero no se pulsa—. */
+  /** Cuántos elementos cae en cada opción, por `value`. Opcional: sin
+      esto las pestañas son solo etiquetas. Con esto se ve de un
+      vistazo si vale la pena entrar a una —una pestaña en cero no se
+      pulsa—. */
   cuentas?: Record<string, number>;
+  /** En el teléfono, un solo renglón que se desliza de lado en vez de
+      partirse en varios. Para cinco o más pestañas: partidas en tres
+      renglones ocupaban media pantalla antes de mostrar un solo dato.
+      Quien lo usa lo pone dentro de una caja con `overflow-x-auto`. */
+  desplazable?: boolean;
 }) => (
   <div
     role="group"
     aria-label={label}
-    className="inline-flex flex-wrap gap-1 rounded-full bg-sunken p-1"
+    className={`gap-1 rounded-[22px] bg-sunken p-1 ${
+      desplazable ? "inline-flex w-max flex-nowrap" : "flex w-full flex-wrap sm:inline-flex sm:w-auto"
+    }`}
   >
     {options.map((o) => {
-      const activa = value === o;
-      const cuenta = cuentas?.[o];
+      const activa = value === o.value;
+      const cuenta = cuentas?.[o.value];
 
       return (
         <button
-          key={o}
+          key={o.value}
           type="button"
           aria-pressed={activa}
-          onClick={() => onChange(o)}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] ${
+          onClick={() => onChange(o.value)}
+          className={`inline-flex ${desplazable ? "flex-none" : "flex-1"} items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[13px] whitespace-nowrap sm:flex-none sm:gap-2 font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] sm:px-4 ${
             activa
               ? "bg-rail text-white"
               : "text-ink-soft hover:bg-white/70 hover:text-ink"
           }`}
         >
-          {o}
+          {o.label}
           {cuenta !== undefined && (
             <span
               className={`nums rounded-full px-1.5 text-[11px] font-semibold ${
@@ -202,15 +270,30 @@ export const Badge = ({ tono, children }: { tono: Tono; children: ReactNode }) =
   </span>
 );
 
-/** Dato etiquetado. Se usa en las tiras de métricas. */
+/** Dato etiquetado. Se usa en las tiras de métricas.
+
+    `parte` es opcional y dibuja un filete debajo con la proporción
+    —un número entre 0 y 1—. Es para el dato que es PARTE de otro:
+    «9 cuentas activas de 9» merece verse como una barra llena, y
+    «3 dueños de 9» como un tercio. Un total no lo lleva, porque un
+    total no es parte de nada. Turquesa porque es un filete, que es
+    donde vive el turquesa en esta casa. */
 export const Stat = ({
   etiqueta,
   valor,
   nota,
+  parte,
+  cambio,
 }: {
   etiqueta: string;
   valor: string;
   nota?: string;
+  parte?: number;
+  /** Contra el periodo anterior: «+12 % vs semana anterior». `sube` en
+      verde y `baja` en rojo valen para cifras donde subir es bueno
+      (ingresos); el color siempre va con la flecha y el signo, nunca
+      solo. */
+  cambio?: { texto: string; tono: "sube" | "baja" | "igual" };
 }) => (
   <div className={`${surface} px-6 py-5`}>
     <p className="rotulo text-ink-mute">{etiqueta}</p>
@@ -218,7 +301,101 @@ export const Stat = ({
       {valor}
     </p>
     {nota && <p className="mt-1.5 text-[12px] text-ink-soft">{nota}</p>}
+    {cambio && (
+      <p
+        className={`mt-1.5 flex items-start gap-1 text-[12px] leading-snug font-semibold ${
+          cambio.tono === "sube" ? "text-ok" : cambio.tono === "baja" ? "text-danger" : "text-ink-mute"
+        }`}
+      >
+        {cambio.tono !== "igual" && (
+          <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden className="mt-[3px] shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d={cambio.tono === "sube" ? "M6 10V2M2.5 5.5 6 2l3.5 3.5" : "M6 2v8M2.5 6.5 6 10l3.5-3.5"} />
+          </svg>
+        )}
+        {cambio.texto}
+      </p>
+    )}
+    {parte !== undefined && (
+      <div className="mt-3.5 h-[3px] w-full overflow-hidden rounded-full bg-sunken" aria-hidden="true">
+        <div
+          className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-500 ease-out"
+          style={{ transform: `scaleX(${Math.min(1, Math.max(0, parte))})` }}
+        />
+      </div>
+    )}
   </div>
+);
+
+/* ── Estrellas ─────────────────────────────────────────────── */
+
+/** Una estrella de calificación. Es la de Lucide pero dibujada acá: la
+    del módulo de íconos es de trazo animado y no se deja rellenar, y
+    una estrella elegida tiene que verse llena. */
+export const Estrella = ({ llena, tamano = 30 }: { llena: boolean; tamano?: number }) => (
+  <svg
+    viewBox="0 0 24 24"
+    width={tamano}
+    height={tamano}
+    aria-hidden
+    fill={llena ? "currentColor" : "none"}
+    stroke="currentColor"
+    strokeWidth={1.6}
+    strokeLinejoin="round"
+    className={`shrink-0 transition-colors duration-150 ${llena ? "text-warn" : "text-ink-mute/50"}`}
+  >
+    <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
+  </svg>
+);
+
+/* ── Interruptor ─────────────────────────────────────────────── */
+
+/** Un interruptor de dos posiciones. Para lo que está encendido o
+    apagado y nada más: una cuenta activa, un aviso que se manda o no.
+
+    Es un `<button role="switch">` y no un `<input type="checkbox">`
+    disfrazado: el estado lo pone quien lo usa y el clic solo AVISA.
+    Así quien lo monta puede meter una confirmación en medio —para
+    inactivar una cuenta hay que preguntar— sin que el interruptor se
+    mueva antes de tiempo y luego tenga que volver.
+
+    Mide 38 × 22. La perilla viaja 16 px con la curva del cajón de
+    iOS, que frena suave al llegar: la misma que usa `anim-slide-left`.
+    Encendido es navy, el mismo de la píldora activa de `FilterTabs`
+    y de la paginación: en esta casa lo que está elegido o encendido
+    es navy, sin excepción. Apagado es el lavado neutro. */
+export const Interruptor = ({
+  activo,
+  etiqueta,
+  onCambio,
+  deshabilitado = false,
+  ocupado = false,
+}: {
+  activo: boolean;
+  /** Para el lector de pantalla y el tooltip. Decí QUÉ enciende. */
+  etiqueta: string;
+  onCambio: () => void;
+  deshabilitado?: boolean;
+  /** Mientras el cambio viaja al servidor. Se apaga y late. */
+  ocupado?: boolean;
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={activo}
+    aria-label={etiqueta}
+    title={etiqueta}
+    disabled={deshabilitado || ocupado}
+    onClick={onCambio}
+    className={`relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-[3px] before:absolute before:-inset-x-[3px] before:-inset-y-[11px] before:content-[''] transition-[background-color,transform] duration-200 ease-out active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:active:scale-100 ${
+      activo ? "bg-rail" : "bg-neutral-wash"
+    } ${deshabilitado ? "opacity-45" : ""} ${ocupado ? "animate-pulse cursor-wait" : ""}`}
+  >
+    <span
+      className={`h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(20,36,46,0.28)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+        activo ? "translate-x-4" : "translate-x-0"
+      }`}
+    />
+  </button>
 );
 
 /** El vacío. `action` es opcional y sirve para el vacío que tiene
@@ -313,6 +490,148 @@ export const Table = ({
   );
 };
 
+/* ── Paginación ──────────────────────────────────────────────── */
+
+/** Qué números de página se muestran. Hasta siete, todos. Con más,
+    la primera, la última y la actual con una vecina a cada lado; los
+    huecos se marcan con puntos suspensivos. Quinientas zonas son
+    cincuenta páginas, y cincuenta píldoras en fila no son una
+    paginación, son una regla. */
+const paginasVisibles = (actual: number, total: number): (number | "…")[] => {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const cerca = new Set([1, total, actual - 1, actual, actual + 1]);
+  const lista: (number | "…")[] = [];
+
+  for (let n = 1; n <= total; n++) {
+    if (cerca.has(n)) lista.push(n);
+    else if (lista[lista.length - 1] !== "…") lista.push("…");
+  }
+
+  return lista;
+};
+
+/** Disco de Anterior / Siguiente. */
+const btnPaso =
+  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sunken text-ink transition-[background-color,transform,filter] duration-150 ease-out hover:brightness-[0.97] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
+
+/** Píldora de número dentro de la pista. */
+const btnNumero = (activa: boolean) =>
+  `nums inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[12.5px] font-semibold transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${
+    activa ? "bg-rail text-white" : "text-ink-soft hover:bg-white/70 hover:text-ink"
+  }`;
+
+/** El pie de una tabla paginada.
+
+    Va cosido a la tabla: se monta como ÚLTIMO hijo de una `Section`
+    con `bodyClass=""` y toma la cabecera hundida como fondo, con las
+    esquinas de abajo redondeadas para cerrar la tarjeta. No es un
+    bloque aparte, porque el conteo y los números son parte de la
+    tabla, no otra cosa que vive debajo.
+
+    Anterior y Siguiente son discos. Los números viven en una pista
+    hundida con píldoras, igual que `FilterTabs`: un solo control con
+    una sola respuesta, y la activa en navy como todo lo que está
+    elegido en esta casa. En mano, la pista se cambia por «3 / 12».
+
+    Se muestra aun con una sola página, para que el conteo no
+    desaparezca y reaparezca al filtrar. */
+export const Paginacion = ({
+  actual,
+  total,
+  onCambiar,
+  desde,
+  hasta,
+  cuantos,
+  nombre,
+  etiqueta,
+}: {
+  /** Página actual, desde 1. */
+  actual: number;
+  /** Cuántas páginas hay. */
+  total: number;
+  onCambiar: (pagina: number) => void;
+  /** Primer y último elemento visibles, desde 1, y el total de la
+      lista: «1–8 de 203». */
+  desde: number;
+  hasta: number;
+  cuantos: number;
+  /** Singular y plural de lo que se cuenta: `["usuario", "usuarios"]`. */
+  nombre: [string, string];
+  /** Para el lector de pantalla: «Paginación de usuarios». */
+  etiqueta: string;
+}) => {
+  const { t } = useTranslation();
+  const ultima = Math.max(1, total);
+  const pagina = Math.min(Math.max(1, actual), ultima);
+
+  return (
+    <nav
+      aria-label={etiqueta}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-b-[18px] bg-sunken/50 px-4 py-3 sm:px-5"
+    >
+      <p className="nums text-[12px] text-ink-mute">
+        <span className="font-medium text-ink-soft">
+          {cuantos ? desde : 0}–{hasta}
+        </span>{" "}
+        de <span className="font-medium text-ink-soft">{cuantos}</span>{" "}
+        {cuantos === 1 ? nombre[0] : nombre[1]}
+      </p>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label={t("common.pagination.previous")}
+          disabled={pagina === 1}
+          onClick={() => onCambiar(pagina - 1)}
+          className={btnPaso}
+        >
+          <ChevronLeft size={16} strokeWidth={2} />
+        </button>
+
+        <span className="nums px-1 text-[12.5px] text-ink-mute sm:hidden">
+          <span className="font-medium text-ink-soft">{pagina}</span> / {ultima}
+        </span>
+
+        <div className="hidden items-center gap-1 rounded-full bg-sunken p-1 sm:inline-flex">
+          {paginasVisibles(pagina, ultima).map((numero, i) =>
+            numero === "…" ? (
+              <span
+                key={`hueco-${i}`}
+                className="inline-flex h-7 w-7 items-center justify-center text-[12.5px] text-ink-mute"
+                aria-hidden="true"
+              >
+                …
+              </span>
+            ) : (
+              <button
+                key={numero}
+                type="button"
+                aria-current={numero === pagina ? "page" : undefined}
+                aria-label={t("common.pagination.page", { numero })}
+                onClick={() => onCambiar(numero)}
+                className={btnNumero(numero === pagina)}
+              >
+                {numero}
+              </button>
+            ),
+          )}
+        </div>
+
+        <button
+          type="button"
+          aria-label={t("common.pagination.next")}
+          disabled={pagina === ultima}
+          onClick={() => onCambiar(pagina + 1)}
+          className={btnPaso}
+        >
+          <ChevronRight size={16} strokeWidth={2} />
+        </button>
+      </div>
+    </nav>
+  );
+};
+
 /* ── Diálogos ────────────────────────────────────────────────── */
 
 /** Ventana modal.
@@ -337,42 +656,167 @@ export const Table = ({
     casi siempre llega como flecha en línea, y usarla directo
     reengancharía el listener y volvería a tocar el scroll en cada
     render. */
+/* Ventanas abiertas, de la de abajo a la de arriba.
+
+   Una ventana puede abrir otra encima —la ficha de una mascota abre
+   "Editar"; cualquier ventana puede pedir una `Confirmar`—. Cada una
+   escucha Escape en el documento entero, así que sin esto un solo
+   Escape las cerraba TODAS de golpe y se perdía el trabajo de la de
+   abajo. Con la pila, Escape le corresponde solo a la de más arriba,
+   que es la que se está mirando. */
+const pilaDeVentanas: symbol[] = [];
+
+/* Lo que dura la salida. La entrada es más larga (320 ms): se mira
+   cómo llega lo que se pidió; lo que se descarta tiene que irse ya. */
+const SALIDA_MS = 170;
+
+const reducirMovimiento = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* Para los botones de adentro —«Cancelar», «Cerrar»— que quieren
+   cerrar con la misma salida suave y, si hay cambios sin guardar, con
+   la misma pregunta. Fuera de una ventana no hace nada. */
+const CerrarVentanaContext = createContext<() => void>(() => undefined);
+
+/** Cierra la ventana en la que está el componente, con su salida. */
+export const useCerrarVentana = () => useContext(CerrarVentanaContext);
+
+const CambiosContext = createContext<(hay: boolean) => void>(() => undefined);
+
+/** Para el formulario de adentro de una ventana: le avisa si tiene algo
+    escrito sin guardar, y entonces cerrar con el fondo, la X o Escape
+    pregunta antes de descartarlo. El formulario es el único que sabe
+    si cambió algo; por eso avisa él y no quien abre la ventana. */
+export const useCambiosSinGuardar = (hay: boolean) => {
+  const avisar = useContext(CambiosContext);
+  /* De diseño (layout) y no un efecto común: así el aviso llega en el
+     mismo momento en que se escribe, y un Escape inmediato ya lo ve. */
+  useLayoutEffect(() => {
+    avisar(hay);
+    return () => avisar(false);
+  }, [avisar, hay]);
+};
+
+/** Lo de arriba, para el caso de siempre: compara lo escrito con cómo
+    empezó el formulario. `ademas` es para lo que no está en los
+    valores, como una foto elegida. */
+export const useAvisarSiCambio = (valores: unknown, ademas = false) => {
+  const [inicio] = useState(() => JSON.stringify(valores));
+  useCambiosSinGuardar(ademas || JSON.stringify(valores) !== inicio);
+};
+
+const ENFOCABLES =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export const Dialog = ({
   title,
+  contexto,
   onClose,
   children,
   ancho = "max-w-[560px]",
+  capa = "z-50",
+  cambiosSinGuardar = false,
 }: {
   title: string;
+  /** Una línea debajo del título: de qué registro se trata («Paseo
+      de Toby · 20 oct»). Opcional. */
+  contexto?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   /** Ancho máximo del panel, en clases. Un formulario de dos columnas
       pide más aire que una confirmación de una línea. */
   ancho?: string;
+  /** El `z-index`, en clases. Hace falta subirlo cuando la ventana se
+      abre encima de algo que ya tapa la app, como el chat a pantalla
+      completa del teléfono (`z-[95]`). */
+  capa?: string;
+  /** Un formulario con algo escrito. Cerrar tocando el fondo, la X o
+      Escape no lo descarta de una: primero pregunta. */
+  cambiosSinGuardar?: boolean;
 }) => {
+  const { t } = useTranslation();
   const titleId = useId();
+  const panel = useRef<HTMLElement>(null);
+  const [saliendo, setSaliendo] = useState(false);
+  const [preguntando, setPreguntando] = useState(false);
+  const [cambiosDeAdentro, setCambiosDeAdentro] = useState(false);
   const cerrar = useRef(onClose);
+  const sinGuardar = useRef(cambiosSinGuardar);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     cerrar.current = onClose;
+    sinGuardar.current = cambiosSinGuardar || cambiosDeAdentro;
   });
 
+  /* Cerrar de verdad: primero la salida y después, al terminar, el
+     aviso a quien abrió. Sin la espera el `onClose` la desmontaba en
+     el acto y la ventana desaparecía de golpe. */
+  const salir = useCallback(() => {
+    setPreguntando(false);
+    if (reducirMovimiento()) {
+      cerrar.current();
+      return;
+    }
+    setSaliendo(true);
+    window.setTimeout(() => cerrar.current(), SALIDA_MS);
+  }, []);
+
+  /* Lo que piden el fondo, la X, Escape y los botones de adentro. Con
+     cambios sin guardar, antes pregunta. */
+  const pedirCierre = useCallback(() => {
+    if (sinGuardar.current) {
+      setPreguntando(true);
+      return;
+    }
+    salir();
+  }, [salir]);
+
   useEffect(() => {
+    const yo = Symbol("ventana");
     const devolver = document.activeElement as HTMLElement | null;
     const previo = document.body.style.overflow;
+
     const alTeclear = (evento: KeyboardEvent) => {
-      if (evento.key === "Escape") cerrar.current();
+      if (pilaDeVentanas[pilaDeVentanas.length - 1] !== yo) return;
+      if (evento.key === "Escape") {
+        pedirCierre();
+        return;
+      }
+      /* El Tab da la vuelta adentro: con la ventana abierta, lo de
+         atrás no se puede tocar, así que tampoco se le llega con el
+         teclado. */
+      if (evento.key === "Tab" && panel.current) {
+        const enfocables = [...panel.current.querySelectorAll<HTMLElement>(ENFOCABLES)].filter(
+          (el) => el.offsetParent !== null,
+        );
+        if (!enfocables.length) return;
+        const primero = enfocables[0];
+        const ultimo = enfocables[enfocables.length - 1];
+        if (evento.shiftKey && (document.activeElement === primero || document.activeElement === panel.current)) {
+          evento.preventDefault();
+          ultimo.focus();
+        } else if (!evento.shiftKey && document.activeElement === ultimo) {
+          evento.preventDefault();
+          primero.focus();
+        }
+      }
     };
 
+    pilaDeVentanas.push(yo);
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", alTeclear);
+    /* El foco entra a la ventana —al panel, no al primer campo: en el
+       teléfono eso abriría el teclado sin que nadie lo pidiera—. */
+    panel.current?.focus({ preventScroll: true });
 
     return () => {
+      const i = pilaDeVentanas.indexOf(yo);
+      if (i >= 0) pilaDeVentanas.splice(i, 1);
       document.body.style.overflow = previo;
       document.removeEventListener("keydown", alTeclear);
-      devolver?.focus?.();
+      devolver?.focus?.({ preventScroll: true });
     };
-  }, []);
+  }, [pedirCierre]);
 
   /* La clase `suave` en la envoltura no es decorativa. El portal
      cuelga de `document.body`, o sea FUERA del `<div class="suave">`
@@ -381,38 +825,86 @@ export const Dialog = ({
      fina, las versalitas de `rotulo`. Sin esto la ventana sale
      cuadrada y con el scroll gris del sistema. */
   return createPortal(
-    <div className="suave fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+    <div className={`suave fixed inset-0 ${capa} flex items-center justify-center p-3 sm:p-6`}>
       <button
         type="button"
-        aria-label="Cerrar"
-        onClick={() => cerrar.current()}
-        className="anim-fade absolute inset-0 bg-rail/70 backdrop-blur-[2px]"
+        tabIndex={-1}
+        aria-label={t("common.close")}
+        onClick={pedirCierre}
+        className={`absolute inset-0 bg-rail/70 backdrop-blur-[2px] ${saliendo ? "anim-fondo-out" : "anim-fondo-in"}`}
       />
 
       <section
+        ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`anim-rise relative max-h-[92dvh] w-full ${ancho} overflow-hidden overflow-y-auto rounded-[18px] bg-surface`}
+        tabIndex={-1}
+        className={`relative flex max-h-[92dvh] w-full ${ancho} flex-col overflow-hidden rounded-[18px] bg-surface shadow-[0_24px_60px_-20px_rgb(20_36_46/45%)] outline-none ${
+          saliendo ? "anim-ventana-out" : "anim-ventana-in"
+        }`}
       >
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-rail px-5 py-4">
-          <h2 id={titleId} className="titular text-[16px] text-white">
-            {title}
-          </h2>
+        <header className="flex shrink-0 items-start justify-between gap-4 bg-rail px-5 py-4">
+          <div className="min-w-0">
+            <h2 id={titleId} className="titular text-[16px] text-white">
+              {title}
+            </h2>
+            {contexto && <p className="mt-0.5 truncate text-[12.5px] text-rail-text">{contexto}</p>}
+          </div>
           <button
             type="button"
-            onClick={() => cerrar.current()}
-            aria-label="Cerrar"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-150 ease-out hover:bg-rail-hover hover:text-white active:scale-[0.94]"
+            onClick={pedirCierre}
+            aria-label={t("common.close")}
+            className="-mt-0.5 -mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-rail-text transition-[background-color,color,transform] duration-150 ease-out hover:bg-rail-hover hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.94]"
           >
             <X size={17} />
           </button>
         </header>
 
-        {children}
+        {preguntando && (
+          <div role="alertdialog" aria-live="assertive" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 bg-gold-wash px-5 py-3">
+            <p className="min-w-0 flex-1 text-[13px] font-medium text-ink">{t("common.unsavedChanges")}</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setPreguntando(false)} className={btnSecondaryCompacto}>
+                {t("common.keepEditing")}
+              </button>
+              <button type="button" onClick={salir} className={btnDangerCompacto}>
+                {t("common.discardChanges")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* El scroll va adentro y solo si hace falta: el encabezado
+            queda fijo arriba y la página de atrás no se mueve. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <CerrarVentanaContext.Provider value={pedirCierre}>
+            <CambiosContext.Provider value={setCambiosDeAdentro}>{children}</CambiosContext.Provider>
+          </CerrarVentanaContext.Provider>
+        </div>
       </section>
     </div>,
     document.body,
+  );
+};
+
+/** Un botón que cierra la ventana en la que está, con su salida suave
+    (y la pregunta, si hay cambios sin guardar). Para los «Cancelar» y
+    «Cerrar» de adentro. */
+export const BotonCerrarVentana = ({
+  children,
+  className,
+  disabled,
+}: {
+  children: ReactNode;
+  className: string;
+  disabled?: boolean;
+}) => {
+  const cerrarVentana = useCerrarVentana();
+  return (
+    <button type="button" disabled={disabled} onClick={cerrarVentana} className={className}>
+      {children}
+    </button>
   );
 };
 
@@ -435,10 +927,11 @@ export const Dialog = ({
 export const Confirmar = ({
   titulo,
   cuerpo,
-  confirmar = "Confirmar",
-  cancelar = "Cancelar",
+  confirmar,
+  cancelar,
   tono = "normal",
   ocupado = false,
+  capa,
   onConfirmar,
   onCancelar,
 }: {
@@ -449,41 +942,46 @@ export const Confirmar = ({
   /** `peligro` para lo que borra o no se puede deshacer. */
   tono?: "normal" | "peligro";
   ocupado?: boolean;
+  /** Ver `Dialog`. */
+  capa?: string;
   onConfirmar: () => void;
   onCancelar: () => void;
-}) => (
-  <Dialog
-    title={titulo}
-    ancho="max-w-[440px]"
-    onClose={() => {
-      if (!ocupado) onCancelar();
-    }}
-  >
-    <div className="px-6 py-5">
-      <p className="text-[13.5px] leading-relaxed text-ink-soft">{cuerpo}</p>
+}) => {
+  const { t } = useTranslation();
 
-      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          disabled={ocupado}
-          onClick={onCancelar}
-          className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}
-        >
-          {cancelar}
-        </button>
-        <button
-          type="button"
-          disabled={ocupado}
-          onClick={onConfirmar}
-          className={`${tono === "peligro" ? btnDanger : btnPrimary} w-full disabled:cursor-wait disabled:opacity-60 sm:w-auto`}
-        >
-          {ocupado && <Loader size={14} className="animate-spin" />}
-          {confirmar}
-        </button>
+  return (
+    <Dialog
+      title={titulo}
+      ancho="max-w-[440px]"
+      capa={capa}
+      onClose={() => {
+        if (!ocupado) onCancelar();
+      }}
+    >
+      <div className="px-6 py-5">
+        <p className="text-[13.5px] leading-relaxed text-ink-soft">{cuerpo}</p>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <BotonCerrarVentana
+            disabled={ocupado}
+            className={`${btnSecondary} w-full disabled:opacity-50 sm:w-auto`}
+          >
+            {cancelar ?? t("common.cancel")}
+          </BotonCerrarVentana>
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={onConfirmar}
+            className={`${tono === "peligro" ? btnDanger : btnPrimary} w-full disabled:cursor-wait disabled:opacity-60 sm:w-auto`}
+          >
+            {ocupado && <Loader size={14} className="animate-spin" />}
+            {confirmar ?? t("common.confirm")}
+          </button>
+        </div>
       </div>
-    </div>
-  </Dialog>
-);
+    </Dialog>
+  );
+};
 
 /* ── Imágenes ficticias ──────────────────────────────────────── */
 

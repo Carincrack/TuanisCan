@@ -1,0 +1,78 @@
+{
+  "lastUpdated": "Last updated: {{fecha}}",
+  "secciones": [
+    {
+      "titulo": "1. What this is",
+      "parrafos": [
+        "{{marca}} is a platform that connects pet owners with walkers and businesses (vets, stores, shelters) within Costa Rica. By creating an account you accept these terms, regardless of which role you sign in with first: you can hold several roles on the same account.",
+        "The platform acts as an intermediary for contact and payment between parties, but does not provide the walking service itself, nor the veterinary or commercial services: those are provided by independent people and businesses registered here."
+      ]
+    },
+    {
+      "titulo": "2. Your account",
+      "parrafos": [
+        "You're responsible for the information you register — yours, your pets', and, if you're a walker or business, your public profile's. If something changes (your phone, your zone, your pet's health), it's on you to keep it up to date.",
+        "An account belongs to one person. You may not share your access or use someone else's account without their authorization."
+      ]
+    },
+    {
+      "titulo": "3. Verification of walkers and businesses",
+      "parrafos": [
+        "To receive walk requests or appear in the directory, walkers and businesses go through a document review. A verified profile means its documents were reviewed, not that the platform guarantees its performance on every walk or service.",
+        "A fake or expired document is grounds for rejecting the verification or deactivating the account, even if it was already approved."
+      ]
+    },
+    {
+      "titulo": "4. Requesting and accepting walks",
+      "parrafos": [
+        "The owner chooses the walker, date, time, duration and meeting point. The walker decides whether to accept or reject each request; once accepted, the commitment is between both people.",
+        "The price is calculated based on duration, time of day and day of the week, and is shown before confirming the request. Changing the date or time after the walk is accepted requires agreement from both parties."
+      ]
+    },
+    {
+      "titulo": "5. Payments",
+      "parrafos": [
+        "Payments are processed through the methods you register on your account. The platform charges a commission on every paid walk, deducted from the amount the walker receives.",
+        "{{marca}} does not store your full card details: only the last four digits and the information needed to identify it in your list of payment methods are kept."
+      ]
+    },
+    {
+      "titulo": "6. Lost pets",
+      "parrafos": [
+        "Lost-pet reports and sightings posted by the community are visible to other users in your area. Don't publish contact details you don't want made public: use the report's contact field for that."
+      ]
+    },
+    {
+      "titulo": "7. Conduct",
+      "parrafos": [
+        "We expect respectful treatment between owners, walkers and businesses. Using the platform for harassment, fraud, or to put a pet or a person at risk is not allowed.",
+        "Repeated violations, fake reviews, or fabricated lost-pet reports are grounds for account suspension."
+      ]
+    },
+    {
+      "titulo": "8. Liability",
+      "parrafos": [
+        "{{marca}} facilitates contact and billing, but the walk, the care and the decisions made during the service are the responsibility of whoever provides it and whoever hires it. Any incident during a walk (an injury, damage, a loss) is resolved between the parties involved; the platform cooperates with the information available on the account when asked to."
+      ]
+    },
+    {
+      "titulo": "9. Your data",
+      "parrafos": [
+        "We use your data — profile, pets, location during an active walk, walk history and payments — to run the platform: matching requests, calculating prices, showing your digital ID card and notifying you of what happens on your account.",
+        "Real-time location is only shared while a walk is in progress, and only between the owner and the walker of that specific walk."
+      ]
+    },
+    {
+      "titulo": "10. Changes to these terms",
+      "parrafos": [
+        "If these terms change in an important way, we'll notify you inside the app before they keep applying. Continuing to use the account after that notice means you accept them."
+      ]
+    },
+    {
+      "titulo": "11. Closing your account",
+      "parrafos": [
+        "You can stop using the platform whenever you want. Walks, payments and reviews already on record are kept as history, even if the account that generated them is later deactivated."
+      ]
+    }
+  ]
+}

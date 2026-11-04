@@ -1,125 +1,31 @@
-import { Camera, MapPin, MessageCircle, Navigation, Phone, Siren, Timer } from "../lib/iconos";
-import {
-  Avatar,
-  Badge,
-  MockPhoto,
-  Page,
-  PageHeader,
-  Section,
-  btnDanger,
-  btnSecondary,
-} from "./ui";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { MapPin, MessageCircle, Navigation } from "../lib/iconos";
+import { rutaChat } from "../services/chat.service";
+import { useAuth } from "../hooks/useAuth";
+import { useTranslation } from "../hooks/useTranslation";
+import { useAlLlegarNotificacion } from "../lib/tiempoReal";
+import { escucharUbicaciones, getPaseoActivo, listUbicacionesPaseo, type UbicacionPaseo } from "../services/live-walks.service";
+import type { WalkWithRelations } from "../services/walks.service";
+import { Avatar, Badge, EmptyState, Page, PageHeader, Section, btnPrimary } from "./ui";
+import { MapaRecorrido } from "./MapaRecorrido";
 
-const metricas = [
-  { etiqueta: "Tiempo", valor: "28 min", nota: "de 45 min" },
-  { etiqueta: "Distancia", valor: "2.1 km", nota: "recorridos" },
-  { etiqueta: "Ritmo", valor: "4.5 km/h", nota: "promedio" },
-];
-
-const eventos = [
-  { hora: "16:00", texto: "María recogió a Rocky en tu casa.", Icon: Navigation },
-  { hora: "16:08", texto: "Salida hacia el Parque de Curridabat.", Icon: MapPin },
-  { hora: "16:19", texto: "Foto enviada desde el parque.", Icon: Camera },
-  { hora: "16:28", texto: "Pausa de agua. Todo en orden.", Icon: Timer },
-];
-
-const PaseoEnVivo = () => (
-  <Page>
-    <PageHeader
-      title="Paseo en vivo"
-      subtitle="Rocky está de paseo con María Fernández. Actualizado hace 30 segundos."
-      action={<Badge tono="accent">En curso</Badge>}
-    />
-
-    <div className="grid gap-3 lg:grid-cols-3">
-      <div className="lg:col-span-2">
-        <Section bodyClass="">
-          <img
-            src="/mock/map.svg"
-            alt="Recorrido de Rocky por el Parque de Curridabat"
-            className="h-[300px] w-full object-cover sm:h-[400px]"
-          />
-          <p className="bg-sunken px-6 py-3 text-[12.5px] text-ink-soft">
-            Parque de Curridabat · a 900 m de casa
-          </p>
-          <dl className="grid grid-cols-3 gap-2.5">
-            {metricas.map((m) => (
-              <div key={m.etiqueta} className="bg-surface px-5 py-4 text-center">
-                <dt className="rotulo text-ink-mute">
-                  {m.etiqueta}
-                </dt>
-                <dd className="nums mt-1.5 text-[20px] font-semibold text-ink">
-                  {m.valor}
-                </dd>
-                <p className="mt-0.5 text-[11.5px] text-ink-mute">{m.nota}</p>
-              </div>
-            ))}
-          </dl>
-        </Section>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <Section title="Paseadora" bodyClass="px-6 pb-5">
-          <div className="flex items-center gap-4">
-            <Avatar nombre="María Fernández" size={48} />
-            <div className="min-w-0">
-              <p className="text-[15px] font-semibold text-ink">María Fernández</p>
-              <p className="nums mt-0.5 text-[12px] text-ink-soft">
-                Verificada · 4.9 · 214 reseñas
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-col gap-2">
-            <button type="button" className={`${btnSecondary} w-full`}>
-              <MessageCircle size={14} strokeWidth={1.9} />
-              Enviar mensaje
-            </button>
-            <button type="button" className={`${btnSecondary} w-full`}>
-              <Phone size={14} strokeWidth={1.9} />
-              Llamar
-            </button>
-            <button type="button" className={`${btnDanger} w-full`}>
-              <Siren size={14} strokeWidth={1.9} />
-              Reportar emergencia
-            </button>
-          </div>
-        </Section>
-
-        <Section title="Mascota" bodyClass="px-6 pb-5">
-          <div className="flex items-center gap-4">
-            <MockPhoto
-              src="/mock/dog-rocky.jpg"
-              alt="Foto de Rocky"
-              className="h-16 w-16 flex-shrink-0"
-            />
-            <div>
-              <p className="text-[15px] font-semibold text-ink">Rocky</p>
-              <p className="mt-0.5 text-[12px] text-ink-soft">
-                Labrador · 28 kg · 3 años
-              </p>
-            </div>
-          </div>
-        </Section>
-
-        <Section title="Actividad del paseo" bodyClass="px-6 pb-5">
-          <ol className="flex flex-col gap-3">
-            {eventos.map(({ hora, texto, Icon }) => (
-              <li key={hora} className="flex gap-3">
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center bg-sunken text-ink-mute">
-                  <Icon size={13} strokeWidth={1.9} aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[12.5px] leading-snug text-ink-soft">{texto}</p>
-                  <p className="nums mt-0.5 text-[11.5px] text-ink-mute">{hora}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Section>
-      </div>
-    </div>
-  </Page>
-);
-
+const PaseoEnVivo = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { t, localeTag } = useTranslation();
+  const [walk, setWalk] = useState<WalkWithRelations | null>(null);
+  const [locations, setLocations] = useState<UbicacionPaseo[]>([]);
+  const [error, setError] = useState("");
+  const time = (value: string) => new Intl.DateTimeFormat(localeTag, { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  const load = useCallback(async () => { if (!user) return; try { const active = await getPaseoActivo(user.id); setWalk(active); setLocations(active ? await listUbicacionesPaseo(active.id_paseo) : []); } catch (cause) { setError(cause instanceof Error ? cause.message : t("paseoEnVivo.loadError")); } }, [user, t]);
+  useEffect(() => { void load(); }, [load]);
+  // Cuando el paseador inicia o termina, el mapa aparece o se va solo.
+  useAlLlegarNotificacion(["paseo", "resena"], () => void load());
+  useEffect(() => { if (!walk) return; return escucharUbicaciones(walk.id_paseo, (location) => setLocations((current) => current.some((item) => item.id_ubicacion === location.id_ubicacion) ? current : [...current, location])); }, [walk]);
+  const latest = locations.at(-1);
+  if (!walk && !error) return <Page><PageHeader title={t("paseoEnVivo.title")} subtitle={t("paseoEnVivo.searching")} /></Page>;
+  if (!walk) return <Page><PageHeader title={t("paseoEnVivo.title")} subtitle={t("paseoEnVivo.trackingSubtitle")} />{error && <p className="bg-danger-wash px-4 py-3 text-danger">{error}</p>}<EmptyState title={t("paseoEnVivo.empty.title")} hint={t("paseoEnVivo.empty.hint")} /></Page>;
+  return <Page><PageHeader title={t("paseoEnVivo.title")} subtitle={`${t("paseoEnVivo.withWalker", { mascota: walk.mascota?.nombre ?? t("paseoEnVivo.defaultPet"), paseador: walk.paseador?.nombre ?? t("paseoEnVivo.defaultWalker") })} ${latest ? t("paseoEnVivo.updatedAt", { hora: time(latest.timestamp) }) : t("paseoEnVivo.waitingLocation")}`} action={<Badge tono="accent">{t("paseoEnVivo.statusInCourse")}</Badge>} /><div className="grid gap-3 lg:grid-cols-3"><div className="lg:col-span-2"><Section bodyClass=""><MapaRecorrido ubicaciones={locations} vacio={t("paseoEnVivo.mapPlaceholder")} /><div className="flex items-center gap-2 bg-sunken px-6 py-3 text-[12.5px] text-ink-soft"><MapPin size={14} />{latest ? `${latest.latitud.toFixed(5)}, ${latest.longitud.toFixed(5)}` : t("paseoEnVivo.noLocationYet")}</div></Section></div><div className="flex flex-col gap-3"><Section title={t("paseoEnVivo.walkerSection")} bodyClass="px-6 pb-5"><div className="flex items-center gap-4"><Avatar nombre={walk.paseador?.nombre ?? t("paseoEnVivo.walkerSection")} size={48} /><div><p className="font-semibold text-ink">{walk.paseador?.nombre ?? t("paseoEnVivo.walkerSection")}</p><p className="mt-0.5 text-[12px] text-ink-soft">{t("paseoEnVivo.walkerSectionHint")}</p></div></div>{/* El chat con el paseador, abierto mientras dure el paseo. */}<button type="button" onClick={() => void navigate({ href: rutaChat(walk.id_paseo, "dueno") })} className={`${btnPrimary} mt-4 w-full justify-center`}><MessageCircle size={15} />{t("chat.openChatWalker")}</button></Section><Section title={t("paseoEnVivo.activitySection")} bodyClass="px-6 pb-5">{locations.length ? <ol className="flex flex-col gap-3">{locations.slice(-6).reverse().map((location) => <li key={location.id_ubicacion} className="flex gap-3"><span className="flex h-7 w-7 items-center justify-center bg-sunken text-ink-mute"><Navigation size={13} /></span><div><p className="text-[12.5px] text-ink-soft">{t("paseoEnVivo.locationShared")}</p><p className="nums text-[11.5px] text-ink-mute">{time(location.timestamp)}</p></div></li>)}</ol> : <p className="text-[12.5px] text-ink-soft">{t("paseoEnVivo.noActivity")}</p>}</Section></div></div></Page>;
+};
 export default PaseoEnVivo;

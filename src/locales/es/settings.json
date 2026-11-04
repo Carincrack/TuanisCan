@@ -1,0 +1,9 @@
+{
+  "tab": "Configuración",
+  "language": {
+    "title": "Idioma",
+    "description": "Elige el idioma en el que se muestra la aplicación.",
+    "current": "Idioma actual",
+    "changed": "Idioma actualizado"
+  }
+}

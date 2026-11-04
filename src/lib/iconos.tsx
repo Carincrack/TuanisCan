@@ -32,9 +32,12 @@ import {
   EyeOff as EyeOffVivo,
   FileText as FileTextVivo,
   Footprints as FootprintsVivo,
+  Globe as GlobeVivo,
+  Heart as HeartVivo,
   Image as ImageVivo,
   Inbox as InboxVivo,
   LayoutDashboard as LayoutDashboardVivo,
+  LocateFixed as LocateFixedVivo,
   Loader as LoaderVivo,
   Lock as LockVivo,
   LogOut as LogOutVivo,
@@ -42,6 +45,7 @@ import {
   MapPin as MapPinVivo,
   Menu as MenuVivo,
   MessageCircle as MessageCircleVivo,
+  Minus as MinusVivo,
   Navigation as NavigationVivo,
   Pause as PauseVivo,
   Pencil as PencilVivo,
@@ -56,6 +60,7 @@ import {
   Share as Share2Vivo,
   ShieldCheck as ShieldCheckVivo,
   Sparkles as SparklesVivo,
+  SlidersHorizontal as SlidersHorizontalVivo,
   Star as StarVivo,
   Store as StoreVivo,
   Timer as TimerVivo,
@@ -82,7 +87,7 @@ import {
 
    Por dentro hay dos procedencias.
 
-   · 63 vienen del paquete animado. Son los dibujos de Lucide
+   · 65 vienen del paquete animado. Son los dibujos de Lucide
      con cada trazo convertido en `motion.path`.
 
    · 16 los dibujamos acá. El paquete no los tiene, y entre
@@ -466,9 +471,12 @@ export const Eye = animado(EyeVivo);
 export const EyeOff = animado(EyeOffVivo);
 export const FileText = animado(FileTextVivo);
 export const Footprints = animado(FootprintsVivo);
+export const Globe = animado(GlobeVivo);
+export const Heart = animado(HeartVivo);
 export const Image = animado(ImageVivo);
 export const Inbox = animado(InboxVivo);
 export const LayoutDashboard = animado(LayoutDashboardVivo);
+export const LocateFixed = animado(LocateFixedVivo);
 export const Loader = animado(LoaderVivo);
 export const Lock = animado(LockVivo);
 export const LogOut = animado(LogOutVivo);
@@ -476,6 +484,7 @@ export const Mail = animado(MailVivo);
 export const MapPin = animado(MapPinVivo);
 export const Menu = animado(MenuVivo);
 export const MessageCircle = animado(MessageCircleVivo);
+export const Minus = animado(MinusVivo);
 export const Navigation = animado(NavigationVivo);
 export const Pause = animado(PauseVivo);
 export const Pencil = animado(PencilVivo);
@@ -490,6 +499,7 @@ export const Send = animado(SendVivo);
 export const Share2 = animado(Share2Vivo);
 export const ShieldCheck = animado(ShieldCheckVivo);
 export const Sparkles = animado(SparklesVivo);
+export const SlidersHorizontal = animado(SlidersHorizontalVivo);
 export const Star = animado(StarVivo);
 export const Store = animado(StoreVivo);
 export const Timer = animado(TimerVivo);

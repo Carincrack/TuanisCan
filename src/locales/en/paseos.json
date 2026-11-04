@@ -1,0 +1,120 @@
+{
+  "title": "Walks",
+  "subtitle": "Schedule, tracking and history of your pets' walks.",
+  "scheduleWalk": "Schedule walk",
+  "status": {
+    "requested": "Requested",
+    "confirmed": "Confirmed",
+    "inCourse": "In progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "overdue": "Overdue"
+  },
+  "unassigned": "Unassigned",
+  "noName": "No name",
+  "walkerRateTitle": "Walker's rate: {{tarifa}}",
+  "loadError": "Could not load the walks.",
+  "cancelled": "{{mascota}}'s request cancelled",
+  "cancelledDetail": "We notified the walker.",
+  "cancelFailed": "Could not cancel the request.",
+  "allMyPets": "All my pets",
+  "allZones": "All zones",
+  "cancel": "Cancel",
+  "watchLive": "Watch live",
+  "stats": {
+    "upcoming": "Upcoming",
+    "nextOne": "Next: {{cuando}}",
+    "nothingScheduled": "Nothing scheduled yet",
+    "completed": "Completed",
+    "ofScheduled": "Out of {{total}} scheduled",
+    "ofScheduledOne": "Out of 1 scheduled",
+    "totalSpent": "Total spent",
+    "spentIn": "On {{n}} completed walks",
+    "spentInOne": "On 1 completed walk",
+    "noneCompleted": "No completed walks yet",
+    "noneCharged": "No charged payments yet",
+    "chargedInOne": "On 1 charged walk",
+    "chargedIn": "On {{n}} charged walks"
+  },
+  "filters": {
+    "label": "Walks view",
+    "upcoming": "Upcoming",
+    "history": "History",
+    "all": "All",
+    "searchAria": "Search walks",
+    "searchPlaceholder": "Search by pet, walker or place",
+    "petAria": "Filter by pet",
+    "zoneAria": "Filter by zone",
+    "clear": "Clear"
+  },
+  "empty": {
+    "title": "No walks in this view",
+    "noUpcoming": "No upcoming walks",
+    "withFilters": "Try another search or clear the filters.",
+    "withoutFilters": "Schedule a walk for your pet.",
+    "clearFilters": "Clear filters"
+  },
+  "table": {
+    "caption": "Your pets' walks",
+    "pet": "Pet",
+    "when": "When",
+    "walker": "Walker",
+    "place": "Place",
+    "status": "Status",
+    "price": "Price",
+    "actions": "Actions",
+    "noZone": "No zone"
+  },
+  "pagination": {
+    "label": "Walks pagination",
+    "singular": "walk",
+    "plural": "walks"
+  },
+  "cancelDialog": {
+    "title": "Cancel the request?",
+    "body": "{{paseador}} hasn't responded yet. If you cancel it, they'll be notified and {{mascota}}'s walk won't be scheduled.",
+    "defaultWalker": "The walker",
+    "confirm": "Cancel request",
+    "back": "Go back"
+  },
+  "walkerFallback": "Walker",
+  "yourOfferShort": "Your offer",
+  "retry": "Retry",
+  "detail": {
+    "title": "Walk details",
+    "open": "View {{mascota}}'s walk",
+    "walkOf": "{{mascota}}'s walk",
+    "walker": "Walker",
+    "schedule": "Time",
+    "meetingPoint": "Meeting point",
+    "zone": "Zone",
+    "code": "Walk code",
+    "price": "Price",
+    "offerNote": "This was your offer. The walker's rate was {{tarifa}}.",
+    "overdueRequested": "The date passed and the walker never answered the request.",
+    "overdueConfirmed": "The date passed and the walk was never started.",
+    "close": "Close",
+    "viewRoute": "View route",
+    "payment": "Payment"
+  },
+  "route": {
+    "title": "{{mascota}}'s walk route",
+    "loading": "Loading the route...",
+    "empty": {
+      "title": "No route saved",
+      "hint": "This walk didn't record any locations during the trip."
+    }
+  },
+  "payment": {
+    "confirm": "Confirm payment",
+    "missing": "Payment not confirmed yet",
+    "reserved": "Payment reserved",
+    "states": {
+      "pendiente": "To confirm",
+      "retenido": "Reserved · charged when it ends",
+      "pagado": "Charged",
+      "reembolsado": "Refunded",
+      "fallido": "Failed"
+    }
+  }
+}

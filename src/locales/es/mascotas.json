@@ -1,0 +1,160 @@
+{
+  "title": "Mis mascotas",
+  "loadingProfiles": "Cargando perfiles…",
+  "countSingular": "{{count}} mascota registrada en tu cuenta.",
+  "countPlural": "{{count}} mascotas registradas en tu cuenta.",
+  "registerPet": "Registrar mascota",
+  "registerAnother": "Registrar otra mascota",
+  "manageProfile": "Gestionar perfil",
+  "empty": {
+    "title": "Aún no tienes mascotas",
+    "hint": "Registra su información para crear el carné digital y llevar el control de vacunas."
+  },
+  "health": {
+    "expired": "Vacuna vencida",
+    "upcoming": "Próxima a vencer",
+    "none": "Sin vacunas",
+    "upToDate": "Al día"
+  },
+  "card": {
+    "age": "Edad",
+    "weight": "Peso",
+    "vaccines": "Vacunas"
+  },
+  "management": {
+    "aria": "Gestión de {{nombre}}",
+    "card": "Carné",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "closeProfile": "Cerrar perfil"
+  },
+  "basicData": {
+    "title": "Datos básicos",
+    "birth": "Nacimiento",
+    "sex": "Sexo",
+    "male": "Macho",
+    "female": "Hembra",
+    "color": "Color",
+    "microchip": "Microchip",
+    "notRegistered": "No registrado",
+    "notRegisteredF": "No registrada",
+    "sterilized": "Esterilizado",
+    "yes": "Sí",
+    "no": "No",
+    "vet": "Veterinaria"
+  },
+  "conditions": {
+    "title": "Enfermedades y condiciones",
+    "add": "Agregar enfermedad",
+    "diagnosedOn": "Diagnosticada el {{fecha}}",
+    "edit": "Editar {{nombre}}",
+    "delete": "Eliminar {{nombre}}",
+    "noCareNotes": "Sin cuidados indicados",
+    "empty": {
+      "title": "Sin enfermedades registradas",
+      "hint": "Si tiene alguna condición de salud, regístrala para que el paseador sepa cómo cuidarla."
+    }
+  },
+  "allergies": {
+    "title": "Alergias y cuidados",
+    "allergiesLabel": "Alergias",
+    "noneRegistered": "Ninguna registrada",
+    "careLabel": "Cuidados y notas",
+    "noNotes": "Sin notas"
+  },
+  "vaccineHistory": {
+    "title": "Historial de vacunas",
+    "add": "Agregar vacuna",
+    "caption": "Vacunas de {{nombre}}",
+    "columns": {
+      "vaccine": "Vacuna",
+      "applied": "Aplicada",
+      "expires": "Vence",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "statusUpcoming": "Por vencer",
+    "edit": "Editar {{nombre}}",
+    "delete": "Eliminar {{nombre}}",
+    "empty": {
+      "title": "Sin registros de vacunación",
+      "hint": "Agrega la primera vacuna o desparasitación de esta mascota."
+    }
+  },
+  "dialogs": {
+    "editPet": "Editar a {{nombre}}",
+    "registerPet": "Registrar mascota",
+    "editCondition": "Editar {{nombre}}",
+    "addCondition": "Agregar enfermedad de {{nombre}}",
+    "editVaccine": "Editar vacuna",
+    "addVaccine": "Agregar vacuna de {{nombre}}"
+  },
+  "petForm": {
+    "name": "Nombre *",
+    "species": "Especie *",
+    "breed": "Raza *",
+    "sex": "Sexo *",
+    "birthDate": "Fecha de nacimiento *",
+    "weight": "Peso (kg) *",
+    "color": "Color *",
+    "microchipNumber": "Número de microchip",
+    "usualVet": "Veterinaria habitual",
+    "reproductiveStatus": "Estado reproductivo",
+    "isSterilized": "Está esterilizado/a",
+    "allergies": "Alergias",
+    "allergiesPlaceholder": "Ej.: pollo, picadura de pulga, penicilina",
+    "careNotes": "Cuidados, comportamiento y notas",
+    "profilePhoto": "Foto de perfil",
+    "changePhoto": "Cambiar foto",
+    "choosePhoto": "Elegir foto",
+    "photoHint": "JPG, PNG o WebP. Máximo 5 MB.",
+    "save": "Guardar mascota",
+    "saving": "Guardando…",
+    "updated": "{{nombre}} actualizado",
+    "created": "{{nombre}} quedó registrado",
+    "createdDetail": "Su carné digital ya está disponible.",
+    "photoInvalid": "La foto debe ser JPG, PNG o WebP y pesar menos de 5 MB.",
+    "saveFailed": "No se pudo guardar la mascota."
+  },
+  "vaccineForm": {
+    "vaccineOrTreatment": "Vacuna o tratamiento *",
+    "applicationDate": "Fecha de aplicación *",
+    "expirationDate": "Fecha de vencimiento *",
+    "vet": "Veterinaria",
+    "batch": "Lote o comprobante",
+    "notes": "Notas",
+    "save": "Guardar registro",
+    "saving": "Guardando…",
+    "updated": "Vacuna actualizada",
+    "created": "Vacuna registrada",
+    "expirationBeforeApplication": "La fecha de vencimiento no puede ser anterior a la aplicación.",
+    "saveFailed": "No se pudo guardar el registro."
+  },
+  "conditionForm": {
+    "nameOrCondition": "Enfermedad o condición *",
+    "namePlaceholder": "Ej.: Displasia de cadera, epilepsia, diabetes",
+    "diagnosisDate": "Fecha de diagnóstico",
+    "careLabel": "Cuidados durante el paseo",
+    "carePlaceholder": "Ej.: Paseos cortos y sin saltos. Si convulsiona, alejar objetos y llamar al dueño.",
+    "careHint": "El paseador lo ve en la solicitud antes de aceptar.",
+    "save": "Guardar enfermedad",
+    "saving": "Guardando…",
+    "updated": "Enfermedad actualizada",
+    "created": "Enfermedad registrada",
+    "saveFailed": "No se pudo guardar la enfermedad."
+  },
+  "delete": {
+    "petTitle": "Eliminar a {{nombre}}",
+    "vaccineTitle": "Eliminar registro de vacuna",
+    "conditionTitle": "Eliminar enfermedad",
+    "petBodySingular": "Se borran también su carné digital y su {{count}} registro de vacunación. No se puede deshacer.",
+    "petBodyPlural": "Se borran también su carné digital y sus {{count}} registros de vacunación. No se puede deshacer.",
+    "vaccineBody": "Se borra el registro de {{nombre}}. El resto del historial no se toca.",
+    "conditionBody": "Se borra {{nombre}} del perfil y del carné, y los paseadores dejan de verla en las solicitudes.",
+    "confirmPet": "Eliminar mascota",
+    "confirmVaccine": "Eliminar registro",
+    "confirmCondition": "Eliminar enfermedad",
+    "deleted": "{{nombre}} eliminado",
+    "deleteFailed": "No se pudo eliminar."
+  }
+}

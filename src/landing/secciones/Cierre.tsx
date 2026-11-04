@@ -6,6 +6,7 @@ import TitularPartido from "../componentes/TitularPartido";
 import { Correa } from "../componentes/Garabatos";
 import { CIELO, HUESO, NAVY, TINTA_SUAVE } from "../tokens";
 import type { ConAcceso } from "../tipos";
+import { useTranslation } from "../../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    Última llamada. Banda blanca, la misma con la que abrió el
@@ -23,7 +24,9 @@ import type { ConAcceso } from "../tipos";
    mueven distinto.
    ───────────────────────────────────────────────────────────── */
 
-const Cierre = ({ onEntrar }: ConAcceso) => (
+const Cierre = ({ onEntrar }: ConAcceso) => {
+  const { t } = useTranslation();
+  return (
   <section
     data-anim="cierre"
     className="relative overflow-hidden px-6 pt-32 pb-28 sm:px-10 lg:pt-44 lg:pb-36"
@@ -123,12 +126,12 @@ const Cierre = ({ onEntrar }: ConAcceso) => (
         className="rotulo block"
         style={{ color: TINTA_SUAVE }}
       >
-        Empezá hoy
+        {t("landing.cierre.antetitulo")}
       </span>
 
       <TitularPartido
-        lineas={["Tu mascota merece", "a alguien"]}
-        subrayado={<Subrayado>de confianza.</Subrayado>}
+        lineas={[t("landing.cierre.linea1"), t("landing.cierre.linea2")]}
+        subrayado={<Subrayado>{t("landing.cierre.subrayada")}</Subrayado>}
         color={NAVY}
         className="display mt-5 text-[clamp(2.1rem,5vw,3.6rem)] leading-[1.02]"
       />
@@ -138,13 +141,12 @@ const Cierre = ({ onEntrar }: ConAcceso) => (
         className="mx-auto mt-7 max-w-[44ch] text-[15.5px] leading-relaxed"
         style={{ color: TINTA_SUAVE }}
       >
-        Crear la cuenta toma un minuto y no cuesta nada. Registrás a tu mascota
-        y ya podés pedir el primer paseo.
+        {t("landing.cierre.body")}
       </p>
 
       <div data-anim="linea-cierre" className="mt-10 flex justify-center">
         <PildoraCTA tono="hondo" onClick={() => onEntrar("registro")}>
-          Crear cuenta gratis
+          {t("landing.cierre.cta")}
         </PildoraCTA>
       </div>
 
@@ -153,10 +155,11 @@ const Cierre = ({ onEntrar }: ConAcceso) => (
         className="mt-6 text-[13px]"
         style={{ color: TINTA_SUAVE }}
       >
-        Sin tarjeta. Cancelás cuando querás.
+        {t("landing.cierre.noCard")}
       </p>
     </div>
   </section>
-);
+  );
+};
 
 export default Cierre;

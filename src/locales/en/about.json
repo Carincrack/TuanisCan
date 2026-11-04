@@ -1,0 +1,38 @@
+{
+  "title": "About {{marca}}",
+  "subtitle": "A platform that connects owners, walkers and businesses around pet care.",
+  "whatIs": {
+    "title": "What it is",
+    "body": "{{marca}} connects pet owners with verified walkers in their area, centralizes each pet's health history, and helps the community report and reunite with lost pets. All from a single account, no matter which role you sign in with."
+  },
+  "whoUses": {
+    "title": "Who uses it",
+    "owners": {
+      "titulo": "Owners",
+      "texto": "Register your pets with their vaccine history, find verified walkers in your area and track every walk in real time."
+    },
+    "walkers": {
+      "titulo": "Walkers",
+      "texto": "Post your availability, receive requests from nearby owners and manage your schedule and earnings in one place."
+    },
+    "businesses": {
+      "titulo": "Businesses",
+      "texto": "Vets, stores and shelters show up in their area's directory so the community can find them easily."
+    }
+  },
+  "howWeWork": {
+    "title": "How we work",
+    "verifiedWalkers": {
+      "titulo": "Verified walkers",
+      "texto": "Every profile goes through a document review before it can receive requests."
+    },
+    "byZone": {
+      "titulo": "Everything by zone",
+      "texto": "You search for, and get found by, walkers, businesses and lost-pet reports near you."
+    },
+    "lostPetsNetwork": {
+      "titulo": "Lost pets network",
+      "texto": "Location-tagged reports and community sightings to reunite pets faster."
+    }
+  }
+}

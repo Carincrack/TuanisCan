@@ -1,5 +1,7 @@
 import type { AuthResponse, Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { normalizarRecargos } from "../lib/precios";
+import { PAIS_PREDETERMINADO } from "../types/auth.types";
 import type {
   NegocioProfile,
   PaseadorProfile,
@@ -25,7 +27,10 @@ export const register = async (
     email,
     password,
     options: {
-      data: profile,
+      data: {
+        ...profile,
+        pais: profile.pais?.trim() || PAIS_PREDETERMINADO,
+      },
     },
   });
 
@@ -56,11 +61,26 @@ export const getZonas = async (): Promise<Zona[]> => {
 export const getNegocios = async (): Promise<NegocioProfile[]> => {
   const { data, error } = await supabase
     .from("negocios")
-    .select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado")
+    .select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado, foto")
     .order("destacado", { ascending: false })
     .order("nombre");
   if (error) throw error;
   return (data ?? []).map((negocio) => ({
+    ...negocio,
+    latitud: negocio.latitud === null ? null : Number(negocio.latitud),
+    longitud: negocio.longitud === null ? null : Number(negocio.longitud),
+  })) as NegocioProfile[];
+};
+
+export const getNegociosCercanos = async (latitud: number, longitud: number): Promise<NegocioProfile[]> => {
+  const { data, error } = await supabase.rpc("buscar_negocios_cercanos", {
+    p_latitud: latitud,
+    p_longitud: longitud,
+    p_radio_km: 10,
+    p_tipo: null,
+  });
+  if (error) throw error;
+  return (data ?? []).map((negocio: NegocioProfile) => ({
     ...negocio,
     latitud: negocio.latitud === null ? null : Number(negocio.latitud),
     longitud: negocio.longitud === null ? null : Number(negocio.longitud),
@@ -98,12 +118,12 @@ export const getUserProfile = async (
     usuario.zona_id
       ? supabase.from("zonas").select("id_zona, nombre, canton, provincia").eq("id_zona", usuario.zona_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    supabase.from("paseadores").select("descripcion, tarifa_base, calificacion_promedio, estado_verificacion, disponible").eq("id_usuario", userId).maybeSingle(),
+    supabase.from("paseadores").select("descripcion, tarifa_base, calificacion_promedio, estado_verificacion, disponible, recargo_nocturno, recargo_fin_semana, recargo_mismo_dia, nocturno_desde, nocturno_hasta").eq("id_usuario", userId).maybeSingle(),
     roles.includes("paseador")
       ? supabase.from("documentos_paseador").select("id_documento, ruta_storage, fecha_subida").eq("id_usuario", userId).order("fecha_subida", { ascending: false })
       : Promise.resolve({ data: null, error: null }),
     roles.includes("negocio")
-      ? supabase.from("negocios").select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado").eq("id_usuario", userId).limit(1).maybeSingle()
+      ? supabase.from("negocios").select("id_negocio, zona_id, nombre, tipo, direccion, latitud, longitud, telefono, horario, destacado, foto").eq("id_usuario", userId).limit(1).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     supabase
       .from("documentos_verificacion_usuario")
@@ -140,6 +160,7 @@ export const getUserProfile = async (
     paseador: paseadorResult.data
       ? {
           ...paseadorResult.data,
+          ...normalizarRecargos(paseadorResult.data),
           documentos: (documentosResult.data ?? []) as DocumentoPaseador[],
         } as PaseadorProfile
       : null,
@@ -198,6 +219,25 @@ export const deleteProfilePhoto = async (url: string | null) => {
   const marker = `/storage/v1/object/public/${PROFILE_PHOTOS_BUCKET}/`;
   const path = url.includes(marker) ? decodeURIComponent(url.split(marker)[1] ?? "") : "";
   if (path) await supabase.storage.from(PROFILE_PHOTOS_BUCKET).remove([path]);
+};
+
+const NEGOCIO_PHOTOS_BUCKET = "negocios";
+
+export const uploadNegocioPhoto = async (userId: string, file: File) => {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${userId}/${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage
+    .from(NEGOCIO_PHOTOS_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw error;
+  return supabase.storage.from(NEGOCIO_PHOTOS_BUCKET).getPublicUrl(path).data.publicUrl;
+};
+
+export const deleteNegocioPhoto = async (url: string | null) => {
+  if (!url) return;
+  const marker = `/storage/v1/object/public/${NEGOCIO_PHOTOS_BUCKET}/`;
+  const path = url.includes(marker) ? decodeURIComponent(url.split(marker)[1] ?? "") : "";
+  if (path) await supabase.storage.from(NEGOCIO_PHOTOS_BUCKET).remove([path]);
 };
 
 export const addRoleToMyAccount = async (role: "dueno" | "paseador" | "negocio") => {

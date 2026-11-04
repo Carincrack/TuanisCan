@@ -1,0 +1,160 @@
+{
+  "title": "My pets",
+  "loadingProfiles": "Loading profiles…",
+  "countSingular": "{{count}} pet registered on your account.",
+  "countPlural": "{{count}} pets registered on your account.",
+  "registerPet": "Register pet",
+  "registerAnother": "Register another pet",
+  "manageProfile": "Manage profile",
+  "empty": {
+    "title": "You don't have any pets yet",
+    "hint": "Register their information to create the digital ID card and keep track of vaccines."
+  },
+  "health": {
+    "expired": "Vaccine expired",
+    "upcoming": "Expiring soon",
+    "none": "No vaccines",
+    "upToDate": "Up to date"
+  },
+  "card": {
+    "age": "Age",
+    "weight": "Weight",
+    "vaccines": "Vaccines"
+  },
+  "management": {
+    "aria": "Managing {{nombre}}",
+    "card": "ID card",
+    "edit": "Edit",
+    "delete": "Delete",
+    "closeProfile": "Close profile"
+  },
+  "basicData": {
+    "title": "Basic data",
+    "birth": "Birth",
+    "sex": "Sex",
+    "male": "Male",
+    "female": "Female",
+    "color": "Color",
+    "microchip": "Microchip",
+    "notRegistered": "Not registered",
+    "notRegisteredF": "Not registered",
+    "sterilized": "Sterilized",
+    "yes": "Yes",
+    "no": "No",
+    "vet": "Vet"
+  },
+  "conditions": {
+    "title": "Conditions and illnesses",
+    "add": "Add condition",
+    "diagnosedOn": "Diagnosed on {{fecha}}",
+    "edit": "Edit {{nombre}}",
+    "delete": "Delete {{nombre}}",
+    "noCareNotes": "No care notes given",
+    "empty": {
+      "title": "No conditions registered",
+      "hint": "If they have a health condition, register it so the walker knows how to take care of them."
+    }
+  },
+  "allergies": {
+    "title": "Allergies and care",
+    "allergiesLabel": "Allergies",
+    "noneRegistered": "None registered",
+    "careLabel": "Care and notes",
+    "noNotes": "No notes"
+  },
+  "vaccineHistory": {
+    "title": "Vaccine history",
+    "add": "Add vaccine",
+    "caption": "{{nombre}}'s vaccines",
+    "columns": {
+      "vaccine": "Vaccine",
+      "applied": "Applied",
+      "expires": "Expires",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "statusUpcoming": "Expiring soon",
+    "edit": "Edit {{nombre}}",
+    "delete": "Delete {{nombre}}",
+    "empty": {
+      "title": "No vaccination records",
+      "hint": "Add this pet's first vaccine or deworming treatment."
+    }
+  },
+  "dialogs": {
+    "editPet": "Edit {{nombre}}",
+    "registerPet": "Register pet",
+    "editCondition": "Edit {{nombre}}",
+    "addCondition": "Add condition for {{nombre}}",
+    "editVaccine": "Edit vaccine",
+    "addVaccine": "Add vaccine for {{nombre}}"
+  },
+  "petForm": {
+    "name": "Name *",
+    "species": "Species *",
+    "breed": "Breed *",
+    "sex": "Sex *",
+    "birthDate": "Birth date *",
+    "weight": "Weight (kg) *",
+    "color": "Color *",
+    "microchipNumber": "Microchip number",
+    "usualVet": "Usual vet",
+    "reproductiveStatus": "Reproductive status",
+    "isSterilized": "Is sterilized",
+    "allergies": "Allergies",
+    "allergiesPlaceholder": "E.g.: chicken, flea bites, penicillin",
+    "careNotes": "Care, behavior and notes",
+    "profilePhoto": "Profile photo",
+    "changePhoto": "Change photo",
+    "choosePhoto": "Choose photo",
+    "photoHint": "JPG, PNG or WebP. Max 5 MB.",
+    "save": "Save pet",
+    "saving": "Saving…",
+    "updated": "{{nombre}} updated",
+    "created": "{{nombre}} was registered",
+    "createdDetail": "Their digital ID card is now available.",
+    "photoInvalid": "The photo must be JPG, PNG or WebP and under 5 MB.",
+    "saveFailed": "Could not save the pet."
+  },
+  "vaccineForm": {
+    "vaccineOrTreatment": "Vaccine or treatment *",
+    "applicationDate": "Application date *",
+    "expirationDate": "Expiration date *",
+    "vet": "Vet",
+    "batch": "Batch or receipt",
+    "notes": "Notes",
+    "save": "Save record",
+    "saving": "Saving…",
+    "updated": "Vaccine updated",
+    "created": "Vaccine registered",
+    "expirationBeforeApplication": "The expiration date can't be before the application date.",
+    "saveFailed": "Could not save the record."
+  },
+  "conditionForm": {
+    "nameOrCondition": "Illness or condition *",
+    "namePlaceholder": "E.g.: Hip dysplasia, epilepsy, diabetes",
+    "diagnosisDate": "Diagnosis date",
+    "careLabel": "Care during the walk",
+    "carePlaceholder": "E.g.: Short walks, no jumping. If they have a seizure, clear nearby objects and call the owner.",
+    "careHint": "The walker sees this on the request before accepting.",
+    "save": "Save condition",
+    "saving": "Saving…",
+    "updated": "Condition updated",
+    "created": "Condition registered",
+    "saveFailed": "Could not save the condition."
+  },
+  "delete": {
+    "petTitle": "Delete {{nombre}}",
+    "vaccineTitle": "Delete vaccine record",
+    "conditionTitle": "Delete condition",
+    "petBodySingular": "This will also delete their digital ID card and their {{count}} vaccination record. This cannot be undone.",
+    "petBodyPlural": "This will also delete their digital ID card and their {{count}} vaccination records. This cannot be undone.",
+    "vaccineBody": "The {{nombre}} record will be deleted. The rest of the history stays untouched.",
+    "conditionBody": "{{nombre}} will be removed from the profile and ID card, and walkers will stop seeing it on requests.",
+    "confirmPet": "Delete pet",
+    "confirmVaccine": "Delete record",
+    "confirmCondition": "Delete condition",
+    "deleted": "{{nombre}} deleted",
+    "deleteFailed": "Could not delete."
+  }
+}

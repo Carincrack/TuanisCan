@@ -114,6 +114,20 @@
   }
 }
 
+/* Entrada propia de las tarjetas de mascota perdida: además de
+   subir y aparecer, hace un leve "pop" de escala — se siente más
+   particular que el `tsc-rise` genérico que usa el resto de la app. */
+@keyframes tsc-pop-mascota {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes tsc-fade {
   from {
     opacity: 0;
@@ -132,6 +146,15 @@
   }
 }
 
+@keyframes tsc-carrusel {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @keyframes tsc-nav-in {
   from {
     opacity: 0;
@@ -143,32 +166,40 @@
   }
 }
 
-/* Splash: la marca se acerca y la plataforma queda detrás. */
+/* Splash. Una cortina navy con la marca, y nada más.
+
+   Antes la marca entraba desde 0.86 y salía creciendo hasta 1.7,
+   como si se acercara a la cámara. Es un gesto de presentación de
+   producto, no de una herramienta a la que se entra veinte veces por
+   día, y a 1.7 el logo se pixelaba en el último cuadro.
+
+   Ahora:
+     · la cortina aparece con un fundido corto —no salta de golpe
+       sobre la pantalla anterior, que era el primer parpadeo—;
+     · la marca sube seis píxeles mientras aparece, el mismo gesto
+       que el resto de las entradas del sistema;
+     · al irse, se va TODO junto con un fundido: cortina y marca a la
+       vez, sin que la marca quede flotando sobre la aplicación. */
+@keyframes tsc-splash-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes tsc-brand-in {
   from {
     opacity: 0;
-    transform: scale(0.86);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 
-@keyframes tsc-brand-out {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.7);
-  }
-}
-
-/* La cortina del splash se va con la misma duración que el zoom del
-   logo. Antes usaba un fade invertido de 350 ms y el fondo desaparecía
-   antes que la marca, dejándola flotando sobre la aplicación. */
 @keyframes tsc-splash-out {
   from {
     opacity: 1;
@@ -232,6 +263,31 @@
   }
 }
 
+/* Las ventanas (`Dialog`). Entran subiendo apenas y con un 98,5 % de
+   tamaño: llegan con cuerpo, no de la nada. Salen igual pero al revés
+   y en la mitad del tiempo: lo que se descarta tiene que irse ya. */
+@keyframes tsc-ventana-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tsc-ventana-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
 /* La lista del combo box. No arranca en `scale(0)`: nada en el mundo
    real aparece de la nada, y un menú que sale de un punto se ve como
    un truco. Desde 0.97 ya tiene cuerpo antes de moverse. */
@@ -252,8 +308,26 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .anim-pop-mascota {
+    animation: tsc-pop-mascota 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
   .anim-rise {
     animation: tsc-rise 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  /* El carrusel de /perdidas: la fila va duplicada en el JSX (dos
+     copias idénticas, una al lado de la otra) y se desliza hasta la
+     mitad de su propio ancho, que es exactamente donde empieza la
+     segunda copia. Ahí no hay salto que notar porque lo que se ve es
+     igual a lo que había al principio, así que el bucle no tiene
+     costura. Se pausa con el mouse encima o el foco adentro, para
+     poder leer o hacer clic sin que la fila siga corriendo debajo. */
+  .anim-carrusel {
+    animation: tsc-carrusel 32s linear infinite;
+  }
+  .anim-carrusel:hover,
+  .anim-carrusel:focus-within {
+    animation-play-state: paused;
   }
   .anim-fade {
     animation: tsc-fade 0.35s ease-out both;
@@ -264,14 +338,23 @@
   .anim-nav-in {
     animation: tsc-nav-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .anim-brand-in {
-    animation: tsc-brand-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  .anim-splash-in {
+    animation: tsc-splash-in 0.2s ease-out both;
   }
-  .anim-brand-out {
-    animation: tsc-brand-out 0.62s cubic-bezier(0.7, 0, 0.84, 0) both;
+  .anim-brand-in {
+    animation: tsc-brand-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.08s both;
   }
   .anim-splash-out {
-    animation: tsc-splash-out 0.62s cubic-bezier(0.7, 0, 0.84, 0) both;
+    animation: tsc-splash-out 0.4s cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+  /* La línea del splash. Clase propia y no `anim-bar` con duración
+     arbitraria encima: el `animation:` de `anim-bar` es un atajo que
+     pisa cualquier `animation-duration` suelta, así que la línea se
+     llenaba en 0.7 s y se quedaba quieta el resto del splash. Curva
+     pareja, porque una que frena al final parece trabada. */
+  .anim-splash-bar {
+    animation: tsc-bar 0.9s cubic-bezier(0.65, 0, 0.35, 1) both;
+    transform-origin: left;
   }
   .anim-app-in {
     animation: tsc-app-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -290,6 +373,19 @@
   }
   .anim-fade-out {
     animation: tsc-fade-out 0.22s ease-in both;
+  }
+
+  .anim-ventana-in {
+    animation: tsc-ventana-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .anim-ventana-out {
+    animation: tsc-ventana-out 0.17s cubic-bezier(0.4, 0, 1, 1) both;
+  }
+  .anim-fondo-in {
+    animation: tsc-fade 0.24s ease-out both;
+  }
+  .anim-fondo-out {
+    animation: tsc-fade-out 0.17s ease-in both;
   }
 
   /* Escalonado de listas y rejillas. */
@@ -501,9 +597,17 @@
    valdría dos clases contra la sola de `rounded-2xl`, y le ganaría a
    cualquier bloque que ya hubiera elegido su propio radio —las
    tarjetas de `ProfilePage`, por ejemplo—. Con `:where()` esto es
-   solo el valor por defecto: el que diga lo suyo, manda. */
-:where(.suave) :where(.bg-surface) {
-  border-radius: 18px;
+   solo el valor por defecto: el que diga lo suyo, manda.
+
+   Y va en la capa `base`. Suelta, fuera de toda capa, le ganaba igual
+   a las utilidades de Tailwind —que viven en la capa `utilities`—,
+   porque en CSS lo que no está en ninguna capa pesa más que cualquier
+   capa, se escriba como se escriba. Un `rounded-none` o un
+   `rounded-[22px]` sobre un fondo blanco no hacía nada. */
+@layer base {
+  :where(.suave) :where(.bg-surface) {
+    border-radius: 18px;
+  }
 }
 
 /* El lienzo: todo lo que no es el riel —barra superior, contenido y
@@ -541,14 +645,20 @@
    `opacity: 0` se quedarían invisibles para siempre. */
 @media (prefers-reduced-motion: reduce) {
   .anim-rise,
+  .anim-pop-mascota,
   .anim-fade,
   .anim-fade-out,
+  .anim-ventana-in,
+  .anim-ventana-out,
+  .anim-fondo-in,
+  .anim-fondo-out,
   .anim-slide-left,
   .anim-cajon-out,
   .anim-nav-in,
+  .anim-splash-in,
   .anim-brand-in,
-  .anim-brand-out,
   .anim-splash-out,
+  .anim-splash-bar,
   .anim-app-in,
   .anim-bar,
   .anim-menu-in,
@@ -559,6 +669,14 @@
 
   .riel {
     transition-duration: 1ms !important;
+  }
+
+  /* Este no es un estreno con estado final que proteger: es un
+     carrusel que se repite para siempre. Apagarlo del todo deja la
+     primera tanda quieta en su sitio, que es exactamente lo que la
+     preferencia pide. */
+  .anim-carrusel {
+    animation: none !important;
   }
 }
 
@@ -577,7 +695,7 @@
   border: 3px solid var(--color-surface, #ffffff);
   border-radius: 50% 50% 50% 14%;
 
-  background: var(--color-ink);
+  background: linear-gradient(160deg, var(--color-rail-hover) 0%, var(--color-rail) 65%, var(--color-accent-deep) 100%);
 
   box-shadow:
     0 6px 14px rgb(15 23 42 / 20%),
@@ -622,6 +740,132 @@
 
   background: white;
 }
+
+/* El marcador "activo" —el negocio elegido en el directorio, la
+   posición del paseador en un paseo en vivo, el punto del selector
+   de ubicación—. `directorio.tsx` y `paseoEnVivo.tsx` ya armaban el
+   HTML con la clase `is-active` puesta, pero nunca existió la regla
+   que la mirara: los tres caían siempre en el navy neutro de arriba,
+   pensado para puntos que NO son el elegido —el resto de negocios
+   del directorio, por ejemplo—. Acá se define de una vez, con el
+   turquesa de la marca y un halo del mismo color para que se
+   distinga incluso sobre mapas satelitales oscuros. Al ser una
+   regla compartida, corrige los tres lugares con un solo cambio. */
+.tsc-map-marker__pin.is-active {
+  background: linear-gradient(160deg, #1dbdd3 0%, var(--color-accent) 55%, var(--color-accent-dark) 100%);
+
+  box-shadow:
+    0 6px 14px rgb(14 129 149 / 32%),
+    0 12px 28px rgb(15 23 42 / 16%),
+    0 0 0 6px rgb(20 163 184 / 20%);
+}
+
+/* ── El puck del paseo en vivo ────────────────────────────────
+   La posición que se mueve, no un lugar fijo —ver la nota en
+   `MapaRecorrido.tsx`—. Tres capas apiladas en el mismo cuadrado:
+
+     halo     se expande y se apaga, en bucle: "esto está vivo"
+     núcleo   el disco turquesa con borde blanco, siempre quieto
+     flecha   solo aparece con rumbo; gira hacia donde se camina
+
+   El halo va DETRÁS del núcleo y no alrededor por fuera: con
+   `position: absolute; inset: 0` en los dos, el halo crece desde el
+   mismo centro que el núcleo en vez de nacer ya separado de él. */
+.tsc-map-puck {
+  position: relative;
+
+  width: 34px;
+  height: 34px;
+}
+
+.tsc-map-puck__halo {
+  position: absolute;
+  inset: 0;
+
+  border-radius: 999px;
+
+  background: var(--color-accent);
+
+  animation: tsc-puck-pulso 2.2s ease-out infinite;
+}
+
+.tsc-map-puck__nucleo {
+  position: absolute;
+  inset: 7px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 3px solid var(--color-surface, #ffffff);
+  border-radius: 999px;
+
+  background: linear-gradient(160deg, #1dbdd3 0%, var(--color-accent) 55%, var(--color-accent-dark) 100%);
+
+  box-shadow:
+    0 2px 6px rgb(15 23 42 / 25%),
+    0 6px 16px rgb(15 23 42 / 18%);
+}
+
+.tsc-map-puck__flecha {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  width: 0;
+  height: 0;
+
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid var(--color-surface, #ffffff);
+  border-left: 4px solid transparent;
+
+  /* El `rotate` del rumbo ya va en el `style` inline del propio
+     elemento —`transform: translate(-50%,-50%) rotate(Ndeg)`—; acá
+     solo el desplazamiento base, para que la punta del triángulo
+     quede sobre el centro del núcleo y no sobre su esquina. */
+  transform-origin: center;
+  margin-top: -7px;
+}
+
+@keyframes tsc-puck-pulso {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tsc-map-puck__halo {
+    animation: none !important;
+    opacity: 0.25;
+  }
+}
+
+/* ── La ruta resaltada ────────────────────────────────────────
+   Leaflet dibuja cada `Polyline` como un `<path>` de SVG, y un
+   `<path>` sí entiende `filter: drop-shadow` —`box-shadow` no
+   existe para SVG—. Antes la "sombra" era otra línea plana del
+   mismo trazo, más ancha y más tenue, debajo: dos colores lisos
+   apilados, pero ninguno de los dos es una sombra de verdad.
+
+   Esta clase va en la línea de ARRIBA (la turquesa, la que se ve)
+   y le pone dos sombras reales encima de la capa ancha que sigue
+   abajo haciendo de halo:
+
+     la primera   corta y oscura, como un trazo con cuerpo
+     la segunda   larga y del color de la marca, como un brillo
+
+   Juntas levantan la línea del mapa en vez de dejarla plana. */
+.tsc-ruta-resalte {
+  filter:
+    drop-shadow(0 2px 3px rgb(14 39 51 / 55%))
+    drop-shadow(0 0 7px rgb(20 163 184 / 55%));
+}
+
 /* ─────────────────────────────────────────────────────────────
    Portada pública (`.portada`)
 
@@ -729,6 +973,75 @@
   display: inline-block;
 }
 
+/* ── Las fichas del tablero de /perdidas ──────────────────────
+   Polaroids, las mismas de la banda de la portada: borde blanco
+   grueso y un giro propio cada una. Acá el giro es la mitad —son una
+   rejilla que se recorre buscando, no un puñado tirado sobre la mesa—
+   y se endereza al pasar el mouse o el foco: la ficha que se mira es
+   la que se pone derecha.
+
+   El giro llega por `--giro` y no en `style`: en línea le ganaría al
+   `:hover` y la ficha no se enderezaría nunca. */
+.portada .ficha-perdida {
+  rotate: var(--giro, 0deg);
+  box-shadow: 0 16px 28px -10px rgb(20 36 46 / 25%);
+  transition:
+    rotate 320ms cubic-bezier(0.23, 1, 0.32, 1),
+    translate 320ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 320ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.portada .ficha-perdida:hover,
+.portada .ficha-perdida:focus-within {
+  rotate: 0deg;
+  translate: 0 -4px;
+  box-shadow: 0 26px 40px -14px rgb(20 36 46 / 32%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portada .ficha-perdida {
+    transition: none;
+  }
+
+  .portada .ficha-perdida:hover,
+  .portada .ficha-perdida:focus-within {
+    translate: none;
+  }
+}
+
+/* ── Las tarjetas de /mascotas-perdidas (ya autenticado) ──────
+   El mismo polaroid de las fichas de /perdidas, pero con los
+   tokens de la app (`bg-surface`, etc.) en vez de los colores fijos
+   de la landing, porque acá sí hay modo oscuro. Sin el `.portada`
+   por delante: esta pantalla vive dentro de la app, no de la
+   landing pública. */
+.ficha-mascota {
+  rotate: var(--giro, 0deg);
+  box-shadow: 0 14px 26px -12px rgb(20 36 46 / 20%);
+  transition:
+    rotate 320ms cubic-bezier(0.23, 1, 0.32, 1),
+    translate 320ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 320ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.ficha-mascota:hover,
+.ficha-mascota:focus-within {
+  rotate: 0deg;
+  translate: 0 -4px;
+  box-shadow: 0 22px 36px -14px rgb(20 36 46 / 28%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha-mascota {
+    transition: none;
+  }
+
+  .ficha-mascota:hover,
+  .ficha-mascota:focus-within {
+    translate: none;
+  }
+}
+
 /* ── El perro que cambia con el conmutador ────────────────────
    Los dos recortes viven apilados y el conmutador solo decide cuál
    se ve. Es la única transición del hero que dispara el usuario, y
@@ -766,6 +1079,18 @@
     transform 160ms cubic-bezier(0.4, 0, 1, 1),
     filter 160ms cubic-bezier(0.4, 0, 1, 1),
     visibility 0s linear 160ms;
+}
+
+/* En el teléfono la foto no llega a la onda del borde: termina a media
+   banda, sobre los botones, y su canto de abajo —un corte recto a la
+   altura del pecho— quedaba a la vista como una foto pegada. Se
+   disuelve hacia el fondo, igual que los recortes de "Servicios". Desde
+   `lg` la foto sí baja hasta detrás de la onda y no hace falta. */
+@media (max-width: 1023.98px) {
+  .portada .perro-escenario {
+    -webkit-mask-image: linear-gradient(to bottom, #000 74%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 74%, transparent 100%);
+  }
 }
 
 .perro-hero[data-visible] {
@@ -821,6 +1146,31 @@
 .portada .recorte {
   -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* El mismo recurso que `.recorte`, pero a los lados: el carrusel de
+   mascotas recién reportadas corta su fila en seco contra el
+   `overflow-x-hidden` que esconde la segunda copia, y una tarjeta de
+   golpe contra el borde se leía como un error de recorte y no como
+   una decisión. El degradado la desvanece antes de llegar al borde,
+   así la fila se pierde en el fondo en vez de cortarse contra él. */
+.portada .carrusel-desvanece {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
 }
@@ -1155,10 +1505,16 @@
   }
 
   /* En papel el carné no flota sobre un lienzo: la hoja ES el lienzo.
-     Se le quitan el radio y la sombra, que solo tienen sentido cuando
-     hay un fondo del que despegarse. */
-  .carnet-hoja .carnet-pieza {
+     Los paneles blancos pierden el radio, que solo tiene sentido
+     cuando hay un fondo del que despegarse. La cédula navy es la
+     excepción: sigue siendo la imagen de una tarjeta —conserva sus
+     esquinas redondas—, solo se le quita la sombra, porque en el
+     papel no hay nada de qué despegarse. */
+  .carnet-hoja .carnet-panel {
     border-radius: 0;
+  }
+
+  .carnet-hoja .carnet-cedula {
     box-shadow: none;
   }
 
@@ -1197,4 +1553,53 @@
     size: auto;
     margin: 12mm;
   }
+}
+
+/* ── El globo de países (GloboPaises.tsx) ──
+   La ventana entra creciendo apenas desde el 97 %, sin rebote: es una
+   herramienta, no una celebración. El faro de Costa Rica late con un
+   anillo que se abre y se apaga, para que se encuentre sin buscarlo;
+   con movimiento reducido queda el punto quieto. */
+@keyframes globo-entra {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes globo-faro {
+  0% {
+    box-shadow: 0 0 0 0 rgba(20, 163, 184, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(20, 163, 184, 0);
+  }
+}
+.globo-ventana {
+  animation: globo-entra 0.28s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.globo-faro {
+  animation: globo-faro 1.8s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+.globo-espera {
+  animation: tsc-fade 0.3s ease-out 0.25s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .globo-ventana {
+    animation-duration: 1ms;
+  }
+  .globo-faro {
+    animation: none;
+  }
+}
+
+/* Edge y el viejo Internet Explorer le ponen a los campos de contraseña
+   su propio ojo para mostrarla. El login ya tiene el suyo: con los dos,
+   el campo mostraba dos ojos uno al lado del otro. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
 }

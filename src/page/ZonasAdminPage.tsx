@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, Search, Trash2 } from "../lib/iconos";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { MapPin, Search, Trash2 } from "../lib/iconos";
 import { deleteZona, getZonas } from "../services/auth.service";
 import type { Zona } from "../types/auth.types";
 import {
+  Badge,
   Confirmar,
   EmptyState,
+  NotificationButtonContext,
   Page,
   PageHeader,
+  Paginacion,
   Section,
+  Stat,
   Table,
   input,
 } from "../components/ui";
@@ -15,8 +19,11 @@ import { Combo } from "../components/Combo";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
 import { distritoDe, normalizar } from "../lib/zonas";
+import { useTranslation } from "../hooks/useTranslation";
 
 const ZonasAdminPage = () => {
+  const { t } = useTranslation();
+  const botonNotificaciones = useContext(NotificationButtonContext);
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [provinciaFiltro, setProvinciaFiltro] = useState("Todas");
@@ -38,9 +45,19 @@ const ZonasAdminPage = () => {
 
   useEffect(() => {
     cargar()
-      .catch(() => setError("No se pudo cargar el catálogo de zonas"))
+      .catch(() => setError(t("zonas.loadError")))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalProvincias = useMemo(
+    () => new Set(zonas.map((zona) => normalizar(zona.provincia))).size,
+    [zonas],
+  );
+
+  const totalCantones = useMemo(
+    () => new Set(zonas.map((zona) => normalizar(zona.canton))).size,
+    [zonas],
+  );
 
   const provinciasFiltro = useMemo(() => {
     const provincias = zonas
@@ -139,11 +156,11 @@ const ZonasAdminPage = () => {
       await deleteZona(porEliminar.id_zona);
       setPorEliminar(null);
       await cargar();
-      aviso.ok("Zona eliminada");
+      aviso.ok(t("zonas.delete.success"));
     } catch (cause) {
-      setError("No se puede eliminar porque la zona está en uso");
+      setError(t("zonas.delete.inUseError"));
       aviso.error(cause, {
-        respaldo: "No se puede eliminar: hay cuentas o negocios en esa zona.",
+        respaldo: t("zonas.delete.inUseToast"),
       });
     } finally {
       setEliminando(false);
@@ -156,34 +173,38 @@ const ZonasAdminPage = () => {
     cantonFiltro !== "Todos" ||
     distritoFiltro !== "Todos";
 
-  const btnPaso =
-    "inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-ink-soft transition-colors hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+  /* Borrar es la única acción de la fila, así que no necesita gritar:
+     un disco callado, gris hasta que el cursor lo toca y entonces
+     rojo. Sin borde —`border-border` apuntaba a un token que no
+     existe y salía un píxel navy alrededor— y sin palabra, porque la
+     papelera ya la dice y la confirmación la repite entera. */
   const btnEliminar =
-    "inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-ink-soft transition-colors hover:bg-danger-wash hover:text-danger";
+    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-mute transition-[background-color,color,transform] duration-150 ease-out hover:bg-danger-wash hover:text-danger active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger";
 
   return (
-    <Page>
+    <Page wide>
       <PageHeader
-        title="Zonas"
-        subtitle="Catálogo de zonas disponibles para perfiles y servicios."
+        title={t("zonas.title")}
+        subtitle={t("zonas.subtitle")}
         action={
-          <span className="inline-flex items-center gap-2.5 rounded-full border border-border bg-surface px-3.5 py-2 text-[13px] font-semibold text-ink">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent-wash text-accent-dark">
-              <MapPin size={13} />
-            </span>
-            <span className="nums">{zonas.length}</span>
-            <span className="font-medium text-ink-mute">
-              {zonas.length === 1 ? "zona registrada" : "zonas registradas"}
-            </span>
-          </span>
+          <div className="flex items-center gap-2.5">
+            <Badge tono="accent">{zonas.length} {zonas.length === 1 ? t("zonas.countSingular") : t("zonas.countPlural")}</Badge>
+            {botonNotificaciones}
+          </div>
         }
       />
 
+      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <Stat etiqueta={t("zonas.stats.registered")} valor={String(zonas.length)} nota={t("zonas.stats.registeredHint")} />
+        <Stat etiqueta={t("zonas.stats.provinces")} valor={String(totalProvincias)} nota={t("zonas.stats.provincesHint")} />
+        <Stat etiqueta={t("zonas.stats.cantons")} valor={String(totalCantones)} nota={t("zonas.stats.cantonsHint")} />
+      </div>
+
       <Section
-        title="Zonas registradas"
+        title={t("zonas.filters.title")}
         aside={
           <span className="inline-flex items-center rounded-full bg-sunken px-2.5 py-1 text-[12px] font-medium text-ink-soft">
-            {visibles.length} {visibles.length === 1 ? "resultado" : "resultados"}
+            {visibles.length} {visibles.length === 1 ? t("zonas.resultSingular") : t("zonas.resultPlural")}
           </span>
         }
         bodyClass="px-4 py-4 sm:px-5"
@@ -202,42 +223,42 @@ const ZonasAdminPage = () => {
               value={busqueda}
               onChange={(event) => setBusqueda(event.target.value)}
               className={`${input} pl-9`}
-              placeholder="Buscar zona, cantón o provincia"
-              aria-label="Buscar zonas"
+              placeholder={t("zonas.filters.searchPlaceholder")}
+              aria-label={t("zonas.filters.searchAria")}
             />
           </div>
 
           <Combo
             value={provinciaFiltro}
             onChange={cambiarProvinciaFiltro}
-            aria-label="Filtrar por provincia"
+            aria-label={t("zonas.filters.provinceAria")}
             options={provinciasFiltro.map((item) => ({
               value: item,
-              label: item === "Todas" ? "Todas las provincias" : item,
+              label: item === "Todas" ? t("zonas.filters.allProvinces") : item,
             }))}
           />
 
           <Combo
             value={cantonFiltro}
             onChange={cambiarCantonFiltro}
-            aria-label="Filtrar por cantón"
+            aria-label={t("zonas.filters.cantonAria")}
             disabled={provinciaFiltro === "Todas"}
-            textoInactivo="Elegí una provincia"
+            textoInactivo={t("zonas.filters.selectProvince")}
             options={cantonesFiltro.map((item) => ({
               value: item,
-              label: item === "Todos" ? "Todos los cantones" : item,
+              label: item === "Todos" ? t("zonas.filters.allCantons") : item,
             }))}
           />
 
           <Combo
             value={distritoFiltro}
             onChange={setDistritoFiltro}
-            aria-label="Filtrar por distrito"
+            aria-label={t("zonas.filters.districtAria")}
             disabled={cantonFiltro === "Todos"}
-            textoInactivo="Elegí un cantón"
+            textoInactivo={t("zonas.filters.selectCanton")}
             options={distritosFiltro.map((item) => ({
               value: item,
-              label: item === "Todos" ? "Todos los distritos" : item,
+              label: item === "Todos" ? t("zonas.filters.allDistricts") : item,
             }))}
           />
         </div>
@@ -246,78 +267,82 @@ const ZonasAdminPage = () => {
           {message && <p className="text-ok">{message}</p>}
           {error && <p className="text-danger">{error}</p>}
         </div>
+      </Section>
 
+      <Section bodyClass="">
         {loading ? (
           <Skeleton name="admin-tabla" loading>
             <div />
           </Skeleton>
         ) : visibles.length === 0 ? (
-          <EmptyState
-            title="No hay coincidencias"
-            hint={
-              hayFiltros
-                ? "Ajustá la búsqueda o cambiá los filtros."
-                : "Todavía no hay zonas en el catálogo."
-            }
-          />
+          <div className="px-4 py-4 sm:px-5">
+            <EmptyState
+              title={t("zonas.empty.title")}
+              hint={
+                hayFiltros
+                  ? t("zonas.empty.withFilters")
+                  : t("zonas.empty.withoutFilters")
+              }
+            />
+          </div>
         ) : (
           <>
-            {/* Escritorio: tabla completa. */}
-            <div className="hidden overflow-x-auto md:block">
+            {/* ── De lg para arriba: la tabla ──
+                Reparto fijo, cuatro columnas de dato y una de acción.
+                La fila ya no repite «Carrizal, Alajuela» debajo del
+                nombre: cantón y distrito tienen su columna al lado y
+                decirlo dos veces en la misma fila no es información,
+                es ruido. */}
+            <div className="hidden lg:block">
               <Table
-                caption="Zonas registradas"
+                caption={t("zonas.table.caption")}
+                min="min-w-[640px]"
+                padX="px-4"
                 columnas={[
-                  { label: "Zona" },
-                  { label: "Provincia" },
-                  { label: "Cantón" },
-                  { label: "Distrito" },
-                  { label: "", align: "right" },
+                  { label: t("zonas.table.columns.zone"), ancho: "w-[32%]" },
+                  { label: t("zonas.table.columns.province"), ancho: "w-[20%]" },
+                  { label: t("zonas.table.columns.canton"), ancho: "w-[20%]" },
+                  { label: t("zonas.table.columns.district"), ancho: "w-[20%]" },
+                  { label: t("zonas.table.columns.actions"), ancho: "w-[8%]", align: "right", muda: true },
                 ]}
               >
                 {zonasPaginadas.map((zona) => (
                   <tr
                     key={zona.id_zona}
-                    className="transition-colors hover:bg-sunken"
+                    className="transition-colors duration-150 hover:bg-accent-wash/40"
                   >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent-wash text-accent-dark">
-                          <MapPin size={16} />
+                    <td className="px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                          <MapPin size={15} />
                         </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-[13.5px] font-semibold text-ink">
-                            {zona.nombre}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[12px] text-ink-mute">
-                            {distritoDe(zona)}, {zona.canton}
-                          </span>
+                        <span className="block truncate text-[13.5px] font-semibold text-ink" title={zona.nombre}>
+                          {zona.nombre}
                         </span>
                       </div>
                     </td>
 
-                    <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center rounded-full bg-sunken px-2.5 py-1 text-[12px] font-medium text-ink-soft">
-                        {zona.provincia}
-                      </span>
+                    <td className="px-4 py-3">
+                      <Badge tono="neutral">{zona.provincia}</Badge>
                     </td>
 
-                    <td className="px-5 py-3.5 text-[13px] text-ink-soft">
+                    <td className="truncate px-4 py-3 text-[12.5px] text-ink-soft" title={zona.canton}>
                       {zona.canton}
                     </td>
 
-                    <td className="px-5 py-3.5 text-[13px] text-ink-soft">
+                    <td className="truncate px-4 py-3 text-[12.5px] text-ink-soft" title={distritoDe(zona)}>
                       {distritoDe(zona)}
                     </td>
 
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-4 py-3 text-right">
                       <button
                         type="button"
                         onClick={() => setPorEliminar(zona)}
                         className={btnEliminar}
-                        aria-label={`Eliminar ${zona.nombre}`}
+                        aria-label={t("zonas.table.deleteAction", { nombre: zona.nombre })}
+                        title={t("zonas.table.deleteAction", { nombre: zona.nombre })}
                       >
-                        <Trash2 size={13} />
-                        <span className="hidden lg:inline">Eliminar</span>
+                        <Trash2 size={15} strokeWidth={1.9} />
                       </button>
                     </td>
                   </tr>
@@ -325,111 +350,48 @@ const ZonasAdminPage = () => {
               </Table>
             </div>
 
-            {/* Móvil: una tarjeta por zona en vez de forzar el scroll
-                horizontal de la tabla. */}
-            <ul className="grid gap-2.5 md:hidden">
+            {/* ── Debajo de lg: fichas ──
+                Nombre y, debajo, la jerarquía completa en una línea.
+                Sin tabla de tres celdas repitiendo lo mismo. */}
+            <ul className="grid gap-2.5 p-4 lg:hidden">
               {zonasPaginadas.map((zona) => (
                 <li
                   key={zona.id_zona}
-                  className="rounded-xl border border-border bg-surface p-4"
+                  className="flex min-w-0 items-center gap-3 rounded-[14px] bg-sunken/60 p-4"
                 >
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent-wash text-accent-dark">
-                      <MapPin size={16} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-semibold text-ink">
-                        {zona.nombre}
-                      </p>
-                      <p className="mt-0.5 text-[12px] text-ink-mute">
-                        {distritoDe(zona)}, {zona.canton}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPorEliminar(zona)}
-                      className={btnEliminar}
-                      aria-label={`Eliminar ${zona.nombre}`}
-                    >
-                      <Trash2 size={13} />
-                      Eliminar
-                    </button>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                    <MapPin size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-semibold text-ink">
+                      {zona.nombre}
+                    </p>
+                    <p className="mt-0.5 truncate text-[12px] text-ink-soft">
+                      {distritoDe(zona)} · {zona.canton} · {zona.provincia}
+                    </p>
                   </div>
-
-                  <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3 text-[12px]">
-                    <div>
-                      <dt className="text-ink-mute">Provincia</dt>
-                      <dd className="mt-0.5 font-medium text-ink-soft">
-                        {zona.provincia}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-ink-mute">Cantón</dt>
-                      <dd className="mt-0.5 font-medium text-ink-soft">
-                        {zona.canton}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-ink-mute">Distrito</dt>
-                      <dd className="mt-0.5 font-medium text-ink-soft">
-                        {distritoDe(zona)}
-                      </dd>
-                    </div>
-                  </dl>
+                  <button
+                    type="button"
+                    onClick={() => setPorEliminar(zona)}
+                    className={btnEliminar}
+                    aria-label={t("zonas.table.deleteAction", { nombre: zona.nombre })}
+                  >
+                    <Trash2 size={15} strokeWidth={1.9} />
+                  </button>
                 </li>
               ))}
             </ul>
 
-            <div className="mt-3 flex flex-col gap-3 border-t border-border px-1 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[12px] text-ink-mute">
-                Mostrando{" "}
-                <span className="font-medium text-ink-soft">{inicio + 1}</span>–
-                <span className="font-medium text-ink-soft">
-                  {Math.min(fin, visibles.length)}
-                </span>{" "}
-                de{" "}
-                <span className="font-medium text-ink-soft">
-                  {visibles.length}
-                </span>{" "}
-                zonas
-              </p>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={paginaActual === 1}
-                  onClick={() =>
-                    setPaginaActual((pagina) => Math.max(1, pagina - 1))
-                  }
-                  className={btnPaso}
-                >
-                  <ChevronLeft size={14} />
-                  Anterior
-                </button>
-
-                <span className="px-2 text-[12.5px] text-ink-mute">
-                  Página{" "}
-                  <span className="font-medium text-ink-soft">
-                    {paginaActual}
-                  </span>{" "}
-                  de {Math.max(totalPaginas, 1)}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={paginaActual >= totalPaginas || totalPaginas === 0}
-                  onClick={() =>
-                    setPaginaActual((pagina) =>
-                      Math.min(totalPaginas, pagina + 1),
-                    )
-                  }
-                  className={btnPaso}
-                >
-                  Siguiente
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+            <Paginacion
+              etiqueta={t("zonas.pagination.label")}
+              actual={paginaActual}
+              total={totalPaginas}
+              onCambiar={setPaginaActual}
+              desde={inicio + 1}
+              hasta={Math.min(fin, visibles.length)}
+              cuantos={visibles.length}
+              nombre={["zona", "zonas"]}
+            />
           </>
         )}
       </Section>
@@ -440,15 +402,12 @@ const ZonasAdminPage = () => {
       {porEliminar && (
         <Confirmar
           tono="peligro"
-          titulo="Eliminar zona"
-          cuerpo={
-            <>
-              Se quita <strong className="font-semibold text-ink">{porEliminar.nombre}</strong>, {porEliminar.canton} del
-              catálogo. Si hay personas o negocios registrados en esa zona, la
-              base no va a permitir borrarla.
-            </>
-          }
-          confirmar="Eliminar zona"
+          titulo={t("zonas.delete.title")}
+          cuerpo={t("zonas.delete.body", {
+            nombre: porEliminar.nombre,
+            canton: porEliminar.canton,
+          })}
+          confirmar={t("zonas.delete.confirm")}
           ocupado={eliminando}
           onConfirmar={() => void eliminar()}
           onCancelar={() => setPorEliminar(null)}

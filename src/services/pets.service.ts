@@ -1,11 +1,12 @@
 import { supabase } from "../lib/supabase";
 import { vaccineStatus } from "../lib/pets";
-import type { Pet, PetInput, Vaccine, VaccineInput } from "../types/pet.types";
+import type { Condition, ConditionInput, Pet, PetInput, Vaccine, VaccineInput } from "../types/pet.types";
 
 const PHOTO_BUCKET = "mascotas";
 
-type PetRow = Omit<Pet, "fotoUrl" | "vacunas"> & {
+type PetRow = Omit<Pet, "fotoUrl" | "vacunas" | "padecimientos"> & {
   historial_vacunas: Vaccine[] | null;
+  padecimientos_mascota: (Condition & { fecha_registro: string })[] | null;
 };
 
 const photoUrl = async (path: string | null) => {
@@ -25,6 +26,9 @@ export const listPets = async (): Promise<Pet[]> => {
       historial_vacunas (
         id_vacuna, id_mascota, nombre_vacuna, fecha_aplicacion,
         fecha_vencimiento, estado, veterinaria, lote, notas
+      ),
+      padecimientos_mascota (
+        id_padecimiento, id_mascota, nombre, cuidados, fecha_diagnostico, fecha_registro
       )
     `)
     .order("nombre");
@@ -41,6 +45,15 @@ export const listPets = async (): Promise<Pet[]> => {
           estado: vaccineStatus(vaccine.fecha_vencimiento),
         }))
         .sort((a, b) => b.fecha_aplicacion.localeCompare(a.fecha_aplicacion)),
+      padecimientos: (pet.padecimientos_mascota ?? [])
+        .sort((a, b) => a.fecha_registro.localeCompare(b.fecha_registro))
+        .map((condition) => ({
+          id_padecimiento: condition.id_padecimiento,
+          id_mascota: condition.id_mascota,
+          nombre: condition.nombre,
+          cuidados: condition.cuidados,
+          fecha_diagnostico: condition.fecha_diagnostico,
+        })),
     }))
   );
 };
@@ -113,5 +126,25 @@ export const deleteVaccine = async (vaccineId: string) => {
     .from("historial_vacunas")
     .delete()
     .eq("id_vacuna", vaccineId);
+  if (error) throw error;
+};
+
+export const saveCondition = async (
+  petId: string,
+  values: ConditionInput,
+  current?: Condition
+) => {
+  const query = current
+    ? supabase.from("padecimientos_mascota").update(values).eq("id_padecimiento", current.id_padecimiento)
+    : supabase.from("padecimientos_mascota").insert({ ...values, id_mascota: petId });
+  const { error } = await query;
+  if (error) throw error;
+};
+
+export const deleteCondition = async (conditionId: string) => {
+  const { error } = await supabase
+    .from("padecimientos_mascota")
+    .delete()
+    .eq("id_padecimiento", conditionId);
   if (error) throw error;
 };

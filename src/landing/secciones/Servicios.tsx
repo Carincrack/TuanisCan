@@ -2,6 +2,7 @@ import EncabezadoSeccion from "../componentes/EncabezadoSeccion";
 import Onda from "../componentes/Onda";
 import { MODULOS } from "../datos";
 import { AZUL, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
+import { useTranslation } from "../../hooks/useTranslation";
 
 /* ─────────────────────────────────────────────────────────────
    Los tres módulos del producto. Banda blanca.
@@ -147,7 +148,9 @@ const PARALAJE = [10, 14, 18];
 /** El escalón de cada columna. Crece para que se lea como escalera. */
 const ESCALON = ["", "md:mt-14", "md:mt-28"];
 
-const Servicios = () => (
+const Servicios = () => {
+  const { t } = useTranslation();
+  return (
   <section
     id="servicios"
     className="relative scroll-mt-6 overflow-hidden px-6 pt-32 pb-24 sm:px-10 lg:px-14 lg:pt-40 lg:pb-32"
@@ -196,9 +199,9 @@ const Servicios = () => (
 
     <div className="relative z-10 mx-auto max-w-[1000px]">
       <EncabezadoSeccion
-        antetitulo="Qué resuelve"
-        lineas={["Tres cosas que hoy", "hacés en tres"]}
-        subrayada="lugares distintos."
+        antetitulo={t("landing.servicios.antetitulo")}
+        lineas={[t("landing.servicios.linea1"), t("landing.servicios.linea2")]}
+        subrayada={t("landing.servicios.subrayada")}
       />
 
       <p
@@ -206,25 +209,24 @@ const Servicios = () => (
         className="mt-7 max-w-[42ch] text-[15px] leading-relaxed"
         style={{ color: TINTA_SUAVE }}
       >
-        Un grupo de WhatsApp para el paseador, otro de Facebook para buscar
-        veterinaria y la recomendación de un vecino. Acá es una sola cuenta.
+        {t("landing.servicios.apoyo")}
       </p>
 
       <ul
         data-anim="modulos"
-        className="mt-20 grid gap-14 md:grid-cols-3 md:gap-8 lg:gap-12"
+        className="mt-12 grid gap-12 sm:mt-16 md:mt-20 md:grid-cols-3 md:gap-8 lg:gap-12"
       >
         {MODULOS.map(({ foto, etiqueta, titulo, texto }, i) => (
           <li key={titulo} data-anim="modulo" className={`group ${ESCALON[i]}`}>
             <figure
               data-cursor=""
-              className="recorte relative h-[clamp(230px,30vw,380px)] w-full"
+              className="recorte relative h-[200px] w-full sm:h-[clamp(230px,30vw,380px)]"
             >
               <div data-anim="ficha" className="h-full w-full">
                 <div data-par={PARALAJE[i]} className="h-full w-full">
                   <img
                     src={foto.src}
-                    alt={foto.alt}
+                    alt={t(foto.alt)}
                     loading="lazy"
                     decoding="async"
                     className="h-full w-full origin-bottom object-contain object-bottom transition-transform duration-500 ease-out group-hover:scale-[1.04]"
@@ -233,26 +235,30 @@ const Servicios = () => (
               </div>
             </figure>
 
-            <span className="rotulo mt-10 block" style={{ color: TINTA_SUAVE }}>
-              {etiqueta}
+            {/* En el teléfono la foto es más baja y el rótulo se acerca:
+                apilados, los 40 px de escritorio más el alto completo de
+                cada foto dejaban cada módulo flotando en blanco. */}
+            <span className="rotulo mt-6 block sm:mt-10" style={{ color: TINTA_SUAVE }}>
+              {t(etiqueta)}
             </span>
             <h3
               className="display mt-2 text-[20px] leading-tight"
               style={{ color: TINTA }}
             >
-              {titulo}
+              {t(titulo)}
             </h3>
             <p
               className="mt-2.5 text-[14.5px] leading-relaxed"
               style={{ color: TINTA_SUAVE }}
             >
-              {texto}
+              {t(texto)}
             </p>
           </li>
         ))}
       </ul>
     </div>
   </section>
-);
+  );
+};
 
 export default Servicios;
