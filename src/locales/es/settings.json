@@ -5,5 +5,12 @@
     "description": "Elige el idioma en el que se muestra la aplicación.",
     "current": "Idioma actual",
     "changed": "Idioma actualizado"
+  },
+  "fullscreen": {
+    "title": "Pantalla completa",
+    "description": "Usa toda la pantalla del navegador, sin la barra de direcciones ni las pestañas.",
+    "on": "Activada",
+    "off": "Desactivada",
+    "unsupported": "Tu navegador no permite activar la pantalla completa."
   }
 }

@@ -5,5 +5,12 @@
     "description": "Choose the language the application is shown in.",
     "current": "Current language",
     "changed": "Language updated"
+  },
+  "fullscreen": {
+    "title": "Full screen",
+    "description": "Use the whole browser screen, without the address bar or tabs.",
+    "on": "On",
+    "off": "Off",
+    "unsupported": "Your browser doesn't support full screen."
   }
 }

@@ -53,6 +53,7 @@ import {
 } from "../components/ui";
 import { Combo } from "../components/Combo";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { FullscreenToggle } from "../components/FullscreenToggle";
 import { PAIS_PREDETERMINADO } from "../types/auth.types";
 import { opcionesDePais } from "../lib/paises";
 
@@ -2107,17 +2108,17 @@ const ProfilePage = () => {
       {/* =====================================================
           CONFIGURACIÓN
 
-          Por ahora solo vive acá el idioma. El selector mismo no
-          sabe nada del perfil: es `LanguageSwitcher`, reutilizable
-          en cualquier otra pantalla que llegue a necesitarlo.
+          Idioma y pantalla completa. Ninguno sabe nada del perfil:
+          son `LanguageSwitcher` y `FullscreenToggle`, reutilizables
+          en cualquier otra pantalla que llegue a necesitarlos.
          ===================================================== */}
 
       {pestana === "configuracion" && (
         /* Sin `overflow-hidden`: a diferencia del resto de las
-           tarjetas, esta termina justo donde termina el selector de
-           idioma, y su lista desplegable —que no usa portal, como sí
-           hacen otros combos del armazón— necesita salir por encima
-           del borde inferior sin que la tarjeta se la recorte. */
+           tarjetas, el selector de idioma —que no usa portal, como sí
+           hacen otros combos del armazón— necesita que su lista
+           desplegable salga por encima del borde sin que la tarjeta
+           se la recorte. */
         <div className="rounded-2xl border border-black/[0.06] bg-surface p-5 shadow-[0_1px_2px_rgb(0_0_0/0.03),0_10px_35px_rgb(0_0_0/0.025)] sm:p-7">
           <div className="mb-5">
             <h3 className="text-[15px] font-semibold text-ink">
@@ -2126,6 +2127,7 @@ const ProfilePage = () => {
           </div>
 
           <LanguageSwitcher />
+          <FullscreenToggle />
         </div>
       )}
 
