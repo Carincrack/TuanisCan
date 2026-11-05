@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { ArrowRight, MapPin, Maximize2, PawPrint, Search } from "../../lib/iconos";
 import BotonAccion from "../componentes/BotonAccion";
 import Boronas from "../componentes/Boronas";
+import { Rabito } from "../componentes/Garabatos";
 import Onda from "../componentes/Onda";
 import { AZUL, CANVAS, CIELO, HUESO, NAVY, TINTA_SUAVE, TURQUESA } from "../tokens";
 import Collar from "../../components/Collar";
@@ -263,6 +264,10 @@ const TableroPerdidas = ({
           más arriba (`z-30` contra el `z-20` de las migas): se ven en
           los márgenes y entre las fichas, y nunca tapan una. */}
       <Boronas desde={4} />
+
+      {/* En el relleno de abajo de la banda, debajo de la última fila:
+          ahí no hay tarjetas que tapar. */}
+      <Rabito forma="rizo" className="absolute right-[9%] bottom-6 hidden w-[clamp(150px,13vw,215px)] lg:block" />
 
       <div className="relative z-30 mx-auto max-w-[1400px]">
         {hayFichas && (

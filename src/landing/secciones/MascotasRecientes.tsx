@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, Clock, Maximize2, MapPin } from "../../lib/iconos";
 import Onda from "../componentes/Onda";
 import Boronas from "../componentes/Boronas";
+import { Rabito } from "../componentes/Garabatos";
 import EncabezadoSeccion from "../componentes/EncabezadoSeccion";
 import { HUESO, NAVY, TINTA_SUAVE, TURQUESA } from "../tokens";
 import { useTranslation } from "../../hooks/useTranslation";
@@ -109,7 +110,7 @@ const MascotasRecientes = () => {
 
   return (
     <section
-      className="relative overflow-hidden px-6 pt-32 pb-28 sm:px-10 lg:px-14 lg:pt-40 lg:pb-32"
+      className="relative overflow-x-clip px-6 pt-32 pb-28 sm:px-10 lg:px-14 lg:pt-40 lg:pb-32"
       style={{ background: HUESO }}
     >
       <Onda color={HUESO} />
@@ -119,6 +120,10 @@ const MascotasRecientes = () => {
           mismas migas borrosas que ya rellenan esos márgenes en toda
           la portada, con otro recorte para no repetir el patrón. */}
       <Boronas desde={5} />
+
+      {/* Del lado contrario al de la banda de arriba, para que los
+          rabitos bajen en zigzag por la página y no en fila. */}
+      <Rabito forma="lazo" className="absolute top-44 right-[13%] hidden w-[clamp(170px,15vw,250px)] -scale-x-100 lg:block" />
 
       <div className="relative z-10 mx-auto max-w-[1100px] text-center">
         <EncabezadoSeccion

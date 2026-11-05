@@ -490,6 +490,29 @@ export const usePortadaAnimacion = (raiz: RefObject<HTMLElement | null>) => {
             },
           );
         });
+
+        /* ── Los rabitos ──
+           Se van dibujando mientras se baja: empiezan al asomarse y
+           terminan cerca del centro de la pantalla. Van atados al scroll
+           y no a un reloj, así que con la página quieta no gastan nada.
+           Acá y no con las entradas por lo mismo que el parallax: cuáles
+           se ven depende del ancho. */
+        q("[data-anim='rabito']").forEach((rabito: Element) => {
+          if (rabito.getClientRects().length === 0) return;
+          gsap.from(rabito, {
+            drawSVG: "0% 0%",
+            ease: "none",
+            scrollTrigger: {
+              trigger: rabito.closest("svg"),
+              start: "top 92%",
+              /* `clamp`: los de abajo del todo no llegan a ese punto,
+                 porque la página se acaba antes, y se quedaban a medio
+                 dibujar. Así terminan justo al llegar al final. */
+              end: "clamp(center 45%)",
+              scrub: true,
+            },
+          });
+        });
       },
     );
 

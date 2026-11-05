@@ -1,5 +1,6 @@
 import EncabezadoSeccion from "../componentes/EncabezadoSeccion";
 import Onda from "../componentes/Onda";
+import { Rabito } from "../componentes/Garabatos";
 import { MODULOS } from "../datos";
 import { AZUL, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
 import { useTranslation } from "../../hooks/useTranslation";
@@ -157,6 +158,10 @@ const Servicios = () => {
     style={{ background: HUESO }}
   >
     <Onda color={AZUL} tapa={HUESO} />
+
+    {/* A la par del golden, en el margen que deja el contenido. Desde
+        `xl`: antes no hay margen y caería sobre los animales. */}
+    <Rabito forma="lazo" className="absolute top-[46%] left-[2%] hidden w-[clamp(100px,8.5vw,165px)] xl:block" />
 
     {/* El giro va en el `<img>` y el parallax en la caja de afuera.
 

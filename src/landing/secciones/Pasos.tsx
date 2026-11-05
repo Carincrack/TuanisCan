@@ -1,5 +1,6 @@
 import EncabezadoSeccion from "../componentes/EncabezadoSeccion";
 import Boronas from "../componentes/Boronas";
+import { Rabito } from "../componentes/Garabatos";
 import Onda from "../componentes/Onda";
 import { PASOS } from "../datos";
 import { AZUL_HONDO, CIELO, HUESO, TINTA, TINTA_SUAVE } from "../tokens";
@@ -86,12 +87,15 @@ const Pasos = () => {
   return (
   <section
     id="pasos"
-    className="relative scroll-mt-6 overflow-hidden px-6 pt-32 pb-24 sm:px-10 lg:px-14 lg:pt-40 lg:pb-32"
+    className="relative scroll-mt-6 overflow-x-clip px-6 pt-32 pb-24 sm:px-10 lg:px-14 lg:pt-40 lg:pb-32"
     style={{ background: CIELO }}
   >
     <Onda color={HUESO} />
 
     <Boronas />
+
+    {/* Arriba del plato, en el aire que deja el titular. */}
+    <Rabito forma="rizo" className="absolute top-44 right-[14%] hidden w-[clamp(150px,13vw,215px)] xl:block" />
 
     <img
       src="/img/plato-comida.webp"

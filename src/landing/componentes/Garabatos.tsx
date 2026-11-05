@@ -63,3 +63,33 @@ export const Correa = ({ className = "", diferido = false }: CorreaProps) => (
     />
   </svg>
 );
+
+/* ── Los rabitos ──
+   Adornos sueltos de la página: trazos abstractos y chicos, de la
+   familia de la correa. Van en el gris suave de la correa del cierre
+   —navy con muy poca opacidad—, y eso es a propósito: acompañan sin
+   sumar peso. Cualquier cosa más marcada o con forma reconocible
+   satura la portada, que ya trae fotos, juguetes y migas.
+
+   Los dibuja el scroll: `animacion.ts` los traza mientras se baja. Así
+   no hay nada corriendo con la página quieta, y sin JavaScript o con
+   `prefers-reduced-motion` se ven enteros. */
+const FORMAS = {
+  lazo: {
+    caja: "0 0 260 110",
+    d:
+      "M14,96 C4,54 40,20 88,26 C118,30 126,58 106,68 C88,77 74,58 92,46 " +
+      "C112,33 146,44 158,62 C168,77 156,92 142,86 C128,80 134,62 152,60 " +
+      "C186,56 224,72 246,44",
+  },
+  rizo: {
+    caja: "0 0 340 180",
+    d: "M152,92 C140,76 112,80 110,102 C108,128 150,136 170,112 C194,84 164,38 118,42 C66,46 44,100 68,136 C90,168 154,174 204,146 C246,122 282,112 332,138",
+  },
+};
+
+export const Rabito = ({ forma, className = "" }: { forma: keyof typeof FORMAS; className?: string }) => (
+  <svg viewBox={FORMAS[forma].caja} fill="none" aria-hidden className={`pointer-events-none opacity-[0.13] ${className}`}>
+    <path d={FORMAS[forma].d} stroke={NAVY} strokeWidth={6.5} strokeLinecap="round" data-anim="rabito" />
+  </svg>
+);

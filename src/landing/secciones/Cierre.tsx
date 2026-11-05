@@ -24,12 +24,16 @@ import { useTranslation } from "../../hooks/useTranslation";
    mueven distinto.
    ───────────────────────────────────────────────────────────── */
 
+/* `overflow-x-clip` y no `overflow-hidden`: recorta solo a los lados.
+   Las migas y la correa están hechas para pasar por encima de la
+   costura entre dos bandas, y con `hidden` quedaban cortadas en línea
+   recta justo en el borde, como metidas debajo de la banda vecina. */
 const Cierre = ({ onEntrar }: ConAcceso) => {
   const { t } = useTranslation();
   return (
   <section
     data-anim="cierre"
-    className="relative overflow-hidden px-6 pt-32 pb-28 sm:px-10 lg:pt-44 lg:pb-36"
+    className="relative overflow-x-clip px-6 pt-32 pb-28 sm:px-10 lg:pt-44 lg:pb-36"
     style={{ background: HUESO }}
   >
     <Onda color={CIELO} />
