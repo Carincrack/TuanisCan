@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CalendarDays, Clock, MapPin, MessageCircle, ShieldCheck } from "../lib/iconos";
 import { rutaChat } from "../services/chat.service";
@@ -8,11 +8,11 @@ import {
   getPagoDelPaseo,
   getPaseoActivoPaseador,
   getPaseoConfirmadoPaseador,
-  guardarUbicacionPaseo,
   iniciarPaseo,
   listUbicacionesPaseo,
   type UbicacionPaseo,
 } from "../services/live-walks.service";
+import { useLiveLocationShare } from "../hooks/useLiveLocationShare";
 import { listarAgendaPaseador, type CitaAgendaPaseador } from "../services/walker-agenda.service";
 import { hoyEnCostaRica, mananaEnCostaRica } from "../lib/fechas";
 import { MapaRecorrido } from "./MapaRecorrido";
@@ -54,15 +54,14 @@ const PaseoActivoPaseador = () => {
   const [walkId, setWalkId] = useState<string | null>(null);
   const [confirmedId, setConfirmedId] = useState<string | null>(null);
   const [pago, setPago] = useState<{ estado: string; monto: number } | null>(null);
-  const [sharing, setSharing] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [message, setMessage] = useState("");
   const [ubicaciones, setUbicaciones] = useState<UbicacionPaseo[]>([]);
   const [proximo, setProximo] = useState<CitaAgendaPaseador | null>(null);
   const [pagoProximo, setPagoProximo] = useState<{ estado: string; monto: number } | null>(null);
-  const watch = useRef<number | null>(null);
-  const lastSent = useRef(0);
+  const { sharing: sharingGlobal, activeWalkId, error: shareError, start: startShare, stop: stopShare, clearError } = useLiveLocationShare();
+  const sharing = sharingGlobal && activeWalkId === walkId;
 
   /* Lo que ya ve el dueño: lo guardado hasta ahora y lo que vaya
      entrando. Si el paseador recarga a mitad del paseo, el recorrido
@@ -82,12 +81,6 @@ const PaseoActivoPaseador = () => {
       dejar();
     };
   }, [walkId]);
-
-  const stop = () => {
-    if (watch.current !== null) navigator.geolocation.clearWatch(watch.current);
-    watch.current = null;
-    setSharing(false);
-  };
 
   const load = useCallback(async () => {
     if (!idPaseador) return;
@@ -118,40 +111,29 @@ const PaseoActivoPaseador = () => {
     }
   }, [idPaseador, t]);
 
+  /* Sin apagar nada al desmontar: compartir ubicación vive en
+     `LiveLocationShareProvider` (ver RootLayout), así que cambiar de
+     página (por ejemplo, al chat) y volver no la corta. */
   useEffect(() => {
     void load();
-    return stop;
   }, [load]);
 
   /* El dueño confirmó el pago, o canceló: la pantalla se pone al día. */
   useAlLlegarNotificacion(["pago", "paseo"], () => void load());
 
+  /* El error de compartir (sin geolocalización, falló el envío, etc.)
+     llega del contexto; se muestra acá igual que antes y se limpia
+     para no repetirlo si el usuario vuelve a esta pantalla. */
+  useEffect(() => {
+    if (!shareError) return;
+    setMessage(t(`paseoActivoPaseador.errors.${shareError}`));
+    clearError();
+  }, [shareError, clearError, t]);
+
   const start = () => {
-    if (!walkId || !navigator.geolocation) {
-      setMessage(t("paseoActivoPaseador.errors.noGeolocation"));
-      return;
-    }
+    if (!walkId) return;
     setMessage("");
-    setSharing(true);
-    watch.current = navigator.geolocation.watchPosition(
-      (position) => {
-        if (Date.now() - lastSent.current < 3000) return;
-        lastSent.current = Date.now();
-        void guardarUbicacionPaseo(walkId, position.coords)
-          // Sin mensaje de «listo»: el punto en el mapa y la hora de
-          // abajo ya lo dicen.
-          .then((nueva) => setUbicaciones((actuales) => agregarUbicacion(actuales, nueva)))
-          .catch(() => {
-            setMessage(t("paseoActivoPaseador.errors.sendFailed"));
-            stop();
-          });
-      },
-      () => {
-        setMessage(t("paseoActivoPaseador.errors.locationFailed"));
-        stop();
-      },
-      { enableHighAccuracy: true, maximumAge: 10000 },
-    );
+    startShare(walkId);
   };
 
   const finish = async () => {
@@ -160,7 +142,7 @@ const PaseoActivoPaseador = () => {
     setMessage("");
     try {
       await finalizarPaseo(walkId);
-      stop();
+      stopShare();
       setCompleted(true);
       setWalkId(null);
       setMessage(t("paseoActivoPaseador.errors.finishedMessage"));
@@ -315,7 +297,7 @@ const PaseoActivoPaseador = () => {
           </div>
           <button
             type="button"
-            onClick={sharing ? stop : start}
+            onClick={sharing ? stopShare : start}
             className={`${sharing ? btnDanger : btnPrimary} w-full shrink-0 justify-center sm:w-auto`}
           >
             <MapPin size={15} />

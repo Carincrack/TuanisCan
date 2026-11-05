@@ -25,6 +25,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
 import AuthGuard from "../guards/AuthGuard";
 import RoleGuard from "../guards/RoleGuard";
+import { LiveLocationShareProvider } from "../context/LiveLocationShareProvider";
 
 /*
  * Un único login monta el shell correspondiente al rol recibido
@@ -518,7 +519,15 @@ const RootLayout = () => {
                   rol={rolActual}
                   onLogout={salir}
                 >
-                  <Outlet />
+                  {/* Afuera de `<Outlet/>` a propósito: compartir
+                      ubicación en un paseo no debe apagarse solo
+                      porque el paseador cambió de página (por
+                      ejemplo, al chat). Este bloque no se desmonta al
+                      navegar entre páginas, así que el watcher de
+                      geolocalización sigue corriendo. */}
+                  <LiveLocationShareProvider>
+                    <Outlet />
+                  </LiveLocationShareProvider>
                 </AppShell>
               )}
             </div>
