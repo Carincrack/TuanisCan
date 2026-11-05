@@ -70,52 +70,29 @@ export const MaquetaPaseadores = () => (
 /* ══ Rejilla de mascotas perdidas ════════════════════════════════ */
 
 export const MaquetaPerdidas = () => (
-  <div className="flex flex-col gap-2.5">
-
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      <Varios cuantos={6}>
-        {(i) => (
-          <article key={i} className="flex flex-col overflow-hidden bg-surface">
-            <div className="relative">
-              <div className="aspect-[16/10] w-full bg-sunken" />
-              <div className="absolute inset-x-0 bottom-0 p-4">
-                <h3 className="truncate text-[17px] font-semibold text-ink">{nombre(i)}</h3>
-                <p className="mt-0.5 truncate text-[12.5px] text-ink-soft">Perro · Zaguate</p>
-              </div>
+  <div className="grid gap-3 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+    <Varios cuantos={8}>
+      {(i) => (
+        <article key={i} className="flex flex-col overflow-hidden rounded-[18px] bg-surface">
+          <div className="aspect-[4/3] w-full bg-sunken" />
+          <div className="flex flex-1 flex-col p-4">
+            <h3 className="truncate text-[17px] font-semibold text-ink">{nombre(i)}</h3>
+            <p className="mt-0.5 truncate text-[12.5px] text-ink-soft">Zaguate</p>
+            <div className="mt-3 grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)] gap-2">
+              <div className="h-[50px] rounded-[10px] bg-sunken" />
+              <div className="h-[50px] rounded-[10px] bg-sunken" />
+              <div className="h-[50px] rounded-[10px] bg-sunken" />
             </div>
-
-            <div className="flex flex-1 flex-col px-5 py-4">
-              <dl className="flex flex-col gap-1 text-[12.5px] text-ink-soft">
-                <div>Visto en {zona(i)}</div>
-                <div className="nums">1 sept, 12:30 a. m.</div>
-                <div className="nums">+506 8888 8888</div>
-              </dl>
-
-              <p className="mt-3 text-[12.5px] leading-relaxed text-ink">{frase(0)}</p>
-
-              <div className="mt-3 rounded-[14px] bg-sunken px-3 py-2.5 text-[12px] text-ink-soft">
-                <p className="font-semibold text-ink">2 avistamientos</p>
-                <p className="mt-1">Último: Barrio Escalante · 1 sept, 09:15 a. m.</p>
-              </div>
-
-              <div className="mt-auto grid gap-2 pt-3.5">
-                <span className="rounded-full bg-rail px-5 py-2.5 text-center text-[13px] font-semibold text-white">
-                  Vi a esta mascota
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="rounded-full bg-sunken px-3 py-2 text-center text-[12px] font-medium text-ink">
-                    Ubicación
-                  </span>
-                  <span className="rounded-full bg-sunken px-3 py-2 text-center text-[12px] font-medium text-ink">
-                    Ya apareció
-                  </span>
-                </div>
-              </div>
+            <div className="mt-auto flex gap-2 pt-3">
+              <span className="rounded-full bg-sunken px-3 py-2 text-[12px] font-medium text-ink">Ver ficha</span>
+              <span className="flex-1 rounded-full bg-rail px-3 py-2 text-center text-[12.5px] font-semibold text-white">
+                Vi a esta mascota
+              </span>
             </div>
-          </article>
-        )}
-      </Varios>
-    </div>
+          </div>
+        </article>
+      )}
+    </Varios>
   </div>
 );
 

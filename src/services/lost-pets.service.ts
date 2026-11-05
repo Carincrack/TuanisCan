@@ -237,11 +237,12 @@ export const markLostPetFound = async (reportId: string) => {
   if (error) throw error;
 };
 
-const toMatch = async (pet: Pet, row: MatchRow): Promise<PetMatch> => ({
+const toMatch = async (pet: Pet, row: MatchRow, mascotaReportada: boolean): Promise<PetMatch> => ({
   id_match: row.id_match,
   id_reporte: row.id_reporte,
   id_mascota: pet.id_mascota,
   mascotaNombre: pet.nombre,
+  mascotaReportada,
   especie: row.especie,
   descripcion: row.descripcion,
   fotoUrl: await photoUrl(row.foto),
@@ -260,13 +261,23 @@ const toMatch = async (pet: Pet, row: MatchRow): Promise<PetMatch> => ({
     registradas de quien consulta. */
 export const listMyPetMatches = async (pets: Pet[]): Promise<PetMatch[]> => {
   if (!pets.length) return [];
+  /* Sirve para preguntar por la mascota correcta cuando un reporte
+     coincide con varias. Si esta consulta falla no se pierde nada:
+     se pregunta por la de mayor puntaje. */
+  const { data: abiertos } = await supabase
+    .from("mascotas_perdidas")
+    .select("id_mascota")
+    .in("id_mascota", pets.map((pet) => pet.id_mascota))
+    .eq("estado", "perdida");
+  const reportadas = new Set((abiertos ?? []).map((fila) => fila.id_mascota as string));
+
   const porMascota = await Promise.all(
     pets.map(async (pet) => {
       const { data, error } = await supabase.rpc("obtener_matches_mascota", {
         p_id_mascota: pet.id_mascota,
       });
       if (error) throw error;
-      return Promise.all(((data ?? []) as MatchRow[]).map((row) => toMatch(pet, row)));
+      return Promise.all(((data ?? []) as MatchRow[]).map((row) => toMatch(pet, row, reportadas.has(pet.id_mascota))));
     })
   );
   return porMascota.flat();

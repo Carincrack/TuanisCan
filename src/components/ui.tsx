@@ -46,6 +46,9 @@ const pulsable =
 
 export const btnPrimary = `${pulsable} bg-rail px-5 py-2.5 text-[13px] text-white hover:brightness-125`;
 
+/** Principal compacto, para la acción de una tarjeta chica. */
+export const btnPrimaryCompacto = `${pulsable} bg-rail px-3 py-2 text-[12.5px] text-white hover:brightness-125`;
+
 export const btnSecondary = `${pulsable} bg-sunken px-5 py-2.5 text-[13px] font-medium text-ink hover:brightness-[0.97]`;
 
 /** Secundario compacto. Para las acciones que ACOMPAÑAN a una
@@ -196,6 +199,7 @@ export const FilterTabs = ({
   onChange,
   label,
   cuentas,
+  alerta,
   desplazable = false,
 }: {
   options: OpcionFiltro[];
@@ -207,6 +211,9 @@ export const FilterTabs = ({
       vistazo si vale la pena entrar a una —una pestaña en cero no se
       pulsa—. */
   cuentas?: Record<string, number>;
+  /** El `value` de la pestaña cuyo contador pide atención: algo que
+      está esperando una respuesta, no un simple total. */
+  alerta?: string;
   /** En el teléfono, un solo renglón que se desliza de lado en vez de
       partirse en varios. Para cinco o más pestañas: partidas en tres
       renglones ocupaban media pantalla antes de mostrar un solo dato.
@@ -240,7 +247,7 @@ export const FilterTabs = ({
           {cuenta !== undefined && (
             <span
               className={`nums rounded-full px-1.5 text-[11px] font-semibold ${
-                activa ? "bg-white/20 text-white" : "bg-surface text-ink-mute"
+                activa ? "bg-white/20 text-white" : o.value === alerta ? "bg-accent-dark text-white" : "bg-surface text-ink-mute"
               }`}
             >
               {cuenta}

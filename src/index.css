@@ -114,20 +114,6 @@
   }
 }
 
-/* Entrada propia de las tarjetas de mascota perdida: además de
-   subir y aparecer, hace un leve "pop" de escala — se siente más
-   particular que el `tsc-rise` genérico que usa el resto de la app. */
-@keyframes tsc-pop-mascota {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 @keyframes tsc-fade {
   from {
     opacity: 0;
@@ -306,10 +292,6 @@
   /* Cifras de ancho fijo para dinero, horas y contadores. */
   .nums {
     font-variant-numeric: tabular-nums;
-  }
-
-  .anim-pop-mascota {
-    animation: tsc-pop-mascota 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .anim-rise {
@@ -496,7 +478,9 @@
   color: var(--color-ink-mute);
 }
 
-.suave .campo :is(input, select, textarea) {
+/* `button` y `listbox` son el combo box (`Combo.tsx`), y `.campo-libre`
+   cualquier otro control a medida, como el de la foto. */
+.suave .campo :is(input, select, textarea, button, [role="listbox"], .campo-libre) {
   font-family: var(--font-sans);
   font-variation-settings: normal;
   letter-spacing: normal;
@@ -645,7 +629,6 @@
    `opacity: 0` se quedarían invisibles para siempre. */
 @media (prefers-reduced-motion: reduce) {
   .anim-rise,
-  .anim-pop-mascota,
   .anim-fade,
   .anim-fade-out,
   .anim-ventana-in,
@@ -1009,37 +992,207 @@
   }
 }
 
-/* ── Las tarjetas de /mascotas-perdidas (ya autenticado) ──────
-   El mismo polaroid de las fichas de /perdidas, pero con los
-   tokens de la app (`bg-surface`, etc.) en vez de los colores fijos
-   de la landing, porque acá sí hay modo oscuro. Sin el `.portada`
-   por delante: esta pantalla vive dentro de la app, no de la
-   landing pública. */
-.ficha-mascota {
-  rotate: var(--giro, 0deg);
-  box-shadow: 0 14px 26px -12px rgb(20 36 46 / 20%);
-  transition:
-    rotate 320ms cubic-bezier(0.23, 1, 0.32, 1),
-    translate 320ms cubic-bezier(0.23, 1, 0.32, 1),
-    box-shadow 320ms cubic-bezier(0.23, 1, 0.32, 1);
+/* ── Las etiquetas de las tarjetas de mascotas perdidas ───────
+
+   La cinta del estado es tela de collar: sale de atrás de la tarjeta,
+   le da la vuelta al borde izquierdo y termina en punta de lazo.
+
+     · `left: -7px` la saca de la tarjeta. El triangulito de abajo
+       (`::after`) es el doblez, más oscuro: es lo que hace leer que la
+       tela sigue por detrás y no que está apoyada encima.
+     · La punta la corta el `clip-path` de la tira. La sombra va en la
+       caja de afuera porque un `clip-path` se lleva la sombra propia.
+     · `::before` son las dos costuras punteadas del collar. */
+.cinta-estado {
+  --cinta: var(--color-danger);
+  --cinta-doblez: #6f1d1d;
+  position: absolute;
+  top: 12px;
+  left: -7px;
+  filter: drop-shadow(0 2px 3px rgb(20 36 46 / 40%));
+  pointer-events: none;
 }
 
-.ficha-mascota:hover,
-.ficha-mascota:focus-within {
-  rotate: 0deg;
-  translate: 0 -4px;
-  box-shadow: 0 22px 36px -14px rgb(20 36 46 / 28%);
+.cinta-estado--encontrada {
+  --cinta: var(--color-ok);
+  --cinta-doblez: #0b5240;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ficha-mascota {
-    transition: none;
-  }
+.cinta-estado--coincidencia {
+  --cinta: var(--color-accent-dark);
+  --cinta-doblez: #095f6e;
+}
 
-  .ficha-mascota:hover,
-  .ficha-mascota:focus-within {
-    translate: none;
-  }
+.cinta-estado::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  background: var(--cinta-doblez);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+.cinta-estado__tira {
+  position: relative;
+  display: flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 24px 0 14px;
+  background: var(--cinta);
+  color: #fff;
+  font-family: Archivo, "Instrument Sans", sans-serif;
+  font-size: 11.5px;
+  font-variation-settings: "wdth" 100, "wght" 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 11px) 50%, 100% 100%, 0 100%);
+}
+
+.cinta-estado__tira::before {
+  content: "";
+  position: absolute;
+  inset: 3px 0;
+  border-block: 1px dashed rgb(255 255 255 / 60%);
+}
+
+/* El collar del estado, la otra etiqueta de las tarjetas (cuál se usa
+   se elige en `mascotasPerdidas.tsx`). Navy como el menú y redondeado
+   como los botones, para que sea de la casa.
+
+     · Igual que la cinta, sale de atrás de la tarjeta: `left: -7px` y
+       el doblez oscuro del `::after`.
+     · `__banda::before` son las costuras, más discretas que las de la
+       cinta.
+     · La chapa va dentro de la punta redondeada, concéntrica con ella:
+       3 px de aire parejo arriba, abajo y a la derecha, y centrada con
+       el texto. Es lo único que cambia de color con el estado. */
+.collar-estado {
+  --chapa: var(--color-danger);
+  position: absolute;
+  top: 12px;
+  left: -7px;
+  filter: drop-shadow(0 2px 3px rgb(20 36 46 / 35%));
+  pointer-events: none;
+}
+
+.collar-estado--encontrada {
+  --chapa: var(--color-ok);
+}
+
+.collar-estado--coincidencia {
+  --chapa: var(--color-accent-dark);
+}
+
+.collar-estado::after {
+  content: "";
+  position: absolute;
+  top: 30px;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  background: #0e2a38;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+.collar-estado__banda {
+  position: relative;
+  display: flex;
+  height: 30px;
+  align-items: center;
+  padding: 0 36px 0 16px;
+  border-radius: 0 15px 15px 0;
+  background: var(--color-rail);
+  color: #fff;
+  font-family: Archivo, "Instrument Sans", sans-serif;
+  font-size: 11px;
+  font-variation-settings: "wdth" 100, "wght" 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.collar-estado__banda::before {
+  content: "";
+  position: absolute;
+  inset: 3px 32px 3px 0;
+  border-block: 1px dashed rgb(255 255 255 / 32%);
+}
+
+.collar-estado__chapa {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1.5px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--chapa);
+  color: #fff;
+}
+
+/* El hueso de la recompensa. La caja es la caña y cada punta son dos
+   círculos pintados con `radial-gradient`, así crece con el monto sin
+   deformarse (una imagen de hueso se estiraría). Va apenas torcido,
+   como una calcomanía pegada a mano. La doble sombra le dibuja el
+   canto: es crema y sin eso se pierde en una foto clara. */
+.hueso-recompensa {
+  --hueso: #fbeed2;
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  display: flex;
+  height: 20px;
+  align-items: center;
+  padding: 0 4px;
+  background: var(--hueso);
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 700;
+  rotate: -5deg;
+  filter: drop-shadow(0 0 1px rgb(20 36 46 / 55%)) drop-shadow(0 2px 3px rgb(20 36 46 / 40%));
+}
+
+.hueso-recompensa::before,
+.hueso-recompensa::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 17px;
+  background:
+    radial-gradient(circle at 50% 8px, var(--hueso) 8px, transparent 8.5px),
+    radial-gradient(circle at 50% calc(100% - 8px), var(--hueso) 8px, transparent 8.5px);
+}
+
+.hueso-recompensa::before {
+  left: -11px;
+}
+
+.hueso-recompensa::after {
+  right: -11px;
+}
+
+/* ── Los puntos del mapa de avistamientos ─────────────────────
+   Un círculo con su número: el mismo que lleva el renglón de abajo. */
+.pin-avistamiento {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-rail);
+  color: #fff;
+  font: 700 12px/1 var(--font-sans);
+  box-shadow: 0 3px 8px rgb(20 36 46 / 35%);
+}
+
+.pin-avistamiento.is-ultimo {
+  background: var(--color-accent-dark);
 }
 
 /* ── El perro que cambia con el conmutador ────────────────────

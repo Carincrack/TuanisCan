@@ -33,9 +33,6 @@
     "choosePet": "Selecciona tu mascota",
     "zone": "Zona *",
     "chooseZone": "Selecciona una zona",
-    "name": "Nombre *",
-    "species": "Especie *",
-    "breed": "Raza",
     "contact": "Contacto *",
     "reward": "Recompensa",
     "photo": "Foto *",
@@ -45,7 +42,8 @@
     "published": "{{nombre}} quedó publicada",
     "publishedDetail": "Ya aparece en el listado. Te avisamos de cada avistamiento.",
     "whereLost": "Dónde se perdió *",
-    "whereLostHint": "Toca el mapa en el lugar donde se perdió. Si fue cerca de donde estás, usa «Mi ubicación»."
+    "whereLostHint": "Toca el mapa en el lugar donde se perdió. Si fue cerca de donde estás, usa «Mi ubicación».",
+    "context": "Elige a tu mascota y marca dónde se perdió."
   },
   "foundForm": {
     "species": "Especie *",
@@ -61,7 +59,8 @@
     "published": "Reporte publicado",
     "publishedDetail": "Le avisamos a quien tenga una mascota registrada parecida en esa zona.",
     "whereFound": "Dónde la encontraste *",
-    "whereFoundHint": "Toca el mapa en el lugar donde la encontraste."
+    "whereFoundHint": "Toca el mapa en el lugar donde la encontraste.",
+    "context": "Le avisamos a quien tenga una mascota parecida cerca."
   },
   "sightingForm": {
     "zone": "Zona",
@@ -74,28 +73,19 @@
     "registered": "Avistamiento registrado",
     "registeredDetail": "Le avisamos a quien reportó a {{nombre}}.",
     "whereSeen": "Dónde la viste *",
-    "whereSeenHint": "Toca el mapa en el lugar donde la viste."
+    "whereSeenHint": "Toca el mapa en el lugar donde la viste.",
+    "context": "Marca dónde la viste y le avisamos a quien la reportó."
   },
   "sightingDetails": {
     "empty": {
       "title": "Sin avistamientos",
       "hint": "Cuando alguien reporte que vio tu mascota, aparecerá acá."
     },
-    "viewMap": "Ver mapa",
-    "location": "Ubicación",
-    "zone": "Zona",
-    "contact": "Contacto",
-    "notIndicated": "No indicado",
-    "comment": "Comentario",
-    "noComment": "Sin comentario",
-    "close": "Cerrar",
-    "title": "Avistamientos de {{nombre}}"
+    "viewMap": "Ver mapa"
   },
   "matches": {
     "singular": "Posible coincidencia",
-    "plural": "Posibles coincidencias",
     "aria": "Posibles coincidencias",
-    "hint": "Alguien reportó haber encontrado una mascota que podría ser tuya.",
     "photoAlt": "Foto de la mascota encontrada, posible {{nombre}}",
     "isThis": "¿Es {{nombre}}?",
     "yesItsHer": "Sí, es {{nombre}}",
@@ -104,7 +94,9 @@
     "confirmedDetail": "Vinculamos el reporte con tu mascota. Coordina la entrega con quien la encontró.",
     "discarded": "Coincidencia descartada",
     "reportedAgo": "Reportada {{cuando}}",
-    "scoreTitle": "{{puntaje}}% de coincidencia"
+    "viewPhotoAria": "Ver en grande la foto de la mascota encontrada",
+    "emptyTitle": "No tienes coincidencias pendientes",
+    "emptyHint": "Cuando alguien encuentre una mascota parecida a la tuya, aparece acá."
   },
   "filters": {
     "aria": "Filtros de mascotas perdidas",
@@ -116,7 +108,6 @@
     "myZone": "Mi zona",
     "resultSingular": "resultado",
     "resultPlural": "resultados",
-    "hint": "Filtrá por estado, provincia, cantón, distrito o texto.",
     "clear": "Limpiar",
     "search": "Buscar",
     "searchPlaceholder": "Nombre, zona o señas",
@@ -125,7 +116,8 @@
     "canton": "Cantón",
     "allCantons": "Todos los cantones",
     "district": "Distrito",
-    "allDistricts": "Todos los distritos"
+    "allDistricts": "Todos los distritos",
+    "matches": "Posibles coincidencias"
   },
   "empty": {
     "withFiltersTitle": "Sin reportes en este filtro",
@@ -142,18 +134,18 @@
     "someoneFound": "Alguien encontró esta mascota",
     "reward": "Recompensa {{monto}}",
     "zoneLabel": "Zona",
-    "seenIn": "Visto en {{zona}}",
     "reportedLabel": "Reportado",
     "contactLabel": "Contacto",
     "sightingSingular": "avistamiento",
     "sightingPlural": "avistamientos",
     "lastSighting": "Último: {{lugar}} · {{fecha}}",
     "noSightings": "Sin avistamientos reportados.",
-    "details": "Detalles",
-    "caseClosed": "Caso cerrado",
     "iSawThisPet": "Vi a esta mascota",
     "location": "Ubicación",
-    "foundIt": "Ya apareció"
+    "foundIt": "Ya apareció",
+    "openDetails": "Ver ficha",
+    "whenLabel": "Fecha",
+    "seenLabel": "Vistas"
   },
   "closeDialog": {
     "title": "Marcar como encontrada",
@@ -161,5 +153,21 @@
     "confirm": "Sí, apareció",
     "closed": "{{nombre}} apareció",
     "closedDetail": "El reporte se cerró y sale del listado."
+  },
+  "photoField": {
+    "choose": "Elegir foto",
+    "change": "Toca para cambiarla",
+    "hint": "JPG, PNG o WebP · hasta 5 MB"
+  },
+  "ficha": {
+    "title": "Ficha del reporte",
+    "data": "Datos del reporte",
+    "species": "Especie",
+    "breed": "Raza",
+    "reward": "Recompensa",
+    "noReward": "Sin recompensa",
+    "notIndicated": "No indicado",
+    "description": "Señas",
+    "sightings": "Avistamientos"
   }
 }

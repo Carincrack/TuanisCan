@@ -33,9 +33,6 @@
     "choosePet": "Select your pet",
     "zone": "Zone *",
     "chooseZone": "Select a zone",
-    "name": "Name *",
-    "species": "Species *",
-    "breed": "Breed",
     "contact": "Contact *",
     "reward": "Reward",
     "photo": "Photo *",
@@ -45,7 +42,8 @@
     "published": "{{nombre}} is now published",
     "publishedDetail": "It now shows up in the listing. We'll notify you of every sighting.",
     "whereLost": "Where it got lost *",
-    "whereLostHint": "Tap the map where it got lost. If it was near you, use “My location”."
+    "whereLostHint": "Tap the map where it got lost. If it was near you, use “My location”.",
+    "context": "Choose your pet and mark where it got lost."
   },
   "foundForm": {
     "species": "Species *",
@@ -61,7 +59,8 @@
     "published": "Report published",
     "publishedDetail": "We've notified anyone with a similar registered pet in that zone.",
     "whereFound": "Where you found it *",
-    "whereFoundHint": "Tap the map where you found it."
+    "whereFoundHint": "Tap the map where you found it.",
+    "context": "We'll notify anyone with a similar pet nearby."
   },
   "sightingForm": {
     "zone": "Zone",
@@ -74,28 +73,19 @@
     "registered": "Sighting registered",
     "registeredDetail": "We've notified whoever reported {{nombre}}.",
     "whereSeen": "Where you saw it *",
-    "whereSeenHint": "Tap the map where you saw it."
+    "whereSeenHint": "Tap the map where you saw it.",
+    "context": "Mark where you saw it and we'll notify whoever reported it."
   },
   "sightingDetails": {
     "empty": {
       "title": "No sightings",
       "hint": "Once someone reports seeing your pet, it'll show up here."
     },
-    "viewMap": "View map",
-    "location": "Location",
-    "zone": "Zone",
-    "contact": "Contact",
-    "notIndicated": "Not given",
-    "comment": "Comment",
-    "noComment": "No comment",
-    "close": "Close",
-    "title": "{{nombre}}'s sightings"
+    "viewMap": "View map"
   },
   "matches": {
     "singular": "Possible match",
-    "plural": "Possible matches",
     "aria": "Possible matches",
-    "hint": "Someone reported finding a pet that could be yours.",
     "photoAlt": "Photo of the found pet, possibly {{nombre}}",
     "isThis": "Is this {{nombre}}?",
     "yesItsHer": "Yes, it's {{nombre}}",
@@ -104,7 +94,9 @@
     "confirmedDetail": "We linked the report to your pet. Coordinate the handoff with whoever found them.",
     "discarded": "Match discarded",
     "reportedAgo": "Reported {{cuando}}",
-    "scoreTitle": "{{puntaje}}% match"
+    "viewPhotoAria": "View the found pet's photo in full size",
+    "emptyTitle": "You have no pending matches",
+    "emptyHint": "When someone finds a pet that looks like yours, it'll show up here."
   },
   "filters": {
     "aria": "Lost pets filters",
@@ -116,7 +108,6 @@
     "myZone": "My zone",
     "resultSingular": "result",
     "resultPlural": "results",
-    "hint": "Filter by status, province, canton, district or text.",
     "clear": "Clear",
     "search": "Search",
     "searchPlaceholder": "Name, zone or markings",
@@ -125,7 +116,8 @@
     "canton": "Canton",
     "allCantons": "All cantons",
     "district": "District",
-    "allDistricts": "All districts"
+    "allDistricts": "All districts",
+    "matches": "Possible matches"
   },
   "empty": {
     "withFiltersTitle": "No reports match this filter",
@@ -142,18 +134,18 @@
     "someoneFound": "Someone found this pet",
     "reward": "Reward {{monto}}",
     "zoneLabel": "Zone",
-    "seenIn": "Seen in {{zona}}",
     "reportedLabel": "Reported",
     "contactLabel": "Contact",
     "sightingSingular": "sighting",
     "sightingPlural": "sightings",
     "lastSighting": "Latest: {{lugar}} · {{fecha}}",
     "noSightings": "No sightings reported yet.",
-    "details": "Details",
-    "caseClosed": "Case closed",
     "iSawThisPet": "I saw this pet",
     "location": "Location",
-    "foundIt": "It was found"
+    "foundIt": "It was found",
+    "openDetails": "View report",
+    "whenLabel": "Date",
+    "seenLabel": "Seen"
   },
   "closeDialog": {
     "title": "Mark as found",
@@ -161,5 +153,21 @@
     "confirm": "Yes, it was found",
     "closed": "{{nombre}} was found",
     "closedDetail": "The report was closed and removed from the listing."
+  },
+  "photoField": {
+    "choose": "Choose a photo",
+    "change": "Tap to change it",
+    "hint": "JPG, PNG or WebP · up to 5 MB"
+  },
+  "ficha": {
+    "title": "Report details",
+    "data": "Report information",
+    "species": "Species",
+    "breed": "Breed",
+    "reward": "Reward",
+    "noReward": "No reward",
+    "notIndicated": "Not provided",
+    "description": "Description",
+    "sightings": "Sightings"
   }
 }

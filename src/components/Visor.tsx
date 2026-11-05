@@ -28,11 +28,18 @@ const Visor = ({
   alt,
   abierto,
   cerrar,
+  completa = false,
 }: {
   src: string;
   alt: string;
   abierto: boolean;
   cerrar: () => void;
+  /** La foto ocupa toda la pantalla, entera y sin recortar. Para
+      cuando hay que mirarla de verdad, como la de una mascota perdida
+      que alguien quiere reconocer. Sin esto queda la ventana centrada.
+      Acá la foto llena la pantalla y no queda fondo que tocar, así que
+      tocar en cualquier parte cierra. */
+  completa?: boolean;
 }) => {
   const { t } = useTranslation();
   const boton = useRef<HTMLButtonElement>(null);
@@ -57,10 +64,13 @@ const Visor = ({
       }
     };
 
-    document.addEventListener("keydown", alTeclear);
+    /* En la fase de captura: el visor puede abrirse encima de una
+       ventana, que también escucha Escape en el documento. Así la tecla
+       se atiende acá primero y no cierra las dos de golpe. */
+    document.addEventListener("keydown", alTeclear, true);
 
     return () => {
-      document.removeEventListener("keydown", alTeclear);
+      document.removeEventListener("keydown", alTeclear, true);
       document.body.style.overflow = desbordeAntes;
       devolver.current?.focus?.();
     };
@@ -74,14 +84,18 @@ const Visor = ({
       aria-modal="true"
       aria-label={alt}
       onClick={cerrar}
-      className="anim-fade fixed inset-0 z-[80] flex items-center justify-center bg-rail/85 p-4 backdrop-blur-sm sm:p-8"
+      className={`anim-fade fixed inset-0 z-[80] flex items-center justify-center ${
+        completa ? "bg-ink" : "bg-rail/85 p-4 backdrop-blur-sm sm:p-8"
+      }`}
     >
       <button
         ref={boton}
         type="button"
         onClick={cerrar}
         aria-label={t("common.closePhoto")}
-        className="absolute top-4 right-4 grid h-11 w-11 place-items-center rounded-full bg-white/12 text-white transition-[background-color,transform] duration-200 ease-out hover:bg-white/22 focus:outline-2 focus:outline-offset-2 focus:outline-white active:scale-[0.94]"
+        className={`absolute top-4 right-4 z-10 grid h-11 w-11 place-items-center rounded-full text-white transition-[background-color,transform] duration-200 ease-out focus:outline-2 focus:outline-offset-2 focus:outline-white active:scale-[0.94] ${
+          completa ? "bg-ink/70 hover:bg-ink" : "bg-white/12 hover:bg-white/22"
+        }`}
       >
         <X size={20} strokeWidth={2.2} />
       </button>
@@ -91,13 +105,17 @@ const Visor = ({
       <img
         src={src}
         alt={alt}
-        onClick={(evento) => evento.stopPropagation()}
+        onClick={completa ? undefined : (evento) => evento.stopPropagation()}
         /* El tope de ancho importa tanto como el de alto. Con
            `max-w-full` una foto apaisada en un monitor de 1920 se
            estiraba a 1800 px: eso ya no es "verla completa", es
            ocupar la pantalla. Con el tope queda una ventana centrada,
            que es lo que se vino a mirar. */
-        className="anim-rise max-h-[86vh] max-w-[min(92vw,860px)] rounded-[26px] object-contain shadow-[0_40px_90px_rgb(0_0_0/0.45)]"
+        className={
+          completa
+            ? "h-full w-full object-contain"
+            : "anim-rise max-h-[86vh] max-w-[min(92vw,860px)] rounded-[26px] object-contain shadow-[0_40px_90px_rgb(0_0_0/0.45)]"
+        }
       />
     </div>,
     document.body,

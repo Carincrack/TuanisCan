@@ -59,6 +59,8 @@ export interface PetMatch {
   id_reporte: string;
   id_mascota: string;
   mascotaNombre: string;
+  /** Esta mascota tiene un reporte de "se me perdió" abierto. */
+  mascotaReportada: boolean;
   especie: string;
   descripcion: string;
   fotoUrl: string | null;
