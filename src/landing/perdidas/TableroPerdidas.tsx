@@ -4,6 +4,7 @@ import BotonAccion from "../componentes/BotonAccion";
 import Boronas from "../componentes/Boronas";
 import Onda from "../componentes/Onda";
 import { AZUL, CANVAS, CIELO, HUESO, NAVY, TINTA_SUAVE, TURQUESA } from "../tokens";
+import Collar from "../../components/Collar";
 import { Combo } from "../../components/Combo";
 import { useTranslation } from "../../hooks/useTranslation";
 import type { useZonasEncadenadas } from "../../hooks/useZonasEncadenadas";
@@ -21,10 +22,11 @@ import { esEncontrada, type Estado } from "./estado";
    de cada una. Después, las fichas.
 
    Las fichas son polaroids, el mismo recurso de la banda "Pasando
-   ahora" de la portada: borde blanco grueso, la huella turquesa en la
-   esquina y un giro propio. Acá el giro es la mitad —es una rejilla
-   que se recorre buscando— y la ficha se endereza al pasar el mouse.
-   La acción va detrás de un filete punteado, el borde de un volante.
+   ahora" de la portada: borde blanco grueso y un giro propio. Acá el
+   giro es la mitad —es una rejilla que se recorre buscando— y la ficha
+   se endereza al pasar el mouse. El estado va en el collar de la app,
+   que abraza el marco. La acción va detrás de un filete punteado, el
+   borde de un volante.
    ───────────────────────────────────────────────────────────── */
 
 type T = ReturnType<typeof useTranslation>["t"];
@@ -112,25 +114,14 @@ const FichaPerdida = ({ mascota, indice, conSesion, onVerFoto, onGestionar }: Fi
           >
             <Maximize2 size={20} strokeWidth={2.2} className="text-white" />
           </span>
-          {/* El estado va escrito, no solo pintado: navy para perdida,
-              celeste para encontrada. */}
-          <span
-            className="rotulo absolute top-3 left-3 rounded-full px-3 py-1.5 text-[10.5px]"
-            style={encontrada ? { background: CIELO, color: NAVY } : { background: NAVY, color: HUESO }}
-          >
-            {encontrada ? t("landingPerdidas.card.found") : t("landingPerdidas.card.lost")}
-          </span>
         </button>
 
-        {/* La huella de la esquina, la misma de las polaroids de la
-            portada. Cuelga del marco y no de la foto, así gira con él. */}
-        <span
-          aria-hidden
-          className="absolute -top-3 -right-3 grid h-9 w-9 place-items-center rounded-full shadow-[0_4px_10px_rgba(20,36,46,0.3)]"
-          style={{ background: TURQUESA }}
-        >
-          <PawPrint size={15} strokeWidth={2.2} style={{ color: NAVY }} />
-        </span>
+        {/* Cuelga del marco y no de la foto, así gira con él. */}
+        <Collar
+          texto={encontrada ? t("landingPerdidas.card.found") : t("landingPerdidas.card.lost")}
+          tono={encontrada ? "encontrada" : "perdida"}
+          className="collar-estado--marco"
+        />
 
         <div className="px-1.5 pt-4">
           <time

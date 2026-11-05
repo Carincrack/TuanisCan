@@ -1086,6 +1086,12 @@
   --chapa: var(--color-accent-dark);
 }
 
+/* En las polaroids de /perdidas: baja para caer sobre la foto y no
+   sobre el borde blanco del marco. */
+.collar-estado--marco {
+  top: 24px;
+}
+
 .collar-estado::after {
   content: "";
   position: absolute;
@@ -1174,6 +1180,76 @@
 
 .hueso-recompensa::after {
   right: -11px;
+}
+
+/* El fondo de las ventanas. Arriba va del color del encabezado: si
+   fuera blanco entero, el navy recortado por las esquinas redondas deja
+   un filo blanco en las dos puntas de arriba.
+
+   La sombra lleva dos capas. En una laptop la ventana queda encima del
+   menú, navy sobre navy: la primera, oscura y pareja alrededor,
+   oscurece lo que tiene atrás y así la ventana se despega sin borde.
+   La segunda es la de siempre, la que cae hacia abajo. */
+.ventana-fondo {
+  background: linear-gradient(var(--color-rail) 0 48px, var(--color-surface) 48px);
+  box-shadow:
+    0 0 44px 4px rgb(8 20 28 / 55%),
+    0 24px 60px -20px rgb(20 36 46 / 45%);
+}
+
+/* ── PRUEBA: el encabezado perruno de las ventanas ────────────
+   Se prende y apaga con `ENCABEZADO_PERRUNO` en `ui.tsx`.
+
+     · El fondo pasa suave del navy del menú a su tono más claro.
+     · `::before` son las huellas y los huesos, en blanco y muy tenues,
+       que se apagan hacia la izquierda para no pasar por detrás del
+       título. Es una sola tesela de SVG que se repite.
+     · `__onda` es el borde de abajo: la primera curva va pintada del
+       color del cuerpo de la ventana, así que corta el navy en onda; la
+       segunda es la costura que la sigue. `non-scaling-stroke` evita
+       que el punteado se deforme al estirarse a lo ancho. */
+.encabezado-perruno {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding-bottom: 34px;
+  background: linear-gradient(105deg, var(--color-rail) 45%, var(--color-rail-hover));
+}
+
+.encabezado-perruno p {
+  color: rgb(255 255 255 / 86%);
+}
+
+.encabezado-perruno::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='128' height='76' fill='%23fff'><g transform='translate(10 8) rotate(-14 12 12)'><path d='M12 11.2c-3 0-6 2.9-6 5.9 0 1.9 1.4 3 3.1 3 1.2 0 1.9-.6 2.9-.6s1.7.6 2.9.6c1.7 0 3.1-1.1 3.1-3 0-3-3-5.9-6-5.9z'/><ellipse cx='5.4' cy='10.8' rx='2' ry='2.6' transform='rotate(-20 5.4 10.8)'/><ellipse cx='9.4' cy='6' rx='2.1' ry='2.8' transform='rotate(-8 9.4 6)'/><ellipse cx='14.6' cy='6' rx='2.1' ry='2.8' transform='rotate(8 14.6 6)'/><ellipse cx='18.6' cy='10.8' rx='2' ry='2.6' transform='rotate(20 18.6 10.8)'/></g><g transform='translate(74 6) rotate(24 12 12)'><circle cx='4.5' cy='9.4' r='2.7'/><circle cx='4.5' cy='14.6' r='2.7'/><circle cx='19.5' cy='9.4' r='2.7'/><circle cx='19.5' cy='14.6' r='2.7'/><rect x='4.5' y='10' width='15' height='4'/></g><g transform='translate(42 42) rotate(-30 12 12)'><circle cx='4.5' cy='9.4' r='2.7'/><circle cx='4.5' cy='14.6' r='2.7'/><circle cx='19.5' cy='9.4' r='2.7'/><circle cx='19.5' cy='14.6' r='2.7'/><rect x='4.5' y='10' width='15' height='4'/></g><g transform='translate(98 44) rotate(16 12 12)'><path d='M12 11.2c-3 0-6 2.9-6 5.9 0 1.9 1.4 3 3.1 3 1.2 0 1.9-.6 2.9-.6s1.7.6 2.9.6c1.7 0 3.1-1.1 3.1-3 0-3-3-5.9-6-5.9z'/><ellipse cx='5.4' cy='10.8' rx='2' ry='2.6' transform='rotate(-20 5.4 10.8)'/><ellipse cx='9.4' cy='6' rx='2.1' ry='2.8' transform='rotate(-8 9.4 6)'/><ellipse cx='14.6' cy='6' rx='2.1' ry='2.8' transform='rotate(8 14.6 6)'/><ellipse cx='18.6' cy='10.8' rx='2' ry='2.6' transform='rotate(20 18.6 10.8)'/></g></svg>");
+  background-size: 128px 76px;
+  opacity: 0.07;
+  mask-image: linear-gradient(to right, transparent 30%, #000 75%);
+}
+
+.encabezado-perruno__onda {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 28px;
+  pointer-events: none;
+}
+
+.encabezado-perruno__onda path:first-child {
+  fill: var(--color-surface);
+}
+
+.encabezado-perruno__onda path:last-child {
+  fill: none;
+  stroke: rgb(255 255 255 / 30%);
+  stroke-dasharray: 5 4;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 /* ── Los puntos del mapa de avistamientos ─────────────────────

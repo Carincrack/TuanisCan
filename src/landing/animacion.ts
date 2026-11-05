@@ -75,6 +75,12 @@ const quieto = () =>
    se salta el tiempo perdido. Acá eso deja el scroll suave
    desincronizado de la posición real. */
 const montarScrollSuave = () => {
+  /* Lenis suaviza la rueda, y en una pantalla táctil no hay rueda: el
+     dedo ya va directo al scroll del sistema. Pero su reloj igual corría
+     en cada fotograma, también con la página quieta, y en un teléfono
+     eso se llevaba una cuarta parte del procesador sin mover nada. */
+  if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) return () => undefined;
+
   /* `anchors`: los enlaces del menú apuntan a `#servicios` y
      `#pasos`. Sin esto el salto por hash lo hace el navegador de
      golpe, en medio de un scroll que por lo demás se desliza. */

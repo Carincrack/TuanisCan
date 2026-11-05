@@ -41,6 +41,7 @@ import {
   useAvisarSiCambio,
 } from "./ui";
 import { Combo } from "./Combo";
+import Collar, { type TonoEtiqueta } from "./Collar";
 import Visor from "./Visor";
 import { Skeleton } from "boneyard-js/react";
 import { aviso } from "../lib/aviso";
@@ -933,37 +934,13 @@ const FichaReporte = ({
    dejan pasar los clics para no taparla.
 
    La cinta va cosida a la tarjeta y le da la vuelta al borde izquierdo,
-   como la tela de un collar. Su forma está en `.cinta-estado`. */
-type TonoEtiqueta = "perdida" | "encontrada" | "coincidencia";
-
+   como la tela de un collar. Su forma está en `.cinta-estado`. El
+   collar vive en `Collar.tsx`, porque también lo usa /perdidas. */
 const Cinta = ({ texto, tono }: { texto: string; tono: TonoEtiqueta }) => (
   <span className={`cinta-estado cinta-estado--${tono}`}>
     <span className="cinta-estado__tira">
       <PawPrint size={14} strokeWidth={2.4} aria-hidden />
       {texto}
-    </span>
-  </span>
-);
-
-/* Una huella rellena, para la chapa. El icono de la app es de puro
-   trazo y a este tamaño no se reconoce. */
-const HuellaLlena = () => (
-  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden>
-    <path d="M12 11.2c-3 0-6 2.9-6 5.9 0 1.9 1.4 3 3.1 3 1.2 0 1.9-.6 2.9-.6s1.7.6 2.9.6c1.7 0 3.1-1.1 3.1-3 0-3-3-5.9-6-5.9z" />
-    <ellipse cx="5.4" cy="10.8" rx="2" ry="2.6" transform="rotate(-20 5.4 10.8)" />
-    <ellipse cx="9.4" cy="6" rx="2.1" ry="2.8" transform="rotate(-8 9.4 6)" />
-    <ellipse cx="14.6" cy="6" rx="2.1" ry="2.8" transform="rotate(8 14.6 6)" />
-    <ellipse cx="18.6" cy="10.8" rx="2" ry="2.6" transform="rotate(20 18.6 10.8)" />
-  </svg>
-);
-
-/* El collar es navy, del color del menú, con su chapa en la punta. La
-   chapa lleva el color del caso. Su forma está en `.collar-estado`. */
-const Collar = ({ texto, tono }: { texto: string; tono: TonoEtiqueta }) => (
-  <span className={`collar-estado collar-estado--${tono}`}>
-    <span className="collar-estado__banda">{texto}</span>
-    <span className="collar-estado__chapa">
-      <HuellaLlena />
     </span>
   </span>
 );

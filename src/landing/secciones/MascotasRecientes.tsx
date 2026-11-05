@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Clock, Maximize2, MapPin, PawPrint } from "../../lib/iconos";
+import { ArrowRight, Clock, Maximize2, MapPin } from "../../lib/iconos";
 import Onda from "../componentes/Onda";
 import Boronas from "../componentes/Boronas";
 import EncabezadoSeccion from "../componentes/EncabezadoSeccion";
@@ -66,6 +66,24 @@ const MascotasRecientes = () => {
   const { t, localeTag } = useTranslation();
   const [mascotas, setMascotas] = useState<PublicLostPet[]>([]);
   const [fotoAbierta, setFotoAbierta] = useState<PublicLostPet | null>(null);
+  const carrusel = useRef<HTMLDivElement>(null);
+  const [enPantalla, setEnPantalla] = useState(false);
+
+  /* El carrusel solo rueda mientras se ve. Una animación infinita le
+     cobra al navegador en cada fotograma de toda la portada, no solo
+     en esta banda: medido en un teléfono, el recorrido entero costaba
+     5,5 s de hilo principal con ella y 3,8 s sin ella. Apagada, la fila
+     vuelve al principio, pero eso pasa fuera de la pantalla: los 200 px
+     de margen hacen que arranque antes de asomarse. */
+  const hayCarrusel = mascotas.length >= 2;
+  useEffect(() => {
+    if (!hayCarrusel || !carrusel.current) return;
+    const observador = new IntersectionObserver(([entrada]) => setEnPantalla(entrada.isIntersecting), {
+      rootMargin: "200px 0px",
+    });
+    observador.observe(carrusel.current);
+    return () => observador.disconnect();
+  }, [hayCarrusel]);
 
   useEffect(() => {
     let vigente = true;
@@ -85,7 +103,7 @@ const MascotasRecientes = () => {
 
   /* Con menos de dos no hay nada que hacer rodar: una sola ficha
      quieta no es un carrusel, es una ficha suelta. */
-  if (mascotas.length < 2) return null;
+  if (!hayCarrusel) return null;
 
   const fila = [...mascotas, ...mascotas];
 
@@ -118,8 +136,8 @@ const MascotasRecientes = () => {
           `py-10` de acá no es relleno visual: es el margen que le da
           a ESTA caja, la que lleva `.carrusel-desvanece`, para que su
           borde quede lejos de cualquier sombra. */}
-      <div className="carrusel-desvanece relative z-10 mt-14 py-10 sm:mt-16">
-        <div className="anim-carrusel flex w-max gap-9">
+      <div ref={carrusel} className="carrusel-desvanece relative z-10 mt-14 py-10 sm:mt-16">
+        <div className={`flex w-max gap-9 ${enPantalla ? "anim-carrusel" : ""}`}>
           {fila.map((mascota, i) => (
             <figure
               key={`${mascota.id_mascota_perdida}-${i}`}
@@ -140,12 +158,6 @@ const MascotasRecientes = () => {
                   tabIndex={i >= mascotas.length ? -1 : 0}
                   className="group relative block w-full cursor-zoom-in text-left focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
                 >
-                  {/* El redondeo y el recorte de la foto viven en esta
-                      caja de adentro, y no en el botón: la huella de
-                      la esquina tiene que sobresalir del marco, y un
-                      `overflow-hidden` puesto en el mismo elemento que
-                      la contiene se la cortaría igual que antes se
-                      cortaba la sombra. */}
                   <div className="overflow-hidden rounded-[6px]">
                     <img
                       src={mascota.fotoUrl ?? "/mock/dog-nube.jpg"}
@@ -161,13 +173,6 @@ const MascotasRecientes = () => {
                       <Maximize2 size={20} strokeWidth={2.2} className="text-white" />
                     </span>
                   </div>
-                  <span
-                    aria-hidden
-                    className="absolute -top-3 -right-3 grid h-9 w-9 place-items-center rounded-full shadow-[0_4px_10px_rgba(20,36,46,0.3)]"
-                    style={{ background: TURQUESA, rotate: `${-GIROS[i % GIROS.length]}deg` }}
-                  >
-                    <PawPrint size={15} strokeWidth={2.2} style={{ color: NAVY }} />
-                  </span>
                 </button>
 
                 <p className="display mt-3 truncate text-[15px]" style={{ color: NAVY }}>

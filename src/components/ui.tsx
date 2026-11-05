@@ -663,6 +663,13 @@ export const Paginacion = ({
     casi siempre llega como flecha en línea, y usarla directo
     reengancharía el listener y volvería a tocar el scroll en cada
     render. */
+/* PRUEBA: el encabezado de las ventanas con el aire perruno de las
+   tarjetas: fondo de huellas y huesos, borde de abajo en onda y una
+   costura que la sigue. La forma está en `.encabezado-perruno`
+   (index.css). Para volver al encabezado de siempre, en todas las
+   ventanas: `false`. */
+const ENCABEZADO_PERRUNO = true;
+
 /* Ventanas abiertas, de la de abajo a la de arriba.
 
    Una ventana puede abrir otra encima —la ficha de una mascota abre
@@ -847,11 +854,15 @@ export const Dialog = ({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`relative flex max-h-[92dvh] w-full ${ancho} flex-col overflow-hidden rounded-[18px] bg-surface shadow-[0_24px_60px_-20px_rgb(20_36_46/45%)] outline-none ${
+        className={`ventana-fondo relative flex max-h-[92dvh] w-full ${ancho} flex-col overflow-hidden rounded-[18px] outline-none ${
           saliendo ? "anim-ventana-out" : "anim-ventana-in"
         }`}
       >
-        <header className="flex shrink-0 items-start justify-between gap-4 bg-rail px-5 py-4">
+        <header
+          className={`flex shrink-0 items-start justify-between gap-4 bg-rail px-5 py-4 ${
+            ENCABEZADO_PERRUNO ? "encabezado-perruno" : ""
+          }`}
+        >
           <div className="min-w-0">
             <h2 id={titleId} className="titular text-[16px] text-white">
               {title}
@@ -866,6 +877,12 @@ export const Dialog = ({
           >
             <X size={17} />
           </button>
+          {ENCABEZADO_PERRUNO && (
+            <svg aria-hidden viewBox="0 0 100 100" preserveAspectRatio="none" className="encabezado-perruno__onda">
+              <path d="M0 60C16 98 34 98 50 60S84 22 100 60V101H0Z" />
+              <path d="M0 34C16 72 34 72 50 34S84 -4 100 34" />
+            </svg>
+          )}
         </header>
 
         {preguntando && (

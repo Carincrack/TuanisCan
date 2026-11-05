@@ -101,7 +101,7 @@ export const MaquetaPerdidas = () => (
 export const MaquetaMascotas = () => (
   <div className="flex flex-col gap-2.5">
 
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
       <Varios cuantos={6}>
         {(i) => (
           <article key={i} className="flex flex-col bg-surface">

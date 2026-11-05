@@ -379,7 +379,11 @@ const Mascotas = () => {
       ) : !pets.length ? (
         <div className="bg-surface p-5"><EmptyState title={t("mascotas.empty.title")} hint={t("mascotas.empty.hint")} /></div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        /* Las columnas que quepan de al menos 260 px, como en Mascotas
+           perdidas: a tres columnas fijas, en una pantalla ancha cada
+           tarjeta medía más de 400 px y la foto sola llenaba media
+           pantalla. */
+        <div className="grid gap-3 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
           {pets.map((pet) => {
             const health = petHealth(pet, t);
             return (
