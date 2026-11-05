@@ -18,7 +18,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useTranslation } from "../hooks/useTranslation";
 import type { I18nContextValue } from "../context/i18n-context";
 import { useZonasEncadenadas } from "../hooks/useZonasEncadenadas";
-import { distritoDe, normalizar as normalizarZona } from "../lib/zonas";
+import { distritoDe, enOrden, normalizar as normalizarZona, unicos } from "../lib/zonas";
 import type { Zona } from "../types/auth.types";
 import type { Pet } from "../types/pet.types";
 import type { LostPetInput, LostPetReport, PetMatch } from "../types/lost-pet.types";
@@ -284,8 +284,54 @@ const ReportForm = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  /* La zona se sigue guardando igual (`values.zona_id`, el distrito):
+     esto solo cambia cómo se busca. Bajando por provincia → cantón →
+     distrito, cada paso es una lista corta; el combo plano de antes
+     mezclaba más de quinientos distritos en una sola lista, y hay
+     nombres repetidos entre provincias ("San Isidro" aparece en
+     varias). Si ya venía una zona del perfil, se arranca con su
+     provincia y cantón puestos para no mostrar los combos vacíos. */
+  const zonaInicial = zonas.find((zona) => zona.id_zona === profileZonaId);
+  const [provinciaZona, setProvinciaZona] = useState(zonaInicial?.provincia ?? "");
+  const [cantonZona, setCantonZona] = useState(zonaInicial?.canton ?? "");
+
+  const provinciasZona = useMemo(() => unicos(zonas.map((zona) => zona.provincia)), [zonas]);
+  const cantonesZona = useMemo(
+    () =>
+      provinciaZona
+        ? unicos(zonas.filter((zona) => normalizarZona(zona.provincia) === normalizarZona(provinciaZona)).map((zona) => zona.canton))
+        : [],
+    [zonas, provinciaZona],
+  );
+  const distritosZona = useMemo(
+    () =>
+      provinciaZona && cantonZona
+        ? zonas
+            .filter(
+              (zona) =>
+                normalizarZona(zona.provincia) === normalizarZona(provinciaZona) &&
+                normalizarZona(zona.canton) === normalizarZona(cantonZona),
+            )
+            .sort((a, b) => enOrden(distritoDe(a), distritoDe(b)))
+        : [],
+    [zonas, provinciaZona, cantonZona],
+  );
+
   const selectedPet = pets.find((pet) => pet.id_mascota === values.id_mascota) ?? null;
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+
+  /* Cambiar un escalón invalida los de abajo: un cantón de otra
+     provincia deja de ser una respuesta válida en cuanto la
+     provincia cambia. */
+  const elegirProvinciaZona = (valor: string) => {
+    setProvinciaZona(valor);
+    setCantonZona("");
+    update("zona_id", "");
+  };
+  const elegirCantonZona = (valor: string) => {
+    setCantonZona(valor);
+    update("zona_id", "");
+  };
 
   const selectPet = (petId: string) => {
     const pet = pets.find((item) => item.id_mascota === petId);
@@ -396,18 +442,35 @@ const ReportForm = ({
                 }))}
               />
             </label>
-            <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.zone")}
-              <Combo
-                required
-                value={values.zona_id}
-                onChange={(v) => update("zona_id", v)}
-                placeholder={t("mascotasPerdidas.reportForm.chooseZone")}
-                options={zonas.map((zona) => ({
-                  value: zona.id_zona,
-                  label: `${zona.nombre} · ${zona.canton}`,
-                }))}
-              />
+
+            <label className={`${fieldLabel} sm:col-span-2`}>{t("mascotasPerdidas.reportForm.zone")}
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Combo
+                  required
+                  value={provinciaZona}
+                  onChange={elegirProvinciaZona}
+                  placeholder={t("mascotasPerdidas.reportForm.chooseProvince")}
+                  options={provinciasZona.map((item) => ({ value: item, label: item }))}
+                />
+                <Combo
+                  required
+                  value={cantonZona}
+                  onChange={elegirCantonZona}
+                  disabled={!provinciaZona}
+                  placeholder={t("mascotasPerdidas.reportForm.chooseCanton")}
+                  options={cantonesZona.map((item) => ({ value: item, label: item }))}
+                />
+                <Combo
+                  required
+                  value={values.zona_id}
+                  onChange={(v) => update("zona_id", v)}
+                  disabled={!cantonZona}
+                  placeholder={t("mascotasPerdidas.reportForm.chooseZone")}
+                  options={distritosZona.map((zona) => ({ value: zona.id_zona, label: distritoDe(zona) }))}
+                />
+              </div>
             </label>
+
             <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.contact")}<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
             <label className={fieldLabel}>{t("mascotasPerdidas.reportForm.reward")}<input className={input} inputMode="numeric" value={values.recompensa} onChange={(e) => update("recompensa", e.target.value)} /></label>
           </div>
@@ -462,6 +525,44 @@ const FoundPetForm = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const update = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+
+  /* El mismo encadenado de `ReportForm`: provincia → cantón →
+     distrito en vez de un solo combo con todo el catálogo. */
+  const zonaInicial = zonas.find((zona) => zona.id_zona === profileZonaId);
+  const [provinciaZona, setProvinciaZona] = useState(zonaInicial?.provincia ?? "");
+  const [cantonZona, setCantonZona] = useState(zonaInicial?.canton ?? "");
+
+  const provinciasZona = useMemo(() => unicos(zonas.map((zona) => zona.provincia)), [zonas]);
+  const cantonesZona = useMemo(
+    () =>
+      provinciaZona
+        ? unicos(zonas.filter((zona) => normalizarZona(zona.provincia) === normalizarZona(provinciaZona)).map((zona) => zona.canton))
+        : [],
+    [zonas, provinciaZona],
+  );
+  const distritosZona = useMemo(
+    () =>
+      provinciaZona && cantonZona
+        ? zonas
+            .filter(
+              (zona) =>
+                normalizarZona(zona.provincia) === normalizarZona(provinciaZona) &&
+                normalizarZona(zona.canton) === normalizarZona(cantonZona),
+            )
+            .sort((a, b) => enOrden(distritoDe(a), distritoDe(b)))
+        : [],
+    [zonas, provinciaZona, cantonZona],
+  );
+
+  const elegirProvinciaZona = (valor: string) => {
+    setProvinciaZona(valor);
+    setCantonZona("");
+    update("zona_id", "");
+  };
+  const elegirCantonZona = (valor: string) => {
+    setCantonZona(valor);
+    update("zona_id", "");
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -535,17 +636,32 @@ const FoundPetForm = ({
           <div className="grid gap-4 sm:grid-cols-2">
             <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.species")}<input className={input} required maxLength={50} value={values.especie} onChange={(e) => update("especie", e.target.value)} /></label>
             <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.breed")}<input className={input} maxLength={100} placeholder={t("mascotasPerdidas.foundForm.breedPlaceholder")} value={values.raza} onChange={(e) => update("raza", e.target.value)} /></label>
-            <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.zone")}
-              <Combo
-                required
-                value={values.zona_id}
-                onChange={(v) => update("zona_id", v)}
-                placeholder={t("mascotasPerdidas.foundForm.chooseZone")}
-                options={zonas.map((zona) => ({
-                  value: zona.id_zona,
-                  label: `${zona.nombre} · ${zona.canton}`,
-                }))}
-              />
+            <label className={`${fieldLabel} sm:col-span-2`}>{t("mascotasPerdidas.foundForm.zone")}
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Combo
+                  required
+                  value={provinciaZona}
+                  onChange={elegirProvinciaZona}
+                  placeholder={t("mascotasPerdidas.reportForm.chooseProvince")}
+                  options={provinciasZona.map((item) => ({ value: item, label: item }))}
+                />
+                <Combo
+                  required
+                  value={cantonZona}
+                  onChange={elegirCantonZona}
+                  disabled={!provinciaZona}
+                  placeholder={t("mascotasPerdidas.reportForm.chooseCanton")}
+                  options={cantonesZona.map((item) => ({ value: item, label: item }))}
+                />
+                <Combo
+                  required
+                  value={values.zona_id}
+                  onChange={(v) => update("zona_id", v)}
+                  disabled={!cantonZona}
+                  placeholder={t("mascotasPerdidas.foundForm.chooseZone")}
+                  options={distritosZona.map((zona) => ({ value: zona.id_zona, label: distritoDe(zona) }))}
+                />
+              </div>
             </label>
             <label className={fieldLabel}>{t("mascotasPerdidas.foundForm.contact")}<input className={input} required maxLength={50} value={values.contacto} onChange={(e) => update("contacto", e.target.value)} /></label>
           </div>
