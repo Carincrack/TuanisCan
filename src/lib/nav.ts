@@ -145,6 +145,12 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
         { to: "/p/resenas", label: "nav.item.resenasRecibidas", Icon: Star },
       ],
     },
+    {
+      titulo: "nav.group.comunidad",
+      items: [
+        { to: "/mascotas-perdidas", label: "nav.item.mascotasPerdidas", Icon: Siren },
+      ],
+    },
   ],
 
   negocio: [
@@ -153,6 +159,12 @@ export const navPorRol: Record<Rol, NavGroup[]> = {
       items: [
         { to: "/directorio", label: "nav.item.directorio", Icon: Store },
         { to: "/perfil", label: "nav.item.miPerfil", Icon: UserCircle, oculto: true },
+      ],
+    },
+    {
+      titulo: "nav.group.comunidad",
+      items: [
+        { to: "/mascotas-perdidas", label: "nav.item.mascotasPerdidas", Icon: Siren },
       ],
     },
   ],
